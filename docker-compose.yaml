@@ -1,0 +1,193 @@
+name: aeroverse-navigator
+
+services:
+  aeroverse-web:
+    build:
+      context: .
+      dockerfile: aeroverse-web/Dockerfile
+      args:
+        MAVEN_IMAGE: ${MAVEN_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
+        RUNTIME_IMAGE: ${RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
+    image: aeroverse-web:latest
+    container_name: AN-Web
+    restart: unless-stopped
+    depends_on:
+      nacos:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_USERNAME: ${NACOS_USERNAME}
+      NACOS_PASSWORD: ${NACOS_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI}
+      AEROVERSE_JWT_SECRET: ${AEROVERSE_JWT_SECRET}
+      TZ: Asia/Shanghai
+    ports:
+      - "${AEROVERSE_WEB_PORT}:${AEROVERSE_WEB_PORT}"
+    networks:
+      - aeroverse-net
+
+  aeroverse-gateway:
+    build:
+      context: .
+      dockerfile: aeroverse-gateway/Dockerfile
+      args:
+        MAVEN_IMAGE: ${MAVEN_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
+        RUNTIME_IMAGE: ${RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
+    image: aeroverse-gateway:latest
+    container_name: AN-Gateway
+    restart: unless-stopped
+    depends_on:
+      nacos:
+        condition: service_healthy
+      aeroverse-web:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_USERNAME: ${NACOS_USERNAME}
+      NACOS_PASSWORD: ${NACOS_PASSWORD}
+      TZ: Asia/Shanghai
+    ports:
+      - "${AEROVERSE_GATEWAY_PORT}:${AEROVERSE_GATEWAY_PORT}"
+    networks:
+      - aeroverse-net
+
+  nacos:
+    image: nacos/nacos-server:v3.1.0
+    container_name: AN-Nacos
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: "true"
+      NACOS_AUTH_TOKEN: ${NACOS_AUTH_TOKEN}
+      NACOS_AUTH_IDENTITY_KEY: ${NACOS_AUTH_IDENTITY_KEY}
+      NACOS_AUTH_IDENTITY_VALUE: ${NACOS_AUTH_IDENTITY_VALUE}
+      NACOS_AUTH_USERNAME: ${NACOS_USERNAME}
+      NACOS_AUTH_PASSWORD: ${NACOS_PASSWORD}
+      SPRING_DATASOURCE_PLATFORM: postgresql
+      MYSQL_SERVICE_HOST: unused
+      MYSQL_SERVICE_PORT: 3306
+      MYSQL_SERVICE_DB_NAME: unused
+      MYSQL_SERVICE_DB_PARAM: characterEncoding=utf8
+      MYSQL_SERVICE_USER: ${POSTGRES_USER}
+      MYSQL_SERVICE_PASSWORD: ${POSTGRES_PASSWORD}
+      JAVA_OPT_EXT: >-
+        --spring.datasource.platform=postgresql
+        --spring.sql.init.platform=postgresql
+        --db.pool.config.driverClassName=org.postgresql.Driver
+        --db.url.0=jdbc:postgresql://postgres:5432/${NACOS_POSTGRES_DB}?tcpKeepAlive=true&reWriteBatchedInserts=true&ApplicationName=nacos_java
+      TZ: Asia/Shanghai
+    ports:
+      - "${NACOS_PORT}:8848"
+      - "${NACOS_GRPC_PORT}:9848"
+      - "${NACOS_RAFT_PORT}:9849"
+      - "${NACOS_CONSOLE_PORT}:8080"
+    volumes:
+      - ./nacos-plugins:/home/nacos/plugins:ro
+      - nacos-data:/home/nacos/data
+      - nacos-logs:/home/nacos/logs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost:8848/nacos"]
+      start_period: 90s
+      interval: 15s
+      timeout: 5s
+      retries: 20
+    networks:
+      - aeroverse-net
+
+  postgres:
+    image: postgis/postgis:17-3.5
+    container_name: AN-PostgreSQL
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: Asia/Shanghai
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aeroverse-net
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: AN-Redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aeroverse-net
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: AN-MinIO
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      TZ: Asia/Shanghai
+    ports:
+      - "${MINIO_API_PORT}:9000"
+      - "${MINIO_CONSOLE_PORT}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aeroverse-net
+
+volumes:
+  postgres-data:
+    name: AN-PostgreSQL-Data
+  redis-data:
+    name: AN-Redis-Data
+  minio-data:
+    name: AN-MinIO-Data
+  nacos-data:
+    name: AN-Nacos-Data
+  nacos-logs:
+    name: AN-Nacos-Logs
+
+networks:
+  aeroverse-net:
+    name: AN-Network
+    driver: bridge
