@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.dayz.aeroverse.auth.mapper.UserIdentityMapper;
 import com.dayz.aeroverse.auth.mapper.UserMapper;
 import com.dayz.aeroverse.auth.model.dto.UpdateUserRequest;
+import com.dayz.aeroverse.auth.model.dto.UserPageRequest;
 import com.dayz.aeroverse.auth.model.entity.User;
 import com.dayz.aeroverse.auth.model.entity.UserIdentity;
 import com.dayz.aeroverse.auth.model.enums.OauthProvider;
@@ -57,17 +58,18 @@ public class UserManagementService {
         this.clock = clock;
     }
 
-    public PageResponse<UserProfile> pageUsers(long page, long size, String keyword, UserStatus status) {
-        long currentPage = normalizePage(page);
-        long pageSize = normalizeSize(size);
-        LambdaQueryWrapper<User> countWrapper = buildQueryWrapper(keyword, status);
+    public PageResponse<UserProfile> pageUsers(UserPageRequest request) {
+        UserPageRequest pageRequest = request == null ? new UserPageRequest(null, null, null, null) : request;
+        long currentPage = normalizePage(pageRequest.page());
+        long pageSize = normalizeSize(pageRequest.size());
+        LambdaQueryWrapper<User> countWrapper = buildQueryWrapper(pageRequest.keyword(), pageRequest.status());
         long total = userMapper.selectCount(countWrapper);
         if (total == 0) {
             return PageResponse.empty(currentPage, pageSize);
         }
 
         long offset = (currentPage - 1) * pageSize;
-        LambdaQueryWrapper<User> listWrapper = buildQueryWrapper(keyword, status)
+        LambdaQueryWrapper<User> listWrapper = buildQueryWrapper(pageRequest.keyword(), pageRequest.status())
                 .orderByDesc(User::getUpdatedAt)
                 .orderByDesc(User::getCreatedAt)
                 .last("LIMIT " + pageSize + " OFFSET " + offset);
@@ -177,12 +179,12 @@ public class UserManagementService {
         );
     }
 
-    private long normalizePage(long page) {
-        return page < 1 ? DEFAULT_PAGE : page;
+    private long normalizePage(Long page) {
+        return page == null || page < 1 ? DEFAULT_PAGE : page;
     }
 
-    private long normalizeSize(long size) {
-        if (size < 1) {
+    private long normalizeSize(Long size) {
+        if (size == null || size < 1) {
             return DEFAULT_SIZE;
         }
         return Math.min(size, MAX_SIZE);

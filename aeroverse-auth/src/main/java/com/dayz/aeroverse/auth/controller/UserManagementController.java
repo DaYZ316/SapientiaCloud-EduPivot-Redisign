@@ -1,7 +1,7 @@
 package com.dayz.aeroverse.auth.controller;
 
 import com.dayz.aeroverse.auth.model.dto.UpdateUserRequest;
-import com.dayz.aeroverse.auth.model.enums.UserStatus;
+import com.dayz.aeroverse.auth.model.dto.UserPageRequest;
 import com.dayz.aeroverse.auth.model.vo.UserProfile;
 import com.dayz.aeroverse.auth.service.UserManagementService;
 import com.dayz.aeroverse.common.response.ApiResponse;
@@ -25,13 +25,8 @@ public class UserManagementController {
     private final UserManagementService userManagementService;
 
     @GetMapping
-    public ApiResponse<PageResponse<UserProfile>> pageUsers(
-            @RequestParam(defaultValue = "1") long page,
-            @RequestParam(defaultValue = "10") long size,
-            @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) UserStatus status
-    ) {
-        return ApiResponse.ok(userManagementService.pageUsers(page, size, keyword, status));
+    public ApiResponse<PageResponse<UserProfile>> pageUsers(UserPageRequest request) {
+        return ApiResponse.ok(userManagementService.pageUsers(request));
     }
 
     @PutMapping("/{id}")

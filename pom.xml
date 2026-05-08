@@ -32,6 +32,8 @@
         <springdoc-openapi.version>3.0.3</springdoc-openapi.version>
         <scalar.version>0.5.55</scalar.version>
         <mybatis-plus.version>3.5.16</mybatis-plus.version>
+        <bouncycastle.version>1.84</bouncycastle.version>
+        <commons-fileupload.version>1.6.0</commons-fileupload.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -39,6 +41,16 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>${bouncycastle.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-fileupload</groupId>
+                <artifactId>commons-fileupload</artifactId>
+                <version>${commons-fileupload.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>

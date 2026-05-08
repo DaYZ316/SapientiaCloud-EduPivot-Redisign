@@ -1,6 +1,21 @@
 name: aeroverse-navigator
 
 services:
+  aeroverse-frontend:
+    image: nginx:alpine
+    container_name: AN-Frontend
+    restart: unless-stopped
+    depends_on:
+      aeroverse-gateway:
+        condition: service_started
+    ports:
+      - "${AEROVERSE_FRONTEND_PORT:-5173}:80"
+    volumes:
+      - ./aeroverse-frontend/dist:/usr/share/nginx/html:ro
+      - ./aeroverse-frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - aeroverse-net
+
   aeroverse-web:
     build:
       context: .
