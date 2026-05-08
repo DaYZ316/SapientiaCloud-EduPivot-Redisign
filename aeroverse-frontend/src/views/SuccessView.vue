@@ -10,7 +10,7 @@
       </div>
       <NButton secondary @click="handleLogout">
         <template #icon>
-          <LogOut :size="18" />
+          <LogOut :size="18"/>
         </template>
         {{ t('success.logout') }}
       </NButton>
@@ -19,12 +19,12 @@
     <section class="success-grid">
       <NCard :bordered="false" class="profile-card">
         <div class="avatar">
-          <img v-if="authStore.user?.avatarUrl" :src="authStore.user.avatarUrl" alt="" />
-          <UserRound v-else :size="34" />
+          <img v-if="authStore.user?.avatarUrl" :src="authStore.user.avatarUrl" alt=""/>
+          <UserRound v-else :size="34"/>
         </div>
         <h2>{{ authStore.user?.displayName ?? '-' }}</h2>
         <p>{{ authStore.user?.email ?? '-' }}</p>
-        <NTag type="success" round>{{ authStore.user?.status ?? '-' }}</NTag>
+        <NTag round type="success">{{ authStore.user?.status ?? '-' }}</NTag>
       </NCard>
 
       <NCard :bordered="false" class="status-card">
@@ -33,23 +33,23 @@
         </template>
         <div class="status-list">
           <div>
-            <CheckCircle2 :size="20" />
+            <CheckCircle2 :size="20"/>
             <span>{{ t('success.createdProvider') }}: {{ authStore.user?.createdProvider ?? '-' }}</span>
           </div>
           <div>
-            <CheckCircle2 :size="20" />
+            <CheckCircle2 :size="20"/>
             <span>{{ t('success.createdIp') }}: {{ authStore.user?.createdIp ?? '-' }}</span>
           </div>
           <div>
-            <CheckCircle2 :size="20" />
+            <CheckCircle2 :size="20"/>
             <span>{{ t('success.lastLoginProvider') }}: {{ authStore.user?.lastLoginProvider ?? '-' }}</span>
           </div>
           <div>
-            <CheckCircle2 :size="20" />
+            <CheckCircle2 :size="20"/>
             <span>{{ t('success.lastLoginIp') }}: {{ authStore.user?.lastLoginIp ?? '-' }}</span>
           </div>
           <div>
-            <CheckCircle2 :size="20" />
+            <CheckCircle2 :size="20"/>
             <span>{{ t('success.loginCount') }}: {{ authStore.user?.loginCount ?? 0 }}</span>
           </div>
         </div>
@@ -58,17 +58,17 @@
   </main>
 </template>
 
-<script setup lang="ts">
-import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
-import { CheckCircle2, LogOut, UserRound } from 'lucide-vue-next'
-import { NButton, NCard, NTag } from 'naive-ui'
+<script lang="ts" setup>
+import {useI18n} from 'vue-i18n'
+import {useRouter} from 'vue-router'
+import {CheckCircle2, LogOut, UserRound} from 'lucide-vue-next'
+import {NButton, NCard, NTag} from 'naive-ui'
 
-import { useAuthStore } from '@/stores/auth'
+import {useAuthStore} from '@/stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const { t } = useI18n()
+const {t} = useI18n()
 
 async function handleLogout() {
   authStore.logout()

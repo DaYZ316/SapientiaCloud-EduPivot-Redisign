@@ -1,8 +1,7 @@
 :root {
   color: #172033;
   background: #eef3f8;
-  font-family:
-    Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -50,10 +49,9 @@ input {
   gap: 48px;
   align-items: center;
   padding: 48px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.48)),
-    radial-gradient(circle at 12% 18%, rgba(21, 101, 192, 0.16), transparent 32%),
-    linear-gradient(160deg, #f4f8fb 0%, #dfeaf1 54%, #eef3f8 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.48)),
+  radial-gradient(circle at 12% 18%, rgba(21, 101, 192, 0.16), transparent 32%),
+  linear-gradient(160deg, #f4f8fb 0%, #dfeaf1 54%, #eef3f8 100%);
 }
 
 .login-hero {
@@ -139,9 +137,8 @@ input {
 .success-page {
   min-height: 100vh;
   padding: 42px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(244, 248, 251, 0.86)),
-    #eef3f8;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(244, 248, 251, 0.86)),
+  #eef3f8;
 }
 
 .success-header {

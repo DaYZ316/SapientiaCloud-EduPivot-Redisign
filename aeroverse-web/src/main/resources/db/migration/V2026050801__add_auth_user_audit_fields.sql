@@ -1,7 +1,7 @@
 ALTER TABLE auth_users
-    ADD COLUMN IF NOT EXISTS created_provider VARCHAR(32),
-    ADD COLUMN IF NOT EXISTS created_ip VARCHAR(45),
-    ADD COLUMN IF NOT EXISTS last_login_provider VARCHAR(32),
-    ADD COLUMN IF NOT EXISTS last_login_ip VARCHAR(45),
+    ADD COLUMN IF NOT EXISTS created_provider VARCHAR (32),
+    ADD COLUMN IF NOT EXISTS created_ip VARCHAR (45),
+    ADD COLUMN IF NOT EXISTS last_login_provider VARCHAR (32),
+    ADD COLUMN IF NOT EXISTS last_login_ip VARCHAR (45),
     ADD COLUMN IF NOT EXISTS login_count BIGINT NOT NULL DEFAULT 0;
 

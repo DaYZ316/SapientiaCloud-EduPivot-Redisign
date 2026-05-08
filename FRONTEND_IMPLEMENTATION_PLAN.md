@@ -2,15 +2,16 @@
 
 ## 目标
 
-前端采用 Vue 3、TypeScript、Vite 建立浏览器端应用基础，第一阶段先完成认证入口和登录成功后的占位页面，为后续三维校园导航、建筑交互、能耗监控与 AI 问路扩展留出清晰结构。
+前端采用 Vue 3、TypeScript、Vite 建立浏览器端应用基础，第一阶段先完成认证入口和登录成功后的占位页面，为后续三维校园导航、建筑交互、能耗监控与
+AI 问路扩展留出清晰结构。
 
 ## 当前阶段
 
 - 新增 `aeroverse-frontend` 前端工程。
 - 建立路由、Pinia 状态、Axios 请求封装、基础主题样式。
 - 登录页对接后端已有 OAuth 授权码接口：
-  - `POST /api/auth/google/login`
-  - `POST /api/auth/github/login`
+    - `POST /api/auth/google/login`
+    - `POST /api/auth/github/login`
 - 提供演示登录能力，方便在 OAuth 回调尚未完整配置前验证前端路由与登录态。
 - 登录成功后进入一个轻量仪表盘页面，作为后续校园三维主场景的占位入口。
 

@@ -1,7 +1,6 @@
 package com.dayz.aeroverse.common.web.config;
 
 import com.dayz.aeroverse.common.web.handler.GlobalExceptionHandler;
-
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;
 

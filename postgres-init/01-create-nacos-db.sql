@@ -1,3 +1,5 @@
-CREATE DATABASE nacos;
+CREATE
+DATABASE nacos;
 
-\connect nacos
+\connect
+nacos

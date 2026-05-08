@@ -19,11 +19,11 @@ public interface GitHubOauthClient {
     /**
      * 使用授权码换取 GitHub OAuth 访问令牌。
      *
-     * @param accept 响应格式，固定请求 JSON
-     * @param clientId GitHub OAuth App 客户端编号
+     * @param accept       响应格式，固定请求 JSON
+     * @param clientId     GitHub OAuth App 客户端编号
      * @param clientSecret GitHub OAuth App 客户端密钥
-     * @param code 前端获取的 GitHub OAuth 授权码
-     * @param redirectUri GitHub OAuth 回调地址
+     * @param code         前端获取的 GitHub OAuth 授权码
+     * @param redirectUri  GitHub OAuth 回调地址
      * @param codeVerifier PKCE 校验码，可为空
      * @return GitHub OAuth 令牌响应
      */

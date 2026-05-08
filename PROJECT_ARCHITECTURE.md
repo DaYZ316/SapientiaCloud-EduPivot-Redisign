@@ -2,7 +2,8 @@
 
 ## 1. 项目定位
 
-**灵境·航途 AeroVerse Navigator** 是一个面向校园导航场景的数字孪生系统，核心目标是将学校外层建筑、道路、广场等空间环境进行 3D 还原，并提供可交互的校园导航体验。
+**灵境·航途 AeroVerse Navigator** 是一个面向校园导航场景的数字孪生系统，核心目标是将学校外层建筑、道路、广场等空间环境进行
+3D 还原，并提供可交互的校园导航体验。
 
 核心能力：
 
@@ -16,20 +17,20 @@
 
 ## 2. 推荐技术栈
 
-| 模块 | 技术选型 |
-| --- | --- |
-| 后端 | Spring Boot 3.5.x |
-| JDK | JDK 21 |
-| ORM | MyBatis-Plus |
-| 数据库 | PostgreSQL + PostGIS |
-| 缓存 | Redis 7.x |
-| 前端 | Vue 3 + TypeScript + Vite |
-| 3D 渲染 | Three.js |
-| UI 组件库 | Naive UI / Element Plus |
-| 模型格式 | GLB / glTF |
-| 建模工具 | Blender |
-| 资产存储 | MinIO / 本地静态资源 |
-| AI 扩展 | Spring AI + PgVector / Milvus |
+| 模块     | 技术选型                          |
+|--------|-------------------------------|
+| 后端     | Spring Boot 3.5.x             |
+| JDK    | JDK 21                        |
+| ORM    | MyBatis-Plus                  |
+| 数据库    | PostgreSQL + PostGIS          |
+| 缓存     | Redis 7.x                     |
+| 前端     | Vue 3 + TypeScript + Vite     |
+| 3D 渲染  | Three.js                      |
+| UI 组件库 | Naive UI / Element Plus       |
+| 模型格式   | GLB / glTF                    |
+| 建模工具   | Blender                       |
+| 资产存储   | MinIO / 本地静态资源                |
+| AI 扩展  | Spring AI + PgVector / Milvus |
 
 ## 3. 总体架构
 

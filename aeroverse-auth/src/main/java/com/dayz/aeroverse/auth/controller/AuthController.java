@@ -1,7 +1,7 @@
 package com.dayz.aeroverse.auth.controller;
 
-import com.dayz.aeroverse.auth.model.dto.GoogleLoginRequest;
 import com.dayz.aeroverse.auth.model.dto.GitHubLoginRequest;
+import com.dayz.aeroverse.auth.model.dto.GoogleLoginRequest;
 import com.dayz.aeroverse.auth.model.vo.LoginResponse;
 import com.dayz.aeroverse.auth.service.GitHubLoginService;
 import com.dayz.aeroverse.auth.service.GoogleLoginService;

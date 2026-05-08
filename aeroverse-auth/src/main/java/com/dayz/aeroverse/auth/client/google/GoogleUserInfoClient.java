@@ -1,7 +1,6 @@
 package com.dayz.aeroverse.auth.client.google;
 
 import com.dayz.aeroverse.auth.client.google.dto.GoogleUserInfoResponse;
-
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;

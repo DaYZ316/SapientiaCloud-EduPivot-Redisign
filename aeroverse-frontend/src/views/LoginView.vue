@@ -1,8 +1,8 @@
 <template>
   <main class="login-page">
-    <section class="login-hero" :aria-label="t('login.pageAria')">
+    <section :aria-label="t('login.pageAria')" class="login-hero">
       <div class="brand-mark">
-        <MapPinned :size="28" stroke-width="2.2" />
+        <MapPinned :size="28" stroke-width="2.2"/>
       </div>
       <p class="eyebrow">{{ t('login.brand') }}</p>
       <h1>{{ t('login.title') }}</h1>
@@ -16,8 +16,8 @@
       </div>
     </section>
 
-    <section class="login-panel" :aria-label="t('login.panelAria')">
-      <NCard embedded :bordered="false" class="login-card">
+    <section :aria-label="t('login.panelAria')" class="login-panel">
+      <NCard :bordered="false" class="login-card" embedded>
         <div class="panel-heading">
           <h2>{{ t('login.panelTitle') }}</h2>
           <p>{{ t('login.panelDescription') }}</p>
@@ -25,22 +25,22 @@
 
         <div class="oauth-buttons">
           <NButton
-            block
-            size="large"
-            type="primary"
-            class="oauth-button github-button"
-            :loading="githubLoading"
-            @click="startGitHubLogin"
+              :loading="githubLoading"
+              block
+              class="oauth-button github-button"
+              size="large"
+              type="primary"
+              @click="startGitHubLogin"
           >
             <template #icon>
-              <Github :size="19" />
+              <Github :size="19"/>
             </template>
             {{ t('login.githubButton') }}
           </NButton>
 
-          <NButton block size="large" disabled class="oauth-button">
+          <NButton block class="oauth-button" disabled size="large">
             <template #icon>
-              <Chrome :size="19" />
+              <Chrome :size="19"/>
             </template>
             {{ t('login.googleButton') }}
           </NButton>
@@ -50,21 +50,21 @@
   </main>
 </template>
 
-<script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter } from 'vue-router'
-import { Chrome, Github, MapPinned } from 'lucide-vue-next'
-import { NButton, NCard, useMessage } from 'naive-ui'
+<script lang="ts" setup>
+import {onMounted, ref} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {useRoute, useRouter} from 'vue-router'
+import {Chrome, Github, MapPinned} from 'lucide-vue-next'
+import {NButton, NCard, useMessage} from 'naive-ui'
 
-import { ApiError } from '@/api/request'
-import { useAuthStore } from '@/stores/auth'
+import {ApiError} from '@/api/request'
+import {useAuthStore} from '@/stores/auth'
 
 const router = useRouter()
 const route = useRoute()
 const message = useMessage()
 const authStore = useAuthStore()
-const { t } = useI18n()
+const {t} = useI18n()
 
 const GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize'
 const OAUTH_STATE_KEY = 'aeroverse.oauth.state'
@@ -123,7 +123,7 @@ async function finishGitHubLogin(code: string) {
     await router.replace(sessionStorage.getItem(OAUTH_REDIRECT_KEY) || '/success')
   } catch (error) {
     const errorMessage =
-      error instanceof ApiError ? error.message : t('login.githubLoginFailed')
+        error instanceof ApiError ? error.message : t('login.githubLoginFailed')
     message.error(errorMessage)
   } finally {
     sessionStorage.removeItem(OAUTH_STATE_KEY)

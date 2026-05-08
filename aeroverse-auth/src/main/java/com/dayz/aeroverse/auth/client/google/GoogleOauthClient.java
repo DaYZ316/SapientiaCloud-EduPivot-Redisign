@@ -17,11 +17,11 @@ public interface GoogleOauthClient {
     /**
      * 使用授权码换取 Google OAuth2 访问令牌。
      *
-     * @param code 前端获取的 Google OAuth2 授权码
-     * @param clientId Google OAuth2 客户端编号
+     * @param code         前端获取的 Google OAuth2 授权码
+     * @param clientId     Google OAuth2 客户端编号
      * @param clientSecret Google OAuth2 客户端密钥
-     * @param redirectUri Google OAuth2 回调地址
-     * @param grantType 授权类型，固定为 authorization_code
+     * @param redirectUri  Google OAuth2 回调地址
+     * @param grantType    授权类型，固定为 authorization_code
      * @return Google OAuth2 令牌响应
      */
     @PostMapping(value = "/token", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)

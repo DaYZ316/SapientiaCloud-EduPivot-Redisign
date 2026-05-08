@@ -22,8 +22,8 @@ public interface GitHubUserClient {
      * 使用 GitHub 访问令牌读取当前用户基础资料。
      *
      * @param authorization Bearer 访问令牌
-     * @param accept GitHub REST API 响应格式
-     * @param apiVersion GitHub REST API 版本
+     * @param accept        GitHub REST API 响应格式
+     * @param apiVersion    GitHub REST API 版本
      * @return GitHub 用户基础资料
      */
     @GetMapping("/user")
@@ -37,10 +37,10 @@ public interface GitHubUserClient {
      * 使用 GitHub 访问令牌读取当前用户邮箱列表。
      *
      * @param authorization Bearer 访问令牌
-     * @param accept GitHub REST API 响应格式
-     * @param apiVersion GitHub REST API 版本
-     * @param perPage 每页数量
-     * @param page 页码
+     * @param accept        GitHub REST API 响应格式
+     * @param apiVersion    GitHub REST API 版本
+     * @param perPage       每页数量
+     * @param page          页码
      * @return GitHub 用户邮箱列表
      */
     @GetMapping("/user/emails")
