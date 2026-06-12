@@ -2,11 +2,14 @@ package com.dayz.sc.course.controller;
 
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.model.UserRole;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.ratelimit.RateLimited;
 import com.dayz.sc.common.security.support.JwtPrincipalResolver;
+import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.course.model.dto.EnrollRequest;
+import com.dayz.sc.course.model.dto.UpdateEnrollmentStatusRequest;
 import com.dayz.sc.course.model.vo.EnrollmentVO;
 import com.dayz.sc.course.service.EnrollmentService;
 import jakarta.validation.Valid;
@@ -15,7 +18,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -32,7 +34,7 @@ public class EnrollmentController {
             @AuthenticationPrincipal Jwt jwt) {
         UUID studentId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
-        if (role == null || role != 1) {
+        if (!SecurityUtils.isStudent(role)) {
             throw new BusinessException(ErrorCodes.FORBIDDEN, "Only students can enroll in courses");
         }
 
@@ -63,22 +65,19 @@ public class EnrollmentController {
     }
 
     @PutMapping("/{id}/status")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> updateStatus(
             @PathVariable UUID id,
-            @RequestBody Map<String, Integer> body,
+            @Valid @RequestBody UpdateEnrollmentStatusRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        Integer status = body.get("status");
-        if (status == null) {
-            return ApiResponse.fail(400, "Status is required");
-        }
-
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
-        enrollmentService.updateStatus(id, status, userId, role);
+        enrollmentService.updateStatus(id, request.status(), userId, role);
         return ApiResponse.ok(null);
     }
 
     @DeleteMapping("/{id}")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> dropCourse(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {

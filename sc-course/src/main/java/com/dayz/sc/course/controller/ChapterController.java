@@ -60,6 +60,7 @@ public class ChapterController {
     }
 
     @PutMapping("/{id}")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> updateChapter(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateChapterRequest request,
@@ -71,6 +72,7 @@ public class ChapterController {
     }
 
     @DeleteMapping("/{id}")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> deleteChapter(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {

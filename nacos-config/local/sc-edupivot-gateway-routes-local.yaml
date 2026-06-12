@@ -4,6 +4,22 @@ spring:
       server:
         webmvc:
           routes:
+            # ── 内部端点拦截（返回 403）──
+            - id: block-storage-internal
+              uri: no://op
+              order: -100
+              predicates:
+                - Path=/api/storage/internal/**
+              filters:
+                - SetStatus=403
+            - id: block-auth-internal
+              uri: no://op
+              order: -100
+              predicates:
+                - Path=/api/auth/**/internal/**
+              filters:
+                - SetStatus=403
+            # ── 业务路由 ──
             - id: auth-route
               uri: lb://sc-auth
               predicates:
@@ -15,11 +31,12 @@ spring:
             - id: course-route
               uri: lb://sc-course
               predicates:
-                - Path=/api/courses/**,/api/enrollments/**
+                - Path=/api/courses/**,/api/enrollments/**,/api/chapters/**,/api/forums/**,/api/question-banks/**,/api/invitations/**
             - id: storage-route
               uri: lb://sc-storage
               predicates:
                 - Path=/api/storage/**
+            # ── OpenAPI 文档路由 ──
             - id: auth-openapi-route
               uri: lb://sc-auth
               predicates:

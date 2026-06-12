@@ -3,13 +3,15 @@ package com.dayz.sc.auth.controller;
 import com.dayz.sc.auth.model.dto.UpdateUserRequest;
 import com.dayz.sc.auth.model.dto.UserBasicInfo;
 import com.dayz.sc.auth.model.dto.UserPageRequest;
-import com.dayz.sc.auth.model.vo.UserProfile;
+import com.dayz.sc.auth.model.vo.UserProfileVO;
 import com.dayz.sc.auth.service.UserManagementService;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
+import com.dayz.sc.common.security.ratelimit.RateLimited;
 import com.dayz.sc.common.security.support.JwtPrincipalResolver;
+import com.dayz.sc.common.security.support.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
@@ -33,20 +35,21 @@ public class UserManagementController {
     private final UserManagementService userManagementService;
 
     @GetMapping("/me")
-    public ApiResponse<@NonNull UserProfile> currentUser(@AuthenticationPrincipal Jwt jwt) {
+    public ApiResponse<@NonNull UserProfileVO> currentUser(@AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         return ApiResponse.ok(userManagementService.getUser(userId));
     }
 
     @PutMapping("/me")
-    public ApiResponse<@NonNull UserProfile> updateCurrentUser(@Valid @RequestBody UpdateUserRequest request,
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
+    public ApiResponse<@NonNull UserProfileVO> updateCurrentUser(@Valid @RequestBody UpdateUserRequest request,
                                                                @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         return ApiResponse.ok(userManagementService.updateCurrentUser(userId, request));
     }
 
     @GetMapping
-    public ApiResponse<@NonNull PageResponse<@NonNull UserProfile>> pageUsers(
+    public ApiResponse<@NonNull PageResponse<@NonNull UserProfileVO>> pageUsers(
             UserPageRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
@@ -54,7 +57,8 @@ public class UserManagementController {
     }
 
     @PutMapping("/{id}")
-    public ApiResponse<@NonNull UserProfile> updateUser(@PathVariable UUID id,
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
+    public ApiResponse<@NonNull UserProfileVO> updateUser(@PathVariable UUID id,
                                                         @Valid @RequestBody UpdateUserRequest request,
                                                         @AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
@@ -62,6 +66,7 @@ public class UserManagementController {
     }
 
     @PutMapping("/{id}/reset-password")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> resetPassword(@PathVariable UUID id,
                                            @AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
@@ -81,7 +86,7 @@ public class UserManagementController {
     private void requireAdmin(Jwt jwt) {
         JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
-        if (role == null || role != 0) {
+        if (!SecurityUtils.isAdmin(role)) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
     }

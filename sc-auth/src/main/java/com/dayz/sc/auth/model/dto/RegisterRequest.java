@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 账号注册请求。
@@ -12,7 +13,7 @@ import jakarta.validation.constraints.Size;
  * @param email       邮箱
  * @param password    密码（8-64 位）
  * @param displayName 昵称（可选，默认取邮箱前缀）
- * @param role        角色：1=学生，2=教师
+ * @param role        角色：1=学生（默认），2=教师；可选
  * @author DaYZ
  * @since 2026-06-09
  */
@@ -20,6 +21,6 @@ public record RegisterRequest(
         @NotBlank @Email String email,
         @NotBlank @Size(min = 8, max = 64) String password,
         String displayName,
-        @Min(1) @Max(2) int role
+        @Nullable @Min(1) @Max(2) Integer role
 ) {
 }

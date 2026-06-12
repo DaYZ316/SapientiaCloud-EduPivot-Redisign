@@ -60,11 +60,15 @@ public class NotificationSseEmitter {
     }
 
     public void sendToUser(UUID userId, NotificationVO notification) {
-        redisSsePublisher.publish(new SseMessage(userId, notification));
+        redisSsePublisher.publish(new SseMessage(userId, null, notification));
     }
 
     public void broadcast(NotificationVO notification) {
-        redisSsePublisher.publish(new SseMessage(null, notification));
+        redisSsePublisher.publish(new SseMessage(null, null, notification));
+    }
+
+    public void broadcastExcept(UUID excludeUserId, NotificationVO notification) {
+        redisSsePublisher.publish(new SseMessage(null, excludeUserId, notification));
     }
 
     public void sendToUserLocally(UUID userId, NotificationVO notification) {
@@ -84,6 +88,22 @@ public class NotificationSseEmitter {
 
     public void broadcastLocally(NotificationVO notification) {
         emitters.forEach((userId, emitter) -> {
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("notification")
+                        .data(notification));
+            } catch (IOException e) {
+                log.error("Failed to broadcast SSE notification to user: {}", userId, e);
+                emitters.remove(userId);
+            }
+        });
+    }
+
+    public void broadcastExceptLocally(UUID excludeUserId, NotificationVO notification) {
+        emitters.forEach((userId, emitter) -> {
+            if (userId.equals(excludeUserId)) {
+                return;
+            }
             try {
                 emitter.send(SseEmitter.event()
                         .name("notification")

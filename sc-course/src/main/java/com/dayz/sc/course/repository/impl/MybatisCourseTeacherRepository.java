@@ -1,6 +1,7 @@
 package com.dayz.sc.course.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.dayz.sc.common.util.UuidV7Generator;
 import com.dayz.sc.course.mapper.CourseTeacherMapper;
 import com.dayz.sc.course.model.entity.CourseTeacher;
 import com.dayz.sc.course.repository.CourseTeacherRepository;
@@ -45,12 +46,14 @@ public class MybatisCourseTeacherRepository implements CourseTeacherRepository {
 
     @Override
     public void batchSave(UUID courseId, List<UUID> teacherIds) {
-        for (UUID teacherId : teacherIds) {
+        List<CourseTeacher> entities = teacherIds.stream().map(teacherId -> {
             CourseTeacher ct = new CourseTeacher();
+            ct.setId(UuidV7Generator.generate());
             ct.setCourseId(courseId);
             ct.setTeacherId(teacherId);
-            courseTeacherMapper.insert(ct);
-        }
+            return ct;
+        }).toList();
+        courseTeacherMapper.batchInsert(entities);
     }
 
     @Override

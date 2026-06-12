@@ -1,5 +1,6 @@
 package com.dayz.sc.notification.kafka;
 
+import com.dayz.sc.common.events.user.UserDeactivatedEvent;
 import com.dayz.sc.common.events.user.UserRegisteredEvent;
 import com.dayz.sc.common.redis.kafka.KafkaIdempotencyGuard;
 import com.dayz.sc.common.util.UuidV7Generator;
@@ -15,6 +16,8 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -24,7 +27,7 @@ public class UserEventConsumer {
     private final NotificationSseEmitter sseEmitter;
     private final KafkaIdempotencyGuard idempotencyGuard;
 
-    @KafkaListener(topics = "sc.user.events", groupId = "sc-notification")
+    @KafkaListener(topics = "#{T(com.dayz.sc.common.events.config.KafkaTopicConstants).USER_EVENTS}", groupId = "sc-notification")
     public void onUserEvent(Object event, Acknowledgment ack) {
         try {
             if (event instanceof UserRegisteredEvent e) {
@@ -33,6 +36,22 @@ public class UserEventConsumer {
                     return;
                 }
                 handleUserRegistered(e);
+            } else if (event instanceof UserDeactivatedEvent deactivated) {
+                log.info("User deactivated: {}", deactivated.userId());
+                if (!idempotencyGuard.tryAcquire("sc-notification", deactivated.eventId())) {
+                    return;
+                }
+                Notification notification = new Notification();
+                notification.setId(UuidV7Generator.generate());
+                notification.setType(NotificationType.SYSTEM.getCode());
+                notification.setTitle("用户停用通知");
+                notification.setContent("用户 " + deactivated.email() + " 已停用账户");
+                notification.setSenderId(deactivated.userId());
+                notification.setTargetType(TargetType.ALL.getCode());
+                notification.setCreatedAt(Instant.now());
+                notification.setUpdatedAt(Instant.now());
+                notificationRepository.save(notification);
+                sseEmitter.broadcast(toNotificationVO(notification));
             } else {
                 log.warn("Unknown user event type: {}", event.getClass().getSimpleName());
             }

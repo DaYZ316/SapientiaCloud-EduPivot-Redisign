@@ -4,10 +4,12 @@ import com.dayz.sc.auth.model.entity.User;
 import com.dayz.sc.common.events.config.KafkaTopicConstants;
 import com.dayz.sc.common.events.user.UserDeactivatedEvent;
 import com.dayz.sc.common.events.user.UserRegisteredEvent;
+import java.time.Instant;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.dayz.sc.common.util.UuidV7Generator;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
@@ -17,15 +19,21 @@ import org.springframework.stereotype.Component;
 public class UserEventPublisher {
 
     @NonNull
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final ObjectProvider<KafkaTemplate<String, Object>> kafkaTemplateProvider;
 
     public void publishUserRegistered(User user) {
         if (user == null || user.getId() == null) {
             log.warn("Cannot publish UserRegisteredEvent: user or userId is null");
             return;
         }
+        KafkaTemplate<String, Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
+        if (kafkaTemplate == null) {
+            log.warn("KafkaTemplate not available, skipping event publishing");
+            return;
+        }
         UserRegisteredEvent event = new UserRegisteredEvent(
-                UuidV7Generator.generate(), user.getId(), user.getEmail(), user.getDisplayName(), user.getRole());
+                UuidV7Generator.generate(), user.getId(), user.getEmail(), user.getDisplayName(), user.getRole(),
+                "USER_REGISTERED", Instant.now(), "sc-auth");
         kafkaTemplate.send(KafkaTopicConstants.USER_EVENTS, user.getId().toString(), event)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
@@ -41,7 +49,13 @@ public class UserEventPublisher {
             log.warn("Cannot publish UserDeactivatedEvent: user or userId is null");
             return;
         }
-        UserDeactivatedEvent event = new UserDeactivatedEvent(UuidV7Generator.generate(), user.getId(), user.getEmail());
+        KafkaTemplate<String, Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
+        if (kafkaTemplate == null) {
+            log.warn("KafkaTemplate not available, skipping event publishing");
+            return;
+        }
+        UserDeactivatedEvent event = new UserDeactivatedEvent(UuidV7Generator.generate(), user.getId(), user.getEmail(),
+                "USER_DEACTIVATED", Instant.now(), "sc-auth");
         kafkaTemplate.send(KafkaTopicConstants.USER_EVENTS, user.getId().toString(), event)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {

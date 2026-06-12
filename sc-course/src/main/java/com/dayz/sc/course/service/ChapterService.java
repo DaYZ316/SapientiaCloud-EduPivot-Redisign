@@ -1,5 +1,6 @@
 package com.dayz.sc.course.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.response.PageResponse;
@@ -110,15 +111,14 @@ public class ChapterService {
         int page = PageUtils.normalizePage(request.page());
         int size = PageUtils.normalizeSize(request.size());
 
-        List<Chapter> chapters = chapterRepository.findAll(page, size,
+        Page<Chapter> result = chapterRepository.findAll(page, size,
                 request.courseId(), request.status(), request.keyword());
-        long total = chapterRepository.countAll(request.courseId(), request.status(), request.keyword());
 
-        List<ChapterVO> voList = chapters.stream()
+        List<ChapterVO> voList = result.getRecords().stream()
                 .map(ch -> toChapterVO(ch, null))
                 .toList();
 
-        return new PageResponse<>(voList, total, page, size);
+        return new PageResponse<>(voList, result.getTotal(), page, size);
     }
 
     public List<ChapterVO> listChaptersByCourse(UUID courseId) {

@@ -248,7 +248,7 @@ function useFallbackImage(event: Event, fallback: string) {
   background: var(--color-surface-canvas);
   border: 1px solid var(--color-outline-light);
   color: var(--color-on-surface);
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-label);
   font-size: 11px;
   font-weight: 600;
   line-height: 1;

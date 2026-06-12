@@ -37,6 +37,7 @@ export default {
         resetPasswordSuccess: '密码重置成功',
         resetPasswordFailed: '密码重置失败',
         alert: {
+            updateSuccess: '用户更新成功',
             updateFailed: '更新用户失败',
         },
     },

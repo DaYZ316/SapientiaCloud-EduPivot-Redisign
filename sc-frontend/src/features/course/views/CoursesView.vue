@@ -72,6 +72,7 @@ import {useRouter} from 'vue-router'
 import {BookOpen, Search} from 'lucide-vue-next'
 
 import {getCourses} from '@/features/course/api/course'
+import {notify} from '@/shared/composables/useGlobalNotification'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import CourseRecommendationCard from '@/features/course/components/CourseRecommendationCard.vue'
 import {useAuthStore} from '@/features/auth/stores/auth'
@@ -127,6 +128,7 @@ async function loadCourses(append = false) {
     hasMore.value = currentPage.value < totalPages.value
   } catch (error) {
     console.error('Failed to load courses:', error)
+    notify.error('Failed to load courses')
     if (!append) courses.value = []
     hasMore.value = false
   } finally {

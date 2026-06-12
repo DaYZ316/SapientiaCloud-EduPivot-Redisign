@@ -174,9 +174,11 @@ import {
   Bell,
   BookOpen,
   ChevronDown,
+  ClipboardList,
   GraduationCap,
   LayoutDashboard,
   LogOut,
+  Mail,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
@@ -219,10 +221,16 @@ const navItems = computed(() => [
     ? [{path: '/my-enrollments', label: t('common.navigation.myEnrollments'), icon: GraduationCap}]
     : []),
   ...(isTeacher.value
-    ? [{path: '/teacher/courses?role=primary', label: t('common.navigation.myEnrollments'), icon: GraduationCap}]
+    ? [
+        {path: '/teacher/courses?role=primary', label: t('common.navigation.myEnrollments'), icon: GraduationCap},
+        {path: '/enrollment-management', label: t('common.navigation.enrollmentManagement'), icon: ClipboardList},
+      ]
     : []),
   ...(isAdmin.value
     ? [{path: '/course-management', label: t('common.navigation.courseManagement'), icon: BookOpen}]
+    : []),
+  ...(isTeacher.value || isAdmin.value
+    ? [{path: '/invitations', label: t('common.navigation.invitations'), icon: Mail}]
     : []),
 ])
 

@@ -1,6 +1,7 @@
 package com.dayz.sc.course.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.mapper.ForumPostMapper;
 import com.dayz.sc.course.model.entity.ForumPost;
 import com.dayz.sc.course.repository.ForumPostRepository;
@@ -39,28 +40,26 @@ public class MybatisForumPostRepository implements ForumPostRepository {
     }
 
     @Override
-    public List<ForumPost> findByForumId(UUID forumId, int page, int size) {
+    public Page<ForumPost> findByForumId(UUID forumId, int page, int size) {
         LambdaQueryWrapper<ForumPost> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ForumPost::getForumId, forumId);
         wrapper.eq(ForumPost::getStatus, 0);
         wrapper.orderByDesc(ForumPost::getIsTop);
         wrapper.orderByDesc(ForumPost::getCreatedAt);
-        wrapper.last("LIMIT " + size + " OFFSET " + (page - 1) * size);
-        return forumPostMapper.selectList(wrapper);
+        return forumPostMapper.selectPage(new Page<>(page, size), wrapper);
     }
 
     @Override
-    public List<ForumPost> findByCourseId(UUID courseId, int page, int size) {
+    public Page<ForumPost> findByCourseId(UUID courseId, int page, int size) {
         LambdaQueryWrapper<ForumPost> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ForumPost::getCourseId, courseId);
         wrapper.eq(ForumPost::getStatus, 0);
         wrapper.orderByDesc(ForumPost::getCreatedAt);
-        wrapper.last("LIMIT " + size + " OFFSET " + (page - 1) * size);
-        return forumPostMapper.selectList(wrapper);
+        return forumPostMapper.selectPage(new Page<>(page, size), wrapper);
     }
 
     @Override
-    public List<ForumPost> findAll(int page, int size, UUID forumId, UUID courseId, Integer status, String keyword) {
+    public Page<ForumPost> findAll(int page, int size, UUID forumId, UUID courseId, Integer status, String keyword) {
         LambdaQueryWrapper<ForumPost> wrapper = new LambdaQueryWrapper<>();
         if (forumId != null) {
             wrapper.eq(ForumPost::getForumId, forumId);
@@ -76,26 +75,7 @@ public class MybatisForumPostRepository implements ForumPostRepository {
         }
         wrapper.orderByDesc(ForumPost::getIsTop);
         wrapper.orderByDesc(ForumPost::getCreatedAt);
-        wrapper.last("LIMIT " + size + " OFFSET " + (page - 1) * size);
-        return forumPostMapper.selectList(wrapper);
-    }
-
-    @Override
-    public long countAll(UUID forumId, UUID courseId, Integer status, String keyword) {
-        LambdaQueryWrapper<ForumPost> wrapper = new LambdaQueryWrapper<>();
-        if (forumId != null) {
-            wrapper.eq(ForumPost::getForumId, forumId);
-        }
-        if (courseId != null) {
-            wrapper.eq(ForumPost::getCourseId, courseId);
-        }
-        if (status != null) {
-            wrapper.eq(ForumPost::getStatus, status);
-        }
-        if (StringUtils.hasText(keyword)) {
-            wrapper.and(w -> w.like(ForumPost::getTitle, keyword).or().like(ForumPost::getContent, keyword));
-        }
-        return forumPostMapper.selectCount(wrapper);
+        return forumPostMapper.selectPage(new Page<>(page, size), wrapper);
     }
 
     @Override

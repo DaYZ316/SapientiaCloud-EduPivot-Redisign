@@ -23,6 +23,8 @@ export default {
         courses: 'Recommended Courses',
         myEnrollments: 'My Courses',
         courseManagement: 'Course Management',
+        enrollmentManagement: 'Enrollment Management',
+        invitations: 'Invitations',
     },
     menu: {
         profile: 'Profile',

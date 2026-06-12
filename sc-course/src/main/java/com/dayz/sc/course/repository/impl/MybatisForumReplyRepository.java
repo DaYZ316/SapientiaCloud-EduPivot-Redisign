@@ -1,6 +1,7 @@
 package com.dayz.sc.course.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.mapper.ForumReplyMapper;
 import com.dayz.sc.course.model.entity.ForumReply;
 import com.dayz.sc.course.repository.ForumReplyRepository;
@@ -38,13 +39,12 @@ public class MybatisForumReplyRepository implements ForumReplyRepository {
     }
 
     @Override
-    public List<ForumReply> findByPostId(UUID postId, int page, int size) {
+    public Page<ForumReply> findByPostId(UUID postId, int page, int size) {
         LambdaQueryWrapper<ForumReply> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ForumReply::getPostId, postId);
         wrapper.eq(ForumReply::getStatus, 0);
         wrapper.orderByAsc(ForumReply::getFloorNumber);
-        wrapper.last("LIMIT " + size + " OFFSET " + (page - 1) * size);
-        return forumReplyMapper.selectList(wrapper);
+        return forumReplyMapper.selectPage(new Page<>(page, size), wrapper);
     }
 
     @Override
@@ -57,7 +57,7 @@ public class MybatisForumReplyRepository implements ForumReplyRepository {
     }
 
     @Override
-    public List<ForumReply> findAll(int page, int size, UUID postId, UUID forumId, UUID courseId, Integer status) {
+    public Page<ForumReply> findAll(int page, int size, UUID postId, UUID forumId, UUID courseId, Integer status) {
         LambdaQueryWrapper<ForumReply> wrapper = new LambdaQueryWrapper<>();
         if (postId != null) {
             wrapper.eq(ForumReply::getPostId, postId);
@@ -72,26 +72,7 @@ public class MybatisForumReplyRepository implements ForumReplyRepository {
             wrapper.eq(ForumReply::getStatus, status);
         }
         wrapper.orderByAsc(ForumReply::getFloorNumber);
-        wrapper.last("LIMIT " + size + " OFFSET " + (page - 1) * size);
-        return forumReplyMapper.selectList(wrapper);
-    }
-
-    @Override
-    public long countAll(UUID postId, UUID forumId, UUID courseId, Integer status) {
-        LambdaQueryWrapper<ForumReply> wrapper = new LambdaQueryWrapper<>();
-        if (postId != null) {
-            wrapper.eq(ForumReply::getPostId, postId);
-        }
-        if (forumId != null) {
-            wrapper.eq(ForumReply::getForumId, forumId);
-        }
-        if (courseId != null) {
-            wrapper.eq(ForumReply::getCourseId, courseId);
-        }
-        if (status != null) {
-            wrapper.eq(ForumReply::getStatus, status);
-        }
-        return forumReplyMapper.selectCount(wrapper);
+        return forumReplyMapper.selectPage(new Page<>(page, size), wrapper);
     }
 
     @Override

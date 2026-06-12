@@ -79,6 +79,7 @@ import {computed, onMounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {ChevronLeft, ChevronRight, GraduationCap, Search} from 'lucide-vue-next'
 import BaseSkeleton from '@/shared/components/BaseSkeleton.vue'
+import {notify} from '@/shared/composables/useGlobalNotification'
 import {pageUsers} from '@/features/user/api/user'
 import type {UserProfile} from '@/features/user/types/user'
 
@@ -121,6 +122,7 @@ async function loadStudents() {
     totalItems.value = response.total
   } catch (error) {
     console.error('Failed to load students:', error)
+    notify.error('Failed to load students')
     students.value = []
     totalItems.value = 0
   } finally {

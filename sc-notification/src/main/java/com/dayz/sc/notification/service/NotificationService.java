@@ -14,12 +14,14 @@ import com.dayz.sc.notification.repository.NotificationReadStatusRepository;
 import com.dayz.sc.notification.repository.NotificationRepository;
 import com.dayz.sc.notification.repository.NotificationTargetRepository;
 import com.dayz.sc.notification.sse.NotificationSseEmitter;
+import com.dayz.sc.common.security.support.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -66,12 +68,19 @@ public class NotificationService {
 
         notificationRepository.save(notification);
 
-        // 指定用户时写入目标记录
+        // 指定用户时写入目标记录（排除发送者自己）
         if (targetType == TargetType.USER) {
-            notificationTargetRepository.saveAllUsers(notification.getId(), request.userIds().stream().distinct().collect(Collectors.toList()));
+            List<UUID> targetUserIds = request.userIds().stream()
+                    .distinct()
+                    .filter(id -> !id.equals(senderId))
+                    .collect(Collectors.toList());
+            if (!targetUserIds.isEmpty()) {
+                notificationTargetRepository.saveAllUsers(notification.getId(), targetUserIds);
+            }
+            pushNotification(TargetType.USER, senderId, targetUserIds, toNotificationVO(notification, false));
+        } else {
+            pushNotification(targetType, senderId, request.userIds(), toNotificationVO(notification, false));
         }
-
-        pushNotification(targetType, request.userIds(), toNotificationVO(notification, false));
         return notification.getId();
     }
 
@@ -94,10 +103,11 @@ public class NotificationService {
     }
 
     public UnreadCountVO getUnreadCount(UUID userId) {
-        long totalUnread = readStatusRepository.countUnread(userId, null);
-        long systemUnread = readStatusRepository.countUnread(userId, NotificationType.SYSTEM.getCode());
-        long teachingUnread = readStatusRepository.countUnread(userId, NotificationType.TEACHING.getCode());
-        return new UnreadCountVO(totalUnread, systemUnread, teachingUnread);
+        Map<String, Long> counts = readStatusRepository.countUnreadAll(userId);
+        long total = counts.getOrDefault("totalCount", 0L);
+        long system = counts.getOrDefault("systemCount", 0L);
+        long teaching = counts.getOrDefault("teachingCount", 0L);
+        return new UnreadCountVO(total, system, teaching);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -147,7 +157,7 @@ public class NotificationService {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOTIFICATION_NOT_FOUND));
         // 非管理员只能撤回自己发出的通知
-        if (role == null || role != 0) {
+        if (!SecurityUtils.isAdmin(role)) {
             if (!senderId.equals(notification.getSenderId())) {
                 throw new BusinessException(ErrorCodes.NOTIFICATION_RECALL_FORBIDDEN);
             }
@@ -155,7 +165,7 @@ public class NotificationService {
         notificationRepository.markDeleted(notificationId);
     }
 
-    private void pushNotification(TargetType targetType, List<UUID> userIds, NotificationVO notification) {
+    private void pushNotification(TargetType targetType, UUID senderId, List<UUID> userIds, NotificationVO notification) {
         if (targetType == TargetType.USER) {
             userIds.stream()
                     .distinct()
@@ -163,7 +173,7 @@ public class NotificationService {
             return;
         }
 
-        sseEmitter.broadcast(notification);
+        sseEmitter.broadcastExcept(senderId, notification);
     }
 
     private NotificationVO toNotificationVO(Notification notification, boolean isRead) {

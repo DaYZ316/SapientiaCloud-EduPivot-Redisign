@@ -29,9 +29,7 @@ public class MybatisQuestionOptionRepository implements QuestionOptionRepository
 
     @Override
     public void saveBatch(List<QuestionOption> options) {
-        for (QuestionOption option : options) {
-            questionOptionMapper.insert(option);
-        }
+        questionOptionMapper.batchInsert(options);
     }
 
     @Override

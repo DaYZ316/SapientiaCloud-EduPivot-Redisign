@@ -6,6 +6,7 @@ import java.util.UUID;
 
 public record SseMessage(
         UUID targetUserId,
+        UUID excludeUserId,
         NotificationVO notification
 ) {
     public boolean isBroadcast() {

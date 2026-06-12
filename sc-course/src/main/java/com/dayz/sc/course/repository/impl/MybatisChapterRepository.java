@@ -1,6 +1,7 @@
 package com.dayz.sc.course.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.mapper.ChapterMapper;
 import com.dayz.sc.course.model.entity.Chapter;
 import com.dayz.sc.course.repository.ChapterRepository;
@@ -64,35 +65,10 @@ public class MybatisChapterRepository implements ChapterRepository {
     }
 
     @Override
-    public List<Chapter> findAll(int page, int size, UUID courseId, Integer status, String keyword) {
-        LambdaQueryWrapper<Chapter> wrapper = new LambdaQueryWrapper<>();
-        if (courseId != null) {
-            wrapper.eq(Chapter::getCourseId, courseId);
-        }
-        if (status != null) {
-            wrapper.eq(Chapter::getStatus, status);
-        }
-        if (StringUtils.hasText(keyword)) {
-            wrapper.like(Chapter::getChapterName, keyword);
-        }
+    public Page<Chapter> findAll(int page, int size, UUID courseId, Integer status, String keyword) {
+        LambdaQueryWrapper<Chapter> wrapper = buildFilterWrapper(courseId, status, keyword);
         wrapper.orderByAsc(Chapter::getSortOrder);
-        wrapper.last("LIMIT " + size + " OFFSET " + (page - 1) * size);
-        return chapterMapper.selectList(wrapper);
-    }
-
-    @Override
-    public long countAll(UUID courseId, Integer status, String keyword) {
-        LambdaQueryWrapper<Chapter> wrapper = new LambdaQueryWrapper<>();
-        if (courseId != null) {
-            wrapper.eq(Chapter::getCourseId, courseId);
-        }
-        if (status != null) {
-            wrapper.eq(Chapter::getStatus, status);
-        }
-        if (StringUtils.hasText(keyword)) {
-            wrapper.like(Chapter::getChapterName, keyword);
-        }
-        return chapterMapper.selectCount(wrapper);
+        return chapterMapper.selectPage(new Page<>(page, size), wrapper);
     }
 
     @Override
@@ -108,5 +84,19 @@ public class MybatisChapterRepository implements ChapterRepository {
         wrapper.eq(Chapter::getCourseId, courseId);
         wrapper.eq(Chapter::getChapterName, chapterName);
         return chapterMapper.selectCount(wrapper) > 0;
+    }
+
+    private LambdaQueryWrapper<Chapter> buildFilterWrapper(UUID courseId, Integer status, String keyword) {
+        LambdaQueryWrapper<Chapter> wrapper = new LambdaQueryWrapper<>();
+        if (courseId != null) {
+            wrapper.eq(Chapter::getCourseId, courseId);
+        }
+        if (status != null) {
+            wrapper.eq(Chapter::getStatus, status);
+        }
+        if (StringUtils.hasText(keyword)) {
+            wrapper.like(Chapter::getChapterName, keyword);
+        }
+        return wrapper;
     }
 }

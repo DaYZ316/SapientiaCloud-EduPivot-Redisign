@@ -55,6 +55,7 @@ public class QuestionBankController {
     }
 
     @PutMapping("/{id}")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> updateQuestionBank(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateQuestionBankRequest request,
@@ -66,6 +67,7 @@ public class QuestionBankController {
     }
 
     @DeleteMapping("/{id}")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> deleteQuestionBank(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
@@ -100,6 +102,7 @@ public class QuestionBankController {
     }
 
     @PutMapping("/questions/{id}")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> updateQuestion(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateQuestionRequest request,
@@ -111,6 +114,7 @@ public class QuestionBankController {
     }
 
     @DeleteMapping("/questions/{id}")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> deleteQuestion(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
@@ -121,18 +125,21 @@ public class QuestionBankController {
     }
 
     @PutMapping("/questions/{id}/publish")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> publishQuestion(@PathVariable UUID id) {
         questionBankService.publishQuestion(id);
         return ApiResponse.ok(null);
     }
 
     @PutMapping("/questions/{id}/unpublish")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> unpublishQuestion(@PathVariable UUID id) {
         questionBankService.unpublishQuestion(id);
         return ApiResponse.ok(null);
     }
 
     @PostMapping("/questions/{id}/view")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> viewQuestion(@PathVariable UUID id) {
         questionBankService.viewQuestion(id);
         return ApiResponse.ok(null);

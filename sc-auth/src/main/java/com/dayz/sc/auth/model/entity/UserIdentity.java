@@ -7,8 +7,8 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import com.dayz.sc.auth.model.enums.OauthProvider;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -37,7 +37,7 @@ public class UserIdentity {
     @TableField("provider_email")
     private String providerEmail;
     @TableField("provider_email_verified")
-    private boolean providerEmailVerified;
+    private Boolean providerEmailVerified;
     @TableField("provider_display_name")
     private String providerDisplayName;
     @TableField("provider_avatar_url")

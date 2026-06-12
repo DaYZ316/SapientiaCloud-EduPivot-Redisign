@@ -1,7 +1,8 @@
 package com.dayz.sc.auth.model.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -12,21 +13,27 @@ import java.util.UUID;
  * @author DaYZ
  * @since 2026-06-09
  */
-@Data
+@Getter
+@Setter
 @TableName("edu_student")
 public class Student {
 
     @TableId(type = IdType.INPUT)
     private UUID id;
 
+    @TableField("user_id")
     private UUID userId;
 
+    @TableField("student_no")
     private String studentNo;
 
+    @TableField("grade")
     private String grade;
 
+    @TableField("major")
     private String major;
 
+    @TableField("school")
     private String school;
 
     @TableField(fill = FieldFill.INSERT)
@@ -35,6 +42,7 @@ public class Student {
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private Instant updatedAt;
 
+    @TableField("deleted")
     @TableLogic
     private Integer deleted;
 }

@@ -104,6 +104,9 @@ export default {
         confirm: 'Delete',
     },
     alert: {
+        createSuccess: 'Course created successfully',
+        updateSuccess: 'Course updated successfully',
+        deleteSuccess: 'Course deleted successfully',
         saveSuccess: 'Course created successfully',
         saveFailed: 'Failed to save course',
         deleteFailed: 'Failed to delete course',

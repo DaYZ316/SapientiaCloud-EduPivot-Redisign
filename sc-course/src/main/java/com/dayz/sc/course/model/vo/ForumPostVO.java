@@ -1,5 +1,6 @@
 package com.dayz.sc.course.model.vo;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
@@ -7,29 +8,29 @@ import java.util.List;
 import java.util.UUID;
 
 public record ForumPostVO(
-        UUID id,
-        UUID forumId,
-        UUID courseId,
-        UUID sysUserId,
-        String title,
-        String content,
-        int postType,
-        int isAnonymous,
-        @Nullable List<String> attachmentUrls,
-        @Nullable List<String> imageUrls,
-        @Nullable List<String> tags,
-        long viewCount,
-        long likeCount,
-        long replyCount,
-        long shareCount,
-        int isTop,
-        int isEssence,
-        int isLocked,
-        @Nullable UUID lastReplyId,
-        @Nullable Instant lastReplyTime,
-        @Nullable UUID lastReplyUserId,
-        int status,
-        @Nullable UUID chapterId,
-        Instant createdAt,
-        Instant updatedAt
+        @JsonProperty("id") UUID id,
+        @JsonProperty("forumId") UUID forumId,
+        @JsonProperty("courseId") UUID courseId,
+        @JsonProperty("sysUserId") UUID sysUserId,
+        @JsonProperty("title") String title,
+        @JsonProperty("content") String content,
+        @JsonProperty("postType") int postType,
+        @JsonProperty("isAnonymous") int isAnonymous,
+        @JsonProperty("attachmentUrls") @Nullable List<String> attachmentUrls,
+        @JsonProperty("imageUrls") @Nullable List<String> imageUrls,
+        @JsonProperty("tags") @Nullable List<String> tags,
+        @JsonProperty("viewCount") long viewCount,
+        @JsonProperty("likeCount") long likeCount,
+        @JsonProperty("replyCount") long replyCount,
+        @JsonProperty("shareCount") long shareCount,
+        @JsonProperty("isTop") int isTop,
+        @JsonProperty("isEssence") int isEssence,
+        @JsonProperty("isLocked") int isLocked,
+        @JsonProperty("lastReplyId") @Nullable UUID lastReplyId,
+        @JsonProperty("lastReplyTime") @Nullable Instant lastReplyTime,
+        @JsonProperty("lastReplyUserId") @Nullable UUID lastReplyUserId,
+        @JsonProperty("status") int status,
+        @JsonProperty("chapterId") @Nullable UUID chapterId,
+        @JsonProperty("createdAt") Instant createdAt,
+        @JsonProperty("updatedAt") Instant updatedAt
 ) {}

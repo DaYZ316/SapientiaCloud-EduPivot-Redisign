@@ -50,3 +50,4 @@ export function logout(refreshToken?: string) {
         data: refreshToken ? {refreshToken} : undefined,
     }, false)
 }
+

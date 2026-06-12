@@ -1,13 +1,12 @@
 package com.dayz.sc.course.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.common.util.UuidV7Generator;
 import com.dayz.sc.common.feign.client.StorageInternalClient;
-import com.dayz.sc.course.mapper.CourseFileMapper;
+import com.dayz.sc.course.repository.CourseFileRepository;
 import com.dayz.sc.course.model.dto.BindCourseFileRequest;
 import com.dayz.sc.course.model.entity.Course;
 import com.dayz.sc.course.model.entity.CourseFile;
@@ -30,7 +29,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CourseFileService {
 
-    private final CourseFileMapper courseFileMapper;
+    private final CourseFileRepository courseFileRepository;
     private final CourseRepository courseRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final StorageInternalClient storageInternalClient;
@@ -50,7 +49,7 @@ public class CourseFileService {
         courseFile.setCreatedBy(userId);
         courseFile.setSortOrder(request.sortOrder() == null ? 0 : request.sortOrder());
         courseFile.setId(UuidV7Generator.generate());
-        courseFileMapper.insert(courseFile);
+        courseFileRepository.save(courseFile);
         return toVO(courseFile, Map.of(request.fileId(), internalUrl(request.fileId())));
     }
 
@@ -58,13 +57,9 @@ public class CourseFileService {
         Course course = requireCourse(courseId);
         boolean canReadPrivate = canReadPrivate(course, userId, role);
 
-        LambdaQueryWrapper<CourseFile> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(CourseFile::getCourseId, courseId);
-        if (!canReadPrivate) {
-            wrapper.eq(CourseFile::getVisibility, CourseFileVisibility.PUBLIC.name());
-        }
-        wrapper.orderByAsc(CourseFile::getSortOrder).orderByDesc(CourseFile::getCreatedAt);
-        List<CourseFile> files = courseFileMapper.selectList(wrapper);
+        List<CourseFile> files = canReadPrivate
+                ? courseFileRepository.findByCourseId(courseId)
+                : courseFileRepository.findByCourseIdAndVisibility(courseId, CourseFileVisibility.PUBLIC.name());
         Map<UUID, String> urls = internalUrls(files.stream().map(CourseFile::getStorageObjectId).distinct().toList());
         return files.stream().map(file -> toVO(file, urls)).toList();
     }
@@ -73,11 +68,12 @@ public class CourseFileService {
     public void deleteCourseFile(UUID courseId, UUID courseFileId, UUID userId, Integer role) {
         Course course = requireCourse(courseId);
         requireManageCourse(course, userId, role);
-        CourseFile file = courseFileMapper.selectById(courseFileId);
-        if (file == null || !courseId.equals(file.getCourseId())) {
+        CourseFile file = courseFileRepository.findById(courseFileId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        if (!courseId.equals(file.getCourseId())) {
             throw new BusinessException(ErrorCodes.NOT_FOUND);
         }
-        courseFileMapper.deleteById(courseFileId);
+        courseFileRepository.deleteById(courseFileId);
     }
 
     private void validateCourseFile(StorageObjectInfo file, UUID courseId, CourseFileVisibility visibility) {
@@ -115,7 +111,7 @@ public class CourseFileService {
 
     private StorageObjectInfo requireStorageFile(UUID fileId) {
         ApiResponse<StorageObjectInfo> response = storageInternalClient.getFile(fileId);
-        if (response == null || response.code() != 0 || response.data() == null) {
+        if (response == null || response.code() != ErrorCodes.SUCCESS.code() || response.data() == null) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid storage file");
         }
         return response.data();
@@ -131,7 +127,7 @@ public class CourseFileService {
             return Map.of();
         }
         ApiResponse<Map<UUID, String>> response = storageInternalClient.getUrls(fileIds);
-        if (response == null || response.code() != 0 || response.data() == null) {
+        if (response == null || response.code() != ErrorCodes.SUCCESS.code() || response.data() == null) {
             return Map.of();
         }
         return response.data();

@@ -34,6 +34,10 @@ public enum ErrorCodes implements ErrorCode {
      */
     SYSTEM_ERROR(50000, "系统异常", HttpStatus.INTERNAL_SERVER_ERROR),
     /**
+     * 上游服务不可用（Feign 熔断降级）。
+     */
+    SERVICE_UNAVAILABLE(50300, "服务暂不可用", HttpStatus.SERVICE_UNAVAILABLE),
+    /**
      * Google 登录流程失败。
      */
     GOOGLE_LOGIN_FAILED(40101, "Google 登录失败", HttpStatus.UNAUTHORIZED),
@@ -88,7 +92,35 @@ public enum ErrorCodes implements ErrorCode {
     /**
      * 题目不存在。
      */
-    QUESTION_NOT_FOUND(40408, "题目不存在", HttpStatus.NOT_FOUND);
+    QUESTION_NOT_FOUND(40408, "题目不存在", HttpStatus.NOT_FOUND),
+    /**
+     * 存储对象不存在。
+     */
+    STORAGE_OBJECT_NOT_FOUND(40409, "存储对象不存在", HttpStatus.NOT_FOUND),
+    /**
+     * 文件上传失败。
+     */
+    STORAGE_UPLOAD_FAILED(40010, "文件上传失败", HttpStatus.BAD_REQUEST),
+    /**
+     * 无权访问该存储资源。
+     */
+    STORAGE_UNAUTHORIZED(40303, "无权访问该存储资源", HttpStatus.FORBIDDEN),
+    /**
+     * 已选过该课程。
+     */
+    ENROLLMENT_ALREADY_EXISTS(40011, "已选过该课程", HttpStatus.BAD_REQUEST),
+    /**
+     * 课程人数已满。
+     */
+    ENROLLMENT_COURSE_FULL(40012, "课程人数已满", HttpStatus.BAD_REQUEST),
+    /**
+     * 邀请状态无效。
+     */
+    INVITATION_NOT_PENDING(40013, "邀请状态无效", HttpStatus.BAD_REQUEST),
+    /**
+     * 已邀请过该用户。
+     */
+    INVITATION_ALREADY_INVITED(40014, "已邀请过该用户", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

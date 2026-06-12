@@ -23,6 +23,8 @@ export default {
         courses: '课程推荐',
         myEnrollments: '我的课程',
         courseManagement: '课程管理',
+        enrollmentManagement: '选课管理',
+        invitations: '助教邀请',
     },
     menu: {
         profile: '个人资料',

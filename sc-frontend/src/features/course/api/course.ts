@@ -59,11 +59,17 @@ export function enroll(data: EnrollRequest) {
 }
 
 export function getMyEnrollments(page: number = 1, size: number = 10) {
-  return request<PageResponse<Enrollment>>({method: 'GET', url: `/api/enrollments/my?page=${page}&size=${size}`})
+  const params = new URLSearchParams()
+  params.append('page', page.toString())
+  params.append('size', size.toString())
+  return request<PageResponse<Enrollment>>({method: 'GET', url: `/api/enrollments/my?${params.toString()}`})
 }
 
 export function getCourseEnrollments(courseId: string, page: number = 1, size: number = 10) {
-  return request<PageResponse<Enrollment>>({method: 'GET', url: `/api/enrollments/course/${courseId}?page=${page}&size=${size}`})
+  const params = new URLSearchParams()
+  params.append('page', page.toString())
+  params.append('size', size.toString())
+  return request<PageResponse<Enrollment>>({method: 'GET', url: `/api/enrollments/course/${courseId}?${params.toString()}`})
 }
 
 export function updateEnrollmentStatus(id: string, status: number) {

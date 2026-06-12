@@ -13,6 +13,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -161,6 +162,26 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
         // 3. 写缓存
         putToCache(cacheKey, providers.isEmpty() ? null : providers);
         return providers;
+    }
+
+    @Override
+    public long countUsers(LambdaQueryWrapper<User> wrapper) {
+        return userMapper.selectCount(wrapper);
+    }
+
+    @Override
+    public List<User> findUsers(LambdaQueryWrapper<User> wrapper) {
+        return userMapper.selectList(wrapper);
+    }
+
+    @Override
+    public List<User> findUsersByIds(Collection<UUID> ids) {
+        return userMapper.selectBatchIds(ids);
+    }
+
+    @Override
+    public List<UserIdentity> findIdentities(LambdaQueryWrapper<UserIdentity> wrapper) {
+        return userIdentityMapper.selectList(wrapper);
     }
 
     // ==================== 写操作（只删不更新） ====================

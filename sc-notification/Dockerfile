@@ -11,7 +11,8 @@ RUN apt-get update \
 
 COPY . .
 
-RUN mvn -B -ntp -DskipTests clean install -pl sc-notification -am
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -B -ntp -DskipTests -pl sc-notification -am package
 
 FROM ${RUNTIME_IMAGE}
 

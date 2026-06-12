@@ -29,9 +29,7 @@ public class MybatisQuestionAnswerRepository implements QuestionAnswerRepository
 
     @Override
     public void saveBatch(List<QuestionAnswer> answers) {
-        for (QuestionAnswer answer : answers) {
-            questionAnswerMapper.insert(answer);
-        }
+        questionAnswerMapper.batchInsert(answers);
     }
 
     @Override

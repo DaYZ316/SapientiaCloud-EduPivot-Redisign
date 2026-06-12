@@ -19,7 +19,7 @@ services:
     restart: unless-stopped
     depends_on:
       sc-gateway:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "${EDUPIVOT_FRONTEND_PORT:-5173}:80"
     networks:
@@ -61,9 +61,6 @@ services:
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI}
-      SPRING_FLYWAY_TABLE: flyway_schema_history_auth
-      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
-      SPRING_FLYWAY_OUT_OF_ORDER: "true"
       TZ: Asia/Shanghai
     ports:
       - "${EDUPIVOT_AUTH_PORT:-28081}:28081"
@@ -107,12 +104,15 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      SPRING_FLYWAY_TABLE: flyway_schema_history_notification
-      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
-      SPRING_FLYWAY_OUT_OF_ORDER: "true"
       TZ: Asia/Shanghai
     ports:
       - "${EDUPIVOT_NOTIFICATION_PORT:-28082}:28082"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:28082/actuator/health/liveness || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
     networks:
       - sc-edupivot-net
 
@@ -152,9 +152,6 @@ services:
       SPRING_DATA_REDIS_DATABASE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      SPRING_FLYWAY_TABLE: flyway_schema_history_course
-      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
-      SPRING_FLYWAY_OUT_OF_ORDER: "true"
       EDUPIVOT_SECURITY_JWT_JWKS_URI: http://sc-auth:28081/.well-known/jwks.json
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       REDIS_HOST: redis
@@ -163,6 +160,12 @@ services:
       TZ: Asia/Shanghai
     ports:
       - "${EDUPIVOT_COURSE_PORT:-28084}:28084"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:28084/actuator/health/liveness || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
     networks:
       - sc-edupivot-net
 
@@ -171,8 +174,8 @@ services:
       context: .
       dockerfile: sc-storage/Dockerfile
       args:
-        MAVEN_IMAGE: ${STORAGE_MAVEN_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
-        RUNTIME_IMAGE: ${STORAGE_RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
+        MAVEN_IMAGE: ${MAVEN_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
+        RUNTIME_IMAGE: ${RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
     image: sc-storage:latest
     container_name: SC-Storage
     restart: unless-stopped
@@ -203,9 +206,6 @@ services:
       MINIO_EXTERNAL_ENDPOINT: ${MINIO_EXTERNAL_ENDPOINT:-http://localhost:9000}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      SPRING_FLYWAY_TABLE: flyway_schema_history_storage
-      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
-      SPRING_FLYWAY_OUT_OF_ORDER: "true"
       EDUPIVOT_SECURITY_JWT_JWKS_URI: http://sc-auth:28081/.well-known/jwks.json
       SERVER_PORT: 28085
       TZ: Asia/Shanghai
@@ -257,7 +257,13 @@ services:
       EDUPIVOT_SECURITY_JWT_JWKS_URI: http://sc-auth:28081/.well-known/jwks.json
       TZ: Asia/Shanghai
     ports:
-      - "${EDUPIVOT_GATEWAY_PORT}:${EDUPIVOT_GATEWAY_PORT}"
+      - "${EDUPIVOT_GATEWAY_PORT:-39080}:${EDUPIVOT_GATEWAY_PORT:-39080}"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:39080/actuator/health/liveness || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
     networks:
       - sc-edupivot-net
 

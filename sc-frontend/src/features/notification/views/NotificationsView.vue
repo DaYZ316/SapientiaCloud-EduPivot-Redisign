@@ -160,44 +160,46 @@
           role="region"
           :aria-labelledby="`detail-title-${selectedNotification.id}`"
         >
-          <div class="detail-header">
-            <div class="detail-icon-wrapper" :class="selectedNotification.type">
-              <component :is="getNotificationIcon(selectedNotification.type)" :size="20" stroke-width="1.8"/>
+          <div class="detail-scroll">
+            <div class="detail-header">
+              <div class="detail-icon-wrapper" :class="selectedNotification.type">
+                <component :is="getNotificationIcon(selectedNotification.type)" :size="20" stroke-width="1.8"/>
+              </div>
+              <div class="detail-header-text">
+                <span class="card-tag" :class="selectedNotification.type">
+                  {{ getTypeName(selectedNotification.type) }}
+                </span>
+                <span class="card-time">{{ selectedNotification.time }}</span>
+              </div>
+              <button
+                v-if="isAdmin || selectedNotification.senderId === authStore.user?.id"
+                class="btn-detail-recall"
+                type="button"
+                :aria-label="t('notifications.recall')"
+                @click="handleRecallNotification"
+              >
+                <RotateCcw :size="16" stroke-width="1.8"/>
+              </button>
+              <button
+                v-else
+                class="btn-detail-delete"
+                type="button"
+                :aria-label="t('notifications.delete')"
+                @click="handleDeleteNotification"
+              >
+                <Trash2 :size="16" stroke-width="1.8"/>
+              </button>
+              <button class="btn-close" type="button" :aria-label="t('notifications.modal.cancel')" @click="closeDetail">
+                <X :size="20"/>
+              </button>
             </div>
-            <div class="detail-header-text">
-              <span class="card-tag" :class="selectedNotification.type">
-                {{ getTypeName(selectedNotification.type) }}
-              </span>
-              <span class="card-time">{{ selectedNotification.time }}</span>
+            <div class="detail-divider"></div>
+            <div class="detail-body">
+              <h2 :id="`detail-title-${selectedNotification.id}`" class="detail-title">
+                {{ selectedNotification.title }}
+              </h2>
+              <NotificationContentPreview :content="selectedNotification.content" variant="plain"/>
             </div>
-            <button
-              v-if="isAdmin || selectedNotification.senderId === authStore.user?.id"
-              class="btn-detail-recall"
-              type="button"
-              :aria-label="t('notifications.recall')"
-              @click="handleRecallNotification"
-            >
-              <RotateCcw :size="16" stroke-width="1.8"/>
-            </button>
-            <button
-              v-else
-              class="btn-detail-delete"
-              type="button"
-              :aria-label="t('notifications.delete')"
-              @click="handleDeleteNotification"
-            >
-              <Trash2 :size="16" stroke-width="1.8"/>
-            </button>
-            <button class="btn-close" type="button" :aria-label="t('notifications.modal.cancel')" @click="closeDetail">
-              <X :size="20"/>
-            </button>
-          </div>
-          <div class="detail-divider"></div>
-          <div class="detail-body">
-            <h2 :id="`detail-title-${selectedNotification.id}`" class="detail-title">
-              {{ selectedNotification.title }}
-            </h2>
-            <NotificationContentPreview :content="selectedNotification.content" variant="plain"/>
           </div>
         </article>
       </Transition>
@@ -1418,10 +1420,17 @@ async function handleSendNotification() {
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-variant);
   border-radius: 24px;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   min-height: clamp(480px, 62vh, 620px);
   max-height: calc(100vh - 252px);
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-scroll {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .detail-header {
@@ -2003,7 +2012,6 @@ async function handleSendNotification() {
     width: 100%;
     border-radius: 0;
     z-index: 1500;
-    overflow-y: auto;
   }
 
   .detail-header {

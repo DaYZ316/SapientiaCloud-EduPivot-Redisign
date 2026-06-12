@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -34,9 +35,7 @@ public class MybatisNotificationReadStatusRepository implements NotificationRead
 
     @Override
     public void saveAll(List<NotificationReadStatus> readStatuses) {
-        for (NotificationReadStatus readStatus : readStatuses) {
-            readStatusMapper.insert(readStatus);
-        }
+        readStatusMapper.batchInsert(readStatuses);
     }
 
     @Override
@@ -55,6 +54,11 @@ public class MybatisNotificationReadStatusRepository implements NotificationRead
     @Override
     public long countUnread(UUID userId, Integer type) {
         return readStatusMapper.countUnread(userId, type);
+    }
+
+    @Override
+    public Map<String, Long> countUnreadAll(UUID userId) {
+        return readStatusMapper.countUnreadAll(userId);
     }
 
     @Override

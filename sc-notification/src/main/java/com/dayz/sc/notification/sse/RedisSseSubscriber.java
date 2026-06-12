@@ -38,7 +38,11 @@ public class RedisSseSubscriber implements MessageListener {
         NotificationVO notification = sseMessage.notification();
 
         if (sseMessage.isBroadcast()) {
-            sseEmitter.broadcastLocally(notification);
+            if (sseMessage.excludeUserId() != null) {
+                sseEmitter.broadcastExceptLocally(sseMessage.excludeUserId(), notification);
+            } else {
+                sseEmitter.broadcastLocally(notification);
+            }
         } else {
             sseEmitter.sendToUserLocally(sseMessage.targetUserId(), notification);
         }

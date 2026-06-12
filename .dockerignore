@@ -1,4 +1,5 @@
 .git
+.github
 .idea
 .vscode
 
@@ -6,10 +7,16 @@
 .env.*
 
 **/target
+**/node_modules
 **/.mvn/wrapper/maven-wrapper.jar
 sc-frontend/dist
-sc-frontend/node_modules
 sc-frontend/output
 
+docker-compose*.yaml
+postgres-init/
+nacos-config/
+nacos-plugins/
+docs/
+*.md
 *.log
 *.tmp

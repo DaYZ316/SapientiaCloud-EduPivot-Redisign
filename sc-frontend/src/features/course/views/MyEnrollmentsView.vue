@@ -153,6 +153,7 @@ async function loadData() {
     totalPages.value = Math.ceil(response.total / pageSize.value)
   } catch (error) {
     console.error('Failed to load enrollments:', error)
+    notify.error('Failed to load enrollments')
     enrollments.value = []
   } finally {
     loading.value = false

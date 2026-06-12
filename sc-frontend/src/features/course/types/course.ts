@@ -32,7 +32,6 @@ export interface CreateCourseRequest {
   level: number
   coverUrl?: string
   coverFileId?: string
-  teacherId?: string
   assistantIds?: string[]
   semester?: string
   location?: string
@@ -67,6 +66,7 @@ export interface CourseFile {
   createdBy: string
   sortOrder: number
   createdAt: string
+  updatedAt?: string | null
 }
 
 export interface BindCourseFileRequest {

@@ -19,11 +19,13 @@ ENV VITE_GITHUB_SCOPE=${VITE_GITHUB_SCOPE}
 ENV VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
 ENV VITE_GOOGLE_REDIRECT_URI=${VITE_GOOGLE_REDIRECT_URI}
 
-COPY sc-frontend/package.json sc-frontend/package-lock.json ./
-RUN npm ci
+RUN corepack enable
+
+COPY sc-frontend/package.json sc-frontend/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 COPY sc-frontend/ .
-RUN npm run build
+RUN pnpm build
 
 FROM ${NGINX_IMAGE}
 

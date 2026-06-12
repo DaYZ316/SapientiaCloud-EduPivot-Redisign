@@ -1,5 +1,6 @@
 package com.dayz.sc.common.feign.client;
 
+import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.feign.dto.StorageObjectInfo;
 import com.dayz.sc.common.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -16,12 +17,12 @@ public class StorageInternalClientFallback implements StorageInternalClient {
     @Override
     public ApiResponse<StorageObjectInfo> getFile(UUID fileId) {
         log.warn("StorageInternalClient fallback: getFile({})", fileId);
-        return ApiResponse.ok(null);
+        return ApiResponse.failOf(ErrorCodes.SERVICE_UNAVAILABLE);
     }
 
     @Override
     public ApiResponse<Map<UUID, String>> getUrls(List<UUID> fileIds) {
         log.warn("StorageInternalClient fallback: getUrls({})", fileIds);
-        return ApiResponse.ok(Map.of());
+        return ApiResponse.failOf(ErrorCodes.SERVICE_UNAVAILABLE);
     }
 }

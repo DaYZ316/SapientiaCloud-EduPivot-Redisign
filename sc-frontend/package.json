@@ -7,7 +7,12 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write src/",
+    "format:check": "prettier --check src/",
+    "stylelint": "stylelint src/**/*.{scss,css,vue}"
   },
   "devDependencies": {
     "@types/node": "^25.6.2",

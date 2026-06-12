@@ -1,15 +1,17 @@
 package com.dayz.sc.storage.model.vo;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.time.Instant;
 import java.util.UUID;
 
 public record FileAsset(
-        UUID id,
-        String fileName,
-        String contentType,
-        long sizeBytes,
-        String usage,
-        String visibility,
-        String url,
-        Instant uploadedAt
+        @JsonProperty("id") UUID id,
+        @JsonProperty("fileName") String fileName,
+        @JsonProperty("contentType") String contentType,
+        @JsonProperty("sizeBytes") long sizeBytes,
+        @JsonProperty("usage") String usage,
+        @JsonProperty("visibility") String visibility,
+        @JsonProperty("url") String url,
+        @JsonProperty("uploadedAt") Instant uploadedAt
 ) {}

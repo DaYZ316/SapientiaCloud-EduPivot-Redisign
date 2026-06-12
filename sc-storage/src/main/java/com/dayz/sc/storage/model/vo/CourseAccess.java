@@ -6,5 +6,6 @@ public record CourseAccess(
         UUID courseId,
         boolean canManage,
         boolean canReadPublic,
-        boolean canReadPrivate
+        boolean canReadPrivate,
+        boolean isPrimaryTeacher
 ) {}

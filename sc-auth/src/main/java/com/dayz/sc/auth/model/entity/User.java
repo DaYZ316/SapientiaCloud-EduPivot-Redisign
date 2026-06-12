@@ -8,8 +8,8 @@ import com.dayz.sc.auth.model.enums.OauthProvider;
 import com.dayz.sc.auth.model.enums.UserStatus;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -31,7 +31,7 @@ public class User {
     private UUID id;
     private String email;
     @TableField("email_verified")
-    private boolean emailVerified;
+    private Boolean emailVerified;
     @TableField("display_name")
     private String displayName;
     @TableField("avatar_url")
@@ -55,7 +55,7 @@ public class User {
     @TableField("last_login_ip")
     private String lastLoginIp;
     @TableField("login_count")
-    private long loginCount;
+    private Long loginCount;
     @TableField("password_hash")
     private String passwordHash;
     /**

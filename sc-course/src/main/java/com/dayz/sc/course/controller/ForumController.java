@@ -57,6 +57,7 @@ public class ForumController {
     }
 
     @PutMapping("/{id}")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> updateForum(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateForumRequest request,
@@ -68,6 +69,7 @@ public class ForumController {
     }
 
     @DeleteMapping("/{id}")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> deleteForum(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
@@ -118,6 +120,7 @@ public class ForumController {
     }
 
     @PutMapping("/posts/{id}")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> updatePost(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateForumPostRequest request,
@@ -129,6 +132,7 @@ public class ForumController {
     }
 
     @DeleteMapping("/posts/{id}")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> deletePost(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
@@ -139,6 +143,7 @@ public class ForumController {
     }
 
     @PutMapping("/posts/{id}/top")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> toggleTop(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
@@ -149,6 +154,7 @@ public class ForumController {
     }
 
     @PutMapping("/posts/{id}/essence")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> toggleEssence(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
@@ -159,6 +165,7 @@ public class ForumController {
     }
 
     @PutMapping("/posts/{id}/lock")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> toggleLock(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
@@ -169,18 +176,21 @@ public class ForumController {
     }
 
     @PostMapping("/posts/{id}/like")
+    @RateLimited(maxRequests = 30, windowSeconds = 60)
     public ApiResponse<Void> likePost(@PathVariable UUID id) {
         forumService.likePost(id);
         return ApiResponse.ok(null);
     }
 
     @DeleteMapping("/posts/{id}/like")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> unlikePost(@PathVariable UUID id) {
         forumService.unlikePost(id);
         return ApiResponse.ok(null);
     }
 
     @PostMapping("/posts/{id}/view")
+    @RateLimited(maxRequests = 30, windowSeconds = 60)
     public ApiResponse<Void> viewPost(@PathVariable UUID id) {
         forumService.viewPost(id);
         return ApiResponse.ok(null);
@@ -214,24 +224,28 @@ public class ForumController {
     }
 
     @PutMapping("/replies/{id}/accept")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> acceptReply(@PathVariable UUID id) {
         forumService.acceptReply(id);
         return ApiResponse.ok(null);
     }
 
     @PutMapping("/replies/{id}/unaccept")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> unacceptReply(@PathVariable UUID id) {
         forumService.unacceptReply(id);
         return ApiResponse.ok(null);
     }
 
     @PostMapping("/replies/{id}/like")
+    @RateLimited(maxRequests = 30, windowSeconds = 60)
     public ApiResponse<Void> likeReply(@PathVariable UUID id) {
         forumService.likeReply(id);
         return ApiResponse.ok(null);
     }
 
     @DeleteMapping("/replies/{id}/like")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> unlikeReply(@PathVariable UUID id) {
         forumService.unlikeReply(id);
         return ApiResponse.ok(null);

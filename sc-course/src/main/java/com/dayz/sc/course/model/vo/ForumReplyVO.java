@@ -1,5 +1,6 @@
 package com.dayz.sc.course.model.vo;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
@@ -7,23 +8,23 @@ import java.util.List;
 import java.util.UUID;
 
 public record ForumReplyVO(
-        UUID id,
-        UUID postId,
-        UUID forumId,
-        UUID courseId,
-        UUID sysUserId,
-        String content,
-        @Nullable UUID parentReplyId,
-        @Nullable UUID replyToUserId,
-        int isAnonymous,
-        @Nullable List<String> attachmentUrls,
-        @Nullable List<String> imageUrls,
-        long likeCount,
-        long replyCount,
-        int isAccepted,
-        int floorNumber,
-        int status,
-        @Nullable List<ForumReplyVO> children,
-        Instant createdAt,
-        Instant updatedAt
+        @JsonProperty("id") UUID id,
+        @JsonProperty("postId") UUID postId,
+        @JsonProperty("forumId") UUID forumId,
+        @JsonProperty("courseId") UUID courseId,
+        @JsonProperty("sysUserId") UUID sysUserId,
+        @JsonProperty("content") String content,
+        @JsonProperty("parentReplyId") @Nullable UUID parentReplyId,
+        @JsonProperty("replyToUserId") @Nullable UUID replyToUserId,
+        @JsonProperty("isAnonymous") int isAnonymous,
+        @JsonProperty("attachmentUrls") @Nullable List<String> attachmentUrls,
+        @JsonProperty("imageUrls") @Nullable List<String> imageUrls,
+        @JsonProperty("likeCount") long likeCount,
+        @JsonProperty("replyCount") long replyCount,
+        @JsonProperty("isAccepted") int isAccepted,
+        @JsonProperty("floorNumber") int floorNumber,
+        @JsonProperty("status") int status,
+        @JsonProperty("children") @Nullable List<ForumReplyVO> children,
+        @JsonProperty("createdAt") Instant createdAt,
+        @JsonProperty("updatedAt") Instant updatedAt
 ) {}

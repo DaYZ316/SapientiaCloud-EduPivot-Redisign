@@ -36,8 +36,14 @@ public class BusinessException extends RuntimeException {
 
     private record LegacyErrorCode(int code, String message) implements ErrorCode {
         @Override
+        public int code() { return code; }
+
+        @Override
+        public String message() { return message; }
+
+        @Override
         public HttpStatus httpStatus() {
-            return HttpStatus.BAD_REQUEST;
+            return code >= 50000 ? HttpStatus.INTERNAL_SERVER_ERROR : HttpStatus.BAD_REQUEST;
         }
     }
 }

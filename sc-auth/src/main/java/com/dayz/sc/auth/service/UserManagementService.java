@@ -2,8 +2,6 @@ package com.dayz.sc.auth.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.dayz.sc.common.feign.client.StorageInternalClient;
-import com.dayz.sc.auth.mapper.UserIdentityMapper;
-import com.dayz.sc.auth.mapper.UserMapper;
 import com.dayz.sc.auth.model.dto.UpdateUserRequest;
 import com.dayz.sc.auth.model.dto.UserBasicInfo;
 import com.dayz.sc.auth.model.dto.UserPageRequest;
@@ -13,15 +11,16 @@ import com.dayz.sc.auth.model.entity.User;
 import com.dayz.sc.auth.model.entity.UserIdentity;
 import com.dayz.sc.auth.model.enums.OauthProvider;
 import com.dayz.sc.auth.model.enums.UserStatus;
-import com.dayz.sc.auth.model.vo.StudentInfo;
-import com.dayz.sc.auth.model.vo.TeacherInfo;
-import com.dayz.sc.auth.model.vo.UserProfile;
+import com.dayz.sc.auth.model.vo.StudentInfoVO;
+import com.dayz.sc.auth.model.vo.TeacherInfoVO;
+import com.dayz.sc.auth.model.vo.UserProfileVO;
 import com.dayz.sc.common.feign.dto.StorageObjectInfo;
 import com.dayz.sc.auth.repository.StudentRepository;
 import com.dayz.sc.auth.repository.TeacherRepository;
 import com.dayz.sc.auth.repository.UserAccountRepository;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.model.UserRole;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.util.PageUtils;
@@ -49,8 +48,6 @@ public class UserManagementService {
 
     private static final String DEFAULT_PASSWORD = "SapientiaCloud123";
 
-    private final UserMapper userMapper;
-    private final UserIdentityMapper userIdentityMapper;
     private final UserAccountRepository userAccountRepository;
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
@@ -60,40 +57,32 @@ public class UserManagementService {
     private final Clock clock;
 
     @Autowired
-    public UserManagementService(UserMapper userMapper,
-                                 UserIdentityMapper userIdentityMapper,
-                                 UserAccountRepository userAccountRepository,
+    public UserManagementService(UserAccountRepository userAccountRepository,
                                  StudentRepository studentRepository,
                                  TeacherRepository teacherRepository,
                                  PasswordEncoder passwordEncoder,
                                  StorageInternalClient storageInternalClient,
                                  UserEventPublisher userEventPublisher) {
-        this(userMapper, userIdentityMapper, userAccountRepository, studentRepository, teacherRepository,
+        this(userAccountRepository, studentRepository, teacherRepository,
                 passwordEncoder, storageInternalClient, userEventPublisher, Clock.systemUTC());
     }
 
-    UserManagementService(UserMapper userMapper,
-                          UserIdentityMapper userIdentityMapper,
-                          UserAccountRepository userAccountRepository,
+    UserManagementService(UserAccountRepository userAccountRepository,
                           StudentRepository studentRepository,
                           TeacherRepository teacherRepository,
                           PasswordEncoder passwordEncoder,
                           Clock clock) {
-        this(userMapper, userIdentityMapper, userAccountRepository, studentRepository, teacherRepository,
+        this(userAccountRepository, studentRepository, teacherRepository,
                 passwordEncoder, null, null, clock);
     }
 
-    UserManagementService(UserMapper userMapper,
-                          UserIdentityMapper userIdentityMapper,
-                          UserAccountRepository userAccountRepository,
+    UserManagementService(UserAccountRepository userAccountRepository,
                           StudentRepository studentRepository,
                           TeacherRepository teacherRepository,
                           PasswordEncoder passwordEncoder,
                           StorageInternalClient storageInternalClient,
                           UserEventPublisher userEventPublisher,
                           Clock clock) {
-        this.userMapper = userMapper;
-        this.userIdentityMapper = userIdentityMapper;
         this.userAccountRepository = userAccountRepository;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
@@ -103,30 +92,28 @@ public class UserManagementService {
         this.clock = clock;
     }
 
-    public PageResponse<@NonNull UserProfile> pageUsers(UserPageRequest request) {
+    public PageResponse<@NonNull UserProfileVO> pageUsers(UserPageRequest request) {
         UserPageRequest pageRequest = request == null ? new UserPageRequest(null, null, null, null, null) : request;
         long currentPage = PageUtils.normalizePage(pageRequest.page());
         long pageSize = PageUtils.normalizeSize(pageRequest.size());
         LambdaQueryWrapper<User> countWrapper = buildQueryWrapper(pageRequest.keyword(), pageRequest.status(), pageRequest.role());
-        long total = userMapper.selectCount(countWrapper);
+        long total = userAccountRepository.countUsers(countWrapper);
         if (total == 0) {
             return PageResponse.empty(currentPage, pageSize);
         }
 
         long offset = (currentPage - 1) * pageSize;
         LambdaQueryWrapper<User> listWrapper = buildQueryWrapper(pageRequest.keyword(), pageRequest.status(), pageRequest.role())
-                .orderByDesc(User::getUpdatedAt)
-                .orderByDesc(User::getCreatedAt)
-                .last("LIMIT " + pageSize + " OFFSET " + offset);
-        List<User> users = userMapper.selectList(listWrapper);
+                .last("ORDER BY CASE WHEN role = " + UserRole.ADMIN.getCode() + " THEN 0 ELSE 1 END, updated_at DESC, created_at DESC LIMIT " + pageSize + " OFFSET " + offset);
+        List<User> users = userAccountRepository.findUsers(listWrapper);
         List<UUID> userIds = users.stream().map(User::getId).toList();
 
         Map<UUID, List<OauthProvider>> linkedProviders = loadLinkedProviders(users);
-        Map<UUID, StudentInfo> studentInfoMap = loadStudentInfoMap(userIds);
-        Map<UUID, TeacherInfo> teacherInfoMap = loadTeacherInfoMap(userIds);
+        Map<UUID, StudentInfoVO> studentInfoMap = loadStudentInfoMap(userIds);
+        Map<UUID, TeacherInfoVO> teacherInfoMap = loadTeacherInfoMap(userIds);
         Map<UUID, String> avatarUrls = loadAvatarUrls(users);
 
-        List<UserProfile> records = users.stream()
+        List<UserProfileVO> records = users.stream()
                 .map(user -> toUserProfile(user,
                         linkedProviders.getOrDefault(user.getId(), List.of()),
                         studentInfoMap.get(user.getId()),
@@ -145,7 +132,7 @@ public class UserManagementService {
             return List.of();
         }
 
-        List<User> users = userMapper.selectBatchIds(ids);
+        List<User> users = userAccountRepository.findUsersByIds(ids);
         Map<UUID, String> avatarUrls = loadAvatarUrls(users);
 
         return users.stream()
@@ -156,7 +143,7 @@ public class UserManagementService {
                 .toList();
     }
 
-    public UserProfile getUser(UUID id) {
+    public UserProfileVO getUser(UUID id) {
         if (id == null) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST);
         }
@@ -169,7 +156,7 @@ public class UserManagementService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public UserProfile updateCurrentUser(UUID id, UpdateUserRequest request) {
+    public UserProfileVO updateCurrentUser(UUID id, UpdateUserRequest request) {
         if (id == null || request == null) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST);
         }
@@ -186,7 +173,7 @@ public class UserManagementService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public UserProfile updateUser(UUID id, UpdateUserRequest request) {
+    public UserProfileVO updateUser(UUID id, UpdateUserRequest request) {
         if (id == null || request == null) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST);
         }
@@ -248,7 +235,7 @@ public class UserManagementService {
             return Map.of();
         }
 
-        List<UserIdentity> identities = userIdentityMapper.selectList(new LambdaQueryWrapper<UserIdentity>()
+        List<UserIdentity> identities = userAccountRepository.findIdentities(new LambdaQueryWrapper<UserIdentity>()
                 .select(UserIdentity::getUserId, UserIdentity::getProvider)
                 .in(UserIdentity::getUserId, userIds));
 
@@ -343,17 +330,17 @@ public class UserManagementService {
         }
     }
 
-    private UserProfile toUserProfile(User user, List<OauthProvider> linkedProviders,
-                                       StudentInfo studentInfo, TeacherInfo teacherInfo) {
+    private UserProfileVO toUserProfile(User user, List<OauthProvider> linkedProviders,
+                                       StudentInfoVO studentInfo, TeacherInfoVO teacherInfo) {
         return toUserProfile(user, linkedProviders, studentInfo, teacherInfo, resolveAvatarUrl(user));
     }
 
-    private UserProfile toUserProfile(User user, List<OauthProvider> linkedProviders,
-                                       StudentInfo studentInfo, TeacherInfo teacherInfo, String avatarUrl) {
-        return new UserProfile(
+    private UserProfileVO toUserProfile(User user, List<OauthProvider> linkedProviders,
+                                       StudentInfoVO studentInfo, TeacherInfoVO teacherInfo, String avatarUrl) {
+        return new UserProfileVO(
                 user.getId(),
                 user.getEmail(),
-                user.isEmailVerified(),
+                user.getEmailVerified(),
                 user.getDisplayName(),
                 avatarUrl,
                 user.getAvatarFileId(),
@@ -395,7 +382,7 @@ public class UserManagementService {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Storage service is unavailable");
         }
         ApiResponse<StorageObjectInfo> response = storageInternalClient.getFile(fileId);
-        if (response == null || response.code() != 0 || response.data() == null) {
+        if (response == null || response.code() != ErrorCodes.SUCCESS.code() || response.data() == null) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid storage file");
         }
         return response.data();
@@ -429,7 +416,7 @@ public class UserManagementService {
         }
         try {
             ApiResponse<Map<UUID, String>> response = storageInternalClient.getUrls(fileIds);
-            if (response != null && response.code() == 0 && response.data() != null) {
+            if (response != null && response.code() == ErrorCodes.SUCCESS.code() && response.data() != null) {
                 return response.data();
             }
         } catch (Exception ignored) {
@@ -438,9 +425,9 @@ public class UserManagementService {
         return Map.of();
     }
 
-    private StudentInfo loadStudentInfo(UUID userId) {
+    private StudentInfoVO loadStudentInfo(UUID userId) {
         return studentRepository.findByUserId(userId)
-                .map(student -> new StudentInfo(
+                .map(student -> new StudentInfoVO(
                         student.getId(),
                         student.getStudentNo(),
                         student.getGrade(),
@@ -450,9 +437,9 @@ public class UserManagementService {
                 .orElse(null);
     }
 
-    private TeacherInfo loadTeacherInfo(UUID userId) {
+    private TeacherInfoVO loadTeacherInfo(UUID userId) {
         return teacherRepository.findByUserId(userId)
-                .map(teacher -> new TeacherInfo(
+                .map(teacher -> new TeacherInfoVO(
                         teacher.getId(),
                         teacher.getEmployeeNo(),
                         teacher.getDepartment(),
@@ -462,22 +449,22 @@ public class UserManagementService {
                 .orElse(null);
     }
 
-    private Map<UUID, StudentInfo> loadStudentInfoMap(List<UUID> userIds) {
+    private Map<UUID, StudentInfoVO> loadStudentInfoMap(List<UUID> userIds) {
         if (userIds.isEmpty()) {
             return Map.of();
         }
         return studentRepository.findByUserIds(userIds).stream()
                 .collect(Collectors.toMap(Student::getUserId, s ->
-                        new StudentInfo(s.getId(), s.getStudentNo(), s.getGrade(), s.getMajor(), s.getSchool())));
+                        new StudentInfoVO(s.getId(), s.getStudentNo(), s.getGrade(), s.getMajor(), s.getSchool())));
     }
 
-    private Map<UUID, TeacherInfo> loadTeacherInfoMap(List<UUID> userIds) {
+    private Map<UUID, TeacherInfoVO> loadTeacherInfoMap(List<UUID> userIds) {
         if (userIds.isEmpty()) {
             return Map.of();
         }
         return teacherRepository.findByUserIds(userIds).stream()
                 .collect(Collectors.toMap(Teacher::getUserId, t ->
-                        new TeacherInfo(t.getId(), t.getEmployeeNo(), t.getDepartment(), t.getTitle(), t.getSchool())));
+                        new TeacherInfoVO(t.getId(), t.getEmployeeNo(), t.getDepartment(), t.getTitle(), t.getSchool())));
     }
 
     private String normalize(String value) {

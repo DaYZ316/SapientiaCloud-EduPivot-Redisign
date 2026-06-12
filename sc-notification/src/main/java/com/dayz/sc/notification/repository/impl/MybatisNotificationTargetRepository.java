@@ -27,24 +27,26 @@ public class MybatisNotificationTargetRepository implements NotificationTargetRe
 
     @Override
     public void saveAll(List<UUID> notificationIds, UUID userId) {
-        for (UUID notificationId : notificationIds) {
+        List<NotificationTarget> targets = notificationIds.stream().map(notificationId -> {
             NotificationTarget target = new NotificationTarget();
             target.setId(UuidV7Generator.generate());
             target.setNotificationId(notificationId);
             target.setUserId(userId);
-            targetMapper.insert(target);
-        }
+            return target;
+        }).toList();
+        targetMapper.batchInsert(targets);
     }
 
     @Override
     public void saveAllUsers(UUID notificationId, List<UUID> userIds) {
-        for (UUID userId : userIds) {
+        List<NotificationTarget> targets = userIds.stream().map(userId -> {
             NotificationTarget target = new NotificationTarget();
             target.setId(UuidV7Generator.generate());
             target.setNotificationId(notificationId);
             target.setUserId(userId);
-            targetMapper.insert(target);
-        }
+            return target;
+        }).toList();
+        targetMapper.batchInsert(targets);
     }
 
     @Override

@@ -1,5 +1,7 @@
 package com.dayz.sc.notification.model.vo;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -10,15 +12,15 @@ import java.util.UUID;
  * @since 2026-06-09
  */
 public record NotificationVO(
-        UUID id,
-        Integer type,
-        String title,
-        String content,
-        UUID senderId,
-        Integer targetType,
-        Instant createdAt,
-        Instant updatedAt,
-        Boolean isRead,
-        Instant readAt
+        @JsonProperty("id") UUID id,
+        @JsonProperty("type") Integer type,
+        @JsonProperty("title") String title,
+        @JsonProperty("content") String content,
+        @JsonProperty("senderId") UUID senderId,
+        @JsonProperty("targetType") Integer targetType,
+        @JsonProperty("createdAt") Instant createdAt,
+        @JsonProperty("updatedAt") Instant updatedAt,
+        @JsonProperty("isRead") Boolean isRead,
+        @JsonProperty("readAt") Instant readAt
 ) {
 }

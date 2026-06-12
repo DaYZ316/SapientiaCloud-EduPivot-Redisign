@@ -1,5 +1,6 @@
 package com.dayz.sc.course.model.vo;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.jspecify.annotations.Nullable;
 
 import java.math.BigDecimal;
@@ -8,23 +9,23 @@ import java.util.List;
 import java.util.UUID;
 
 public record QuestionVO(
-        UUID id,
-        UUID questionBankId,
-        UUID courseId,
-        UUID sysUserId,
-        String questionTitle,
-        @Nullable String questionContent,
-        int questionType,
-        int difficulty,
-        BigDecimal score,
-        @Nullable Integer estimatedTime,
-        @Nullable List<String> tags,
-        @Nullable List<String> imageUrls,
-        int allowPartialCredit,
-        long viewCount,
-        int status,
-        @Nullable List<QuestionOptionVO> options,
-        @Nullable List<QuestionAnswerVO> answers,
-        Instant createdAt,
-        Instant updatedAt
+        @JsonProperty("id") UUID id,
+        @JsonProperty("questionBankId") UUID questionBankId,
+        @JsonProperty("courseId") UUID courseId,
+        @JsonProperty("sysUserId") UUID sysUserId,
+        @JsonProperty("questionTitle") String questionTitle,
+        @JsonProperty("questionContent") @Nullable String questionContent,
+        @JsonProperty("questionType") int questionType,
+        @JsonProperty("difficulty") int difficulty,
+        @JsonProperty("score") BigDecimal score,
+        @JsonProperty("estimatedTime") @Nullable Integer estimatedTime,
+        @JsonProperty("tags") @Nullable List<String> tags,
+        @JsonProperty("imageUrls") @Nullable List<String> imageUrls,
+        @JsonProperty("allowPartialCredit") int allowPartialCredit,
+        @JsonProperty("viewCount") long viewCount,
+        @JsonProperty("status") int status,
+        @JsonProperty("options") @Nullable List<QuestionOptionVO> options,
+        @JsonProperty("answers") @Nullable List<QuestionAnswerVO> answers,
+        @JsonProperty("createdAt") Instant createdAt,
+        @JsonProperty("updatedAt") Instant updatedAt
 ) {}

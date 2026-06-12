@@ -2,6 +2,7 @@ package com.dayz.sc.course.service;
 
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.common.util.PageUtils;
@@ -27,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -110,26 +112,26 @@ public class QuestionBankService {
         int page = PageUtils.normalizePage(request.page());
         int size = PageUtils.normalizeSize(request.size());
 
-        List<QuestionBank> banks = questionBankRepository.findAll(page, size,
+        Page<QuestionBank> result = questionBankRepository.findAll(page, size,
                 request.courseId(), request.bankType(), request.keyword());
-        long total = questionBankRepository.countAll(request.courseId(), request.bankType(), request.keyword());
 
-        List<QuestionBankVO> voList = banks.stream()
-                .map(bank -> {
-                    long count = questionRepository.countByQuestionBankId(bank.getId());
-                    return toQuestionBankVO(bank, count);
-                })
+        List<UUID> bankIds = result.getRecords().stream().map(QuestionBank::getId).toList();
+        Map<UUID, Long> countMap = questionRepository.countByQuestionBankIds(bankIds);
+
+        List<QuestionBankVO> voList = result.getRecords().stream()
+                .map(bank -> toQuestionBankVO(bank, countMap.getOrDefault(bank.getId(), 0L)))
                 .toList();
 
-        return new PageResponse<>(voList, total, page, size);
+        return new PageResponse<>(voList, result.getTotal(), page, size);
     }
 
     public List<QuestionBankVO> listQuestionBanksByCourse(UUID courseId) {
-        return questionBankRepository.findByCourseId(courseId).stream()
-                .map(bank -> {
-                    long count = questionRepository.countByQuestionBankId(bank.getId());
-                    return toQuestionBankVO(bank, count);
-                })
+        List<QuestionBank> banks = questionBankRepository.findByCourseId(courseId);
+        List<UUID> bankIds = banks.stream().map(QuestionBank::getId).toList();
+        Map<UUID, Long> countMap = questionRepository.countByQuestionBankIds(bankIds);
+
+        return banks.stream()
+                .map(bank -> toQuestionBankVO(bank, countMap.getOrDefault(bank.getId(), 0L)))
                 .toList();
     }
 
@@ -321,17 +323,15 @@ public class QuestionBankService {
         int page = PageUtils.normalizePage(request.page());
         int size = PageUtils.normalizeSize(request.size());
 
-        List<Question> questions = questionRepository.findAll(page, size,
+        Page<Question> result = questionRepository.findAll(page, size,
                 request.questionBankId(), request.courseId(),
                 request.questionType(), request.difficulty(), request.status(), request.keyword());
-        long total = questionRepository.countAll(request.questionBankId(), request.courseId(),
-                request.questionType(), request.difficulty(), request.status(), request.keyword());
 
-        List<QuestionVO> voList = questions.stream()
+        List<QuestionVO> voList = result.getRecords().stream()
                 .map(q -> toQuestionVO(q, null, null))
                 .toList();
 
-        return new PageResponse<>(voList, total, page, size);
+        return new PageResponse<>(voList, result.getTotal(), page, size);
     }
 
     @Transactional(rollbackFor = Exception.class)

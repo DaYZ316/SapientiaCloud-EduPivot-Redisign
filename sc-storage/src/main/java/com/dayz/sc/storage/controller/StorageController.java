@@ -1,6 +1,7 @@
 package com.dayz.sc.storage.controller;
 
 import com.dayz.sc.common.response.ApiResponse;
+import com.dayz.sc.common.security.ratelimit.RateLimited;
 import com.dayz.sc.common.security.support.JwtPrincipalResolver;
 import com.dayz.sc.storage.model.dto.CreateUploadRequest;
 import com.dayz.sc.storage.model.vo.DownloadUrlResponse;
@@ -26,6 +27,7 @@ public class StorageController {
     private final StorageService storageService;
 
     @PostMapping("/uploads")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<UploadTicket> createUpload(@Valid @RequestBody CreateUploadRequest request,
                                                   @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -34,6 +36,7 @@ public class StorageController {
     }
 
     @PostMapping("/uploads/{objectId}/complete")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<FileAsset> completeUpload(@PathVariable UUID objectId,
                                                 @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -58,6 +61,7 @@ public class StorageController {
     }
 
     @DeleteMapping("/files/{fileId}")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> deleteFile(@PathVariable UUID fileId,
                                         @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);

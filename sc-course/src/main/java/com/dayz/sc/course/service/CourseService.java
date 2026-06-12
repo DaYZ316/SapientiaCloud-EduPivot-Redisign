@@ -1,5 +1,6 @@
 package com.dayz.sc.course.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.response.ApiResponse;
@@ -14,8 +15,11 @@ import com.dayz.sc.course.model.dto.CreateCourseRequest;
 import com.dayz.sc.course.model.dto.CoursePageRequest;
 import com.dayz.sc.course.model.dto.UpdateCourseRequest;
 import com.dayz.sc.course.model.entity.Course;
+import com.dayz.sc.course.model.entity.Enrollment;
 import com.dayz.sc.course.model.enums.CourseLevel;
 import com.dayz.sc.course.model.enums.CourseStatus;
+import com.dayz.sc.course.model.enums.EnrollmentStatus;
+import com.dayz.sc.course.model.vo.CourseDetailVO;
 import com.dayz.sc.course.model.vo.CourseVO;
 import com.dayz.sc.common.feign.dto.StorageObjectInfo;
 import com.dayz.sc.course.event.CourseEventPublisher;
@@ -129,12 +133,29 @@ public class CourseService {
             course.setCourseType(request.courseType());
         }
         course.setIsPublic(request.isPublic());
+        Integer previousStatus = course.getStatus();
         if (request.status() != null) {
+            // 只有主讲教师或管理员才能变更课程状态
+            if (!course.getTeacherId().equals(userId) && !SecurityUtils.isAdmin(role)) {
+                throw new BusinessException(ErrorCodes.FORBIDDEN, "只有主讲教师才能变更课程状态");
+            }
             CourseStatus.fromCode(request.status());
             course.setStatus(request.status());
         }
 
+        // 只有主讲教师或管理员才能管理助教
+        if (request.assistantIds() != null && !course.getTeacherId().equals(userId) && !SecurityUtils.isAdmin(role)) {
+            throw new BusinessException(ErrorCodes.FORBIDDEN, "只有主讲教师才能管理助教");
+        }
+
         courseRepository.update(course);
+
+        // 发布课程状态变更事件
+        if (request.status() != null && !Objects.equals(previousStatus, request.status())) {
+            String action = CourseStatus.PUBLISHED.getCode() == request.status() ? "PUBLISHED" : "ARCHIVED";
+            courseEventPublisher.publishCourseStatusChanged(
+                    course.getId(), course.getTitle(), course.getTeacherId(), action);
+        }
 
         // 同步助教关联
         if (request.assistantIds() != null || !Objects.equals(previousTeacherId, effectiveTeacherId)) {
@@ -156,9 +177,9 @@ public class CourseService {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
 
-        boolean isTeacher = courseTeacherRepository.existsByCourseIdAndTeacherId(courseId, userId);
-        if (!isTeacher && !SecurityUtils.isAdmin(role)) {
-            throw new BusinessException(ErrorCodes.FORBIDDEN);
+        // 只有主讲教师或管理员才能删除课程
+        if (!course.getTeacherId().equals(userId) && !SecurityUtils.isAdmin(role)) {
+            throw new BusinessException(ErrorCodes.FORBIDDEN, "只有主讲教师才能删除课程");
         }
 
         courseRepository.deleteById(courseId);
@@ -181,6 +202,56 @@ public class CourseService {
         return toCourseVO(course, currentStudents, teacherIds, loadCoverUrls(List.of(course)), teacherInfoMap);
     }
 
+    public CourseDetailVO getCourseDetail(UUID courseId, UUID userId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+
+        long currentStudents = enrollmentRepository.countActiveByCourseId(courseId);
+        List<UUID> teacherIds = courseTeacherRepository.findTeacherIdsByCourseId(courseId);
+        Map<UUID, UserBasicInfo> teacherInfoMap = loadTeacherInfoMap(List.of(course.getTeacherId()));
+        Map<UUID, String> coverUrls = loadCoverUrls(List.of(course));
+
+        // 判断当前用户是否已选课
+        boolean enrolled = false;
+        if (userId != null) {
+            enrolled = enrollmentRepository.findByCourseIdAndStudentId(courseId, userId)
+                    .map(e -> e.getStatus() == EnrollmentStatus.ACTIVE.getCode()
+                            || e.getStatus() == EnrollmentStatus.COMPLETED.getCode())
+                    .orElse(false);
+        }
+
+        String coverUrl = course.getCoverFileId() != null
+                ? coverUrls.getOrDefault(course.getCoverFileId(), course.getCoverUrl())
+                : course.getCoverUrl();
+
+        UserBasicInfo teacherInfo = teacherInfoMap.get(course.getTeacherId());
+        String teacherName = teacherInfo != null ? teacherInfo.displayName() : null;
+        String teacherAvatar = teacherInfo != null ? teacherInfo.avatarUrl() : null;
+
+        return new CourseDetailVO(
+                course.getId(),
+                course.getTitle(),
+                course.getDescription(),
+                course.getTeacherId(),
+                teacherName,
+                teacherAvatar,
+                course.getLevel(),
+                coverUrl,
+                course.getCoverFileId(),
+                teacherIds,
+                course.getSemester(),
+                course.getLocation(),
+                course.getCourseType(),
+                course.getIsPublic(),
+                course.getMaxStudents(),
+                (int) currentStudents,
+                course.getStatus(),
+                enrolled,
+                course.getCreatedAt(),
+                course.getUpdatedAt()
+        );
+    }
+
     public PageResponse<CourseVO> listCourses(CoursePageRequest request) {
         CoursePageRequest pageRequest = request != null
                 ? request
@@ -188,7 +259,7 @@ public class CourseService {
         int page = PageUtils.normalizePage(pageRequest.page());
         int size = PageUtils.normalizeSize(pageRequest.size());
 
-        List<Course> courses = courseRepository.findAll(
+        Page<Course> result = courseRepository.findAll(
                 page, size,
                 pageRequest.keyword(),
                 pageRequest.level(),
@@ -200,24 +271,34 @@ public class CourseService {
                 pageRequest.updatedAtEnd()
         );
 
-        long total = courseRepository.countAll(
-                pageRequest.keyword(),
-                pageRequest.level(),
-                pageRequest.status(),
-                pageRequest.isPublic(),
-                pageRequest.createdAtStart(),
-                pageRequest.createdAtEnd(),
-                pageRequest.updatedAtStart(),
-                pageRequest.updatedAtEnd()
-        );
+        List<Course> courses = result.getRecords();
+        if (courses.isEmpty()) {
+            return PageResponse.empty(page, size);
+        }
 
+        return enrichCourses(courses, result.getTotal(), page, size);
+    }
+
+    public PageResponse<CourseVO> listTeacherCourses(UUID teacherId, String role, int page, int size) {
+        int currentPage = PageUtils.normalizePage(page);
+        int pageSize = PageUtils.normalizeSize(size);
+
+        Page<Course> result = courseRepository.findTeacherCourses(teacherId, role, currentPage, pageSize);
+        List<Course> courses = result.getRecords();
+        if (courses.isEmpty()) {
+            return PageResponse.empty(currentPage, pageSize);
+        }
+
+        return enrichCourses(courses, result.getTotal(), currentPage, pageSize);
+    }
+
+    private PageResponse<CourseVO> enrichCourses(List<Course> courses, long total, int page, int size) {
         Map<UUID, Long> activeCounts = enrollmentRepository.countActiveByCourseIds(
                 courses.stream().map(Course::getId).toList());
         Map<UUID, String> coverUrls = loadCoverUrls(courses);
         Map<UUID, List<UUID>> teacherIdsMap = courseTeacherRepository.findTeacherIdsByCourseIds(
                 courses.stream().map(Course::getId).toList());
 
-        // 获取主讲教师信息
         List<UUID> teacherIds = courses.stream()
                 .map(Course::getTeacherId)
                 .distinct()
@@ -233,43 +314,6 @@ public class CourseService {
                 .toList();
 
         return new PageResponse<>(voList, total, page, size);
-    }
-
-    public PageResponse<CourseVO> listTeacherCourses(UUID teacherId, String role, int page, int size) {
-        int currentPage = PageUtils.normalizePage(page);
-        int pageSize = PageUtils.normalizeSize(size);
-
-        // 从关联表查找该教师（主讲或助教）的所有课程ID
-        long total = courseRepository.countTeacherCourses(teacherId, role);
-        if (total == 0) {
-            return new PageResponse<>(List.of(), 0, currentPage, pageSize);
-        }
-
-        // SQL 层面排序 + 分页
-        List<Course> courses = courseRepository.findTeacherCourses(teacherId, role, currentPage, pageSize);
-
-        Map<UUID, Long> activeCounts = enrollmentRepository.countActiveByCourseIds(
-                courses.stream().map(Course::getId).toList());
-        Map<UUID, String> coverUrls = loadCoverUrls(courses);
-        Map<UUID, List<UUID>> teacherIdsMap = courseTeacherRepository.findTeacherIdsByCourseIds(
-                courses.stream().map(Course::getId).toList());
-
-        // 获取主讲教师信息
-        List<UUID> teacherIds = courses.stream()
-                .map(Course::getTeacherId)
-                .distinct()
-                .toList();
-        Map<UUID, UserBasicInfo> teacherInfoMap = loadTeacherInfoMap(teacherIds);
-
-        List<CourseVO> voList = courses.stream()
-                .map(course -> toCourseVO(course,
-                        activeCounts.getOrDefault(course.getId(), 0L),
-                        teacherIdsMap.getOrDefault(course.getId(), List.of()),
-                        coverUrls,
-                        teacherInfoMap))
-                .toList();
-
-        return new PageResponse<>(voList, total, currentPage, pageSize);
     }
 
     private void saveTeacherAssociations(UUID courseId, UUID mainTeacherId, List<UUID> assistantIds) {
@@ -355,7 +399,7 @@ public class CourseService {
 
     private StorageObjectInfo internalFile(UUID fileId) {
         ApiResponse<StorageObjectInfo> response = storageInternalClient.getFile(fileId);
-        if (response == null || response.code() != 0 || response.data() == null) {
+        if (response == null || response.code() != ErrorCodes.SUCCESS.code() || response.data() == null) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid storage file");
         }
         return response.data();

@@ -180,6 +180,7 @@ async function loadCourse() {
     course.value = await getCourse(courseId.value)
   } catch (error) {
     console.error('Failed to load course:', error)
+    notify.error('Failed to load course')
     course.value = null
   } finally {
     loading.value = false

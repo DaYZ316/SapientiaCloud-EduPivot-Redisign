@@ -61,16 +61,31 @@ export const router = createRouter({
                     path: 'my-enrollments',
                     name: 'my-enrollments',
                     component: () => import('@/features/course/views/MyEnrollmentsView.vue'),
+                    meta: {requiredRole: 1},
                 },
                 {
                     path: 'teacher/courses',
                     name: 'teacher-courses',
                     component: () => import('@/features/course/views/CourseManagementView.vue'),
+                    meta: {requiredRole: 2},
+                },
+                {
+                    path: 'invitations',
+                    name: 'invitations',
+                    component: () => import('@/features/course/views/InvitationsView.vue'),
+                    meta: {requiredRole: 2},
+                },
+                {
+                    path: 'enrollment-management',
+                    name: 'enrollment-management',
+                    component: () => import('@/features/course/views/EnrollmentManagementView.vue'),
+                    meta: {requiredRole: 2},
                 },
                 {
                     path: 'course-management',
                     name: 'course-management',
                     component: () => import('@/features/course/views/CourseManagementView.vue'),
+                    meta: {requiredRole: 2},
                 },
                 {
                     path: 'community',
@@ -91,16 +106,19 @@ export const router = createRouter({
                     path: 'admin/users',
                     name: 'admin-users',
                     component: () => import('@/features/admin/views/UserManagementView.vue'),
+                    meta: {requiredRole: 0},
                 },
                 {
                     path: 'admin/students',
                     name: 'admin-students',
                     component: () => import('@/features/admin/views/StudentListView.vue'),
+                    meta: {requiredRole: 0},
                 },
                 {
                     path: 'admin/teachers',
                     name: 'admin-teachers',
                     component: () => import('@/features/admin/views/TeacherListView.vue'),
+                    meta: {requiredRole: 0},
                 },
             ],
         },
@@ -137,6 +155,15 @@ router.beforeEach((to) => {
     if (to.meta.guestOnly && authStore.isAuthenticated) {
         return {
             name: 'dashboard',
+        }
+    }
+
+    // 角色守卫：requiredRole 为 0 时仅管理员可访问；其它值要求角色匹配；admin(0) 始终放行
+    const requiredRole = to.meta.requiredRole as number | undefined
+    if (requiredRole !== undefined && authStore.user) {
+        const userRole = authStore.user.role
+        if (userRole !== 0 && userRole !== requiredRole) {
+            return {name: 'dashboard'}
         }
     }
 

@@ -1,5 +1,6 @@
 package com.dayz.sc.common.events.user;
 
+import java.time.Instant;
 import java.util.UUID;
 
 public record UserRegisteredEvent(
@@ -7,5 +8,8 @@ public record UserRegisteredEvent(
         UUID userId,
         String email,
         String displayName,
-        Integer role
+        Integer role,
+        String eventType,
+        Instant timestamp,
+        String source
 ) {}

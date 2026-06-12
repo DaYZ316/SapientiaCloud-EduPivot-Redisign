@@ -45,7 +45,7 @@ public class StorageAuthorizationService {
         if (visibility == StorageVisibility.COURSE_PRIVATE && canReadPrivateCourse(object.getScopeId())) {
             return;
         }
-        throw new BusinessException(ErrorCodes.FORBIDDEN);
+        throw new BusinessException(ErrorCodes.STORAGE_UNAUTHORIZED);
     }
 
     public void authorizeDelete(StorageObject object, UUID userId, Integer role) {
@@ -63,7 +63,7 @@ public class StorageAuthorizationService {
                 && canManageCourse(object.getScopeId())) {
             return;
         }
-        throw new BusinessException(ErrorCodes.FORBIDDEN);
+        throw new BusinessException(ErrorCodes.STORAGE_UNAUTHORIZED);
     }
 
     private void authorizeUserAvatar(CreateUploadRequest request, UUID userId, Integer role) {
@@ -110,7 +110,7 @@ public class StorageAuthorizationService {
             return null;
         }
         ApiResponse<CourseAccess> response = courseAccessClient.getAccess(courseId);
-        if (response == null || response.data() == null || response.code() != 0) {
+        if (response == null || response.data() == null || response.code() != ErrorCodes.SUCCESS.code()) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
         return response.data();

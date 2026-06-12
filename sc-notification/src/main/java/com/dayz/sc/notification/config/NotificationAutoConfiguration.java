@@ -2,7 +2,7 @@ package com.dayz.sc.notification.config;
 
 import com.baomidou.mybatisplus.autoconfigure.ConfigurationCustomizer;
 import com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration;
-import com.dayz.sc.notification.persistence.type.UuidTypeHandler;
+import com.dayz.sc.common.persistence.type.UuidTypeHandler;
 import org.apache.ibatis.type.JdbcType;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;

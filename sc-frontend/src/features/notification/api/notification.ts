@@ -7,10 +7,8 @@
 
 import {fetchEventSource} from '@microsoft/fetch-event-source'
 
-import {refreshSession, request} from '@/shared/api/request'
+import {ACCESS_TOKEN_KEY, refreshSession, request} from '@/shared/api/request'
 import type {PageResponse} from '@/shared/types/common'
-
-const ACCESS_TOKEN_KEY = 'aeroverse.accessToken'
 
 export interface Notification {
     id: string
@@ -20,6 +18,7 @@ export interface Notification {
     senderId: string | null
     targetType: number
     createdAt: string
+    updatedAt?: string | null
     isRead: boolean
     readAt: string | null
 }
@@ -83,8 +82,12 @@ export function markAsRead(id: string) {
  * 标记所有通知为已读。
  */
 export function markAllAsRead(type?: number) {
-    const params = type !== undefined ? `?type=${type}` : ''
-    return request<void>({method: 'PUT', url: `/api/notifications/read-all${params}`})
+    const params = new URLSearchParams()
+    if (type !== undefined) {
+        params.append('type', type.toString())
+    }
+    const qs = params.toString()
+    return request<void>({method: 'PUT', url: `/api/notifications/read-all${qs ? `?${qs}` : ''}`})
 }
 
 /**
@@ -156,7 +159,6 @@ async function connectNotificationStream(
                 async onopen(response) {
                     if (response.ok) {
                         retriedAfterRefresh = false
-                        console.log('SSE connected')
                         return
                     }
 

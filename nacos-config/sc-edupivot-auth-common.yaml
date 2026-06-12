@@ -5,6 +5,7 @@ spring:
   flyway:
     table: flyway_schema_history_auth
     baseline-on-migrate: true
+    out-of-order: true
   threads:
     virtual:
       enabled: true

@@ -1,5 +1,6 @@
 package com.dayz.sc.course.repository;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.model.entity.Enrollment;
 
 import java.util.List;
@@ -17,13 +18,9 @@ public interface EnrollmentRepository {
 
     void update(Enrollment enrollment);
 
-    List<Enrollment> findByStudentId(UUID studentId, int page, int size);
+    Page<Enrollment> findByStudentId(UUID studentId, int page, int size);
 
-    List<Enrollment> findByCourseId(UUID courseId, int page, int size);
-
-    long countByStudentId(UUID studentId);
-
-    long countByCourseId(UUID courseId);
+    Page<Enrollment> findByCourseId(UUID courseId, int page, int size);
 
     long countActiveByCourseId(UUID courseId);
 

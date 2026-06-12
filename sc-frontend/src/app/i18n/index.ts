@@ -5,6 +5,8 @@ import enLogin from '@/features/auth/i18n/en-US'
 import enCommunity from '@/features/community/i18n/en-US'
 import enCourseDetail from '@/features/course/i18n/en-US/courseDetail'
 import enCourses from '@/features/course/i18n/en-US/courses'
+import enInvitations from '@/features/course/i18n/en-US/invitations'
+import enEnrollmentManagement from '@/features/course/i18n/en-US/enrollmentManagement'
 import enMyEnrollments from '@/features/course/i18n/en-US/myEnrollments'
 import enSuccess from '@/features/dashboard/i18n/en-US'
 import enNotifications from '@/features/notification/i18n/en-US'
@@ -16,6 +18,8 @@ import zhLogin from '@/features/auth/i18n/zh-CN'
 import zhCommunity from '@/features/community/i18n/zh-CN'
 import zhCourseDetail from '@/features/course/i18n/zh-CN/courseDetail'
 import zhCourses from '@/features/course/i18n/zh-CN/courses'
+import zhInvitations from '@/features/course/i18n/zh-CN/invitations'
+import zhEnrollmentManagement from '@/features/course/i18n/zh-CN/enrollmentManagement'
 import zhMyEnrollments from '@/features/course/i18n/zh-CN/myEnrollments'
 import zhSuccess from '@/features/dashboard/i18n/zh-CN'
 import zhNotifications from '@/features/notification/i18n/zh-CN'
@@ -23,7 +27,7 @@ import zhSettings from '@/features/settings/i18n/zh-CN'
 import zhProfile from '@/features/user/i18n/zh-CN'
 import zhCommon from '@/shared/i18n/zh-CN'
 
-const LOCALE_STORAGE_KEY = 'aeroverse.locale'
+const LOCALE_STORAGE_KEY = 'edupivot.locale'
 
 export const supportedLocales = ['zh-CN', 'en-US'] as const
 
@@ -36,6 +40,8 @@ const messages = {
         success: zhSuccess,
         courses: zhCourses,
         courseDetail: zhCourseDetail,
+        invitations: zhInvitations,
+        enrollmentManagement: zhEnrollmentManagement,
         notifications: zhNotifications,
         myEnrollments: zhMyEnrollments,
         profile: zhProfile,
@@ -49,6 +55,8 @@ const messages = {
         success: enSuccess,
         courses: enCourses,
         courseDetail: enCourseDetail,
+        invitations: enInvitations,
+        enrollmentManagement: enEnrollmentManagement,
         notifications: enNotifications,
         myEnrollments: enMyEnrollments,
         profile: enProfile,

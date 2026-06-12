@@ -1,5 +1,6 @@
 package com.dayz.sc.common.feign.client;
 
+import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.feign.dto.UserBasicInfo;
 import com.dayz.sc.common.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +26,7 @@ public class AuthInternalClientFallback implements FallbackFactory<AuthInternalC
         return new AuthInternalClient() {
             @Override
             public ApiResponse<List<UserBasicInfo>> getUsersBasicInfo(List<UUID> ids) {
-                return ApiResponse.ok(List.of());
+                return ApiResponse.failOf(ErrorCodes.SERVICE_UNAVAILABLE);
             }
         };
     }

@@ -10,10 +10,10 @@ import com.dayz.sc.auth.model.dto.GitHubLoginRequest;
 import com.dayz.sc.auth.model.dto.OauthUserInfo;
 import com.dayz.sc.auth.model.entity.User;
 import com.dayz.sc.auth.model.enums.OauthProvider;
-import com.dayz.sc.auth.model.vo.LoginResponse;
-import com.dayz.sc.auth.model.vo.StudentInfo;
-import com.dayz.sc.auth.model.vo.TeacherInfo;
-import com.dayz.sc.auth.model.vo.UserProfile;
+import com.dayz.sc.auth.model.vo.LoginResponseVO;
+import com.dayz.sc.auth.model.vo.StudentInfoVO;
+import com.dayz.sc.auth.model.vo.TeacherInfoVO;
+import com.dayz.sc.auth.model.vo.UserProfileVO;
 import com.dayz.sc.auth.repository.StudentRepository;
 import com.dayz.sc.auth.repository.TeacherRepository;
 import com.dayz.sc.common.error.BusinessException;
@@ -52,7 +52,7 @@ public class GitHubLoginService {
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
 
-    public LoginResponse login(GitHubLoginRequest request, String clientIp) {
+    public LoginResponseVO login(GitHubLoginRequest request, String clientIp) {
         assertGitHubConfigured();
         String redirectUri = resolveRedirectUri(request);
 
@@ -89,12 +89,12 @@ public class GitHubLoginService {
         GitHubEmailResponse email = resolvePrimaryEmail(authorization, userInfo);
         UserAccountService.AuthenticatedUser authenticatedUser = userAccountService.loginWithOauth(toOauthUserInfo(userInfo, email), clientIp);
         User user = authenticatedUser.user();
-        UserProfile profile = toUserProfile(authenticatedUser);
+        UserProfileVO profile = toUserProfile(authenticatedUser);
 
         String accessToken = jwtTokenService.createAccessToken(user.getId().toString(), buildClaims(user));
         String refreshToken = refreshTokenService.createRefreshToken(user.getId().toString(), user.getRole());
 
-        return new LoginResponse(accessToken, refreshToken, TOKEN_TYPE, jwtTokenService.getAccessTokenTtlSeconds(), profile);
+        return new LoginResponseVO(accessToken, refreshToken, TOKEN_TYPE, jwtTokenService.getAccessTokenTtlSeconds(), profile);
     }
 
     private GitHubEmailResponse resolvePrimaryEmail(String authorization, GitHubUserResponse userInfo) {
@@ -144,15 +144,15 @@ public class GitHubLoginService {
         );
     }
 
-    private UserProfile toUserProfile(UserAccountService.AuthenticatedUser authenticatedUser) {
+    private UserProfileVO toUserProfile(UserAccountService.AuthenticatedUser authenticatedUser) {
         User user = authenticatedUser.user();
-        StudentInfo studentInfo = loadStudentInfo(user.getId());
-        TeacherInfo teacherInfo = loadTeacherInfo(user.getId());
+        StudentInfoVO studentInfo = loadStudentInfo(user.getId());
+        TeacherInfoVO teacherInfo = loadTeacherInfo(user.getId());
 
-        return new UserProfile(
+        return new UserProfileVO(
                 user.getId(),
                 user.getEmail(),
-                user.isEmailVerified(),
+                user.getEmailVerified(),
                 user.getDisplayName(),
                 user.getAvatarUrl(),
                 user.getAvatarFileId(),
@@ -179,9 +179,9 @@ public class GitHubLoginService {
         );
     }
 
-    private StudentInfo loadStudentInfo(UUID userId) {
+    private StudentInfoVO loadStudentInfo(UUID userId) {
         return studentRepository.findByUserId(userId)
-                .map(student -> new StudentInfo(
+                .map(student -> new StudentInfoVO(
                         student.getId(),
                         student.getStudentNo(),
                         student.getGrade(),
@@ -191,9 +191,9 @@ public class GitHubLoginService {
                 .orElse(null);
     }
 
-    private TeacherInfo loadTeacherInfo(UUID userId) {
+    private TeacherInfoVO loadTeacherInfo(UUID userId) {
         return teacherRepository.findByUserId(userId)
-                .map(teacher -> new TeacherInfo(
+                .map(teacher -> new TeacherInfoVO(
                         teacher.getId(),
                         teacher.getEmployeeNo(),
                         teacher.getDepartment(),

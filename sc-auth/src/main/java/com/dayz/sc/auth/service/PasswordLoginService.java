@@ -7,15 +7,16 @@ import com.dayz.sc.auth.model.entity.Teacher;
 import com.dayz.sc.auth.model.entity.User;
 import com.dayz.sc.auth.model.enums.OauthProvider;
 import com.dayz.sc.auth.model.enums.UserStatus;
-import com.dayz.sc.auth.model.vo.LoginResponse;
-import com.dayz.sc.auth.model.vo.StudentInfo;
-import com.dayz.sc.auth.model.vo.TeacherInfo;
-import com.dayz.sc.auth.model.vo.UserProfile;
+import com.dayz.sc.auth.model.vo.LoginResponseVO;
+import com.dayz.sc.auth.model.vo.StudentInfoVO;
+import com.dayz.sc.auth.model.vo.TeacherInfoVO;
+import com.dayz.sc.auth.model.vo.UserProfileVO;
 import com.dayz.sc.auth.repository.StudentRepository;
 import com.dayz.sc.auth.repository.TeacherRepository;
 import com.dayz.sc.auth.repository.UserAccountRepository;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.model.UserRole;
 import com.dayz.sc.common.security.service.JwtTokenService;
 import com.dayz.sc.common.security.token.RefreshTokenService;
 import lombok.RequiredArgsConstructor;
@@ -53,7 +54,7 @@ public class PasswordLoginService {
     private final UserEventPublisher userEventPublisher;
 
     @Transactional(rollbackFor = Exception.class)
-    public LoginResponse register(RegisterRequest request, String clientIp) {
+    public LoginResponseVO register(RegisterRequest request, String clientIp) {
         userAccountRepository.findByEmail(request.email())
                 .ifPresent(user -> {
                     throw new BusinessException(ErrorCodes.EMAIL_ALREADY_EXISTS);
@@ -78,15 +79,16 @@ public class PasswordLoginService {
         user.setCreatedIp(normalizedIp);
         user.setLastLoginProvider(OauthProvider.LOCAL);
         user.setLastLoginIp(normalizedIp);
-        user.setLoginCount(1);
+        user.setLoginCount(1L);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
-        user.setRole(request.role());
+        int role = request.role() != null ? request.role() : UserRole.STUDENT.getCode();
+        user.setRole(role);
 
         userAccountRepository.saveUser(user);
 
         // 根据角色创建对应的扩展记录
-        java.time.Instant now2 = java.time.Instant.now();
-        if (request.role() == 1) {
+        Instant now2 = Instant.now();
+        if (UserRole.fromCode(role) == UserRole.STUDENT) {
             Student student = new Student();
             student.setId(UuidV7Generator.generate());
             student.setUserId(userId);
@@ -94,7 +96,7 @@ public class PasswordLoginService {
             student.setCreatedAt(now2);
             student.setUpdatedAt(now2);
             studentRepository.save(student);
-        } else if (request.role() == 2) {
+        } else if (UserRole.fromCode(role) == UserRole.TEACHER) {
             Teacher teacher = new Teacher();
             teacher.setId(UuidV7Generator.generate());
             teacher.setUserId(userId);
@@ -108,13 +110,13 @@ public class PasswordLoginService {
 
         String accessToken = jwtTokenService.createAccessToken(userId.toString(), buildClaims(user));
         String refreshToken = refreshTokenService.createRefreshToken(userId.toString(), user.getRole());
-        UserProfile profile = toUserProfile(user, List.of(OauthProvider.LOCAL));
+        UserProfileVO profile = toUserProfile(user, List.of(OauthProvider.LOCAL));
 
-        return new LoginResponse(accessToken, refreshToken, TOKEN_TYPE, jwtTokenService.getAccessTokenTtlSeconds(), profile);
+        return new LoginResponseVO(accessToken, refreshToken, TOKEN_TYPE, jwtTokenService.getAccessTokenTtlSeconds(), profile);
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public LoginResponse login(PasswordLoginRequest request, String clientIp) {
+    public LoginResponseVO login(PasswordLoginRequest request, String clientIp) {
         User user = userAccountRepository.findByEmail(request.email())
                 .orElseThrow(() -> new BusinessException(ErrorCodes.PASSWORD_LOGIN_FAILED));
 
@@ -138,9 +140,9 @@ public class PasswordLoginService {
         List<OauthProvider> linkedProviders = userAccountRepository.findLinkedProviders(user.getId());
         String accessToken = jwtTokenService.createAccessToken(user.getId().toString(), buildClaims(user));
         String refreshToken = refreshTokenService.createRefreshToken(user.getId().toString(), user.getRole());
-        UserProfile profile = toUserProfile(user, linkedProviders);
+        UserProfileVO profile = toUserProfile(user, linkedProviders);
 
-        return new LoginResponse(accessToken, refreshToken, TOKEN_TYPE, jwtTokenService.getAccessTokenTtlSeconds(), profile);
+        return new LoginResponseVO(accessToken, refreshToken, TOKEN_TYPE, jwtTokenService.getAccessTokenTtlSeconds(), profile);
     }
 
     /**
@@ -155,14 +157,14 @@ public class PasswordLoginService {
         return claims;
     }
 
-    private UserProfile toUserProfile(User user, List<OauthProvider> linkedProviders) {
-        StudentInfo studentInfo = loadStudentInfo(user.getId());
-        TeacherInfo teacherInfo = loadTeacherInfo(user.getId());
+    private UserProfileVO toUserProfile(User user, List<OauthProvider> linkedProviders) {
+        StudentInfoVO studentInfo = loadStudentInfo(user.getId());
+        TeacherInfoVO teacherInfo = loadTeacherInfo(user.getId());
 
-        return new UserProfile(
+        return new UserProfileVO(
                 user.getId(),
                 user.getEmail(),
-                user.isEmailVerified(),
+                user.getEmailVerified(),
                 user.getDisplayName(),
                 user.getAvatarUrl(),
                 user.getAvatarFileId(),
@@ -189,9 +191,9 @@ public class PasswordLoginService {
         );
     }
 
-    private StudentInfo loadStudentInfo(UUID userId) {
+    private StudentInfoVO loadStudentInfo(UUID userId) {
         return studentRepository.findByUserId(userId)
-                .map(student -> new StudentInfo(
+                .map(student -> new StudentInfoVO(
                         student.getId(),
                         student.getStudentNo(),
                         student.getGrade(),
@@ -201,9 +203,9 @@ public class PasswordLoginService {
                 .orElse(null);
     }
 
-    private TeacherInfo loadTeacherInfo(UUID userId) {
+    private TeacherInfoVO loadTeacherInfo(UUID userId) {
         return teacherRepository.findByUserId(userId)
-                .map(teacher -> new TeacherInfo(
+                .map(teacher -> new TeacherInfoVO(
                         teacher.getId(),
                         teacher.getEmployeeNo(),
                         teacher.getDepartment(),

@@ -18,7 +18,7 @@ management:
         liveness:
           include: livenessState
         readiness:
-          include: readinessState,db,redis,diskSpace
+          include: readinessState,redis,diskSpace
   tracing:
     sampling:
       probability: 1.0
@@ -44,6 +44,9 @@ scalar:
     - title: 课程服务
       slug: course
       url: /openapi/course
+    - title: 存储服务
+      slug: storage
+      url: /openapi/storage
 
 edupivot:
   security:

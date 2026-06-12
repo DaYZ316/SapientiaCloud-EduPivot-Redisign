@@ -1,5 +1,6 @@
 package com.dayz.sc.course.repository;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.model.entity.Course;
 
 import java.time.Instant;
@@ -19,17 +20,17 @@ public interface CourseRepository {
 
     void deleteById(UUID id);
 
-    List<Course> findAll(int page, int size, String keyword, Integer level, Integer status, Integer isPublic,
+    /**
+     * 分页查询课程（自动 count）。
+     */
+    Page<Course> findAll(int page, int size, String keyword, Integer level, Integer status, Integer isPublic,
                          Instant createdAtStart, Instant createdAtEnd,
                          Instant updatedAtStart, Instant updatedAtEnd);
 
     List<Course> findByIds(List<UUID> ids);
 
-    List<Course> findTeacherCourses(UUID teacherId, String role, int page, int size);
-
-    long countTeacherCourses(UUID teacherId, String role);
-
-    long countAll(String keyword, Integer level, Integer status, Integer isPublic,
-                  Instant createdAtStart, Instant createdAtEnd,
-                  Instant updatedAtStart, Instant updatedAtEnd);
+    /**
+     * 分页查询教师课程（自动 count）。
+     */
+    Page<Course> findTeacherCourses(UUID teacherId, String role, int page, int size);
 }

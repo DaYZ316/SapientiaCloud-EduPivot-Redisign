@@ -1,5 +1,6 @@
 package com.dayz.sc.common.events.course;
 
+import java.time.Instant;
 import java.util.UUID;
 
 public record CourseCreatedEvent(
@@ -7,5 +8,8 @@ public record CourseCreatedEvent(
         UUID courseId,
         String title,
         UUID teacherId,
-        String semester
+        String semester,
+        String eventType,
+        Instant timestamp,
+        String source
 ) {}

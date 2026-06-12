@@ -5,7 +5,7 @@
 
 ## 基本约定
 
-当前项目只使用 Nacos Config，不使用 Nacos Discovery。
+当前项目同时使用 Nacos Config 和 Nacos Discovery。
 
 - 格式：`YAML`
 - 公共 Group：`EDUPIVOT_NAVIGATOR`
@@ -36,23 +36,21 @@ refreshEnabled: false
 - PostgreSQL 连接
 - Redis 连接
 
-按环境区分的认证配置：
+按环境区分的存储基础设施配置：
 
 ```text
-local/sc-edupivot-auth-local.yaml
+local/sc-edupivot-storage-infra-local.yaml
 Group: EDUPIVOT_LOCAL
 refreshEnabled: false
 
-docker/sc-edupivot-auth-docker.yaml
+docker/sc-edupivot-storage-infra-docker.yaml
 Group: EDUPIVOT_DOCKER
 refreshEnabled: false
 ```
 
 包含：
 
-- JWT secret
-- Google OAuth2 clientId/clientSecret/redirectUri
-- GitHub OAuth clientId/clientSecret/redirectUri
+- MinIO 连接信息
 
 ### sc-gateway
 
@@ -86,8 +84,21 @@ refreshEnabled: true
 当前启用路由：
 
 ```text
+# 业务路由
 auth-route: /api/auth/** -> sc-auth
+notification-route: /api/notifications/** -> sc-notification
+course-route: /api/courses/**, /api/chapters/**, /api/enrollments/**, /api/forums/**, /api/question-banks/**, /api/invitations/** -> sc-course
+storage-route: /api/storage/** -> sc-storage
+
+# OpenAPI 文档路由
 auth-openapi-route: /openapi/auth -> sc-auth /v3/api-docs
+notification-openapi-route: /openapi/notification -> sc-notification /v3/api-docs
+course-openapi-route: /openapi/course -> sc-course /v3/api-docs
+storage-openapi-route: /openapi/storage -> sc-storage /v3/api-docs
+
+# 内部端点保护（返回 403）
+storage-internal-block: /api/storage/internal/** -> 403
+auth-internal-block: /api/auth/**/internal/** -> 403
 ```
 
 ## 启动方式

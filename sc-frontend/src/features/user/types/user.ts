@@ -2,7 +2,7 @@ import type {PageResponse} from '@/shared/types/common'
 
 export type UserStatus = 'ACTIVE' | 'DISABLED' | 'DELETED'
 
-export type OauthProvider = 'GOOGLE' | 'GITHUB' | 'LOCAL' | 'DEMO'
+export type OauthProvider = 'GOOGLE' | 'GITHUB' | 'LOCAL'
 
 export type ThemePreference = 'light' | 'dark' | 'system'
 
@@ -44,6 +44,7 @@ export interface UserProfile {
     loginCount: number
     linkedProviders: OauthProvider[]
     createdAt?: string | null
+    updatedAt?: string | null
     lastLoginAt?: string | null
     role: number | null
     studentInfo: StudentInfo | null

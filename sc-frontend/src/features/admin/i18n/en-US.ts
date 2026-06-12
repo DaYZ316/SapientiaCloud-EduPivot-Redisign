@@ -37,6 +37,7 @@ export default {
         resetPasswordSuccess: 'Password reset successfully',
         resetPasswordFailed: 'Password reset failed',
         alert: {
+            updateSuccess: 'User updated successfully',
             updateFailed: 'Failed to update user',
         },
     },

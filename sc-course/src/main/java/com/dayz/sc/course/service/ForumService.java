@@ -6,6 +6,7 @@ import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.common.util.PageUtils;
 import com.dayz.sc.common.util.UuidV7Generator;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.model.dto.*;
 import com.dayz.sc.course.model.entity.Forum;
 import com.dayz.sc.course.model.entity.ForumPost;
@@ -31,6 +32,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ForumService {
+
+    private static final int FLAG_OFF = 0;
+    private static final int FLAG_ON = 1;
 
     private final ForumRepository forumRepository;
     private final ForumPostRepository forumPostRepository;
@@ -101,12 +105,11 @@ public class ForumService {
         int page = PageUtils.normalizePage(request.page());
         int size = PageUtils.normalizeSize(request.size());
 
-        List<Forum> forums = forumRepository.findAll(page, size,
+        Page<Forum> result = forumRepository.findAll(page, size,
                 request.courseId(), request.forumType(), request.status());
-        long total = forumRepository.countAll(request.courseId(), request.forumType(), request.status());
 
-        List<ForumVO> voList = forums.stream().map(this::toForumVO).toList();
-        return new PageResponse<>(voList, total, page, size);
+        List<ForumVO> voList = result.getRecords().stream().map(this::toForumVO).toList();
+        return new PageResponse<>(voList, result.getTotal(), page, size);
     }
 
     public List<ForumVO> listForumsByCourse(UUID courseId) {
@@ -138,9 +141,9 @@ public class ForumService {
         post.setLikeCount(0L);
         post.setReplyCount(0L);
         post.setShareCount(0L);
-        post.setIsTop(0);
-        post.setIsEssence(0);
-        post.setIsLocked(0);
+        post.setIsTop(FLAG_OFF);
+        post.setIsEssence(FLAG_OFF);
+        post.setIsLocked(FLAG_OFF);
         post.setStatus(PostStatus.NORMAL.getCode());
         post.setId(UuidV7Generator.generate());
 
@@ -219,13 +222,11 @@ public class ForumService {
         int page = PageUtils.normalizePage(request.page());
         int size = PageUtils.normalizeSize(request.size());
 
-        List<ForumPost> posts = forumPostRepository.findAll(page, size,
+        Page<ForumPost> result = forumPostRepository.findAll(page, size,
                 request.forumId(), request.courseId(), request.status(), request.keyword());
-        long total = forumPostRepository.countAll(request.forumId(), request.courseId(),
-                request.status(), request.keyword());
 
-        List<ForumPostVO> voList = posts.stream().map(this::toForumPostVO).toList();
-        return new PageResponse<>(voList, total, page, size);
+        List<ForumPostVO> voList = result.getRecords().stream().map(this::toForumPostVO).toList();
+        return new PageResponse<>(voList, result.getTotal(), page, size);
     }
 
     public List<ForumPostVO> listHotPosts(UUID courseId, int limit) {
@@ -244,7 +245,7 @@ public class ForumService {
     public void toggleTop(UUID postId, UUID userId, Integer role) {
         ForumPost post = forumPostRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
-        post.setIsTop(post.getIsTop() == 0 ? 1 : 0);
+        post.setIsTop(post.getIsTop() == FLAG_OFF ? FLAG_ON : FLAG_OFF);
         forumPostRepository.update(post);
     }
 
@@ -252,7 +253,7 @@ public class ForumService {
     public void toggleEssence(UUID postId, UUID userId, Integer role) {
         ForumPost post = forumPostRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
-        post.setIsEssence(post.getIsEssence() == 0 ? 1 : 0);
+        post.setIsEssence(post.getIsEssence() == FLAG_OFF ? FLAG_ON : FLAG_OFF);
         forumPostRepository.update(post);
     }
 
@@ -260,7 +261,7 @@ public class ForumService {
     public void toggleLock(UUID postId, UUID userId, Integer role) {
         ForumPost post = forumPostRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
-        post.setIsLocked(post.getIsLocked() == 0 ? 1 : 0);
+        post.setIsLocked(post.getIsLocked() == FLAG_OFF ? FLAG_ON : FLAG_OFF);
         forumPostRepository.update(post);
     }
 
@@ -297,7 +298,7 @@ public class ForumService {
         ForumPost post = forumPostRepository.findById(request.postId())
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
 
-        if (post.getIsLocked() == 1) {
+        if (post.getIsLocked() == FLAG_ON) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "帖子已锁定，无法回复");
         }
 
@@ -319,9 +320,9 @@ public class ForumService {
         reply.setImageUrls(request.imageUrls());
         reply.setLikeCount(0L);
         reply.setReplyCount(0L);
-        reply.setIsAccepted(0);
+        reply.setIsAccepted(FLAG_OFF);
         reply.setFloorNumber(nextFloor);
-        reply.setStatus(0);
+        reply.setStatus(FLAG_OFF);
         reply.setIpAddress(ipAddress);
         reply.setUserAgent(userAgent);
         reply.setId(UuidV7Generator.generate());
@@ -346,17 +347,15 @@ public class ForumService {
         int page = PageUtils.normalizePage(request.page());
         int size = PageUtils.normalizeSize(request.size());
 
-        List<ForumReply> replies = forumReplyRepository.findAll(page, size,
+        Page<ForumReply> result = forumReplyRepository.findAll(page, size,
                 request.postId(), request.forumId(), request.courseId(), request.status());
-        long total = forumReplyRepository.countAll(request.postId(), request.forumId(),
-                request.courseId(), request.status());
 
-        List<ForumReplyVO> voList = replies.stream().map(this::toForumReplyVO).toList();
-        return new PageResponse<>(voList, total, page, size);
+        List<ForumReplyVO> voList = result.getRecords().stream().map(this::toForumReplyVO).toList();
+        return new PageResponse<>(voList, result.getTotal(), page, size);
     }
 
     public List<ForumReplyVO> getReplyTree(UUID postId) {
-        List<ForumReply> allReplies = forumReplyRepository.findByPostId(postId, 1, 10000);
+        List<ForumReply> allReplies = forumReplyRepository.findByPostId(postId, 1, 10000).getRecords();
         Map<UUID, List<ForumReply>> childrenMap = allReplies.stream()
                 .filter(r -> r.getParentReplyId() != null)
                 .collect(Collectors.groupingBy(ForumReply::getParentReplyId));
@@ -371,7 +370,7 @@ public class ForumService {
     public void acceptReply(UUID replyId) {
         ForumReply reply = forumReplyRepository.findById(replyId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
-        reply.setIsAccepted(1);
+        reply.setIsAccepted(FLAG_ON);
         forumReplyRepository.update(reply);
     }
 
@@ -379,7 +378,7 @@ public class ForumService {
     public void unacceptReply(UUID replyId) {
         ForumReply reply = forumReplyRepository.findById(replyId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
-        reply.setIsAccepted(0);
+        reply.setIsAccepted(FLAG_OFF);
         forumReplyRepository.update(reply);
     }
 

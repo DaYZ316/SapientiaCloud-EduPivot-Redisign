@@ -5,8 +5,12 @@ import com.dayz.sc.notification.model.entity.NotificationReadStatus;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -26,6 +30,7 @@ public interface NotificationReadStatusMapper extends BaseMapper<NotificationRea
             <if test="type != null">
               AND n.type = #{type}
             </if>
+              AND (n.sender_id IS NULL OR n.sender_id != #{userId})
               AND (n.target_type = 0 OR EXISTS (
                 SELECT 1 FROM ntf_notification_target t
                 WHERE t.notification_id = n.id AND t.user_id = #{userId} AND t.deleted = 0
@@ -40,6 +45,35 @@ public interface NotificationReadStatusMapper extends BaseMapper<NotificationRea
             """)
     long countUnread(@Param("userId") UUID userId, @Param("type") Integer type);
 
+    /**
+     * 一次查询返回全部未读计数（total / system / teaching），避免 3 次串行全表扫描。
+     */
+    @Select("""
+            SELECT
+              SUM(CASE WHEN n.type = 1 THEN 1 ELSE 0 END) AS system_count,
+              SUM(CASE WHEN n.type = 2 THEN 1 ELSE 0 END) AS teaching_count,
+              COUNT(*) AS total_count
+            FROM ntf_notification n
+            WHERE n.deleted = 0
+              AND (n.sender_id IS NULL OR n.sender_id != #{userId})
+              AND (n.target_type = 0 OR EXISTS (
+                SELECT 1 FROM ntf_notification_target t
+                WHERE t.notification_id = n.id AND t.user_id = #{userId} AND t.deleted = 0
+              ))
+              AND NOT EXISTS (
+                SELECT 1
+                FROM ntf_read_status r
+                WHERE r.notification_id = n.id
+                  AND r.user_id = #{userId}
+              )
+            """)
+    @Results({
+            @Result(property = "systemCount", column = "system_count"),
+            @Result(property = "teachingCount", column = "teaching_count"),
+            @Result(property = "totalCount", column = "total_count")
+    })
+    Map<String, Long> countUnreadAll(@Param("userId") UUID userId);
+
     @Insert("""
             <script>
             INSERT INTO ntf_read_status (id, notification_id, user_id, read_at)
@@ -49,6 +83,7 @@ public interface NotificationReadStatusMapper extends BaseMapper<NotificationRea
             <if test="type != null">
               AND n.type = #{type}
             </if>
+              AND (n.sender_id IS NULL OR n.sender_id != #{userId})
               AND (n.target_type = 0 OR EXISTS (
                 SELECT 1 FROM ntf_notification_target t
                 WHERE t.notification_id = n.id AND t.user_id = #{userId} AND t.deleted = 0
@@ -63,4 +98,16 @@ public interface NotificationReadStatusMapper extends BaseMapper<NotificationRea
             </script>
             """)
     int markAllAsRead(@Param("userId") UUID userId, @Param("type") Integer type);
+
+    @Insert("""
+            <script>
+            INSERT INTO ntf_read_status (id, notification_id, user_id, read_at)
+            VALUES
+            <foreach item="item" collection="list" separator=",">
+              (#{item.id}, #{item.notificationId}, #{item.userId}, #{item.readAt})
+            </foreach>
+            ON CONFLICT (notification_id, user_id) DO NOTHING
+            </script>
+            """)
+    int batchInsert(@Param("list") List<NotificationReadStatus> list);
 }

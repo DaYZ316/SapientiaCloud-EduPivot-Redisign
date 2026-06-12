@@ -1,5 +1,6 @@
 package com.dayz.sc.course.repository;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.model.entity.QuestionBank;
 
 import java.util.List;
@@ -18,9 +19,7 @@ public interface QuestionBankRepository {
 
     List<QuestionBank> findByCourseId(UUID courseId);
 
-    List<QuestionBank> findAll(int page, int size, UUID courseId, Integer bankType, String keyword);
-
-    long countAll(UUID courseId, Integer bankType, String keyword);
+    Page<QuestionBank> findAll(int page, int size, UUID courseId, Integer bankType, String keyword);
 
     long countByCourseId(UUID courseId);
 }

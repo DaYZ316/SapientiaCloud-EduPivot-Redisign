@@ -5,6 +5,7 @@ spring:
   flyway:
     table: flyway_schema_history_course
     baseline-on-migrate: true
+    out-of-order: true
   threads:
     virtual:
       enabled: true
@@ -62,6 +63,8 @@ edupivot:
     jwt:
       jwks-uri: http://sc-auth:28081/.well-known/jwks.json
     public-endpoints:
+      - /api/courses/*
+      - /api/courses
       - /actuator/health
       - /actuator/health/liveness
       - /actuator/health/readiness

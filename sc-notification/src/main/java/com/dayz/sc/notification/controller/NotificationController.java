@@ -4,7 +4,9 @@ import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
+import com.dayz.sc.common.security.ratelimit.RateLimited;
 import com.dayz.sc.common.security.support.JwtPrincipalResolver;
+import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.notification.model.dto.SendNotificationRequest;
 import com.dayz.sc.notification.model.vo.NotificationVO;
 import com.dayz.sc.notification.model.vo.UnreadCountVO;
@@ -41,12 +43,13 @@ public class NotificationController {
      * 角色通过 Gateway 注入的 X-User-Role 请求头获取。
      */
     @PostMapping
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<UUID> sendNotification(
             @Valid @RequestBody SendNotificationRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID senderId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
-        if (role == null || (role != 0 && role != 2)) {
+        if (!SecurityUtils.isTeacherOrAdmin(role)) {
             throw new BusinessException(ErrorCodes.NOTIFICATION_SEND_FORBIDDEN);
         }
         UUID notificationId = notificationService.sendNotification(request, senderId);
@@ -73,6 +76,7 @@ public class NotificationController {
     }
 
     @PutMapping("/{id}/read")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> markAsRead(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
@@ -82,6 +86,7 @@ public class NotificationController {
     }
 
     @PutMapping("/read-all")
+    @RateLimited(maxRequests = 5, windowSeconds = 60)
     public ApiResponse<Void> markAllAsRead(
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) Integer type) {
@@ -91,6 +96,7 @@ public class NotificationController {
     }
 
     @DeleteMapping("/{id}")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> deleteNotification(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
@@ -100,6 +106,7 @@ public class NotificationController {
     }
 
     @DeleteMapping("/all")
+    @RateLimited(maxRequests = 5, windowSeconds = 60)
     public ApiResponse<Void> deleteAllNotifications(
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) Integer type) {
@@ -112,6 +119,7 @@ public class NotificationController {
      * 撤回通知（仅发送者可操作，对所有接收者生效）。
      */
     @DeleteMapping("/{id}/recall")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> recallNotification(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {

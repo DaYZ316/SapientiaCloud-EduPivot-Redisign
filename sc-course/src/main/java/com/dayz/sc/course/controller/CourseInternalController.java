@@ -34,7 +34,8 @@ public class CourseInternalController {
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
 
         boolean admin = SecurityUtils.isAdmin(role);
-        boolean manager = admin || course.getTeacherId().equals(userId);
+        boolean isPrimaryTeacher = course.getTeacherId().equals(userId);
+        boolean manager = admin || isPrimaryTeacher;
         boolean enrolled = enrollmentRepository.findByCourseIdAndStudentId(courseId, userId)
                 .map(enrollment -> enrollment.getStatus() == EnrollmentStatus.ACTIVE.getCode()
                         || enrollment.getStatus() == EnrollmentStatus.COMPLETED.getCode())
@@ -44,7 +45,8 @@ public class CourseInternalController {
                 courseId,
                 manager,
                 true,
-                manager || enrolled
+                manager || enrolled,
+                isPrimaryTeacher
         ));
     }
 }

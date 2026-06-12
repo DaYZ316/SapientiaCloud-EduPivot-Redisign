@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -26,7 +27,7 @@ public class CourseEventConsumer {
     private final MinioClient minioClient;
     private final KafkaIdempotencyGuard idempotencyGuard;
 
-    @KafkaListener(topics = "sc.course.events", groupId = "sc-storage")
+    @KafkaListener(topics = "#{T(com.dayz.sc.common.events.config.KafkaTopicConstants).COURSE_EVENTS}", groupId = "sc-storage")
     public void onCourseEvent(Object event, Acknowledgment ack) {
         try {
             if (event instanceof CourseDeletedEvent e) {
@@ -55,22 +56,25 @@ public class CourseEventConsumer {
             return;
         }
 
-        int deleted = 0;
+        // 先逐个删除 MinIO 对象
+        int cleaned = 0;
         for (StorageObject obj : objects) {
             try {
                 minioClient.removeObject(RemoveObjectArgs.builder()
                         .bucket(obj.getBucket())
                         .object(obj.getObjectKey())
                         .build());
+                cleaned++;
             } catch (Exception ex) {
                 log.warn("Failed to delete MinIO object {}/{}: {}", obj.getBucket(), obj.getObjectKey(), ex.getMessage());
             }
-            obj.setDeleted(1);
-            obj.setDeletedAt(Instant.now());
-            storageObjectMapper.updateById(obj);
-            deleted++;
         }
 
-        log.info("Cleaned up {} storage objects for deleted course: {}", deleted, event.courseId());
+        // 批量更新数据库标记为已删除
+        List<UUID> ids = objects.stream().map(StorageObject::getId).toList();
+        Instant now = Instant.now();
+        storageObjectMapper.batchUpdateDeleted(ids, StorageObject.DELETED, now);
+
+        log.info("Cleaned up {}/{} storage objects for deleted course: {}", cleaned, objects.size(), event.courseId());
     }
 }

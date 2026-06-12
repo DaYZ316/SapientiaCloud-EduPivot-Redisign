@@ -1,5 +1,6 @@
 package com.dayz.sc.course.repository;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.model.entity.Forum;
 
 import java.util.List;
@@ -18,9 +19,7 @@ public interface ForumRepository {
 
     List<Forum> findByCourseId(UUID courseId);
 
-    List<Forum> findAll(int page, int size, UUID courseId, Integer forumType, Integer status);
-
-    long countAll(UUID courseId, Integer forumType, Integer status);
+    Page<Forum> findAll(int page, int size, UUID courseId, Integer forumType, Integer status);
 
     long countByCourseId(UUID courseId);
 }

@@ -3,6 +3,7 @@ package com.dayz.sc.notification.repository;
 import com.dayz.sc.notification.model.entity.NotificationReadStatus;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,5 +19,6 @@ public interface NotificationReadStatusRepository {
     void saveAll(List<NotificationReadStatus> readStatuses);
     List<UUID> findReadNotificationIds(UUID userId, List<UUID> notificationIds);
     long countUnread(UUID userId, Integer type);
+    Map<String, Long> countUnreadAll(UUID userId);
     void markAllAsRead(UUID userId, Integer type);
 }

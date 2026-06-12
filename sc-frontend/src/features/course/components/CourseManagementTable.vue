@@ -79,6 +79,16 @@
               </button>
               <button
                 v-if="editable"
+                class="btn-icon"
+                type="button"
+                :aria-label="t('enrollmentManagement.inviteAssistant')"
+                :title="t('enrollmentManagement.inviteAssistant')"
+                @click="$emit('invite', course)"
+              >
+                <UserPlus :size="15" stroke-width="1.8"/>
+              </button>
+              <button
+                v-if="editable"
                 class="btn-icon danger"
                 type="button"
                 :aria-label="t('courses.delete')"
@@ -97,7 +107,7 @@
 
 <script lang="ts" setup>
 import {useI18n} from 'vue-i18n'
-import {BookOpen, Eye, Pencil, Trash2} from 'lucide-vue-next'
+import {BookOpen, Eye, Pencil, Trash2, UserPlus} from 'lucide-vue-next'
 
 import type {Course} from '@/features/course/types/course'
 
@@ -113,6 +123,7 @@ defineEmits<{
   view: [id: string]
   edit: [course: Course]
   delete: [course: Course]
+  invite: [course: Course]
 }>()
 
 const {t, locale} = useI18n()

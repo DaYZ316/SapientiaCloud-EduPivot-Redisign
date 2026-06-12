@@ -2,12 +2,16 @@ package com.dayz.sc.course.service;
 
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.feign.client.AuthInternalClient;
+import com.dayz.sc.common.feign.dto.UserBasicInfo;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.common.util.PageUtils;
 import com.dayz.sc.common.util.UuidV7Generator;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.feign.client.StorageInternalClient;
+import com.dayz.sc.course.event.CourseEventPublisher;
 import com.dayz.sc.course.model.dto.EnrollRequest;
 import com.dayz.sc.course.model.entity.Course;
 import com.dayz.sc.course.model.entity.Enrollment;
@@ -36,6 +40,8 @@ public class EnrollmentService {
     private final EnrollmentRepository enrollmentRepository;
     private final CourseRepository courseRepository;
     private final StorageInternalClient storageInternalClient;
+    private final CourseEventPublisher courseEventPublisher;
+    private final AuthInternalClient authInternalClient;
 
     @Transactional(rollbackFor = Exception.class)
     public UUID enroll(EnrollRequest request, UUID studentId) {
@@ -49,13 +55,13 @@ public class EnrollmentService {
         Optional<Enrollment> existingEnrollment = enrollmentRepository.findByCourseIdAndStudentId(request.courseId(), studentId);
         if (existingEnrollment.isPresent()
                 && existingEnrollment.get().getStatus() != EnrollmentStatus.DROPPED.getCode()) {
-            throw new BusinessException(ErrorCodes.BAD_REQUEST);
+            throw new BusinessException(ErrorCodes.ENROLLMENT_ALREADY_EXISTS);
         }
 
         if (course.getMaxStudents() > 0) {
             long currentStudents = enrollmentRepository.countActiveByCourseId(request.courseId());
             if (currentStudents >= course.getMaxStudents()) {
-                throw new BusinessException(ErrorCodes.BAD_REQUEST);
+                throw new BusinessException(ErrorCodes.ENROLLMENT_COURSE_FULL);
             }
         }
 
@@ -65,6 +71,7 @@ public class EnrollmentService {
             enrollment.setEnrolledAt(Instant.now());
             enrollment.setCompletedAt(null);
             enrollmentRepository.update(enrollment);
+            publishEnrollmentEvent(course, studentId, "ENROLLED");
             return enrollment.getId();
         }
 
@@ -76,6 +83,7 @@ public class EnrollmentService {
         enrollment.setId(UuidV7Generator.generate());
 
         enrollmentRepository.save(enrollment);
+        publishEnrollmentEvent(course, studentId, "ENROLLED");
         return enrollment.getId();
     }
 
@@ -94,6 +102,11 @@ public class EnrollmentService {
 
         enrollment.setStatus(EnrollmentStatus.DROPPED.getCode());
         enrollmentRepository.update(enrollment);
+
+        Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
+        if (course != null) {
+            publishEnrollmentEvent(course, studentId, "DROPPED");
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -121,8 +134,8 @@ public class EnrollmentService {
     public PageResponse<EnrollmentVO> listStudentEnrollments(UUID studentId, int page, int size) {
         int currentPage = PageUtils.normalizePage(page);
         int pageSize = PageUtils.normalizeSize(size);
-        List<Enrollment> enrollments = enrollmentRepository.findByStudentId(studentId, currentPage, pageSize);
-        long total = enrollmentRepository.countByStudentId(studentId);
+        Page<Enrollment> result = enrollmentRepository.findByStudentId(studentId, currentPage, pageSize);
+        List<Enrollment> enrollments = result.getRecords();
         Map<UUID, Course> courses = loadCourses(enrollments);
         Map<UUID, String> coverUrls = loadCoverUrls(courses.values().stream().toList());
 
@@ -130,7 +143,7 @@ public class EnrollmentService {
                 .map(enrollment -> toEnrollmentVO(enrollment, courses.get(enrollment.getCourseId()), coverUrls))
                 .toList();
 
-        return new PageResponse<>(voList, total, currentPage, pageSize);
+        return new PageResponse<>(voList, result.getTotal(), currentPage, pageSize);
     }
 
     public PageResponse<EnrollmentVO> listCourseEnrollments(UUID courseId, int page, int size, UUID userId, Integer role) {
@@ -142,15 +155,32 @@ public class EnrollmentService {
 
         int currentPage = PageUtils.normalizePage(page);
         int pageSize = PageUtils.normalizeSize(size);
-        List<Enrollment> enrollments = enrollmentRepository.findByCourseId(courseId, currentPage, pageSize);
-        long total = enrollmentRepository.countByCourseId(courseId);
+        Page<Enrollment> result = enrollmentRepository.findByCourseId(courseId, currentPage, pageSize);
+        List<Enrollment> enrollments = result.getRecords();
 
         Map<UUID, String> coverUrls = loadCoverUrls(List.of(course));
         List<EnrollmentVO> voList = enrollments.stream()
                 .map(enrollment -> toEnrollmentVO(enrollment, course, coverUrls))
                 .toList();
 
-        return new PageResponse<>(voList, total, currentPage, pageSize);
+        return new PageResponse<>(voList, result.getTotal(), currentPage, pageSize);
+    }
+
+    private void publishEnrollmentEvent(Course course, UUID studentId, String action) {
+        UserBasicInfo studentInfo = null;
+        try {
+            ApiResponse<List<UserBasicInfo>> resp = authInternalClient.getUsersBasicInfo(List.of(studentId));
+            if (resp != null && resp.code() == 0 && resp.data() != null && !resp.data().isEmpty()) {
+                studentInfo = resp.data().getFirst();
+            }
+        } catch (Exception ignored) {
+        }
+        String studentName = studentInfo != null && studentInfo.displayName() != null
+                ? studentInfo.displayName() : "未知学生";
+        courseEventPublisher.publishEnrollmentChanged(
+                course.getId(), course.getTitle(),
+                studentId, studentName,
+                course.getTeacherId(), action);
     }
 
     private EnrollmentVO toEnrollmentVO(Enrollment enrollment, Course course, Map<UUID, String> coverUrls) {

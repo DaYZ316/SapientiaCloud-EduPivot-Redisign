@@ -48,13 +48,15 @@ public class MybatisNotificationRepository implements NotificationRepository {
             // 我发出的：按发送者过滤
             wrapper.eq(Notification::getSenderId, senderId);
         } else if (currentUserId != null) {
-            // 普通查询：全员通知 或 目标包含当前用户且未删除的通知
+            // 普通查询：全员通知 或 目标包含当前用户且未删除 或 自己发出的通知
             // UUID 类型安全，直接拼接不会导致 SQL 注入
             String subSql = "SELECT notification_id FROM ntf_notification_target WHERE user_id = '" + currentUserId + "' AND deleted = 0";
             wrapper.and(w -> w
                     .eq(Notification::getTargetType, 0)
                     .or()
                     .inSql(Notification::getId, subSql)
+                    .or()
+                    .eq(Notification::getSenderId, currentUserId)
             );
         }
         wrapper.orderByDesc(Notification::getCreatedAt);
@@ -77,6 +79,8 @@ public class MybatisNotificationRepository implements NotificationRepository {
                     .eq(Notification::getTargetType, 0)
                     .or()
                     .inSql(Notification::getId, subSql)
+                    .or()
+                    .eq(Notification::getSenderId, currentUserId)
             );
         }
         return notificationMapper.selectCount(wrapper);

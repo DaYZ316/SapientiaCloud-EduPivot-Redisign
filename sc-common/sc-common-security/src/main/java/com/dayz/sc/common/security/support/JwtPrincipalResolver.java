@@ -23,6 +23,20 @@ public final class JwtPrincipalResolver {
         }
     }
 
+    /**
+     * 非必须模式：未登录返回 null，不抛异常。
+     */
+    public static UUID userId(Jwt jwt) {
+        if (jwt == null || jwt.getSubject() == null || jwt.getSubject().isBlank()) {
+            return null;
+        }
+        try {
+            return UUID.fromString(jwt.getSubject());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
     public static Integer role(Jwt jwt) {
         if (jwt == null) {
             return null;

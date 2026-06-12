@@ -1,9 +1,18 @@
-spring:
+﻿spring:
   cloud:
     gateway:
       server:
         webmvc:
           routes:
+            # 内部端点拦截（返回403）
+            - id: block-storage-internal
+              uri: no://op
+              order: -100
+              predicates:
+                - Path=/api/storage/internal/**
+              filters:
+                - SetStatus=403
+            # 业务路由
             - id: auth-route
               uri: lb://sc-auth
               predicates:
@@ -12,14 +21,35 @@ spring:
               uri: lb://sc-notification
               predicates:
                 - Path=/api/notifications/**
-            - id: course-route
+            - id: course-courses-route
               uri: lb://sc-course
               predicates:
-                - Path=/api/courses/**,/api/enrollments/**
+                - Path=/api/courses/**
+            - id: course-enrollments-route
+              uri: lb://sc-course
+              predicates:
+                - Path=/api/enrollments/**
+            - id: course-chapters-route
+              uri: lb://sc-course
+              predicates:
+                - Path=/api/chapters/**
+            - id: course-forums-route
+              uri: lb://sc-course
+              predicates:
+                - Path=/api/forums/**
+            - id: course-question-banks-route
+              uri: lb://sc-course
+              predicates:
+                - Path=/api/question-banks/**
+            - id: course-invitations-route
+              uri: lb://sc-course
+              predicates:
+                - Path=/api/invitations/**
             - id: storage-route
               uri: lb://sc-storage
               predicates:
                 - Path=/api/storage/**
+            # OpenAPI 文档路由
             - id: auth-openapi-route
               uri: lb://sc-auth
               predicates:

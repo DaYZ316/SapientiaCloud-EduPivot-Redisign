@@ -104,6 +104,9 @@ export default {
         confirm: '删除',
     },
     alert: {
+        createSuccess: '课程创建成功',
+        updateSuccess: '课程更新成功',
+        deleteSuccess: '课程删除成功',
         saveSuccess: '课程创建成功',
         saveFailed: '保存课程失败',
         deleteFailed: '删除课程失败',

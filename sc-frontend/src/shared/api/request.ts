@@ -10,10 +10,10 @@ import type {ApiResponse} from '@/shared/types/common'
 const SUCCESS_CODE = 0
 const UNAUTHORIZED_CODE = 40100
 const FORBIDDEN_CODE = 40300
-const ACCESS_TOKEN_KEY = 'aeroverse.accessToken'
-const REFRESH_TOKEN_KEY = 'aeroverse.refreshToken'
-const TOKEN_TYPE_KEY = 'aeroverse.tokenType'
-const USER_KEY = 'aeroverse.user'
+export const ACCESS_TOKEN_KEY = 'edupivot.accessToken'
+const REFRESH_TOKEN_KEY = 'edupivot.refreshToken'
+const TOKEN_TYPE_KEY = 'edupivot.tokenType'
+const USER_KEY = 'edupivot.user'
 let sessionExpiredHandled = false
 
 export class ApiError extends Error {

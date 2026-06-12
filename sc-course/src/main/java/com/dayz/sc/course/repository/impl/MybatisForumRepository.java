@@ -1,6 +1,7 @@
 package com.dayz.sc.course.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.mapper.ForumMapper;
 import com.dayz.sc.course.model.entity.Forum;
 import com.dayz.sc.course.repository.ForumRepository;
@@ -46,7 +47,7 @@ public class MybatisForumRepository implements ForumRepository {
     }
 
     @Override
-    public List<Forum> findAll(int page, int size, UUID courseId, Integer forumType, Integer status) {
+    public Page<Forum> findAll(int page, int size, UUID courseId, Integer forumType, Integer status) {
         LambdaQueryWrapper<Forum> wrapper = new LambdaQueryWrapper<>();
         if (courseId != null) {
             wrapper.eq(Forum::getCourseId, courseId);
@@ -58,23 +59,7 @@ public class MybatisForumRepository implements ForumRepository {
             wrapper.eq(Forum::getStatus, status);
         }
         wrapper.orderByDesc(Forum::getCreatedAt);
-        wrapper.last("LIMIT " + size + " OFFSET " + (page - 1) * size);
-        return forumMapper.selectList(wrapper);
-    }
-
-    @Override
-    public long countAll(UUID courseId, Integer forumType, Integer status) {
-        LambdaQueryWrapper<Forum> wrapper = new LambdaQueryWrapper<>();
-        if (courseId != null) {
-            wrapper.eq(Forum::getCourseId, courseId);
-        }
-        if (forumType != null) {
-            wrapper.eq(Forum::getForumType, forumType);
-        }
-        if (status != null) {
-            wrapper.eq(Forum::getStatus, status);
-        }
-        return forumMapper.selectCount(wrapper);
+        return forumMapper.selectPage(new Page<>(page, size), wrapper);
     }
 
     @Override

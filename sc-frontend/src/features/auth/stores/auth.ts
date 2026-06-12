@@ -7,10 +7,10 @@ import {getCurrentUser} from '@/features/user/api/user'
 import type {UserProfile} from '@/features/user/types/user'
 import {resetSessionExpiredHandling} from '@/shared/api/request'
 
-const ACCESS_TOKEN_KEY = 'aeroverse.accessToken'
-const REFRESH_TOKEN_KEY = 'aeroverse.refreshToken'
-const TOKEN_TYPE_KEY = 'aeroverse.tokenType'
-const USER_KEY = 'aeroverse.user'
+const ACCESS_TOKEN_KEY = 'edupivot.accessToken'
+const REFRESH_TOKEN_KEY = 'edupivot.refreshToken'
+const TOKEN_TYPE_KEY = 'edupivot.tokenType'
+const USER_KEY = 'edupivot.user'
 
 function readStoredUser() {
     const rawUser = localStorage.getItem(USER_KEY)

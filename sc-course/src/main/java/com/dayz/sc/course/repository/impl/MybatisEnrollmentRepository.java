@@ -2,6 +2,7 @@ package com.dayz.sc.course.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.mapper.EnrollmentMapper;
 import com.dayz.sc.course.model.entity.Enrollment;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
@@ -45,35 +46,19 @@ public class MybatisEnrollmentRepository implements EnrollmentRepository {
     }
 
     @Override
-    public List<Enrollment> findByStudentId(UUID studentId, int page, int size) {
+    public Page<Enrollment> findByStudentId(UUID studentId, int page, int size) {
         LambdaQueryWrapper<Enrollment> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Enrollment::getStudentId, studentId);
         wrapper.orderByDesc(Enrollment::getEnrolledAt);
-        wrapper.last("LIMIT " + size + " OFFSET " + (page - 1) * size);
-        return enrollmentMapper.selectList(wrapper);
+        return enrollmentMapper.selectPage(new Page<>(page, size), wrapper);
     }
 
     @Override
-    public List<Enrollment> findByCourseId(UUID courseId, int page, int size) {
+    public Page<Enrollment> findByCourseId(UUID courseId, int page, int size) {
         LambdaQueryWrapper<Enrollment> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Enrollment::getCourseId, courseId);
         wrapper.orderByDesc(Enrollment::getEnrolledAt);
-        wrapper.last("LIMIT " + size + " OFFSET " + (page - 1) * size);
-        return enrollmentMapper.selectList(wrapper);
-    }
-
-    @Override
-    public long countByStudentId(UUID studentId) {
-        LambdaQueryWrapper<Enrollment> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Enrollment::getStudentId, studentId);
-        return enrollmentMapper.selectCount(wrapper);
-    }
-
-    @Override
-    public long countByCourseId(UUID courseId) {
-        LambdaQueryWrapper<Enrollment> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Enrollment::getCourseId, courseId);
-        return enrollmentMapper.selectCount(wrapper);
+        return enrollmentMapper.selectPage(new Page<>(page, size), wrapper);
     }
 
     @Override

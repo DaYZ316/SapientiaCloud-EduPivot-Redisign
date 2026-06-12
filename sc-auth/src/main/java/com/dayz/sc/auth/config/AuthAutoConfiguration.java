@@ -2,7 +2,7 @@ package com.dayz.sc.auth.config;
 
 import com.baomidou.mybatisplus.autoconfigure.ConfigurationCustomizer;
 import com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration;
-import com.dayz.sc.auth.persistence.type.UuidTypeHandler;
+import com.dayz.sc.common.persistence.type.UuidTypeHandler;
 import org.apache.ibatis.type.JdbcType;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;

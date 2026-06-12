@@ -1,12 +1,11 @@
 package com.dayz.sc.storage.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.util.UuidV7Generator;
 import com.dayz.sc.storage.config.StorageProperties;
-import com.dayz.sc.storage.mapper.StorageObjectMapper;
-import com.dayz.sc.storage.mapper.StorageUploadSessionMapper;
+import com.dayz.sc.storage.repository.StorageObjectRepository;
+import com.dayz.sc.storage.repository.StorageUploadSessionRepository;
 import com.dayz.sc.storage.model.dto.CreateUploadRequest;
 import com.dayz.sc.storage.model.entity.StorageObject;
 import com.dayz.sc.storage.model.entity.StorageUploadSession;
@@ -63,21 +62,21 @@ public class StorageService {
     private final MinioClient minioClient;
     private final MinioClient presignMinioClient;
     private final StorageProperties storageProperties;
-    private final StorageObjectMapper storageObjectMapper;
-    private final StorageUploadSessionMapper uploadSessionMapper;
+    private final StorageObjectRepository storageObjectRepository;
+    private final StorageUploadSessionRepository uploadSessionRepository;
     private final StorageAuthorizationService authorizationService;
 
     public StorageService(MinioClient minioClient,
                           @Qualifier("presignMinioClient") MinioClient presignMinioClient,
                           StorageProperties storageProperties,
-                          StorageObjectMapper storageObjectMapper,
-                          StorageUploadSessionMapper uploadSessionMapper,
+                          StorageObjectRepository storageObjectRepository,
+                          StorageUploadSessionRepository uploadSessionRepository,
                           StorageAuthorizationService authorizationService) {
         this.minioClient = minioClient;
         this.presignMinioClient = presignMinioClient;
         this.storageProperties = storageProperties;
-        this.storageObjectMapper = storageObjectMapper;
-        this.uploadSessionMapper = uploadSessionMapper;
+        this.storageObjectRepository = storageObjectRepository;
+        this.uploadSessionRepository = uploadSessionRepository;
         this.authorizationService = authorizationService;
     }
 
@@ -111,7 +110,7 @@ public class StorageService {
         object.setScopeType(request.scopeType().name());
         object.setScopeId(scopeId);
         object.setStatus(StorageObjectStatus.PENDING.name());
-        storageObjectMapper.insert(object);
+        storageObjectRepository.save(object);
 
         StorageUploadSession session = new StorageUploadSession();
         session.setId(UuidV7Generator.generate());
@@ -121,7 +120,7 @@ public class StorageService {
         session.setMaxSizeBytes(policy.maxSizeBytes());
         session.setAllowedContentType(contentType);
         session.setStatus(UploadSessionStatus.PENDING.name());
-        uploadSessionMapper.insert(session);
+        uploadSessionRepository.save(session);
 
         Map<String, String> formData = createPostPolicy(policy.bucket(), tempKey, contentType, policy.maxSizeBytes());
         String uploadUrl = stripTrailingSlash(externalEndpoint()) + "/" + policy.bucket();
@@ -141,7 +140,7 @@ public class StorageService {
         StorageUploadSession session = requirePendingSession(objectId);
         if (session.getExpiresAt().isBefore(Instant.now())) {
             session.setStatus(UploadSessionStatus.EXPIRED.name());
-            uploadSessionMapper.updateById(session);
+            uploadSessionRepository.update(session);
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Upload ticket expired");
         }
 
@@ -184,16 +183,16 @@ public class StorageService {
             object.setEtag(stripQuotes(stat.etag()));
             object.setStatus(StorageObjectStatus.READY.name());
             object.setUploadedAt(Instant.now());
-            storageObjectMapper.updateById(object);
+            storageObjectRepository.update(object);
 
             session.setStatus(UploadSessionStatus.COMPLETED.name());
             session.setCompletedAt(Instant.now());
-            uploadSessionMapper.updateById(session);
+            uploadSessionRepository.update(session);
             return toFileAsset(object, true);
         } catch (BusinessException exception) {
             throw exception;
         } catch (Exception exception) {
-            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Uploaded object was not found");
+            throw new BusinessException(ErrorCodes.STORAGE_UPLOAD_FAILED, "Uploaded object was not found");
         }
     }
 
@@ -226,11 +225,8 @@ public class StorageService {
         if (objectIds == null || objectIds.isEmpty()) {
             return Map.of();
         }
-        LambdaQueryWrapper<StorageObject> wrapper = new LambdaQueryWrapper<>();
-        wrapper.in(StorageObject::getId, objectIds);
-        wrapper.eq(StorageObject::getStatus, StorageObjectStatus.READY.name());
         Map<UUID, String> urls = new HashMap<>();
-        for (StorageObject object : storageObjectMapper.selectList(wrapper)) {
+        for (StorageObject object : storageObjectRepository.findByIdsAndStatus(objectIds, StorageObjectStatus.READY.name())) {
             urls.put(object.getId(), objectAccessUrl(object));
         }
         return urls;
@@ -241,9 +237,9 @@ public class StorageService {
         StorageObject object = requireObject(objectId);
         authorizationService.authorizeDelete(object, userId, role);
         removeObjectIfExists(object);
-        object.setDeleted(1);
+        object.setDeleted(StorageObject.DELETED);
         object.setDeletedAt(Instant.now());
-        storageObjectMapper.updateById(object);
+        storageObjectRepository.update(object);
     }
 
     private Map<String, String> createPostPolicy(String bucket, String objectKey, String contentType, long maxSizeBytes) {
@@ -292,11 +288,8 @@ public class StorageService {
     }
 
     private StorageObject requireObject(UUID objectId) {
-        StorageObject object = storageObjectMapper.selectById(objectId);
-        if (object == null) {
-            throw new BusinessException(ErrorCodes.NOT_FOUND);
-        }
-        return object;
+        return storageObjectRepository.findById(objectId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.STORAGE_OBJECT_NOT_FOUND));
     }
 
     private StorageObject requireReadyObject(UUID objectId) {
@@ -308,16 +301,8 @@ public class StorageService {
     }
 
     private StorageUploadSession requirePendingSession(UUID objectId) {
-        LambdaQueryWrapper<StorageUploadSession> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(StorageUploadSession::getObjectId, objectId);
-        wrapper.eq(StorageUploadSession::getStatus, UploadSessionStatus.PENDING.name());
-        wrapper.orderByDesc(StorageUploadSession::getCreatedAt);
-        wrapper.last("LIMIT 1");
-        StorageUploadSession session = uploadSessionMapper.selectOne(wrapper);
-        if (session == null) {
-            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Upload session not found");
-        }
-        return session;
+        return uploadSessionRepository.findByObjectId(objectId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.BAD_REQUEST, "Upload session not found"));
     }
 
     private FileAsset toFileAsset(StorageObject object, boolean includeUrl) {

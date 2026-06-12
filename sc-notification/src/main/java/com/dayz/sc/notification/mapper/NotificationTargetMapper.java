@@ -2,10 +2,12 @@ package com.dayz.sc.notification.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.dayz.sc.notification.model.entity.NotificationTarget;
+import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Update;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -33,4 +35,15 @@ public interface NotificationTargetMapper extends BaseMapper<NotificationTarget>
             </script>
             """)
     int markAllDeleted(@Param("userId") UUID userId, @Param("type") Integer type);
+
+    @Insert("""
+            <script>
+            INSERT INTO ntf_notification_target (id, notification_id, user_id, deleted)
+            VALUES
+            <foreach item="item" collection="list" separator=",">
+              (#{item.id}, #{item.notificationId}, #{item.userId}, 0)
+            </foreach>
+            </script>
+            """)
+    int batchInsert(@Param("list") List<NotificationTarget> list);
 }

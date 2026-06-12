@@ -1,5 +1,6 @@
 package com.dayz.sc.course.model.vo;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
@@ -7,19 +8,19 @@ import java.util.List;
 import java.util.UUID;
 
 public record ChapterVO(
-        UUID id,
-        UUID courseId,
-        UUID teacherId,
-        String chapterName,
-        @Nullable UUID parentChapterId,
-        @Nullable String description,
-        @Nullable String content,
-        @Nullable List<String> attachmentUrls,
-        int sortOrder,
-        int status,
-        long viewCount,
-        long likeCount,
-        @Nullable List<ChapterVO> children,
-        Instant createdAt,
-        Instant updatedAt
+        @JsonProperty("id") UUID id,
+        @JsonProperty("courseId") UUID courseId,
+        @JsonProperty("teacherId") UUID teacherId,
+        @JsonProperty("chapterName") String chapterName,
+        @JsonProperty("parentChapterId") @Nullable UUID parentChapterId,
+        @JsonProperty("description") @Nullable String description,
+        @JsonProperty("content") @Nullable String content,
+        @JsonProperty("attachmentUrls") @Nullable List<String> attachmentUrls,
+        @JsonProperty("sortOrder") int sortOrder,
+        @JsonProperty("status") int status,
+        @JsonProperty("viewCount") long viewCount,
+        @JsonProperty("likeCount") long likeCount,
+        @JsonProperty("children") @Nullable List<ChapterVO> children,
+        @JsonProperty("createdAt") Instant createdAt,
+        @JsonProperty("updatedAt") Instant updatedAt
 ) {}

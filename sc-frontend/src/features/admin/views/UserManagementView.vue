@@ -268,6 +268,7 @@ async function loadUsers() {
     totalItems.value = response.total
   } catch (error) {
     console.error('Failed to load users:', error)
+    notify.error('Failed to load users')
     users.value = []
   } finally {
     loading.value = false
@@ -313,9 +314,10 @@ async function saveUser() {
   try {
     await updateUser(editingUser.value.id, {
       displayName: editForm.displayName,
-      status: editForm.status as any,
+      status: editForm.status as UserStatus,
     })
     showEditModal.value = false
+    notify.success(t('admin.userManagement.alert.updateSuccess'))
     await loadUsers()
   } catch {
     notify.error(t('admin.userManagement.alert.updateFailed'))

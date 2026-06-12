@@ -1,6 +1,7 @@
 package com.dayz.sc.course.controller;
 
 import com.dayz.sc.common.response.ApiResponse;
+import com.dayz.sc.common.security.ratelimit.RateLimited;
 import com.dayz.sc.common.security.support.JwtPrincipalResolver;
 import com.dayz.sc.course.model.dto.BindCourseFileRequest;
 import com.dayz.sc.course.model.vo.CourseFileVO;
@@ -22,6 +23,7 @@ public class CourseFileController {
     private final CourseFileService courseFileService;
 
     @PostMapping
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<CourseFileVO> bindFile(@PathVariable UUID courseId,
                                               @Valid @RequestBody BindCourseFileRequest request,
                                               @AuthenticationPrincipal Jwt jwt) {
@@ -39,6 +41,7 @@ public class CourseFileController {
     }
 
     @DeleteMapping("/{courseFileId}")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> deleteFile(@PathVariable UUID courseId,
                                         @PathVariable UUID courseFileId,
                                         @AuthenticationPrincipal Jwt jwt) {

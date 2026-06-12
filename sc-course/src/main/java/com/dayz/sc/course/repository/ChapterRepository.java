@@ -1,5 +1,6 @@
 package com.dayz.sc.course.repository;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.model.entity.Chapter;
 
 import java.util.List;
@@ -22,9 +23,7 @@ public interface ChapterRepository {
 
     List<Chapter> findByParentChapterId(UUID parentChapterId);
 
-    List<Chapter> findAll(int page, int size, UUID courseId, Integer status, String keyword);
-
-    long countAll(UUID courseId, Integer status, String keyword);
+    Page<Chapter> findAll(int page, int size, UUID courseId, Integer status, String keyword);
 
     long countByCourseId(UUID courseId);
 

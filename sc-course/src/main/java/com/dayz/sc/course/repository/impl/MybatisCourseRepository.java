@@ -2,6 +2,7 @@ package com.dayz.sc.course.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.mapper.CourseMapper;
 import com.dayz.sc.course.model.entity.Course;
 import com.dayz.sc.course.repository.CourseRepository;
@@ -48,44 +49,13 @@ public class MybatisCourseRepository implements CourseRepository {
     }
 
     @Override
-    public List<Course> findAll(int page, int size, String keyword, Integer level, Integer status, Integer isPublic,
+    public Page<Course> findAll(int page, int size, String keyword, Integer level, Integer status, Integer isPublic,
                                 Instant createdAtStart, Instant createdAtEnd,
                                 Instant updatedAtStart, Instant updatedAtEnd) {
-        LambdaQueryWrapper<Course> wrapper = new LambdaQueryWrapper<>();
-
-        if (StringUtils.hasText(keyword)) {
-            wrapper.and(w -> w
-                    .like(Course::getTitle, keyword)
-                    .or()
-                    .like(Course::getDescription, keyword)
-            );
-        }
-        if (level != null) {
-            wrapper.eq(Course::getLevel, level);
-        }
-        if (status != null) {
-            wrapper.eq(Course::getStatus, status);
-        }
-        if (isPublic != null) {
-            wrapper.eq(Course::getIsPublic, isPublic);
-        }
-        if (createdAtStart != null) {
-            wrapper.ge(Course::getCreatedAt, createdAtStart);
-        }
-        if (createdAtEnd != null) {
-            wrapper.le(Course::getCreatedAt, createdAtEnd);
-        }
-        if (updatedAtStart != null) {
-            wrapper.ge(Course::getUpdatedAt, updatedAtStart);
-        }
-        if (updatedAtEnd != null) {
-            wrapper.le(Course::getUpdatedAt, updatedAtEnd);
-        }
-
+        LambdaQueryWrapper<Course> wrapper = buildFilterWrapper(keyword, level, status, isPublic,
+                createdAtStart, createdAtEnd, updatedAtStart, updatedAtEnd);
         wrapper.orderByDesc(Course::getCreatedAt);
-        wrapper.last("LIMIT " + size + " OFFSET " + (page - 1) * size);
-
-        return courseMapper.selectList(wrapper);
+        return courseMapper.selectPage(new Page<>(page, size), wrapper);
     }
 
     @Override
@@ -93,32 +63,25 @@ public class MybatisCourseRepository implements CourseRepository {
         if (ids == null || ids.isEmpty()) {
             return List.of();
         }
-
         LambdaQueryWrapper<Course> wrapper = new LambdaQueryWrapper<>();
         wrapper.in(Course::getId, ids);
         return courseMapper.selectList(wrapper);
     }
 
     @Override
-    public List<Course> findTeacherCourses(UUID teacherId, String role, int page, int size) {
+    public Page<Course> findTeacherCourses(UUID teacherId, String role, int page, int size) {
         LambdaQueryWrapper<Course> wrapper = teacherCourseWrapper(teacherId, role);
         wrapper.orderByDesc(Course::getCreatedAt);
-        wrapper.last("LIMIT " + size + " OFFSET " + (page - 1) * size);
-        return courseMapper.selectList(wrapper);
+        return courseMapper.selectPage(new Page<>(page, size), wrapper);
     }
 
-    @Override
-    public long countTeacherCourses(UUID teacherId, String role) {
-        LambdaQueryWrapper<Course> wrapper = teacherCourseWrapper(teacherId, role);
-        return courseMapper.selectCount(wrapper);
-    }
+    // ==================== Private ====================
 
-    @Override
-    public long countAll(String keyword, Integer level, Integer status, Integer isPublic,
-                         Instant createdAtStart, Instant createdAtEnd,
-                         Instant updatedAtStart, Instant updatedAtEnd) {
+    private LambdaQueryWrapper<Course> buildFilterWrapper(String keyword, Integer level, Integer status,
+                                                          Integer isPublic, Instant createdAtStart,
+                                                          Instant createdAtEnd, Instant updatedAtStart,
+                                                          Instant updatedAtEnd) {
         LambdaQueryWrapper<Course> wrapper = new LambdaQueryWrapper<>();
-
         if (StringUtils.hasText(keyword)) {
             wrapper.and(w -> w
                     .like(Course::getTitle, keyword)
@@ -147,8 +110,7 @@ public class MybatisCourseRepository implements CourseRepository {
         if (updatedAtEnd != null) {
             wrapper.le(Course::getUpdatedAt, updatedAtEnd);
         }
-
-        return courseMapper.selectCount(wrapper);
+        return wrapper;
     }
 
     private LambdaQueryWrapper<Course> teacherCourseWrapper(UUID teacherId, String role) {
@@ -157,13 +119,11 @@ public class MybatisCourseRepository implements CourseRepository {
             wrapper.eq(Course::getTeacherId, teacherId);
             return wrapper;
         }
-
         if ("assistant".equalsIgnoreCase(role)) {
             wrapper.ne(Course::getTeacherId, teacherId);
             wrapper.exists("SELECT 1 FROM edu_course_teacher ect WHERE ect.course_id = edu_course.id AND ect.teacher_id = {0}", teacherId);
             return wrapper;
         }
-
         wrapper.exists("SELECT 1 FROM edu_course_teacher ect WHERE ect.course_id = edu_course.id AND ect.teacher_id = {0}", teacherId);
         return wrapper;
     }

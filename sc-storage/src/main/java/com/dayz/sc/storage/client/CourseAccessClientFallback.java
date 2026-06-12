@@ -14,6 +14,6 @@ public class CourseAccessClientFallback implements CourseAccessClient {
     @Override
     public ApiResponse<CourseAccess> getAccess(UUID courseId) {
         log.warn("CourseAccessClient fallback: getAccess({}), denying all access", courseId);
-        return ApiResponse.ok(new CourseAccess(courseId, false, false, false));
+        return ApiResponse.ok(new CourseAccess(courseId, false, false, false, false));
     }
 }

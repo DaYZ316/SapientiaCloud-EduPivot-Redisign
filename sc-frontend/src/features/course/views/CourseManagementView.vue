@@ -91,6 +91,7 @@
       @view="viewCourse"
       @edit="editCourse"
       @delete="confirmDeleteCourse"
+      @invite="openInviteModal"
     />
 
     <div v-else class="empty-state">
@@ -469,6 +470,80 @@
       </div>
     </Teleport>
 
+    <!-- Invite Assistant Modal -->
+    <Teleport to="body">
+      <div v-if="showInviteModal" class="modal-overlay">
+        <div class="modal modal-md">
+          <div class="modal-header">
+            <h2>{{ t('enrollmentManagement.inviteModal.title') }}</h2>
+            <button class="btn-close" @click="closeInviteModal">
+              <X :size="20"/>
+            </button>
+          </div>
+          <form class="modal-body invite-modal-body" @submit.prevent="handleInvite">
+            <div class="invite-course-label">
+              <span>{{ t('enrollmentManagement.inviteModal.courseLabel') }}:</span>
+              <strong>{{ inviteTarget?.title }}</strong>
+            </div>
+
+            <div class="invite-search">
+              <Search :size="16" stroke-width="1.8"/>
+              <input
+                v-model="inviteSearchKeyword"
+                type="text"
+                :placeholder="t('enrollmentManagement.inviteModal.searchPlaceholder')"
+              />
+            </div>
+
+            <div v-if="inviteTeacherLoading" class="invite-empty">{{ t('courses.modal.loadingTeachers') }}</div>
+            <div v-else-if="filteredInviteTeachers.length === 0" class="invite-empty">
+              {{ t('enrollmentManagement.inviteModal.noTeachers') }}
+            </div>
+            <div v-else class="invite-teacher-list">
+              <label
+                v-for="teacher in filteredInviteTeachers"
+                :key="teacher.id"
+                class="invite-teacher-option"
+                :class="{selected: selectedInviteeId === teacher.id}"
+              >
+                <input
+                  type="radio"
+                  name="invitee"
+                  :value="teacher.id"
+                  :checked="selectedInviteeId === teacher.id"
+                  @change="selectedInviteeId = teacher.id"
+                />
+                <span class="invite-teacher-copy">
+                  <strong>{{ formatTeacherName(teacher) }}</strong>
+                  <small>{{ formatTeacherMeta(teacher) || teacher.email || teacher.id }}</small>
+                </span>
+              </label>
+            </div>
+
+            <div class="form-group invite-message-group">
+              <label>{{ t('enrollmentManagement.inviteModal.messageLabel') }}</label>
+              <textarea
+                v-model="inviteMessage"
+                class="input-field"
+                :placeholder="t('enrollmentManagement.inviteModal.messagePlaceholder')"
+                rows="3"
+              ></textarea>
+            </div>
+          </form>
+          <div class="modal-footer">
+            <button class="btn-secondary" @click="closeInviteModal">{{ t('enrollmentManagement.inviteModal.cancel') }}</button>
+            <button
+              class="btn-primary"
+              :disabled="inviteSubmitting || !selectedInviteeId"
+              @click="handleInvite"
+            >
+              {{ inviteSubmitting ? t('enrollmentManagement.inviteModal.sending') : t('enrollmentManagement.inviteModal.confirm') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
   </div>
 </template>
 
@@ -486,6 +561,7 @@ import BaseSelect from '@/shared/components/BaseSelect.vue'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
 import {createCourse, deleteCourse, getCourses, getTeacherCourses, updateCourse} from '@/features/course/api/course'
+import {sendInvitation} from '@/features/course/api/invitation'
 import {pageUsers} from '@/features/user/api/user'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import type {Course, CreateCourseRequest, TeacherCourseRole, UpdateCourseRequest} from '@/features/course/types/course'
@@ -665,6 +741,16 @@ const filteredCreateAssistantCandidates = computed(() => {
 const showDeleteModal = ref(false)
 const deleteTarget = ref<Course | null>(null)
 
+// Invite assistant
+const showInviteModal = ref(false)
+const inviteTarget = ref<Course | null>(null)
+const inviteSearchKeyword = ref('')
+const inviteMessage = ref('')
+const selectedInviteeId = ref<string | null>(null)
+const inviteSubmitting = ref(false)
+const inviteTeachers = ref<UserProfile[]>([])
+const inviteTeacherLoading = ref(false)
+
 const displayedPages = computed(() => {
   const pages: number[] = []
   const maxDisplay = 5
@@ -758,6 +844,7 @@ async function loadTeacherOptions() {
     teachers.value = response.records
   } catch (error) {
     console.error('Failed to load teachers:', error)
+    notify.error('Failed to load teachers')
     teachers.value = []
   } finally {
     teacherLoading.value = false
@@ -784,6 +871,7 @@ async function loadData() {
     totalPages.value = Math.ceil(response.total / pageSize.value)
   } catch (error) {
     console.error('Failed to load data:', error)
+    notify.error('Failed to load data')
     courses.value = []
   } finally {
     loading.value = false
@@ -880,6 +968,7 @@ async function submitCourse() {
     }
     await createCourse(request)
     closeCreateModal()
+    notify.success(t('courses.alert.createSuccess'))
     await loadData()
   } catch (error) {
     console.error('Failed to create course:', error)
@@ -948,6 +1037,7 @@ async function submitEdit() {
     }
     await updateCourse(editingCourse.value.id, request)
     closeEditModal()
+    notify.success(t('courses.alert.updateSuccess'))
     await loadData()
   } catch (error) {
     console.error('Failed to update course:', error)
@@ -970,10 +1060,78 @@ async function handleDeleteCourse() {
     await deleteCourse(deleteTarget.value.id)
     showDeleteModal.value = false
     deleteTarget.value = null
+    notify.success(t('courses.alert.deleteSuccess'))
     await loadData()
   } catch (error) {
     console.error('Failed to delete course:', error)
     notify.error(t('courses.alert.deleteFailed'))
+  }
+}
+
+// ── Invite Assistant ──
+
+const filteredInviteTeachers = computed(() => {
+  const excludeId = inviteTarget.value?.teacherId
+  const candidates = excludeId
+    ? inviteTeachers.value.filter((t) => t.id !== excludeId)
+    : inviteTeachers.value
+  const keyword = inviteSearchKeyword.value.trim().toLowerCase()
+  if (!keyword) return candidates
+  return candidates.filter((teacher) =>
+    [
+      formatTeacherName(teacher),
+      formatTeacherMeta(teacher),
+      teacher.email,
+      teacher.teacherInfo?.employeeNo,
+    ].filter(Boolean).join(' ').toLowerCase().includes(keyword),
+  )
+})
+
+async function openInviteModal(course: Course) {
+  inviteTarget.value = course
+  inviteSearchKeyword.value = ''
+  inviteMessage.value = ''
+  selectedInviteeId.value = null
+  showInviteModal.value = true
+
+  if (inviteTeachers.value.length === 0 && !inviteTeacherLoading.value) {
+    inviteTeacherLoading.value = true
+    try {
+      const response = await pageUsers({page: 1, size: 100, role: 2})
+      inviteTeachers.value = response.records
+    } catch (error) {
+      console.error('Failed to load teachers:', error)
+      notify.error('Failed to load teachers')
+    } finally {
+      inviteTeacherLoading.value = false
+    }
+  }
+}
+
+function closeInviteModal() {
+  showInviteModal.value = false
+  inviteTarget.value = null
+  inviteSearchKeyword.value = ''
+  inviteMessage.value = ''
+  selectedInviteeId.value = null
+}
+
+async function handleInvite() {
+  if (!inviteTarget.value || !selectedInviteeId.value) return
+  inviteSubmitting.value = true
+  try {
+    await sendInvitation({
+      courseId: inviteTarget.value.id,
+      inviteeId: selectedInviteeId.value,
+      message: inviteMessage.value || undefined,
+    })
+    closeInviteModal()
+    notify.success(t('enrollmentManagement.alert.inviteSuccess'))
+  } catch (error) {
+    console.error('Failed to send invitation:', error)
+    notify.error(t('enrollmentManagement.alert.inviteFailed'))
+  } finally {
+    inviteSubmitting.value = false
   }
 }
 
@@ -2046,5 +2204,150 @@ onMounted(() => {
     width: 100%;
     justify-content: space-between;
   }
+}
+
+/* Invite Modal */
+.modal-md {
+  max-width: 560px;
+}
+
+.invite-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.invite-course-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--color-on-surface);
+}
+
+.invite-course-label span {
+  color: var(--color-muted);
+}
+
+.invite-search {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  background: var(--color-surface-canvas);
+  border: 1px solid var(--color-outline-light);
+  border-radius: 10px;
+  color: var(--color-muted);
+}
+
+.invite-search input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--color-on-surface);
+}
+
+.invite-teacher-list {
+  display: grid;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.invite-teacher-option {
+  min-height: 50px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-outline-light);
+  border-radius: 10px;
+  background: var(--color-surface-card);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.invite-teacher-option:hover,
+.invite-teacher-option.selected {
+  background: var(--color-surface-container);
+  border-color: var(--color-outline-variant);
+}
+
+.invite-teacher-option input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-on-surface);
+}
+
+.invite-teacher-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.invite-teacher-copy strong {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+.invite-teacher-copy small {
+  overflow: hidden;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--color-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.invite-empty {
+  padding: 18px 12px;
+  border: 1px dashed var(--color-outline-light);
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.invite-message-group {
+  margin-bottom: 0;
+}
+
+.invite-message-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-on-surface);
+}
+
+.invite-message-group textarea {
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--color-surface-canvas);
+  border: 1px solid var(--color-outline-light);
+  border-radius: 14px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--color-on-surface);
+  resize: vertical;
+  min-height: 80px;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.invite-message-group textarea:focus {
+  border-color: var(--color-on-surface);
+  background: var(--color-surface-card);
 }
 </style>

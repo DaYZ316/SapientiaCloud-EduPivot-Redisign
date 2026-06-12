@@ -2,9 +2,11 @@ package com.dayz.sc.auth.controller;
 
 import com.dayz.sc.auth.model.dto.GitHubLoginRequest;
 import com.dayz.sc.auth.model.dto.GoogleLoginRequest;
+import com.dayz.sc.auth.model.dto.LogoutRequest;
 import com.dayz.sc.auth.model.dto.PasswordLoginRequest;
+import com.dayz.sc.auth.model.dto.RefreshTokenRequest;
 import com.dayz.sc.auth.model.dto.RegisterRequest;
-import com.dayz.sc.auth.model.vo.LoginResponse;
+import com.dayz.sc.auth.model.vo.LoginResponseVO;
 import com.dayz.sc.auth.service.GitHubLoginService;
 import com.dayz.sc.auth.service.GoogleLoginService;
 import com.dayz.sc.auth.service.PasswordLoginService;
@@ -17,6 +19,8 @@ import com.dayz.sc.common.security.token.RefreshTokenService;
 import com.dayz.sc.common.security.token.TokenBlacklistService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -25,7 +29,6 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
-import java.util.Map;
 
 /**
  * 认证接口。
@@ -47,28 +50,28 @@ public class AuthController {
 
     @PostMapping("/google/login")
     @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<@NonNull LoginResponse> googleLogin(@Valid @RequestBody GoogleLoginRequest request,
+    public ApiResponse<@NonNull LoginResponseVO> googleLogin(@Valid @RequestBody GoogleLoginRequest request,
                                                            HttpServletRequest servletRequest) {
         return ApiResponse.ok(googleLoginService.login(request, resolveClientIp(servletRequest)));
     }
 
     @PostMapping("/github/login")
     @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<@NonNull LoginResponse> githubLogin(@Valid @RequestBody GitHubLoginRequest request,
+    public ApiResponse<@NonNull LoginResponseVO> githubLogin(@Valid @RequestBody GitHubLoginRequest request,
                                                            HttpServletRequest servletRequest) {
         return ApiResponse.ok(gitHubLoginService.login(request, resolveClientIp(servletRequest)));
     }
 
     @PostMapping("/register")
     @RateLimited(maxRequests = 5, windowSeconds = 300)
-    public ApiResponse<@NonNull LoginResponse> register(@Valid @RequestBody RegisterRequest request,
+    public ApiResponse<@NonNull LoginResponseVO> register(@Valid @RequestBody RegisterRequest request,
                                                         HttpServletRequest servletRequest) {
         return ApiResponse.ok(passwordLoginService.register(request, resolveClientIp(servletRequest)));
     }
 
     @PostMapping("/password/login")
     @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<@NonNull LoginResponse> passwordLogin(@Valid @RequestBody PasswordLoginRequest request,
+    public ApiResponse<@NonNull LoginResponseVO> passwordLogin(@Valid @RequestBody PasswordLoginRequest request,
                                                              HttpServletRequest servletRequest) {
         return ApiResponse.ok(passwordLoginService.login(request, resolveClientIp(servletRequest)));
     }
@@ -80,11 +83,8 @@ public class AuthController {
      */
     @PostMapping("/refresh")
     @RateLimited(maxRequests = 20, windowSeconds = 60)
-    public ApiResponse<@NonNull LoginResponse> refresh(@RequestBody Map<String, String> request) {
-        String oldRefreshToken = request.get("refreshToken");
-        if (!StringUtils.hasText(oldRefreshToken)) {
-            throw new BusinessException(ErrorCodes.BAD_REQUEST, "refreshToken 不能为空");
-        }
+    public ApiResponse<@NonNull LoginResponseVO> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        String oldRefreshToken = request.refreshToken();
 
         String userId = refreshTokenService.validateRefreshToken(oldRefreshToken);
         if (userId == null) {
@@ -107,7 +107,7 @@ public class AuthController {
         }
         String newAccessToken = jwtTokenService.createAccessToken(userId, claims);
 
-        return ApiResponse.ok(new LoginResponse(
+        return ApiResponse.ok(new LoginResponseVO(
                 newAccessToken,
                 newRefreshToken,
                 "Bearer",
@@ -122,8 +122,9 @@ public class AuthController {
      * 将当前 Access Token 加入黑名单，并吊销 Refresh Token。
      */
     @PostMapping("/logout")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> logout(@RequestHeader(value = "Authorization", required = false) String authorization,
-                                    @RequestBody(required = false) Map<String, String> request) {
+                                    @RequestBody(required = false) LogoutRequest request) {
         // 从 Authorization header 提取 token 并加入黑名单
         if (StringUtils.hasText(authorization) && authorization.startsWith("Bearer ")) {
             String accessToken = authorization.substring(7);
@@ -142,8 +143,8 @@ public class AuthController {
         }
 
         // 吊销 Refresh Token
-        if (request != null && StringUtils.hasText(request.get("refreshToken"))) {
-            refreshTokenService.revokeRefreshToken(request.get("refreshToken"));
+        if (request != null && StringUtils.hasText(request.refreshToken())) {
+            refreshTokenService.revokeRefreshToken(request.refreshToken());
         }
 
         return ApiResponse.ok(null);

@@ -1,5 +1,6 @@
 package com.dayz.sc.course.repository;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.model.entity.ForumPost;
 
 import java.util.List;
@@ -16,13 +17,11 @@ public interface ForumPostRepository {
 
     void deleteById(UUID id);
 
-    List<ForumPost> findByForumId(UUID forumId, int page, int size);
+    Page<ForumPost> findByForumId(UUID forumId, int page, int size);
 
-    List<ForumPost> findByCourseId(UUID courseId, int page, int size);
+    Page<ForumPost> findByCourseId(UUID courseId, int page, int size);
 
-    List<ForumPost> findAll(int page, int size, UUID forumId, UUID courseId, Integer status, String keyword);
-
-    long countAll(UUID forumId, UUID courseId, Integer status, String keyword);
+    Page<ForumPost> findAll(int page, int size, UUID forumId, UUID courseId, Integer status, String keyword);
 
     long countByForumId(UUID forumId);
 

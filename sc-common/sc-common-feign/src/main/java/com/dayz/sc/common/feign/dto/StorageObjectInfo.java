@@ -1,18 +1,20 @@
 package com.dayz.sc.common.feign.dto;
 
-import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import java.time.Instant;
 import java.util.UUID;
 
 public record StorageObjectInfo(
-        UUID id,
-        String fileName,
-        String contentType,
-        long sizeBytes,
-        String usage,
-        String visibility,
-        String scopeType,
-        UUID scopeId,
-        String status,
-        UUID ownerUserId,
-        LocalDateTime uploadedAt
+        @JsonProperty("id") UUID id,
+        @JsonProperty("fileName") String fileName,
+        @JsonProperty("contentType") String contentType,
+        @JsonProperty("sizeBytes") long sizeBytes,
+        @JsonProperty("usage") String usage,
+        @JsonProperty("visibility") String visibility,
+        @JsonProperty("scopeType") String scopeType,
+        @JsonProperty("scopeId") UUID scopeId,
+        @JsonProperty("status") String status,
+        @JsonProperty("ownerUserId") UUID ownerUserId,
+        @JsonProperty("uploadedAt") Instant uploadedAt
 ) {}
