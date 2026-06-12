@@ -1,0 +1,52 @@
+export default {
+    request: {
+        failed: 'Request failed',
+        networkError: 'Network connection error. Please try again later.',
+        offline: 'You are offline. Please check your network connection.',
+        timeout: 'Request timed out. Please try again later.',
+        notFound: 'Page not found',
+    },
+    sessionExpired: {
+        title: 'Session expired',
+        message: 'Your session has expired. Please sign in again.',
+        confirm: 'Sign in again',
+    },
+    feedback: {
+        success: 'Success',
+        warn: 'Warning',
+        info: 'Information',
+        error: 'Error',
+        close: 'Close notification',
+    },
+    navigation: {
+        dashboard: 'Dashboard',
+        courses: 'Recommended Courses',
+        myEnrollments: 'My Courses',
+        courseManagement: 'Course Management',
+    },
+    menu: {
+        profile: 'Profile',
+        settings: 'Settings',
+        users: 'Users',
+        students: 'Students',
+        teachers: 'Teachers',
+        logout: 'Logout',
+    },
+    layout: {
+        collapseSidebar: 'Collapse sidebar',
+        expandSidebar: 'Expand sidebar',
+    },
+    settings: {
+        account: 'Account',
+        appearance: 'Appearance',
+        notifications: 'Notifications',
+        privacy: 'Privacy',
+        applicationLayout: 'Application Layout',
+        sidebarNavigation: 'Sidebar Navigation',
+        sidebarNavigationDescription: 'Switch between the classic top bar and a left sidebar navigation shell',
+        topBar: 'Top Bar',
+        sidebar: 'Sidebar',
+        language: 'Language',
+        languageDescription: 'Switch the application interface language',
+    },
+}

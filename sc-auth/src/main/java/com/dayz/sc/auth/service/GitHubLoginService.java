@@ -1,0 +1,242 @@
+package com.dayz.sc.auth.service;
+
+import com.dayz.sc.auth.client.github.GitHubOauthClient;
+import com.dayz.sc.auth.client.github.GitHubUserClient;
+import com.dayz.sc.auth.client.github.dto.GitHubEmailResponse;
+import com.dayz.sc.auth.client.github.dto.GitHubTokenResponse;
+import com.dayz.sc.auth.client.github.dto.GitHubUserResponse;
+import com.dayz.sc.auth.config.GitHubOauthProperties;
+import com.dayz.sc.auth.model.dto.GitHubLoginRequest;
+import com.dayz.sc.auth.model.dto.OauthUserInfo;
+import com.dayz.sc.auth.model.entity.User;
+import com.dayz.sc.auth.model.enums.OauthProvider;
+import com.dayz.sc.auth.model.vo.LoginResponse;
+import com.dayz.sc.auth.model.vo.StudentInfo;
+import com.dayz.sc.auth.model.vo.TeacherInfo;
+import com.dayz.sc.auth.model.vo.UserProfile;
+import com.dayz.sc.auth.repository.StudentRepository;
+import com.dayz.sc.auth.repository.TeacherRepository;
+import com.dayz.sc.common.error.BusinessException;
+import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.security.service.JwtTokenService;
+import com.dayz.sc.common.security.token.RefreshTokenService;
+import feign.FeignException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+import java.util.*;
+
+/**
+ * 处理 GitHub OAuth 授权码登录并签发 JWT 访问令牌。
+ *
+ * @author DaYZ
+ * @since 2026-05-08
+ */
+@Service
+@RequiredArgsConstructor
+public class GitHubLoginService {
+    private static final String GITHUB_JSON = "application/vnd.github+json";
+    private static final String BEARER_PREFIX = "Bearer ";
+    private static final String TOKEN_TYPE = "Bearer";
+    private static final int EMAIL_PAGE_SIZE = 100;
+    private static final int FIRST_PAGE = 1;
+
+    private final GitHubOauthClient gitHubOauthClient;
+    private final GitHubUserClient gitHubUserClient;
+    private final GitHubOauthProperties gitHubOauthProperties;
+    private final JwtTokenService jwtTokenService;
+    private final UserAccountService userAccountService;
+    private final RefreshTokenService refreshTokenService;
+    private final StudentRepository studentRepository;
+    private final TeacherRepository teacherRepository;
+
+    public LoginResponse login(GitHubLoginRequest request, String clientIp) {
+        assertGitHubConfigured();
+        String redirectUri = resolveRedirectUri(request);
+
+        GitHubTokenResponse token;
+        try {
+            token = gitHubOauthClient.exchangeCode(
+                    MediaType.APPLICATION_JSON_VALUE,
+                    gitHubOauthProperties.getClientId(),
+                    gitHubOauthProperties.getClientSecret(),
+                    request.code(),
+                    redirectUri,
+                    normalize(request.codeVerifier())
+            );
+        } catch (FeignException ex) {
+            throw new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED, "GitHub 授权码换取令牌失败");
+        }
+
+        if (token == null || !token.successful()) {
+            String message = token == null ? "GitHub 登录失败" : "GitHub 登录失败: " + token.errorDescription();
+            throw new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED, message);
+        }
+
+        String authorization = BEARER_PREFIX + token.accessToken();
+        GitHubUserResponse userInfo;
+        try {
+            userInfo = gitHubUserClient.getUser(authorization, GITHUB_JSON, gitHubOauthProperties.getApiVersion());
+        } catch (FeignException ex) {
+            throw new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED, "GitHub 用户信息读取失败");
+        }
+        if (userInfo == null || userInfo.id() == null) {
+            throw new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED, "GitHub 用户信息缺少 id");
+        }
+
+        GitHubEmailResponse email = resolvePrimaryEmail(authorization, userInfo);
+        UserAccountService.AuthenticatedUser authenticatedUser = userAccountService.loginWithOauth(toOauthUserInfo(userInfo, email), clientIp);
+        User user = authenticatedUser.user();
+        UserProfile profile = toUserProfile(authenticatedUser);
+
+        String accessToken = jwtTokenService.createAccessToken(user.getId().toString(), buildClaims(user));
+        String refreshToken = refreshTokenService.createRefreshToken(user.getId().toString(), user.getRole());
+
+        return new LoginResponse(accessToken, refreshToken, TOKEN_TYPE, jwtTokenService.getAccessTokenTtlSeconds(), profile);
+    }
+
+    private GitHubEmailResponse resolvePrimaryEmail(String authorization, GitHubUserResponse userInfo) {
+        List<GitHubEmailResponse> emails = List.of();
+        try {
+            emails = gitHubUserClient.listEmails(
+                    authorization,
+                    GITHUB_JSON,
+                    gitHubOauthProperties.getApiVersion(),
+                    EMAIL_PAGE_SIZE,
+                    FIRST_PAGE
+            );
+        } catch (FeignException ex) {
+            if (ex.status() != 403 && ex.status() != 404) {
+                throw new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED, "GitHub 邮箱信息读取失败");
+            }
+        }
+
+        return selectEmail(emails)
+                .orElseGet(() -> StringUtils.hasText(userInfo.email())
+                        ? new GitHubEmailResponse(userInfo.email(), true, false, null)
+                        : null);
+    }
+
+    private Optional<GitHubEmailResponse> selectEmail(List<GitHubEmailResponse> emails) {
+        if (emails == null || emails.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return emails.stream()
+                .filter(email -> StringUtils.hasText(email.email()))
+                .filter(email -> Boolean.TRUE.equals(email.verified()))
+                .max(Comparator.comparing((GitHubEmailResponse email) -> Boolean.TRUE.equals(email.primary()))
+                        .thenComparing(email -> StringUtils.hasText(email.visibility())));
+    }
+
+    private OauthUserInfo toOauthUserInfo(GitHubUserResponse userInfo, GitHubEmailResponse email) {
+        return new OauthUserInfo(
+                OauthProvider.GITHUB,
+                userInfo.id().toString(),
+                userInfo.login(),
+                email == null ? null : email.email(),
+                email != null && Boolean.TRUE.equals(email.verified()),
+                resolveDisplayName(userInfo),
+                userInfo.avatarUrl(),
+                null
+        );
+    }
+
+    private UserProfile toUserProfile(UserAccountService.AuthenticatedUser authenticatedUser) {
+        User user = authenticatedUser.user();
+        StudentInfo studentInfo = loadStudentInfo(user.getId());
+        TeacherInfo teacherInfo = loadTeacherInfo(user.getId());
+
+        return new UserProfile(
+                user.getId(),
+                user.getEmail(),
+                user.isEmailVerified(),
+                user.getDisplayName(),
+                user.getAvatarUrl(),
+                user.getAvatarFileId(),
+                user.getLocale(),
+                user.getStatus(),
+                user.getPhone(),
+                user.getBio(),
+                user.getGender(),
+                user.getBirthday(),
+                user.getTheme(),
+                user.getNotificationEnabled() != null ? user.getNotificationEnabled() : true,
+                user.getCreatedProvider(),
+                user.getCreatedIp(),
+                user.getLastLoginProvider(),
+                user.getLastLoginIp(),
+                user.getLoginCount(),
+                user.getCreatedAt(),
+                user.getUpdatedAt(),
+                user.getLastLoginAt(),
+                authenticatedUser.linkedProviders(),
+                user.getRole(),
+                studentInfo,
+                teacherInfo
+        );
+    }
+
+    private StudentInfo loadStudentInfo(UUID userId) {
+        return studentRepository.findByUserId(userId)
+                .map(student -> new StudentInfo(
+                        student.getId(),
+                        student.getStudentNo(),
+                        student.getGrade(),
+                        student.getMajor(),
+                        student.getSchool()
+                ))
+                .orElse(null);
+    }
+
+    private TeacherInfo loadTeacherInfo(UUID userId) {
+        return teacherRepository.findByUserId(userId)
+                .map(teacher -> new TeacherInfo(
+                        teacher.getId(),
+                        teacher.getEmployeeNo(),
+                        teacher.getDepartment(),
+                        teacher.getTitle(),
+                        teacher.getSchool()
+                ))
+                .orElse(null);
+    }
+
+    /**
+     * 精简 JWT claims：仅包含 userId 和 role。
+     */
+    private Map<String, Object> buildClaims(User user) {
+        Map<String, Object> claims = new LinkedHashMap<>();
+        claims.put("userId", user.getId().toString());
+        if (user.getRole() != null) {
+            claims.put("role", user.getRole());
+        }
+        return claims;
+    }
+
+    private String resolveDisplayName(GitHubUserResponse userInfo) {
+        return StringUtils.hasText(userInfo.name()) ? userInfo.name() : userInfo.login();
+    }
+
+    private void assertGitHubConfigured() {
+        if (!StringUtils.hasText(gitHubOauthProperties.getClientId())
+                || !StringUtils.hasText(gitHubOauthProperties.getClientSecret())) {
+            throw new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED, "GitHub OAuth clientId/clientSecret 未配置");
+        }
+    }
+
+    private String resolveRedirectUri(GitHubLoginRequest request) {
+        String redirectUri = StringUtils.hasText(request.redirectUri())
+                ? request.redirectUri()
+                : gitHubOauthProperties.getRedirectUri();
+        if (!StringUtils.hasText(redirectUri)) {
+            throw new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED, "GitHub OAuth redirectUri 未配置");
+        }
+        return redirectUri;
+    }
+
+    private String normalize(String value) {
+        return StringUtils.hasText(value) ? value : null;
+    }
+}

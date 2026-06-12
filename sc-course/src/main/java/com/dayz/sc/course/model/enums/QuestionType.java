@@ -1,0 +1,29 @@
+package com.dayz.sc.course.model.enums;
+
+import com.dayz.sc.common.error.BusinessException;
+import com.dayz.sc.common.error.ErrorCodes;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+@Getter
+@RequiredArgsConstructor
+public enum QuestionType {
+
+    SINGLE_CHOICE(0, "单选题"),
+    MULTI_CHOICE(1, "多选题"),
+    TRUE_FALSE(2, "判断题"),
+    FILL_BLANK(3, "填空题"),
+    SHORT_ANSWER(4, "简答题");
+
+    private final int code;
+    private final String description;
+
+    public static QuestionType fromCode(int code) {
+        for (QuestionType type : values()) {
+            if (type.code == code) {
+                return type;
+            }
+        }
+        throw new BusinessException(ErrorCodes.BAD_REQUEST);
+    }
+}

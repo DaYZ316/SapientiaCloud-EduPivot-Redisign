@@ -7,6 +7,9 @@
 
 **/target
 **/.mvn/wrapper/maven-wrapper.jar
+sc-frontend/dist
+sc-frontend/node_modules
+sc-frontend/output
 
 *.log
 *.tmp

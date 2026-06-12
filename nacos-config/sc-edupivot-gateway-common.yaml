@@ -1,0 +1,51 @@
+server:
+  port: 39080
+
+spring:
+  threads:
+    virtual:
+      enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db,redis,diskSpace
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://zipkin:9411/api/v2/spans}
+
+scalar:
+  enabled: true
+  path: /scalar
+  page-title: 智语·云枢 API 文档
+  show-sidebar: true
+  persist-auth: true
+  telemetry: false
+  sources:
+    - title: 认证服务
+      slug: auth
+      url: /openapi/auth
+      default: true
+    - title: 通知服务
+      slug: notification
+      url: /openapi/notification
+    - title: 课程服务
+      slug: course
+      url: /openapi/course
+
+edupivot:
+  security:
+    jwt:
+      jwks-uri: http://localhost:28081/.well-known/jwks.json

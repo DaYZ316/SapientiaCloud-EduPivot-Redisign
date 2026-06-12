@@ -1,0 +1,6 @@
+com.dayz.sc.common.security.config.SecurityAutoConfiguration
+com.dayz.sc.common.security.config.JwtSigningAutoConfiguration
+com.dayz.sc.common.security.config.JwtValidationAutoConfiguration
+com.dayz.sc.common.security.config.Hs256FallbackSigningAutoConfiguration
+com.dayz.sc.common.security.config.SecurityFilterChainAutoConfiguration
+com.dayz.sc.common.security.config.TokenServicesAutoConfiguration

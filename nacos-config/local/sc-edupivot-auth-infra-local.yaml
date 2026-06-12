@@ -1,0 +1,24 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/edupivot
+    username: edupivot
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ${REDIS_PASSWORD}
+      database: 0
+
+edupivot:
+  google:
+    oauth2:
+      client-id: ${GOOGLE_CLIENT_ID}
+      client-secret: ${GOOGLE_CLIENT_SECRET}
+      redirect-uri: ${GOOGLE_REDIRECT_URI}
+  github:
+    oauth2:
+      client-id: ${GITHUB_CLIENT_ID:}
+      client-secret: ${GITHUB_CLIENT_SECRET:}
+      redirect-uri: ${GITHUB_REDIRECT_URI:}

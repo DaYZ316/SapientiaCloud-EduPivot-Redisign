@@ -1,0 +1,52 @@
+export default {
+    request: {
+        failed: '请求失败',
+        networkError: '网络连接异常，请稍后再试',
+        offline: '网络已断开，请检查网络连接',
+        timeout: '请求超时，请稍后再试',
+        notFound: '页面不存在',
+    },
+    sessionExpired: {
+        title: '登录已过期',
+        message: '登录状态已失效，请重新登录。',
+        confirm: '重新登录',
+    },
+    feedback: {
+        success: '成功',
+        warn: '提醒',
+        info: '信息',
+        error: '错误',
+        close: '关闭通知',
+    },
+    navigation: {
+        dashboard: '仪表盘',
+        courses: '课程推荐',
+        myEnrollments: '我的课程',
+        courseManagement: '课程管理',
+    },
+    menu: {
+        profile: '个人资料',
+        settings: '设置',
+        users: '用户',
+        students: '学生',
+        teachers: '教师',
+        logout: '退出登录',
+    },
+    layout: {
+        collapseSidebar: '收起侧边栏',
+        expandSidebar: '展开侧边栏',
+    },
+    settings: {
+        account: '账户',
+        appearance: '外观',
+        notifications: '通知',
+        privacy: '隐私',
+        applicationLayout: '应用布局',
+        sidebarNavigation: '侧边栏导航',
+        sidebarNavigationDescription: '在经典顶部栏和左侧边栏导航之间切换',
+        topBar: '顶部栏',
+        sidebar: '侧边栏',
+        language: '语言',
+        languageDescription: '切换应用界面语言',
+    },
+}

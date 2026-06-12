@@ -1,0 +1,46 @@
+spring:
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+            - id: auth-route
+              uri: lb://sc-auth
+              predicates:
+                - Path=/api/auth/**
+            - id: notification-route
+              uri: lb://sc-notification
+              predicates:
+                - Path=/api/notifications/**
+            - id: course-route
+              uri: lb://sc-course
+              predicates:
+                - Path=/api/courses/**,/api/enrollments/**
+            - id: storage-route
+              uri: lb://sc-storage
+              predicates:
+                - Path=/api/storage/**
+            - id: auth-openapi-route
+              uri: lb://sc-auth
+              predicates:
+                - Path=/openapi/auth
+              filters:
+                - SetPath=/v3/api-docs
+            - id: notification-openapi-route
+              uri: lb://sc-notification
+              predicates:
+                - Path=/openapi/notification
+              filters:
+                - SetPath=/v3/api-docs
+            - id: course-openapi-route
+              uri: lb://sc-course
+              predicates:
+                - Path=/openapi/course
+              filters:
+                - SetPath=/v3/api-docs
+            - id: storage-openapi-route
+              uri: lb://sc-storage
+              predicates:
+                - Path=/openapi/storage
+              filters:
+                - SetPath=/v3/api-docs

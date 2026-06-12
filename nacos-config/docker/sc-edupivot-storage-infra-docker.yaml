@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/edupivot
+    username: edupivot
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: redis
+      port: 6379
+      password: ${REDIS_PASSWORD}
+      database: 0
+
+edupivot:
+  storage:
+    minio:
+      endpoint: http://minio:9000
+      external-endpoint: ${MINIO_EXTERNAL_ENDPOINT:http://localhost:9000}
+      access-key: ${MINIO_ROOT_USER}
+      secret-key: ${MINIO_ROOT_PASSWORD}
+      region: us-east-1

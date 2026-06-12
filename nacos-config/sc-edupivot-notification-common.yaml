@@ -1,0 +1,74 @@
+server:
+  port: 28082
+
+spring:
+  flyway:
+    table: flyway_schema_history_notification
+    baseline-on-migrate: true
+  threads:
+    virtual:
+      enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: sc-notification
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.dayz.sc.common.events.*"
+    listener:
+      ack-mode: MANUAL_IMMEDIATE
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db,redis,diskSpace
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://zipkin:9411/api/v2/spans}
+
+springdoc:
+  api-docs:
+    enabled: true
+  packages-to-scan: com.dayz.sc.notification
+  paths-to-match: /api/**
+  writer-with-order-by-keys: true
+
+scalar:
+  enabled: true
+
+edupivot:
+  security:
+    trust-gateway-headers: true
+    jwt:
+      jwks-uri: http://sc-auth:28081/.well-known/jwks.json
+    public-endpoints:
+      - /actuator/health
+      - /actuator/health/liveness
+      - /actuator/health/readiness
+      - /doc.html
+      - /scalar
+      - /scalar.js
+      - /scalar/**
+      - /swagger-ui.html
+      - /swagger-ui/**
+      - /webjars/**
+      - /v3/api-docs
+      - /v3/api-docs/**
+      - /v3/api-docs.yaml
+      - /error

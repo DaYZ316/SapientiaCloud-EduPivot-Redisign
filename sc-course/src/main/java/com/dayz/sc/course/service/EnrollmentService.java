@@ -1,0 +1,205 @@
+package com.dayz.sc.course.service;
+
+import com.dayz.sc.common.error.BusinessException;
+import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.response.PageResponse;
+import com.dayz.sc.common.security.support.SecurityUtils;
+import com.dayz.sc.common.util.PageUtils;
+import com.dayz.sc.common.util.UuidV7Generator;
+import com.dayz.sc.common.response.ApiResponse;
+import com.dayz.sc.common.feign.client.StorageInternalClient;
+import com.dayz.sc.course.model.dto.EnrollRequest;
+import com.dayz.sc.course.model.entity.Course;
+import com.dayz.sc.course.model.entity.Enrollment;
+import com.dayz.sc.course.model.enums.CourseStatus;
+import com.dayz.sc.course.model.enums.EnrollmentStatus;
+import com.dayz.sc.course.model.vo.EnrollmentVO;
+import com.dayz.sc.course.repository.CourseRepository;
+import com.dayz.sc.course.repository.EnrollmentRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class EnrollmentService {
+
+    private final EnrollmentRepository enrollmentRepository;
+    private final CourseRepository courseRepository;
+    private final StorageInternalClient storageInternalClient;
+
+    @Transactional(rollbackFor = Exception.class)
+    public UUID enroll(EnrollRequest request, UUID studentId) {
+        Course course = courseRepository.findByIdForUpdate(request.courseId())
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+
+        if (course.getStatus() != CourseStatus.PUBLISHED.getCode()) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST);
+        }
+
+        Optional<Enrollment> existingEnrollment = enrollmentRepository.findByCourseIdAndStudentId(request.courseId(), studentId);
+        if (existingEnrollment.isPresent()
+                && existingEnrollment.get().getStatus() != EnrollmentStatus.DROPPED.getCode()) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST);
+        }
+
+        if (course.getMaxStudents() > 0) {
+            long currentStudents = enrollmentRepository.countActiveByCourseId(request.courseId());
+            if (currentStudents >= course.getMaxStudents()) {
+                throw new BusinessException(ErrorCodes.BAD_REQUEST);
+            }
+        }
+
+        if (existingEnrollment.isPresent()) {
+            Enrollment enrollment = existingEnrollment.get();
+            enrollment.setStatus(EnrollmentStatus.ACTIVE.getCode());
+            enrollment.setEnrolledAt(Instant.now());
+            enrollment.setCompletedAt(null);
+            enrollmentRepository.update(enrollment);
+            return enrollment.getId();
+        }
+
+        Enrollment enrollment = new Enrollment();
+        enrollment.setCourseId(request.courseId());
+        enrollment.setStudentId(studentId);
+        enrollment.setStatus(EnrollmentStatus.ACTIVE.getCode());
+        enrollment.setEnrolledAt(Instant.now());
+        enrollment.setId(UuidV7Generator.generate());
+
+        enrollmentRepository.save(enrollment);
+        return enrollment.getId();
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void dropCourse(UUID enrollmentId, UUID studentId) {
+        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+
+        if (!enrollment.getStudentId().equals(studentId)) {
+            throw new BusinessException(ErrorCodes.FORBIDDEN);
+        }
+
+        if (enrollment.getStatus() == EnrollmentStatus.DROPPED.getCode()) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST);
+        }
+
+        enrollment.setStatus(EnrollmentStatus.DROPPED.getCode());
+        enrollmentRepository.update(enrollment);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void updateStatus(UUID enrollmentId, int status, UUID userId, Integer role) {
+        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+
+        Course course = courseRepository.findById(enrollment.getCourseId())
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+
+        if (!course.getTeacherId().equals(userId) && !SecurityUtils.isAdmin(role)) {
+            throw new BusinessException(ErrorCodes.FORBIDDEN);
+        }
+
+        EnrollmentStatus.fromCode(status);
+        enrollment.setStatus(status);
+
+        if (status == EnrollmentStatus.COMPLETED.getCode()) {
+            enrollment.setCompletedAt(Instant.now());
+        }
+
+        enrollmentRepository.update(enrollment);
+    }
+
+    public PageResponse<EnrollmentVO> listStudentEnrollments(UUID studentId, int page, int size) {
+        int currentPage = PageUtils.normalizePage(page);
+        int pageSize = PageUtils.normalizeSize(size);
+        List<Enrollment> enrollments = enrollmentRepository.findByStudentId(studentId, currentPage, pageSize);
+        long total = enrollmentRepository.countByStudentId(studentId);
+        Map<UUID, Course> courses = loadCourses(enrollments);
+        Map<UUID, String> coverUrls = loadCoverUrls(courses.values().stream().toList());
+
+        List<EnrollmentVO> voList = enrollments.stream()
+                .map(enrollment -> toEnrollmentVO(enrollment, courses.get(enrollment.getCourseId()), coverUrls))
+                .toList();
+
+        return new PageResponse<>(voList, total, currentPage, pageSize);
+    }
+
+    public PageResponse<EnrollmentVO> listCourseEnrollments(UUID courseId, int page, int size, UUID userId, Integer role) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        if (!course.getTeacherId().equals(userId) && !SecurityUtils.isAdmin(role)) {
+            throw new BusinessException(ErrorCodes.FORBIDDEN);
+        }
+
+        int currentPage = PageUtils.normalizePage(page);
+        int pageSize = PageUtils.normalizeSize(size);
+        List<Enrollment> enrollments = enrollmentRepository.findByCourseId(courseId, currentPage, pageSize);
+        long total = enrollmentRepository.countByCourseId(courseId);
+
+        Map<UUID, String> coverUrls = loadCoverUrls(List.of(course));
+        List<EnrollmentVO> voList = enrollments.stream()
+                .map(enrollment -> toEnrollmentVO(enrollment, course, coverUrls))
+                .toList();
+
+        return new PageResponse<>(voList, total, currentPage, pageSize);
+    }
+
+    private EnrollmentVO toEnrollmentVO(Enrollment enrollment, Course course, Map<UUID, String> coverUrls) {
+        String coverUrl = course != null && course.getCoverFileId() != null
+                ? coverUrls.getOrDefault(course.getCoverFileId(), course.getCoverUrl())
+                : course != null ? course.getCoverUrl() : null;
+        return new EnrollmentVO(
+                enrollment.getId(),
+                enrollment.getCourseId(),
+                course != null ? course.getTitle() : null,
+                coverUrl,
+                enrollment.getStudentId(),
+                null,
+                enrollment.getStatus(),
+                enrollment.getEnrolledAt(),
+                enrollment.getCompletedAt()
+        );
+    }
+
+    private Map<UUID, String> loadCoverUrls(List<Course> courses) {
+        List<UUID> fileIds = courses.stream()
+                .map(Course::getCoverFileId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (fileIds.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            ApiResponse<Map<UUID, String>> response = storageInternalClient.getUrls(fileIds);
+            if (response != null && response.code() == 0 && response.data() != null) {
+                return response.data();
+            }
+        } catch (Exception ignored) {
+            return Map.of();
+        }
+        return Map.of();
+    }
+
+    private Map<UUID, Course> loadCourses(List<Enrollment> enrollments) {
+        List<UUID> courseIds = enrollments.stream()
+                .map(Enrollment::getCourseId)
+                .distinct()
+                .toList();
+        if (courseIds.isEmpty()) {
+            return Map.of();
+        }
+        return courseRepository.findByIds(courseIds).stream()
+                .collect(Collectors.toMap(Course::getId, Function.identity()));
+    }
+
+}

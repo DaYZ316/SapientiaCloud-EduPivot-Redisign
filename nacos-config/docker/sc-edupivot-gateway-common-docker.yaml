@@ -1,0 +1,7 @@
+server:
+  port: 39080
+
+edupivot:
+  security:
+    jwt:
+      jwks-uri: http://sc-auth:28081/.well-known/jwks.json

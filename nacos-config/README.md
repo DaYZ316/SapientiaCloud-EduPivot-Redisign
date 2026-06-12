@@ -8,45 +8,26 @@
 当前项目只使用 Nacos Config，不使用 Nacos Discovery。
 
 - 格式：`YAML`
-- 公共 Group：`AEROVERSE_NAVIGATOR`
-- 本地环境 Group：`AEROVERSE_LOCAL`
-- Docker 环境 Group：`AEROVERSE_DOCKER`
+- 公共 Group：`EDUPIVOT_NAVIGATOR`
+- 本地环境 Group：`EDUPIVOT_LOCAL`
+- Docker 环境 Group：`EDUPIVOT_DOCKER`
 - 本地启动默认 profile：`local`
 - Docker Compose 启动默认 profile：`docker`
 
 ## 应用导入配置
 
-`aeroverse-web/src/main/resources/application.yaml` 和
-`aeroverse-gateway/src/main/resources/application.yaml` 只保留 Nacos 引导配置。
+各服务的 `application.yaml` 只保留 Nacos 引导配置。
 业务配置统一放到下列 DataId 中。
-
-### aeroverse-web
-
-公共配置：
-
-```text
-aeroverse-navigator-common.yaml
-Group: AEROVERSE_NAVIGATOR
-refreshEnabled: true
-```
-
-包含：
-
-- Web 服务端口
-- 虚拟线程
-- Actuator
-- SpringDoc/Scalar
-- JWT issuer/ttl
 
 按环境区分的基础设施配置：
 
 ```text
-local/aeroverse-navigator-infra-local.yaml
-Group: AEROVERSE_LOCAL
+local/sc-edupivot-infra-local.yaml
+Group: EDUPIVOT_LOCAL
 refreshEnabled: false
 
-docker/aeroverse-navigator-infra-docker.yaml
-Group: AEROVERSE_DOCKER
+docker/sc-edupivot-infra-docker.yaml
+Group: EDUPIVOT_DOCKER
 refreshEnabled: false
 ```
 
@@ -58,12 +39,12 @@ refreshEnabled: false
 按环境区分的认证配置：
 
 ```text
-local/aeroverse-navigator-auth-local.yaml
-Group: AEROVERSE_LOCAL
+local/sc-edupivot-auth-local.yaml
+Group: EDUPIVOT_LOCAL
 refreshEnabled: false
 
-docker/aeroverse-navigator-auth-docker.yaml
-Group: AEROVERSE_DOCKER
+docker/sc-edupivot-auth-docker.yaml
+Group: EDUPIVOT_DOCKER
 refreshEnabled: false
 ```
 
@@ -73,13 +54,13 @@ refreshEnabled: false
 - Google OAuth2 clientId/clientSecret/redirectUri
 - GitHub OAuth clientId/clientSecret/redirectUri
 
-### aeroverse-gateway
+### sc-gateway
 
 公共配置：
 
 ```text
-aeroverse-gateway-common.yaml
-Group: AEROVERSE_NAVIGATOR
+sc-edupivot-gateway-common.yaml
+Group: EDUPIVOT_NAVIGATOR
 refreshEnabled: true
 ```
 
@@ -93,20 +74,20 @@ refreshEnabled: true
 按环境区分的路由配置：
 
 ```text
-local/aeroverse-gateway-routes-local.yaml
-Group: AEROVERSE_LOCAL
+local/sc-edupivot-gateway-routes-local.yaml
+Group: EDUPIVOT_LOCAL
 refreshEnabled: true
 
-docker/aeroverse-gateway-routes-docker.yaml
-Group: AEROVERSE_DOCKER
+docker/sc-edupivot-gateway-routes-docker.yaml
+Group: EDUPIVOT_DOCKER
 refreshEnabled: true
 ```
 
 当前启用路由：
 
 ```text
-auth-route: /api/auth/** -> aeroverse-web
-auth-openapi-route: /openapi/auth -> aeroverse-web /v3/api-docs
+auth-route: /api/auth/** -> sc-auth
+auth-openapi-route: /openapi/auth -> sc-auth /v3/api-docs
 ```
 
 ## 启动方式
@@ -134,10 +115,10 @@ NACOS_SERVER_ADDR=nacos:8848
 
 已移除当前代码没有读取的配置：
 
-- `aeroverse-navigator-feature-local.yaml`
-- `aeroverse-navigator-feature-docker.yaml`
-- `aeroverse.feature.*`
-- `aeroverse.storage.minio.*`
+- `sc-edupivot-feature-local.yaml`
+- `sc-edupivot-feature-docker.yaml`
+- `edupivot.feature.*`
+- `edupivot.storage.minio.*`
 
 后续接入校园、导航、资产或 AI 模块时，再按实际 `@ConfigurationProperties`
 或 `@Value` 绑定项新增对应配置。

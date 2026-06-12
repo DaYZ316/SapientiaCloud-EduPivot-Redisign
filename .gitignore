@@ -32,3 +32,14 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### RSA Keys ###
+keys/
+
+### Nacos Plugins (third-party JARs) ###
+nacos-plugins/
+
+### Claude Code ###
+.agents/
+.claude/
+skills-lock.json
