@@ -3,6 +3,7 @@ package com.dayz.sc.course.repository;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.model.entity.Question;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -25,11 +26,7 @@ public interface QuestionRepository {
 
     long countByQuestionBankId(UUID questionBankId);
 
-    /**
-     * 批量统计每个题库下的题目数量。
-     *
-     * @param bankIds 题库 ID 列表
-     * @return 题库 ID → 题目数量的映射
-     */
     Map<UUID, Long> countByQuestionBankIds(List<UUID> bankIds);
+
+    BigDecimal sumScoreByQuestionBankId(UUID questionBankId);
 }

@@ -31,4 +31,9 @@ export default {
         inviteFailed: '发送邀请失败',
         loadFailed: '加载选课数据失败',
     },
+    confirmTitle: '确认操作',
+    confirmMessage: '确定要更新此选课状态吗？',
+    suppressConfirm: '本次登录不再提示',
+    cancel: '取消',
+    confirm: '确定',
 }

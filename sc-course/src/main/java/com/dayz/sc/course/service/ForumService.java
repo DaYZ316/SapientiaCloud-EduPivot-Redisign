@@ -8,14 +8,20 @@ import com.dayz.sc.common.util.PageUtils;
 import com.dayz.sc.common.util.UuidV7Generator;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.model.dto.*;
+import com.dayz.sc.course.model.entity.Course;
+import com.dayz.sc.course.model.entity.Enrollment;
 import com.dayz.sc.course.model.entity.Forum;
 import com.dayz.sc.course.model.entity.ForumPost;
 import com.dayz.sc.course.model.entity.ForumReply;
+import com.dayz.sc.course.model.enums.EnrollmentStatus;
 import com.dayz.sc.course.model.enums.ForumStatus;
 import com.dayz.sc.course.model.enums.PostStatus;
 import com.dayz.sc.course.model.vo.ForumPostVO;
 import com.dayz.sc.course.model.vo.ForumReplyVO;
 import com.dayz.sc.course.model.vo.ForumVO;
+import com.dayz.sc.course.repository.CourseRepository;
+import com.dayz.sc.course.repository.CourseTeacherRepository;
+import com.dayz.sc.course.repository.EnrollmentRepository;
 import com.dayz.sc.course.repository.ForumPostRepository;
 import com.dayz.sc.course.repository.ForumReplyRepository;
 import com.dayz.sc.course.repository.ForumRepository;
@@ -26,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -35,7 +42,14 @@ public class ForumService {
 
     private static final int FLAG_OFF = 0;
     private static final int FLAG_ON = 1;
+    private static final int DEFAULT_COMMENT_POST_TYPE = 0;
+    private static final int COMMENT_TITLE_MAX_LENGTH = 40;
+    private static final String DEFAULT_COMMENT_FORUM_NAME = "\u8bfe\u7a0b\u8bc4\u8bba\u533a";
+    private static final String DEFAULT_COMMENT_TITLE = "\u8bfe\u7a0b\u8bc4\u8bba";
 
+    private final CourseRepository courseRepository;
+    private final CourseTeacherRepository courseTeacherRepository;
+    private final EnrollmentRepository enrollmentRepository;
     private final ForumRepository forumRepository;
     private final ForumPostRepository forumPostRepository;
     private final ForumReplyRepository forumReplyRepository;
@@ -116,6 +130,54 @@ public class ForumService {
         return forumRepository.findByCourseId(courseId).stream()
                 .map(this::toForumVO)
                 .toList();
+    }
+
+    public PageResponse<ForumPostVO> listCourseComments(UUID courseId, Long pageValue, Long sizeValue) {
+        courseRepository.findById(courseId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+
+        int page = PageUtils.normalizePage(pageValue);
+        int size = PageUtils.normalizeSize(sizeValue);
+        Optional<Forum> forum = forumRepository.findDefaultByCourseId(courseId);
+        if (forum.isEmpty()) {
+            return PageResponse.empty(page, size);
+        }
+
+        Page<ForumPost> result = forumPostRepository.findAll(page, size,
+                forum.get().getId(), courseId, PostStatus.NORMAL.getCode(), null);
+
+        List<ForumPostVO> voList = result.getRecords().stream().map(this::toForumPostVO).toList();
+        return new PageResponse<>(voList, result.getTotal(), page, size);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public UUID createCourseComment(UUID courseId, CreateCourseCommentRequest request, UUID userId, Integer role) {
+        requireCourseMember(courseId, userId, role);
+
+        Forum forum = getOrCreateDefaultForum(courseId);
+        ForumPost post = new ForumPost();
+        post.setForumId(forum.getId());
+        post.setCourseId(courseId);
+        post.setSysUserId(userId);
+        post.setTitle(commentTitle(request.content()));
+        post.setContent(request.content());
+        post.setPostType(DEFAULT_COMMENT_POST_TYPE);
+        post.setIsAnonymous(flagValue(request.isAnonymous()));
+        post.setViewCount(0L);
+        post.setLikeCount(0L);
+        post.setReplyCount(0L);
+        post.setShareCount(0L);
+        post.setIsTop(FLAG_OFF);
+        post.setIsEssence(FLAG_OFF);
+        post.setIsLocked(FLAG_OFF);
+        post.setStatus(PostStatus.NORMAL.getCode());
+        post.setId(UuidV7Generator.generate());
+
+        forumPostRepository.save(post);
+        forum.setPostCount(forum.getPostCount() + 1);
+        forumRepository.update(forum);
+
+        return post.getId();
     }
 
     // ==================== Post CRUD ====================
@@ -366,6 +428,36 @@ public class ForumService {
                 .toList();
     }
 
+    public List<ForumReplyVO> getCourseCommentReplyTree(UUID postId) {
+        ForumPost post = forumPostRepository.findById(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        requireDefaultCommentPost(post);
+        return getReplyTree(postId);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public UUID createCourseCommentReply(UUID postId,
+                                         CreateCourseCommentReplyRequest request,
+                                         UUID userId,
+                                         Integer role,
+                                         String ipAddress,
+                                         String userAgent) {
+        ForumPost post = forumPostRepository.findById(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        requireDefaultCommentPost(post);
+        requireCourseMember(post.getCourseId(), userId, role);
+
+        return createReply(new CreateForumReplyRequest(
+                postId,
+                request.content(),
+                request.parentReplyId(),
+                request.replyToUserId(),
+                flagValue(request.isAnonymous()),
+                null,
+                null
+        ), userId, ipAddress, userAgent);
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public void acceptReply(UUID replyId) {
         ForumReply reply = forumReplyRepository.findById(replyId)
@@ -417,6 +509,69 @@ public class ForumService {
                 forum.getCreatedAt(),
                 forum.getUpdatedAt()
         );
+    }
+
+    private Forum getOrCreateDefaultForum(UUID courseId) {
+        return forumRepository.findDefaultByCourseId(courseId)
+                .orElseGet(() -> createDefaultForum(courseId));
+    }
+
+    private Forum createDefaultForum(UUID courseId) {
+        Forum forum = new Forum();
+        forum.setId(UuidV7Generator.generate());
+        forum.setCourseId(courseId);
+        forum.setForumName(DEFAULT_COMMENT_FORUM_NAME);
+        forum.setForumType(0);
+        forum.setAllowAnonymous(FLAG_ON);
+        forum.setPostCount(0L);
+        forum.setReplyCount(0L);
+        forum.setStatus(ForumStatus.NORMAL.getCode());
+        forumRepository.save(forum);
+        return forum;
+    }
+
+    private void requireCourseMember(UUID courseId, UUID userId, Integer role) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+
+        if (SecurityUtils.isAdmin(role)
+                || course.getTeacherId().equals(userId)
+                || courseTeacherRepository.existsByCourseIdAndTeacherId(courseId, userId)
+                || hasActiveEnrollment(courseId, userId)) {
+            return;
+        }
+
+        throw new BusinessException(ErrorCodes.FORBIDDEN);
+    }
+
+    private void requireDefaultCommentPost(ForumPost post) {
+        Forum forum = forumRepository.findDefaultByCourseId(post.getCourseId())
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        if (!forum.getId().equals(post.getForumId())) {
+            throw new BusinessException(ErrorCodes.NOT_FOUND);
+        }
+    }
+
+    private boolean hasActiveEnrollment(UUID courseId, UUID userId) {
+        return enrollmentRepository.findByCourseIdAndStudentId(courseId, userId)
+                .map(Enrollment::getStatus)
+                .map(status -> status == EnrollmentStatus.ACTIVE.getCode()
+                        || status == EnrollmentStatus.COMPLETED.getCode())
+                .orElse(false);
+    }
+
+    private int flagValue(Integer value) {
+        return value != null && value == FLAG_ON ? FLAG_ON : FLAG_OFF;
+    }
+
+    private String commentTitle(String content) {
+        String normalized = content == null ? "" : content.replaceAll("\\s+", " ").trim();
+        if (normalized.isEmpty()) {
+            return DEFAULT_COMMENT_TITLE;
+        }
+        return normalized.length() <= COMMENT_TITLE_MAX_LENGTH
+                ? normalized
+                : normalized.substring(0, COMMENT_TITLE_MAX_LENGTH);
     }
 
     private ForumPostVO toForumPostVO(ForumPost post) {

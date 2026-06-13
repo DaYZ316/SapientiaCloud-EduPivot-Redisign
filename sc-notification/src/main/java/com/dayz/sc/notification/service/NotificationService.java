@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -42,6 +41,7 @@ public class NotificationService {
     private final NotificationReadStatusRepository readStatusRepository;
     private final NotificationTargetRepository notificationTargetRepository;
     private final NotificationSseEmitter sseEmitter;
+    private final UnreadCountService unreadCountService;
 
     @Transactional(rollbackFor = Exception.class)
     public UUID sendNotification(SendNotificationRequest request, UUID senderId) {
@@ -65,6 +65,9 @@ public class NotificationService {
         notification.setContent(request.content());
         notification.setSenderId(senderId);
         notification.setTargetType(request.targetType());
+        Instant now = Instant.now();
+        notification.setCreatedAt(now);
+        notification.setUpdatedAt(now);
 
         notificationRepository.save(notification);
 
@@ -77,8 +80,14 @@ public class NotificationService {
             if (!targetUserIds.isEmpty()) {
                 notificationTargetRepository.saveAllUsers(notification.getId(), targetUserIds);
             }
-            pushNotification(TargetType.USER, senderId, targetUserIds, toNotificationVO(notification, false));
+            // 更新 Redis 未读计数并推送（携带精确 count）
+            for (UUID uid : targetUserIds) {
+                UnreadCountVO countVO = unreadCountService.increment(uid, request.type());
+                long count = countVO != null ? countVO.total() : -1;
+                sseEmitter.sendToUser(uid, toNotificationVO(notification, false), count);
+            }
         } else {
+            // 广播：无法精确 increment 所有用户，SSE 携带 count=-1 让前端兜底查询
             pushNotification(targetType, senderId, request.userIds(), toNotificationVO(notification, false));
         }
         return notification.getId();
@@ -103,16 +112,12 @@ public class NotificationService {
     }
 
     public UnreadCountVO getUnreadCount(UUID userId) {
-        Map<String, Long> counts = readStatusRepository.countUnreadAll(userId);
-        long total = counts.getOrDefault("totalCount", 0L);
-        long system = counts.getOrDefault("systemCount", 0L);
-        long teaching = counts.getOrDefault("teachingCount", 0L);
-        return new UnreadCountVO(total, system, teaching);
+        return unreadCountService.getOrInitFromDb(userId, readStatusRepository);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void markAsRead(UUID notificationId, UUID userId) {
-        notificationRepository.findById(notificationId)
+        Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOTIFICATION_NOT_FOUND));
 
         readStatusRepository.findByNotificationIdAndUserId(notificationId, userId)
@@ -125,6 +130,8 @@ public class NotificationService {
                             readStatus.setUserId(userId);
                             readStatus.setReadAt(Instant.now());
                             readStatusRepository.save(readStatus);
+                            // 更新 Redis 未读计数
+                            unreadCountService.decrement(userId, notification.getType());
                         }
                 );
     }
@@ -132,6 +139,8 @@ public class NotificationService {
     @Transactional(rollbackFor = Exception.class)
     public void markAllAsRead(UUID userId, Integer type) {
         readStatusRepository.markAllAsRead(userId, type);
+        // 全部已读后重置 Redis 计数
+        unreadCountService.reset(userId);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -141,12 +150,20 @@ public class NotificationService {
         if (userId.equals(notification.getSenderId())) {
             throw new BusinessException(ErrorCodes.NOTIFICATION_RECALL_FORBIDDEN);
         }
+        // 如果未读，先递减计数
+        readStatusRepository.findByNotificationIdAndUserId(notificationId, userId)
+                .ifPresentOrElse(
+                        readStatus -> {}, // 已读，不影响计数
+                        () -> unreadCountService.decrement(userId, notification.getType())
+                );
         notificationTargetRepository.markDeleted(notificationId, userId);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void deleteAllNotifications(UUID userId, Integer type) {
         notificationTargetRepository.markAllDeleted(userId, type);
+        // 删除全部后重置 Redis 计数
+        unreadCountService.reset(userId);
     }
 
     /**

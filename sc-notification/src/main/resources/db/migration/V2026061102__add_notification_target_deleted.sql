@@ -4,7 +4,7 @@
 -- @since 2026-06-11
 -- ============================================================
 
-ALTER TABLE ntf_notification_target ADD COLUMN deleted SMALLINT NOT NULL DEFAULT 0;
+ALTER TABLE ntf_notification_target ADD COLUMN IF NOT EXISTS deleted SMALLINT NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS idx_ntf_target_user_deleted
     ON ntf_notification_target(user_id, deleted);

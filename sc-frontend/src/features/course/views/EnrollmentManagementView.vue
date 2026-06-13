@@ -124,6 +124,21 @@
       </button>
     </div>
   </div>
+
+  <div v-if="showConfirmDialog" class="confirm-overlay" @click.self="handleConfirmNo">
+    <div class="confirm-dialog">
+      <h3>{{ t('enrollmentManagement.confirmTitle') }}</h3>
+      <p>{{ t('enrollmentManagement.confirmMessage') }}</p>
+      <label class="suppress-label">
+        <input type="checkbox" v-model="suppressConfirm"/>
+        {{ t('enrollmentManagement.suppressConfirm') }}
+      </label>
+      <div class="confirm-actions">
+        <button class="btn-confirm-cancel" @click="handleConfirmNo">{{ t('enrollmentManagement.cancel') }}</button>
+        <button class="btn-confirm-ok" @click="handleConfirmYes">{{ t('enrollmentManagement.confirm') }}</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script lang="ts" setup>
@@ -146,6 +161,9 @@ const loading = ref(false)
 const enrollments = ref<Enrollment[]>([])
 const courses = ref<Course[]>([])
 const selectedCourseId = ref<string | undefined>(undefined)
+const showConfirmDialog = ref(false)
+const confirmPending = ref<{enrollment: Enrollment; newStatus: number} | null>(null)
+const suppressConfirm = ref(sessionStorage.getItem('enrollmentSuppressConfirm') === '1')
 
 type SelectOption = {label: string; value: string | undefined}
 
@@ -240,7 +258,36 @@ function resetAndLoad() {
   loadEnrollments()
 }
 
-async function handleStatusUpdate(enrollment: Enrollment, newStatus: number) {
+function handleStatusUpdate(enrollment: Enrollment, newStatus: number) {
+  if (suppressConfirm.value) {
+    executeStatusUpdate(enrollment, newStatus)
+    return
+  }
+  confirmPending.value = {enrollment, newStatus}
+  showConfirmDialog.value = true
+}
+
+function handleConfirmYes() {
+  if (confirmPending.value) {
+    executeStatusUpdate(confirmPending.value.enrollment, confirmPending.value.newStatus)
+  }
+  if (suppressConfirm.value) {
+    sessionStorage.setItem('enrollmentSuppressConfirm', '1')
+  } else {
+    sessionStorage.removeItem('enrollmentSuppressConfirm')
+  }
+  showConfirmDialog.value = false
+  confirmPending.value = null
+}
+
+function handleConfirmNo() {
+  suppressConfirm.value = sessionStorage.getItem('enrollmentSuppressConfirm') === '1'
+  showConfirmDialog.value = false
+  confirmPending.value = null
+}
+
+
+async function executeStatusUpdate(enrollment: Enrollment, newStatus: number) {
   try {
     await updateEnrollmentStatus(enrollment.id, newStatus)
     notify.success(t('enrollmentManagement.alert.statusUpdated'))
@@ -574,4 +621,96 @@ onMounted(async () => {
     flex-wrap: wrap;
   }
 }
-</style>
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-overlay);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.confirm-dialog {
+  width: 100%;
+  max-width: 420px;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-outline-light);
+  border-radius: 24px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.confirm-dialog h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-on-surface);
+}
+
+.confirm-dialog p {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--color-muted);
+  line-height: 1.6;
+}
+
+.suppress-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.suppress-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.btn-confirm-cancel,
+.btn-confirm-ok {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-confirm-cancel {
+  background: var(--color-surface-container);
+  color: var(--color-on-surface);
+}
+
+.btn-confirm-cancel:hover {
+  background: var(--color-surface-container-high);
+}
+
+.btn-confirm-ok {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.btn-confirm-ok:hover {
+  background: var(--color-primary-soft);
+}</style>

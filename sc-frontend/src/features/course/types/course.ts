@@ -1,4 +1,4 @@
-export interface Course {
+﻿export interface Course {
   id: string
   title: string
   description: string | null
@@ -9,6 +9,7 @@ export interface Course {
   coverUrl: string | null
   coverFileId: string | null
   teacherIds: string[] | null
+  teacherInfos?: {id: string; displayName: string | null; avatarUrl: string | null}[] | null
   semester: string | null
   location: string | null
   courseType: number | null
@@ -121,7 +122,7 @@ export const CourseStatus: Record<number, string> = {
 
 export const EnrollmentStatus: Record<number, string> = {
   0: '待审核',
-  1: '已选课',
-  2: '已完成',
+  1: '学习中',
+  2: '已结业',
   3: '已退课',
 }

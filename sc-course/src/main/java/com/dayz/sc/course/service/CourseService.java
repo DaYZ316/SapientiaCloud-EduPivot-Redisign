@@ -199,6 +199,7 @@ public class CourseService {
         // 获取主讲教师信息
         Map<UUID, UserBasicInfo> teacherInfoMap = loadTeacherInfoMap(List.of(course.getTeacherId()));
 
+
         return toCourseVO(course, currentStudents, teacherIds, loadCoverUrls(List.of(course)), teacherInfoMap);
     }
 
@@ -210,6 +211,7 @@ public class CourseService {
         List<UUID> teacherIds = courseTeacherRepository.findTeacherIdsByCourseId(courseId);
         Map<UUID, UserBasicInfo> teacherInfoMap = loadTeacherInfoMap(List.of(course.getTeacherId()));
         Map<UUID, String> coverUrls = loadCoverUrls(List.of(course));
+        Map<UUID, UserBasicInfo> assistantInfoMap = teacherIds.isEmpty() ? Map.of() : loadTeacherInfoMap(teacherIds);
 
         // 判断当前用户是否已选课
         boolean enrolled = false;
@@ -239,6 +241,7 @@ public class CourseService {
                 coverUrl,
                 course.getCoverFileId(),
                 teacherIds,
+                teacherIds.stream().<UserBasicInfo>map(id -> assistantInfoMap.getOrDefault(id, new UserBasicInfo(id, null, null))).toList(),
                 course.getSemester(),
                 course.getLocation(),
                 course.getCourseType(),
@@ -392,7 +395,7 @@ public class CourseService {
         if (!"READY".equals(file.status())
                 || !"COURSE_COVER".equals(file.usage())
                 || !"COURSE".equals(file.scopeType())
-                || !courseId.equals(file.scopeId())) {
+                || (file.scopeId() != null && !courseId.equals(file.scopeId()))) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid course cover file");
         }
     }

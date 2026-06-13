@@ -371,7 +371,7 @@
               <!-- Search -->
               <div class="user-search">
                 <input
-                  v-model="userSearchQuery"
+                  v-model="userSearchQuery" @input="debouncedSearchUsers(($event.target as HTMLInputElement).value)"
                   class="input-field"
                   type="text"
                   :placeholder="t('notifications.modal.searchUsers')"
@@ -379,7 +379,7 @@
               </div>
 
               <!-- User List -->
-              <div class="user-list">
+              <div class="user-list" @scroll="handleUserListScroll">
                 <div v-if="loadingUsers" class="user-loading">
                   <div class="loading-spinner"></div>
                 </div>
@@ -453,8 +453,9 @@ import {
 import type {
   Notification as ApiNotification,
   NotificationSubscription,
+  SsePayload,
 } from '@/features/notification/api/notification'
-import {pageUsers} from '@/features/user/api/user'
+import {listAllUsers} from '@/features/user/api/user'
 import type {UserProfile} from '@/features/user/types/user'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {useUnreadCount} from '@/shared/composables/useUnreadCount'
@@ -760,8 +761,8 @@ function handleRecallFromCard(notification: NotificationItem) {
 
 let eventSource: NotificationSubscription | null = null
 
-function handleSseNotification(apiNotification: ApiNotification) {
-  const item = mapNotification(apiNotification)
+function handleSseNotification(payload: SsePayload) {
+  const item = mapNotification(payload.notification)
   if (currentPage.value === 1 && (activeFilter.value === 'all' || activeFilter.value === item.type)) {
     notifications.value.unshift(item)
     if (notifications.value.length > pageSize.value) {
@@ -796,6 +797,60 @@ const availableUsers = ref<UserProfile[]>([])
 const selectedUserIds = ref<Set<string>>(new Set())
 const userSearchQuery = ref('')
 const loadingUsers = ref(false)
+let userPage = 1
+let userLoadingMore = false
+let userHasMore = true
+let userLoadMoreArmed = true
+let userSearchTimer: ReturnType<typeof setTimeout> | null = null
+const userListPageSize = 20
+const userScrollLoadThreshold = 50
+
+async function searchUsers(keyword: string) {
+  userPage = 1
+  userHasMore = true
+  userLoadMoreArmed = true
+  try {
+    const response = await listAllUsers({page: 1, size: userListPageSize, keyword: keyword || undefined})
+    availableUsers.value = response.records
+    userHasMore = response.page * response.size < response.total
+  } catch { availableUsers.value = [] }
+}
+
+function debouncedSearchUsers(keyword: string) {
+  if (userSearchTimer) clearTimeout(userSearchTimer)
+  userSearchTimer = setTimeout(() => searchUsers(keyword), 300)
+}
+
+async function loadMoreUsers() {
+  if (userLoadingMore || !userHasMore) return
+  userLoadingMore = true
+  try {
+    const nextPage = userPage + 1
+    const response = await listAllUsers({page: nextPage, size: userListPageSize, keyword: userSearchQuery.value.trim() || undefined})
+    if (!response.records?.length) {
+      userHasMore = false
+      return
+    }
+    userPage = nextPage
+    userHasMore = response.page * response.size < response.total
+    availableUsers.value = [...availableUsers.value, ...response.records]
+  } finally { userLoadingMore = false }
+}
+
+function handleUserListScroll(event: Event) {
+  const element = event.target as HTMLElement | null
+  if (!element) return
+
+  const nearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < userScrollLoadThreshold
+  if (!nearBottom) {
+    userLoadMoreArmed = true
+    return
+  }
+
+  if (!userLoadMoreArmed) return
+  userLoadMoreArmed = false
+  loadMoreUsers()
+}
 
 const filteredUsers = computed(() => {
   if (!userSearchQuery.value.trim()) return availableUsers.value
@@ -817,17 +872,17 @@ function getRoleName(role: number | null): string {
   }
 }
 
-async function loadUsers() {
-  loadingUsers.value = true
-  try {
-    const response = await pageUsers({page: 1, size: 100})
-    availableUsers.value = response.records
-  } catch {
-    availableUsers.value = []
-  } finally {
-    loadingUsers.value = false
-  }
-}
+function loadUsers() { searchUsers('') }
+
+
+
+
+
+
+
+
+
+
 
 function toggleUser(userId: string) {
   if (selectedUserIds.value.has(userId)) {
@@ -1721,7 +1776,7 @@ async function handleSendNotification() {
   color: var(--color-outline);
 }
 
-.user-list {
+.user-list { max-height: 320px; overflow-y: auto;
   max-height: 280px;
   overflow-y: auto;
   display: flex;

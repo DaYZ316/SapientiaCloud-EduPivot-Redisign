@@ -1,6 +1,7 @@
 package com.dayz.sc.course.model.vo;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.dayz.sc.common.feign.dto.UserBasicInfo;
 import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
@@ -18,6 +19,7 @@ public record CourseDetailVO(
         @JsonProperty @Nullable String coverUrl,
         @JsonProperty @Nullable UUID coverFileId,
         @JsonProperty @Nullable List<UUID> teacherIds,
+        @JsonProperty @Nullable List<UserBasicInfo> teacherInfos,
         @JsonProperty @Nullable String semester,
         @JsonProperty @Nullable String location,
         @JsonProperty @Nullable Integer courseType,

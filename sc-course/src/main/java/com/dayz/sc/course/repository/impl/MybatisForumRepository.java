@@ -24,6 +24,16 @@ public class MybatisForumRepository implements ForumRepository {
     }
 
     @Override
+    public Optional<Forum> findDefaultByCourseId(UUID courseId) {
+        LambdaQueryWrapper<Forum> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Forum::getCourseId, courseId);
+        wrapper.eq(Forum::getStatus, 0);
+        wrapper.orderByAsc(Forum::getCreatedAt);
+        wrapper.last("LIMIT 1");
+        return Optional.ofNullable(forumMapper.selectOne(wrapper));
+    }
+
+    @Override
     public void save(Forum forum) {
         forumMapper.insert(forum);
     }

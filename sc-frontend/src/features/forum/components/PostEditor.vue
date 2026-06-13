@@ -1,0 +1,268 @@
+﻿<template>
+  <div v-if="visible" class="editor-overlay" @click.self="('close')">
+    <div class="editor-dialog">
+      <div class="editor-header">
+        <h2>{{ t('forum.newPost') }}</h2>
+        <button class="close-btn" @click="('close')">
+          <X :size="18"/>
+        </button>
+      </div>
+
+      <div class="editor-body">
+        <div class="field">
+          <label>{{ t('forum.postTitle') }} *</label>
+          <input v-model="form.title" type="text" class="input" :placeholder="t('forum.postTitle')"/>
+        </div>
+
+        <div class="field">
+          <label>{{ t('forum.postContent') }} *</label>
+          <textarea v-model="form.content" class="textarea" rows="10" :placeholder="t('forum.postContent')"></textarea>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>{{ t('forum.postType') }}</label>
+            <select v-model="form.postType" class="input">
+              <option :value="0">普通帖子</option>
+              <option :value="1">提问</option>
+              <option :value="2">分享</option>
+              <option :value="3">资源</option>
+            </select>
+          </div>
+          <div class="field checkbox-field">
+            <label class="checkbox-label">
+              <input v-model="form.isAnonymous" type="checkbox"/>
+              {{ t('forum.anonymous') }}
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="editor-footer">
+        <button class="btn-cancel" @click="('close')">{{ t('chapter.cancel') }}</button>
+        <button class="btn-save" :disabled="!form.title.trim() || !form.content.trim()" @click="handleSave">
+          {{ t('chapter.save') }}
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script lang="ts" setup>
+import {reactive, watch} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {X} from 'lucide-vue-next'
+import type {CreatePostRequest} from '@/features/forum/types/forum'
+
+const props = defineProps<{
+  visible: boolean
+  forumId: string
+  courseId: string
+}>()
+
+const emit = defineEmits<{
+  close: []
+  save: [data: CreatePostRequest]
+}>()
+
+const {t} = useI18n()
+
+const form = reactive({
+  title: '',
+  content: '',
+  postType: 0,
+  isAnonymous: false,
+})
+
+watch(() => props.visible, (val) => {
+  if (val) {
+    form.title = ''
+    form.content = ''
+    form.postType = 0
+    form.isAnonymous = false
+  }
+})
+
+function handleSave() {
+  emit('save', {
+    forumId: props.forumId,
+    courseId: props.courseId,
+    title: form.title,
+    content: form.content,
+    postType: form.postType,
+    isAnonymous: form.isAnonymous ? 1 : 0,
+  })
+}
+</script>
+
+<style scoped>
+.editor-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-overlay);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.editor-dialog {
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 28px 16px;
+}
+
+.editor-header h2 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-on-surface);
+}
+
+.close-btn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.close-btn:hover {
+  background: var(--color-surface-container);
+  color: var(--color-on-surface);
+}
+
+.editor-body {
+  flex: 1;
+  padding: 0 28px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.input,
+.textarea,
+select.input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.input:focus,
+.textarea:focus,
+select.input:focus {
+  border-color: var(--color-on-surface);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  padding-top: 24px;
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--color-on-surface);
+  cursor: pointer;
+}
+
+.editor-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 28px 24px;
+  border-top: 1px solid var(--color-outline-light);
+}
+
+.btn-cancel,
+.btn-save {
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-cancel {
+  background: var(--color-surface-container);
+  color: var(--color-on-surface);
+}
+
+.btn-cancel:hover {
+  background: var(--color-surface-container-high);
+}
+
+.btn-save {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.btn-save:hover:not(:disabled) {
+  background: var(--color-primary-soft);
+}
+
+.btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+</style>

@@ -1,7 +1,9 @@
-export default {
+﻿export default {
     backToCourses: '返回课程列表',
     courseNotFound: '课程未找到',
     browseCourses: '浏览课程',
+    description: '课程描述',
+    files: '课程文件',
     noDescription: '暂未添加课程描述。',
     levelUnknown: '未知级别',
     statusUnknown: '未知状态',
@@ -21,4 +23,8 @@ export default {
     alert: {
         enrollFailed: '选课失败',
     },
+    studentsTab: '学生列表',
+    assistantsTab: '助教列表',
+    noStudents: '暂无学生选课',
+    noAssistants: '暂无助教',
 }

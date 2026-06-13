@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -95,5 +96,16 @@ public class MybatisQuestionRepository implements QuestionRepository {
                         m -> ((Number) m.get("cnt")).longValue(),
                         (a, b) -> a
                 ));
+    }
+
+    @Override
+    public BigDecimal sumScoreByQuestionBankId(UUID questionBankId) {
+        LambdaQueryWrapper<Question> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Question::getQuestionBankId, questionBankId);
+        wrapper.select(Question::getScore);
+        List<Question> questions = questionMapper.selectList(wrapper);
+        return questions.stream()
+                .map(Question::getScore)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

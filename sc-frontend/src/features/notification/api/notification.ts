@@ -41,6 +41,15 @@ export interface NotificationSubscription {
     close: () => void
 }
 
+/**
+ * SSE 推送的 payload 结构。
+ * unreadCount >= 0 时为精确值，-1 表示未知（广播场景，需自行查询）。
+ */
+export interface SsePayload {
+    notification: Notification
+    unreadCount: number
+}
+
 class UnauthorizedSseError extends Error {
     constructor() {
         super('SSE connection unauthorized')
@@ -122,7 +131,7 @@ export function sendNotification(data: SendNotificationRequest) {
 /**
  * 订阅 SSE 通知。
  */
-export function subscribeNotifications(onMessage: (notification: Notification) => void): NotificationSubscription {
+export function subscribeNotifications(onMessage: (payload: SsePayload) => void): NotificationSubscription {
     const controller = new AbortController()
     const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
     void connectNotificationStream(`${baseUrl}/api/notifications/subscribe`, controller, onMessage)
@@ -135,7 +144,7 @@ export function subscribeNotifications(onMessage: (notification: Notification) =
 async function connectNotificationStream(
     url: string,
     controller: AbortController,
-    onMessage: (notification: Notification) => void,
+    onMessage: (payload: SsePayload) => void,
 ) {
     let retriedAfterRefresh = false
 
@@ -173,8 +182,8 @@ async function connectNotificationStream(
                         return
                     }
 
-                    const notification = JSON.parse(event.data) as Notification
-                    onMessage(notification)
+                    const payload = JSON.parse(event.data) as SsePayload
+                    onMessage(payload)
                 },
                 onerror(error) {
                     if (error instanceof UnauthorizedSseError) {

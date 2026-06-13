@@ -36,6 +36,7 @@ public class RedisSseSubscriber implements MessageListener {
 
     private void dispatchLocally(SseMessage sseMessage) {
         NotificationVO notification = sseMessage.notification();
+        long unreadCount = sseMessage.unreadCount();
 
         if (sseMessage.isBroadcast()) {
             if (sseMessage.excludeUserId() != null) {
@@ -44,7 +45,7 @@ public class RedisSseSubscriber implements MessageListener {
                 sseEmitter.broadcastLocally(notification);
             }
         } else {
-            sseEmitter.sendToUserLocally(sseMessage.targetUserId(), notification);
+            sseEmitter.sendToUserLocally(sseMessage.targetUserId(), notification, unreadCount);
         }
     }
 }

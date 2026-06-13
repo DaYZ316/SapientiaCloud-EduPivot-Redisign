@@ -11,6 +11,8 @@ public interface ForumRepository {
 
     Optional<Forum> findById(UUID id);
 
+    Optional<Forum> findDefaultByCourseId(UUID courseId);
+
     void save(Forum forum);
 
     void update(Forum forum);

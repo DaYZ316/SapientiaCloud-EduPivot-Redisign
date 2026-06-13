@@ -10,8 +10,8 @@ import lombok.RequiredArgsConstructor;
 public enum EnrollmentStatus {
 
     PENDING(0, "待审核"),
-    ACTIVE(1, "已选课"),
-    COMPLETED(2, "已完成"),
+    ACTIVE(1, "学习中"),
+    COMPLETED(2, "已结业"),
     DROPPED(3, "已退课");
 
     private final int code;

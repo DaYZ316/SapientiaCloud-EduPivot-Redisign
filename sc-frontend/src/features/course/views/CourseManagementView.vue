@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="enrollments-page">
     <!-- Page Header -->
     <div class="page-header">
@@ -131,7 +131,7 @@
             </button>
           </div>
           <form class="modal-body course-editor-form" @submit.prevent="submitCourse">
-            <section v-if="isAdmin" class="editor-section">
+            <section class="editor-section">
               <div class="editor-section-heading">
                 <span>01</span>
                 <h3>{{ t('courses.modal.sections.basic') }}</h3>
@@ -237,11 +237,11 @@
                 </div>
                 <div class="assistant-search">
                   <Search :size="16" stroke-width="1.8"/>
-                  <input v-model="assistantKeyword" type="text" :placeholder="t('courses.modal.searchAssistants')"/>
+                  <input v-model="assistantKeyword" type="text" :placeholder="t('courses.modal.searchAssistants')" @input="debouncedSearchTeachers(($event.target as HTMLInputElement).value)"/>
                 </div>
                 <div v-if="teacherLoading" class="assistant-empty">{{ t('courses.modal.loadingTeachers') }}</div>
                 <div v-else-if="filteredCreateAssistantCandidates.length === 0" class="assistant-empty">{{ t('courses.modal.noAssistants') }}</div>
-                <div v-else class="assistant-list">
+                <div v-else class="assistant-list" @scroll="handleTeacherListScroll">
                   <label
                     v-for="teacher in filteredCreateAssistantCandidates"
                     :key="teacher.id"
@@ -412,11 +412,11 @@
                 </div>
                 <div class="assistant-search">
                   <Search :size="16" stroke-width="1.8"/>
-                  <input v-model="assistantKeyword" type="text" :placeholder="t('courses.modal.searchAssistants')"/>
+                  <input v-model="assistantKeyword" type="text" :placeholder="t('courses.modal.searchAssistants')" @input="debouncedSearchTeachers(($event.target as HTMLInputElement).value)"/>
                 </div>
                 <div v-if="teacherLoading" class="assistant-empty">{{ t('courses.modal.loadingTeachers') }}</div>
                 <div v-else-if="filteredAssistantCandidates.length === 0" class="assistant-empty">{{ t('courses.modal.noAssistants') }}</div>
-                <div v-else class="assistant-list">
+                <div v-else class="assistant-list" @scroll="handleTeacherListScroll">
                   <label
                     v-for="teacher in filteredAssistantCandidates"
                     :key="teacher.id"
@@ -489,7 +489,7 @@
             <div class="invite-search">
               <Search :size="16" stroke-width="1.8"/>
               <input
-                v-model="inviteSearchKeyword"
+                v-model="inviteSearchKeyword" @input="debouncedSearchInviteTeachers(($event.target as HTMLInputElement).value)"
                 type="text"
                 :placeholder="t('enrollmentManagement.inviteModal.searchPlaceholder')"
               />
@@ -499,7 +499,7 @@
             <div v-else-if="filteredInviteTeachers.length === 0" class="invite-empty">
               {{ t('enrollmentManagement.inviteModal.noTeachers') }}
             </div>
-            <div v-else class="invite-teacher-list">
+            <div v-else class="invite-teacher-list" @scroll="handleInviteTeacherListScroll">
               <label
                 v-for="teacher in filteredInviteTeachers"
                 :key="teacher.id"
@@ -562,7 +562,7 @@ import {notify} from '@/shared/composables/useGlobalNotification'
 
 import {createCourse, deleteCourse, getCourses, getTeacherCourses, updateCourse} from '@/features/course/api/course'
 import {sendInvitation} from '@/features/course/api/invitation'
-import {pageUsers} from '@/features/user/api/user'
+import {listTeachers} from '@/features/user/api/user'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import type {Course, CreateCourseRequest, TeacherCourseRole, UpdateCourseRequest} from '@/features/course/types/course'
 import type {FileAsset} from '@/features/storage/types/storage'
@@ -750,6 +750,118 @@ const selectedInviteeId = ref<string | null>(null)
 const inviteSubmitting = ref(false)
 const inviteTeachers = ref<UserProfile[]>([])
 const inviteTeacherLoading = ref(false)
+let teacherSearchTimer: ReturnType<typeof setTimeout> | null = null
+let inviteSearchTimer: ReturnType<typeof setTimeout> | null = null
+let teacherPage = 1
+let invitePage = 1
+let teacherLoadingMore = false
+let inviteLoadingMore = false
+let teacherHasMore = true
+let inviteHasMore = true
+let teacherLoadMoreArmed = true
+let inviteLoadMoreArmed = true
+const scrollLoadThreshold = 50
+const teacherListPageSize = 20
+
+function isNearScrollBottom(target: EventTarget | null): boolean {
+  const element = target as HTMLElement | null
+  if (!element) return false
+  return element.scrollHeight - element.scrollTop - element.clientHeight < scrollLoadThreshold
+}
+
+function hasNextPage(response: {page: number; size: number; total: number}): boolean {
+  return response.page * response.size < response.total
+}
+
+function handleTeacherListScroll(event: Event) {
+  if (!isNearScrollBottom(event.target)) {
+    teacherLoadMoreArmed = true
+    return
+  }
+
+  if (!teacherLoadMoreArmed) return
+  teacherLoadMoreArmed = false
+  loadMoreTeachers()
+}
+
+function handleInviteTeacherListScroll(event: Event) {
+  if (!isNearScrollBottom(event.target)) {
+    inviteLoadMoreArmed = true
+    return
+  }
+
+  if (!inviteLoadMoreArmed) return
+  inviteLoadMoreArmed = false
+  loadMoreInviteTeachers()
+}
+
+async function loadMoreTeachers() {
+  if (teacherLoadingMore || !teacherHasMore) return
+  teacherLoadingMore = true
+  try {
+    const nextPage = teacherPage + 1
+    const response = await listTeachers({page: nextPage, size: teacherListPageSize, keyword: assistantKeyword.value.trim() || undefined})
+    if (!response.records?.length) {
+      teacherHasMore = false
+      return
+    }
+    teacherPage = nextPage
+    teacherHasMore = hasNextPage(response)
+    teachers.value = [...teachers.value, ...response.records]
+  } finally {
+    teacherLoadingMore = false
+  }
+}
+
+async function loadMoreInviteTeachers() {
+  if (inviteLoadingMore || !inviteHasMore) return
+  inviteLoadingMore = true
+  try {
+    const nextPage = invitePage + 1
+    const response = await listTeachers({page: nextPage, size: teacherListPageSize, keyword: inviteSearchKeyword.value.trim() || undefined})
+    if (!response.records?.length) {
+      inviteHasMore = false
+      return
+    }
+    invitePage = nextPage
+    inviteHasMore = hasNextPage(response)
+    inviteTeachers.value = [...inviteTeachers.value, ...response.records]
+  } finally {
+    inviteLoadingMore = false
+  }
+}
+
+async function searchTeachers(keyword: string) {
+  teacherPage = 1
+  teacherHasMore = true
+  teacherLoadMoreArmed = true
+  try {
+    const response = await listTeachers({page: 1, size: teacherListPageSize, keyword: keyword || undefined})
+    teachers.value = response.records
+    teacherHasMore = hasNextPage(response)
+  } catch {}
+}
+
+async function searchInviteTeachers(keyword: string) {
+  invitePage = 1
+  inviteHasMore = true
+  inviteLoadMoreArmed = true
+  try {
+    const response = await listTeachers({page: 1, size: teacherListPageSize, keyword: keyword || undefined})
+    inviteTeachers.value = response.records
+    inviteHasMore = hasNextPage(response)
+  } catch {}
+}
+
+function debouncedSearchTeachers(keyword: string) {
+  if (teacherSearchTimer) clearTimeout(teacherSearchTimer)
+  teacherSearchTimer = setTimeout(() => searchTeachers(keyword), 300)
+}
+
+function debouncedSearchInviteTeachers(keyword: string) {
+  if (inviteSearchTimer) clearTimeout(inviteSearchTimer)
+  inviteSearchTimer = setTimeout(() => searchInviteTeachers(keyword), 300)
+}
 
 const displayedPages = computed(() => {
   const pages: number[] = []
@@ -833,23 +945,25 @@ function clearCreateAssistants() {
   courseForm.assistantIds = []
 }
 
-async function loadTeacherOptions() {
-  if (!isAdmin.value || teachers.value.length > 0 || teacherLoading.value) {
-    return
-  }
-
-  teacherLoading.value = true
-  try {
-    const response = await pageUsers({page: 1, size: 100, role: 2})
-    teachers.value = response.records
-  } catch (error) {
-    console.error('Failed to load teachers:', error)
-    notify.error('Failed to load teachers')
-    teachers.value = []
-  } finally {
-    teacherLoading.value = false
-  }
+function loadTeacherOptions() {
+  if (teachers.value.length === 0) debouncedSearchTeachers('')
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 async function loadData() {
   loading.value = true
@@ -1094,18 +1208,18 @@ async function openInviteModal(course: Course) {
   selectedInviteeId.value = null
   showInviteModal.value = true
 
-  if (inviteTeachers.value.length === 0 && !inviteTeacherLoading.value) {
-    inviteTeacherLoading.value = true
-    try {
-      const response = await pageUsers({page: 1, size: 100, role: 2})
-      inviteTeachers.value = response.records
-    } catch (error) {
-      console.error('Failed to load teachers:', error)
-      notify.error('Failed to load teachers')
-    } finally {
-      inviteTeacherLoading.value = false
-    }
-  }
+  if (inviteTeachers.value.length === 0) debouncedSearchInviteTeachers(inviteSearchKeyword.value)
+
+
+
+
+
+
+
+
+
+
+
 }
 
 function closeInviteModal() {
@@ -1869,7 +1983,7 @@ onMounted(() => {
   color: var(--color-on-surface);
 }
 
-.assistant-list {
+.assistant-list { max-height: 320px; overflow-y: auto;
   display: grid;
   gap: 8px;
   max-height: 260px;
@@ -2252,7 +2366,7 @@ onMounted(() => {
   color: var(--color-on-surface);
 }
 
-.invite-teacher-list {
+.invite-teacher-list { max-height: 320px; overflow-y: auto;
   display: grid;
   gap: 6px;
   max-height: 220px;

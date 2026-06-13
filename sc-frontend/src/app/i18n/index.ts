@@ -1,4 +1,4 @@
-import {createI18n} from 'vue-i18n'
+﻿import {createI18n} from 'vue-i18n'
 
 import enAdmin from '@/features/admin/i18n/en-US'
 import enLogin from '@/features/auth/i18n/en-US'
@@ -8,6 +8,9 @@ import enCourses from '@/features/course/i18n/en-US/courses'
 import enInvitations from '@/features/course/i18n/en-US/invitations'
 import enEnrollmentManagement from '@/features/course/i18n/en-US/enrollmentManagement'
 import enMyEnrollments from '@/features/course/i18n/en-US/myEnrollments'
+import enChapter from '@/features/course/i18n/en-US/chapter'
+import enForum from '@/features/forum/i18n/en-US/forum'
+import enQuestionBank from '@/features/question-bank/i18n/en-US/questionBank'
 import enSuccess from '@/features/dashboard/i18n/en-US'
 import enNotifications from '@/features/notification/i18n/en-US'
 import enSettings from '@/features/settings/i18n/en-US'
@@ -21,6 +24,9 @@ import zhCourses from '@/features/course/i18n/zh-CN/courses'
 import zhInvitations from '@/features/course/i18n/zh-CN/invitations'
 import zhEnrollmentManagement from '@/features/course/i18n/zh-CN/enrollmentManagement'
 import zhMyEnrollments from '@/features/course/i18n/zh-CN/myEnrollments'
+import zhChapter from '@/features/course/i18n/zh-CN/chapter'
+import zhForum from '@/features/forum/i18n/zh-CN/forum'
+import zhQuestionBank from '@/features/question-bank/i18n/zh-CN/questionBank'
 import zhSuccess from '@/features/dashboard/i18n/zh-CN'
 import zhNotifications from '@/features/notification/i18n/zh-CN'
 import zhSettings from '@/features/settings/i18n/zh-CN'
@@ -48,6 +54,9 @@ const messages = {
         settings: zhSettings,
         community: zhCommunity,
         admin: zhAdmin,
+        chapter: zhChapter.chapter,
+        forum: zhForum.forum,
+        questionBank: zhQuestionBank.questionBank,
     },
     'en-US': {
         common: enCommon,
@@ -63,6 +72,9 @@ const messages = {
         settings: enSettings,
         community: enCommunity,
         admin: enAdmin,
+        chapter: enChapter.chapter,
+        forum: enForum.forum,
+        questionBank: enQuestionBank.questionBank,
     },
 }
 

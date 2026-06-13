@@ -19,6 +19,7 @@ import com.dayz.sc.course.model.enums.CourseStatus;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
 import com.dayz.sc.course.model.vo.EnrollmentVO;
 import com.dayz.sc.course.repository.CourseRepository;
+import com.dayz.sc.course.repository.CourseTeacherRepository;
 import com.dayz.sc.course.repository.EnrollmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,7 @@ public class EnrollmentService {
     private final StorageInternalClient storageInternalClient;
     private final CourseEventPublisher courseEventPublisher;
     private final AuthInternalClient authInternalClient;
+    private final CourseTeacherRepository courseTeacherRepository;
 
     @Transactional(rollbackFor = Exception.class)
     public UUID enroll(EnrollRequest request, UUID studentId) {
@@ -117,7 +119,9 @@ public class EnrollmentService {
         Course course = courseRepository.findById(enrollment.getCourseId())
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
 
-        if (!course.getTeacherId().equals(userId) && !SecurityUtils.isAdmin(role)) {
+        boolean isCourseTeacher = course.getTeacherId().equals(userId)
+                || courseTeacherRepository.existsByCourseIdAndTeacherId(enrollment.getCourseId(), userId);
+        if (!isCourseTeacher && !SecurityUtils.isAdmin(role)) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
 
@@ -138,9 +142,10 @@ public class EnrollmentService {
         List<Enrollment> enrollments = result.getRecords();
         Map<UUID, Course> courses = loadCourses(enrollments);
         Map<UUID, String> coverUrls = loadCoverUrls(courses.values().stream().toList());
+        Map<UUID, String> studentNames = loadStudentNames(enrollments);
 
         List<EnrollmentVO> voList = enrollments.stream()
-                .map(enrollment -> toEnrollmentVO(enrollment, courses.get(enrollment.getCourseId()), coverUrls))
+                .map(enrollment -> toEnrollmentVO(enrollment, courses.get(enrollment.getCourseId()), coverUrls, studentNames))
                 .toList();
 
         return new PageResponse<>(voList, result.getTotal(), currentPage, pageSize);
@@ -149,7 +154,9 @@ public class EnrollmentService {
     public PageResponse<EnrollmentVO> listCourseEnrollments(UUID courseId, int page, int size, UUID userId, Integer role) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
-        if (!course.getTeacherId().equals(userId) && !SecurityUtils.isAdmin(role)) {
+        boolean isCourseTeacher = course.getTeacherId().equals(userId)
+                || courseTeacherRepository.existsByCourseIdAndTeacherId(courseId, userId);
+        if (!isCourseTeacher && !SecurityUtils.isAdmin(role)) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
 
@@ -159,8 +166,9 @@ public class EnrollmentService {
         List<Enrollment> enrollments = result.getRecords();
 
         Map<UUID, String> coverUrls = loadCoverUrls(List.of(course));
+        Map<UUID, String> studentNames = loadStudentNames(enrollments);
         List<EnrollmentVO> voList = enrollments.stream()
-                .map(enrollment -> toEnrollmentVO(enrollment, course, coverUrls))
+                .map(enrollment -> toEnrollmentVO(enrollment, course, coverUrls, studentNames))
                 .toList();
 
         return new PageResponse<>(voList, result.getTotal(), currentPage, pageSize);
@@ -183,7 +191,7 @@ public class EnrollmentService {
                 course.getTeacherId(), action);
     }
 
-    private EnrollmentVO toEnrollmentVO(Enrollment enrollment, Course course, Map<UUID, String> coverUrls) {
+    private EnrollmentVO toEnrollmentVO(Enrollment enrollment, Course course, Map<UUID, String> coverUrls, Map<UUID, String> studentNames) {
         String coverUrl = course != null && course.getCoverFileId() != null
                 ? coverUrls.getOrDefault(course.getCoverFileId(), course.getCoverUrl())
                 : course != null ? course.getCoverUrl() : null;
@@ -193,7 +201,7 @@ public class EnrollmentService {
                 course != null ? course.getTitle() : null,
                 coverUrl,
                 enrollment.getStudentId(),
-                null,
+                studentNames.getOrDefault(enrollment.getStudentId(), null),
                 enrollment.getStatus(),
                 enrollment.getEnrolledAt(),
                 enrollment.getCompletedAt()
@@ -232,4 +240,24 @@ public class EnrollmentService {
                 .collect(Collectors.toMap(Course::getId, Function.identity()));
     }
 
+
+    private Map<UUID, String> loadStudentNames(List<Enrollment> enrollments) {
+        List<UUID> studentIds = enrollments.stream()
+                .map(Enrollment::getStudentId)
+                .distinct()
+                .toList();
+        if (studentIds.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            ApiResponse<List<UserBasicInfo>> response = authInternalClient.getUsersBasicInfo(studentIds);
+            if (response != null && response.code() == 0 && response.data() != null) {
+                return response.data().stream()
+                        .filter(u -> u.displayName() != null)
+                        .collect(Collectors.toMap(UserBasicInfo::id, UserBasicInfo::displayName, (a, b) -> a));
+            }
+        } catch (Exception ignored) {
+        }
+        return Map.of();
+    }
 }

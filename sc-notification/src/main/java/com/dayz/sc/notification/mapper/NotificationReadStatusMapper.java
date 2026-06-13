@@ -46,26 +46,44 @@ public interface NotificationReadStatusMapper extends BaseMapper<NotificationRea
     long countUnread(@Param("userId") UUID userId, @Param("type") Integer type);
 
     /**
-     * 一次查询返回全部未读计数（total / system / teaching），避免 3 次串行全表扫描。
+     * 一次查询返回全部未读计数（total / system / teaching）。
+     * 使用 UNION ALL 将广播通知与指定用户通知拆分为两段独立查询，
+     * 避免 OR 条件阻碍索引选择。
      */
     @Select("""
+            <script>
             SELECT
-              SUM(CASE WHEN n.type = 1 THEN 1 ELSE 0 END) AS system_count,
-              SUM(CASE WHEN n.type = 2 THEN 1 ELSE 0 END) AS teaching_count,
+              SUM(CASE WHEN sub.type = 1 THEN 1 ELSE 0 END) AS system_count,
+              SUM(CASE WHEN sub.type = 2 THEN 1 ELSE 0 END) AS teaching_count,
               COUNT(*) AS total_count
-            FROM ntf_notification n
-            WHERE n.deleted = 0
-              AND (n.sender_id IS NULL OR n.sender_id != #{userId})
-              AND (n.target_type = 0 OR EXISTS (
-                SELECT 1 FROM ntf_notification_target t
-                WHERE t.notification_id = n.id AND t.user_id = #{userId} AND t.deleted = 0
-              ))
-              AND NOT EXISTS (
-                SELECT 1
-                FROM ntf_read_status r
-                WHERE r.notification_id = n.id
-                  AND r.user_id = #{userId}
-              )
+            FROM (
+              -- 广播通知（target_type = 0）
+              SELECT n.type
+              FROM ntf_notification n
+              WHERE n.deleted = 0
+                AND n.target_type = 0
+                AND (n.sender_id IS NULL OR n.sender_id != #{userId})
+                AND NOT EXISTS (
+                  SELECT 1 FROM ntf_read_status r
+                  WHERE r.notification_id = n.id AND r.user_id = #{userId}
+                )
+              UNION ALL
+              -- 指定用户通知（target_type = 1）
+              SELECT n.type
+              FROM ntf_notification n
+              WHERE n.deleted = 0
+                AND n.target_type = 1
+                AND (n.sender_id IS NULL OR n.sender_id != #{userId})
+                AND EXISTS (
+                  SELECT 1 FROM ntf_notification_target t
+                  WHERE t.notification_id = n.id AND t.user_id = #{userId} AND t.deleted = 0
+                )
+                AND NOT EXISTS (
+                  SELECT 1 FROM ntf_read_status r
+                  WHERE r.notification_id = n.id AND r.user_id = #{userId}
+                )
+            ) sub
+            </script>
             """)
     @Results({
             @Result(property = "systemCount", column = "system_count"),

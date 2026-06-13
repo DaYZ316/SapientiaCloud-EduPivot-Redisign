@@ -90,6 +90,7 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.removeItem(REFRESH_TOKEN_KEY)
         localStorage.removeItem(TOKEN_TYPE_KEY)
         localStorage.removeItem(USER_KEY)
+        sessionStorage.removeItem('enrollmentSuppressConfirm')
     }
 
     async function logout() {

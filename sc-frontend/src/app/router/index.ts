@@ -1,4 +1,4 @@
-import {createRouter, createWebHistory} from 'vue-router'
+﻿import {createRouter, createWebHistory} from 'vue-router'
 
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {notify} from '@/shared/composables/useGlobalNotification'
@@ -58,6 +58,26 @@ export const router = createRouter({
                     component: () => import('@/features/course/views/CourseDetailView.vue'),
                 },
                 {
+                    path: 'courses/:courseId/chapters/:chapterId',
+                    name: 'chapter-detail',
+                    component: () => import('@/features/course/views/ChapterView.vue'),
+                },
+                {
+                    path: 'courses/:courseId/question-banks',
+                    name: 'course-question-banks',
+                    component: () => import('@/features/question-bank/views/QuestionBankListView.vue'),
+                },
+                {
+                    path: 'question-banks/:id',
+                    name: 'question-bank-detail',
+                    component: () => import('@/features/question-bank/views/QuestionBankDetailView.vue'),
+                },
+                {
+                    path: 'question-banks/:id/practice',
+                    name: 'question-bank-practice',
+                    component: () => import('@/features/question-bank/views/PracticeView.vue'),
+                },
+                {
                     path: 'my-enrollments',
                     name: 'my-enrollments',
                     component: () => import('@/features/course/views/MyEnrollmentsView.vue'),
@@ -90,7 +110,17 @@ export const router = createRouter({
                 {
                     path: 'community',
                     name: 'community',
-                    component: () => import('@/features/community/views/CommunityView.vue'),
+                    component: () => import('@/features/forum/views/ForumListView.vue'),
+                },
+                {
+                    path: 'community/forums/:id',
+                    name: 'forum-detail',
+                    component: () => import('@/features/forum/views/ForumDetailView.vue'),
+                },
+                {
+                    path: 'community/posts/:id',
+                    name: 'post-detail',
+                    component: () => import('@/features/forum/views/PostDetailView.vue'),
                 },
                 {
                     path: 'profile',
@@ -158,7 +188,6 @@ router.beforeEach((to) => {
         }
     }
 
-    // 角色守卫：requiredRole 为 0 时仅管理员可访问；其它值要求角色匹配；admin(0) 始终放行
     const requiredRole = to.meta.requiredRole as number | undefined
     if (requiredRole !== undefined && authStore.user) {
         const userRole = authStore.user.role

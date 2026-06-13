@@ -1,7 +1,9 @@
-export default {
+﻿export default {
     backToCourses: 'Back to Courses',
     courseNotFound: 'Course not found',
     browseCourses: 'Browse Courses',
+    description: 'Description',
+    files: 'Course Files',
     noDescription: 'No description has been added yet.',
     levelUnknown: 'Level unknown',
     statusUnknown: 'Status unknown',

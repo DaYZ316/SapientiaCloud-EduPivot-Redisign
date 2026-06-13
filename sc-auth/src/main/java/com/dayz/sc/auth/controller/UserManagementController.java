@@ -83,6 +83,30 @@ public class UserManagementController {
         return ApiResponse.ok(userManagementService.getUsersBasicInfo(ids));
     }
 
+
+    /**
+     * 教师可调用：按角色查询用户列表（仅限 role=2 教师）
+     */
+    @GetMapping("/teachers")
+    public ApiResponse<@NonNull PageResponse<@NonNull UserProfileVO>> listTeachers(
+            UserPageRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        JwtPrincipalResolver.requireUserId(jwt);
+        var teacherRequest = new UserPageRequest(request.page(), request.size(), request.keyword(), request.status(), 2);
+        return ApiResponse.ok(userManagementService.pageUsers(teacherRequest));
+    }
+
+
+    /**
+     * 已登录用户可用：查询用户列表（通知选人等场景）
+     */
+    @GetMapping("/all")
+    public ApiResponse<@NonNull PageResponse<@NonNull UserProfileVO>> listAllUsers(
+            UserPageRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        JwtPrincipalResolver.requireUserId(jwt);
+        return ApiResponse.ok(userManagementService.pageUsers(request));
+    }
     private void requireAdmin(Jwt jwt) {
         JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);

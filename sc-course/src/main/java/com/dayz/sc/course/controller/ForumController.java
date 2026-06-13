@@ -56,6 +56,29 @@ public class ForumController {
         return ApiResponse.ok(forums);
     }
 
+    @GetMapping("/course/{courseId}/comments")
+    public ApiResponse<PageResponse<ForumPostVO>> listCourseComments(
+            @PathVariable UUID courseId,
+            @RequestParam(required = false) Long page,
+            @RequestParam(required = false) Long size,
+            @AuthenticationPrincipal Jwt jwt) {
+        JwtPrincipalResolver.requireUserId(jwt);
+        PageResponse<ForumPostVO> response = forumService.listCourseComments(courseId, page, size);
+        return ApiResponse.ok(response);
+    }
+
+    @PostMapping("/course/{courseId}/comments")
+    @RateLimited(maxRequests = 20, windowSeconds = 60)
+    public ApiResponse<UUID> createCourseComment(
+            @PathVariable UUID courseId,
+            @Valid @RequestBody CreateCourseCommentRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        UUID commentId = forumService.createCourseComment(courseId, request, userId, role);
+        return ApiResponse.ok(commentId);
+    }
+
     @PutMapping("/{id}")
     @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<Void> updateForum(
@@ -221,6 +244,30 @@ public class ForumController {
     public ApiResponse<List<ForumReplyVO>> getReplyTree(@PathVariable UUID postId) {
         List<ForumReplyVO> tree = forumService.getReplyTree(postId);
         return ApiResponse.ok(tree);
+    }
+
+    @GetMapping("/comments/{postId}/replies/tree")
+    public ApiResponse<List<ForumReplyVO>> getCommentReplyTree(
+            @PathVariable UUID postId,
+            @AuthenticationPrincipal Jwt jwt) {
+        JwtPrincipalResolver.requireUserId(jwt);
+        List<ForumReplyVO> tree = forumService.getCourseCommentReplyTree(postId);
+        return ApiResponse.ok(tree);
+    }
+
+    @PostMapping("/comments/{postId}/replies")
+    @RateLimited(maxRequests = 30, windowSeconds = 60)
+    public ApiResponse<UUID> createCourseCommentReply(
+            @PathVariable UUID postId,
+            @Valid @RequestBody CreateCourseCommentReplyRequest request,
+            @AuthenticationPrincipal Jwt jwt,
+            HttpServletRequest httpRequest) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        String ipAddress = httpRequest.getRemoteAddr();
+        String userAgent = httpRequest.getHeader("User-Agent");
+        UUID replyId = forumService.createCourseCommentReply(postId, request, userId, role, ipAddress, userAgent);
+        return ApiResponse.ok(replyId);
     }
 
     @PutMapping("/replies/{id}/accept")
