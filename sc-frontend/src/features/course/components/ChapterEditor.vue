@@ -1,9 +1,9 @@
 ﻿<template>
-  <div v-if="visible" class="editor-overlay" @click.self="('close')">
+  <div v-if="visible" class="editor-overlay" @click.self="emit('close')">
     <div class="editor-dialog">
       <div class="editor-header">
         <h2>{{ isEditing ? t('chapter.editChapter') : t('chapter.addChapter') }}</h2>
-        <button class="close-btn" @click="('close')">
+        <button class="close-btn" @click="emit('close')">
           <X :size="18"/>
         </button>
       </div>
@@ -40,7 +40,7 @@
       </div>
 
       <div class="editor-footer">
-        <button class="btn-cancel" @click="('close')">{{ t('chapter.cancel') }}</button>
+        <button class="btn-cancel" @click="emit('close')">{{ t('chapter.cancel') }}</button>
         <button class="btn-save" :disabled="!form.chapterName.trim()" @click="handleSave">
           {{ t('chapter.save') }}
         </button>

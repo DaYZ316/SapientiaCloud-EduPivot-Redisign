@@ -120,159 +120,14 @@
       </button>
     </div>
 
-    <!-- Create Course Modal -->
-    <Teleport to="body">
-      <div v-if="showCreateModal" class="modal-overlay">
-        <div class="modal modal-lg course-editor-modal">
-          <div class="modal-header">
-            <h2>{{ t('courses.modal.createTitle') }}</h2>
-            <button class="btn-close" @click="closeCreateModal">
-              <X :size="20"/>
-            </button>
-          </div>
-          <form class="modal-body course-editor-form" @submit.prevent="submitCourse">
-            <section class="editor-section">
-              <div class="editor-section-heading">
-                <span>01</span>
-                <h3>{{ t('courses.modal.sections.basic') }}</h3>
-              </div>
-              <div class="editor-grid basic-editor-grid">
-                <div class="basic-fields">
-                  <div class="form-group">
-                    <label>{{ t('courses.modal.titleLabel') }}</label>
-                    <input v-model="courseForm.title" class="input-field" type="text" :placeholder="t('courses.modal.titlePlaceholder')" required/>
-                  </div>
-                  <div class="form-group">
-                    <label>{{ t('courses.modal.descriptionLabel') }}</label>
-                    <textarea v-model="courseForm.description" class="input-field" :placeholder="t('courses.modal.descriptionPlaceholder')" rows="4"></textarea>
-                  </div>
-                </div>
-                <div class="form-group basic-cover-field">
-                  <label>{{ t('courses.modal.coverUrlLabel') }}</label>
-                  <BaseImageUploader
-                    v-model="courseForm.coverFileId"
-                    usage="COURSE_COVER"
-                    scope-type="COURSE"
-                    :preview-url="courseForm.coverUrl"
-                    :button-label="t('courses.modal.uploadCover')"
-                    :uploaded-button-label="t('courses.modal.changeCover')"
-                    :uploaded-preview-label="t('courses.modal.changeCover')"
-                    uploaded-behavior="replace"
-                    :allow-remove="false"
-                    :help-text="t('courses.modal.coverUrlPlaceholder')"
-                    size="cover"
-                    @uploaded="handleCreateCoverUploaded"
-                    @error="notify.error"
-                    @removed="clearCreateCover"
-                  />
-                </div>
-                <div class="basic-field-row">
-                  <div class="form-group">
-                    <label>{{ t('courses.modal.levelLabel') }}</label>
-                    <BaseSelect
-                      v-model="courseForm.level"
-                      class="modal-select-control"
-                      :options="courseLevelOptions"
-                      min-width="100%"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label>{{ t('courses.modal.visibilityLabel') }} *</label>
-                    <BaseSelect
-                      v-model="courseForm.isPublic"
-                      class="modal-select-control"
-                      :options="courseVisibilityOptions"
-                      min-width="100%"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label>{{ t('courses.modal.maxStudentsLabel') }}</label>
-                    <BaseNumberStepper v-model="courseForm.maxStudents" :min="0" />
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section class="editor-section">
-              <div class="editor-section-heading">
-                <span>02</span>
-                <h3>{{ t('courses.modal.sections.publishing') }}</h3>
-              </div>
-              <div class="editor-grid editor-grid-3">
-                <div class="form-group">
-                  <label>{{ t('courses.modal.courseTypeLabel') }}</label>
-                  <BaseSelect
-                    v-model="courseForm.courseType"
-                    class="modal-select-control"
-                    :options="courseTypeOptions"
-                    min-width="100%"
-                  />
-                </div>
-                <div class="form-group">
-                  <label>{{ t('courses.modal.semesterLabel') }}</label>
-                  <input v-model="courseForm.semester" class="input-field" type="text" :placeholder="t('courses.modal.semesterPlaceholder')"/>
-                </div>
-                <div class="form-group editor-span-2">
-                  <label>{{ t('courses.modal.locationLabel') }}</label>
-                  <input v-model="courseForm.location" class="input-field" type="text" :placeholder="t('courses.modal.locationPlaceholder')"/>
-                </div>
-              </div>
-            </section>
-
-            <section class="editor-section">
-              <div class="editor-section-heading">
-                <span>03</span>
-                <h3>{{ t('courses.modal.sections.teacherTeam') }}</h3>
-              </div>
-              <div class="assistant-panel">
-                <div class="assistant-panel-header">
-                  <div>
-                    <label>{{ t('courses.modal.assistantsLabel') }}</label>
-                    <p>{{ t('courses.modal.assistantsSelected', {count: selectedCreateAssistantCount}) }}</p>
-                  </div>
-                  <div class="assistant-actions">
-                    <button type="button" @click="selectAllCreateAssistants">{{ t('courses.modal.selectAllAssistants') }}</button>
-                    <button type="button" @click="clearCreateAssistants">{{ t('courses.modal.clearAssistants') }}</button>
-                  </div>
-                </div>
-                <div class="assistant-search">
-                  <Search :size="16" stroke-width="1.8"/>
-                  <input v-model="assistantKeyword" type="text" :placeholder="t('courses.modal.searchAssistants')" @input="debouncedSearchTeachers(($event.target as HTMLInputElement).value)"/>
-                </div>
-                <div v-if="teacherLoading" class="assistant-empty">{{ t('courses.modal.loadingTeachers') }}</div>
-                <div v-else-if="filteredCreateAssistantCandidates.length === 0" class="assistant-empty">{{ t('courses.modal.noAssistants') }}</div>
-                <div v-else class="assistant-list" @scroll="handleTeacherListScroll">
-                  <label
-                    v-for="teacher in filteredCreateAssistantCandidates"
-                    :key="teacher.id"
-                    class="assistant-option"
-                    :class="{ selected: isCreateAssistantSelected(teacher.id) }"
-                  >
-                    <input
-                      type="checkbox"
-                      :checked="isCreateAssistantSelected(teacher.id)"
-                      @change="toggleCreateAssistant(teacher.id)"
-                    />
-                    <span class="assistant-copy">
-                      <strong>{{ formatTeacherName(teacher) }}</strong>
-                      <small>{{ formatTeacherMeta(teacher) || teacher.id }}</small>
-                    </span>
-                    <span v-if="isCreateAssistantSelected(teacher.id)" class="assistant-state">{{ t('courses.modal.selectedAssistant') }}</span>
-                  </label>
-                </div>
-              </div>
-            </section>
-
-            <div class="modal-footer editor-footer">
-              <button type="button" class="btn-secondary" @click="closeCreateModal">{{ t('courses.modal.cancel') }}</button>
-              <button type="submit" class="btn-primary" :disabled="submitting">
-                {{ submitting ? t('courses.modal.saving') : t('courses.modal.save') }}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </Teleport>
+    <CourseFormModal
+      :visible="showCreateModal"
+      mode="create"
+      show-teacher-section
+      :submitting="submitting"
+      @close="closeCreateModal"
+      @created="submitCourse"
+    />
 
     <!-- Edit Course Modal -->
     <Teleport to="body">
@@ -553,6 +408,7 @@ import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
 import {BookOpen, Plus, Search, X} from 'lucide-vue-next'
 
+import CourseFormModal from '@/features/course/components/CourseFormModal.vue'
 import CourseManagementTable from '@/features/course/components/CourseManagementTable.vue'
 import BaseDateRangeFilter from '@/shared/components/BaseDateRangeFilter.vue'
 import BaseImageUploader from '@/shared/components/BaseImageUploader.vue'
@@ -648,21 +504,7 @@ const hasDateFilters = computed(() =>
 const courses = ref<Course[]>([])
 const teacherCourseRole = ref<TeacherCourseRole>('primary')
 
-// Create course (teacher only)
 const showCreateModal = ref(false)
-const courseForm = reactive({
-  title: '',
-  description: '',
-  level: 1,
-  coverUrl: '',
-  coverFileId: '',
-  assistantIds: [] as string[],
-  semester: '',
-  location: '',
-  courseType: 0,
-  isPublic: 0,
-  maxStudents: 0,
-})
 
 // Edit course (admin / teacher)
 const showEditModal = ref(false)
@@ -720,23 +562,6 @@ const filteredAssistantCandidates = computed(() => {
 })
 
 const selectedAssistantCount = computed(() => editForm.assistantIds.length)
-const selectedCreateAssistantCount = computed(() => courseForm.assistantIds.length)
-
-const filteredCreateAssistantCandidates = computed(() => {
-  const keyword = assistantKeyword.value.trim().toLowerCase()
-  if (!keyword) {
-    return teachers.value
-  }
-
-  return teachers.value.filter((teacher) =>
-    [
-      formatTeacherName(teacher),
-      formatTeacherMeta(teacher),
-      teacher.email,
-      teacher.teacherInfo?.employeeNo,
-    ].filter(Boolean).join(' ').toLowerCase().includes(keyword),
-  )
-})
 
 // Delete course (admin / teacher)
 const showDeleteModal = ref(false)
@@ -923,29 +748,6 @@ function handleMainTeacherChange() {
   editForm.assistantIds = editForm.assistantIds.filter((id) => id !== editForm.teacherId)
 }
 
-function isCreateAssistantSelected(teacherId: string): boolean {
-  return courseForm.assistantIds.includes(teacherId)
-}
-
-function toggleCreateAssistant(teacherId: string) {
-  if (isCreateAssistantSelected(teacherId)) {
-    courseForm.assistantIds = courseForm.assistantIds.filter((id) => id !== teacherId)
-    return
-  }
-
-  courseForm.assistantIds = [...courseForm.assistantIds, teacherId]
-}
-
-function selectAllCreateAssistants() {
-  const mergedIds = new Set(courseForm.assistantIds)
-  filteredCreateAssistantCandidates.value.forEach((teacher) => mergedIds.add(teacher.id))
-  courseForm.assistantIds = Array.from(mergedIds)
-}
-
-function clearCreateAssistants() {
-  courseForm.assistantIds = []
-}
-
 function loadTeacherOptions() {
   if (teachers.value.length === 0) debouncedSearchTeachers('')
 }
@@ -1033,54 +835,16 @@ function viewCourse(id: string) {
 // ── Create Course (teacher) ──
 
 function openCreateModal() {
-  assistantKeyword.value = ''
   showCreateModal.value = true
-  loadTeacherOptions()
 }
 
 function closeCreateModal() {
   showCreateModal.value = false
-  courseForm.title = ''
-  courseForm.description = ''
-  courseForm.level = 1
-  courseForm.coverUrl = ''
-  courseForm.coverFileId = ''
-  courseForm.assistantIds = []
-  courseForm.semester = ''
-  courseForm.location = ''
-  courseForm.courseType = 0
-  courseForm.isPublic = 0
-  courseForm.maxStudents = 0
-  assistantKeyword.value = ''
 }
 
-function handleCreateCoverUploaded(asset: FileAsset) {
-  courseForm.coverFileId = asset.id
-  courseForm.coverUrl = asset.url || ''
-}
-
-function clearCreateCover() {
-  courseForm.coverFileId = ''
-  courseForm.coverUrl = ''
-}
-
-async function submitCourse() {
-  if (!courseForm.title) return
+async function submitCourse(request: CreateCourseRequest) {
   submitting.value = true
   try {
-    const request: CreateCourseRequest = {
-      title: courseForm.title,
-      description: courseForm.description || undefined,
-      level: courseForm.level,
-      coverUrl: courseForm.coverFileId ? undefined : courseForm.coverUrl || undefined,
-      coverFileId: courseForm.coverFileId || undefined,
-      assistantIds: courseForm.assistantIds,
-      semester: courseForm.semester || undefined,
-      location: courseForm.location || undefined,
-      courseType: courseForm.courseType,
-      isPublic: courseForm.isPublic,
-      maxStudents: courseForm.maxStudents,
-    }
     await createCourse(request)
     closeCreateModal()
     notify.success(t('courses.alert.createSuccess'))

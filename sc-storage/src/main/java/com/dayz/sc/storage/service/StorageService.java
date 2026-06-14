@@ -83,7 +83,7 @@ public class StorageService {
     @Transactional(rollbackFor = Exception.class)
     public UploadTicket createUpload(CreateUploadRequest request, UUID userId, Integer role) {
         authorizationService.authorizeCreate(request, userId, role);
-        FilePolicy policy = filePolicy(request.usage());
+        FilePolicy policy = filePolicy(request.usage(), request.bucketType());
         String contentType = normalizeContentType(request.contentType());
         validateContentType(contentType, policy.allowedTypes());
         if (request.sizeBytes() > policy.maxSizeBytes()) {
@@ -334,23 +334,71 @@ public class StorageService {
         );
     }
 
-    private FilePolicy filePolicy(StorageUsage usage) {
+    private FilePolicy filePolicy(StorageUsage usage, StorageBucketType bucketType) {
         StorageProperties.Bucket bucket = storageProperties.getBucket();
         StorageProperties.Limits limits = storageProperties.getLimits();
         return switch (usage) {
-            case USER_AVATAR -> new FilePolicy(bucket.getMedia(), StorageVisibility.PUBLIC_READ,
-                    limits.getAvatarBytes(), IMAGE_TYPES);
-            case COURSE_COVER -> new FilePolicy(bucket.getMedia(), StorageVisibility.PUBLIC_READ,
-                    limits.getCourseCoverBytes(), IMAGE_TYPES);
-            case FORUM_IMAGE -> new FilePolicy(bucket.getCourse(), StorageVisibility.COURSE_PRIVATE,
-                    limits.getCourseCoverBytes(), IMAGE_TYPES);
-            case COURSE_PUBLIC_FILE -> new FilePolicy(bucket.getCourse(), StorageVisibility.AUTHENTICATED,
-                    limits.getCourseFileBytes(), COURSE_FILE_TYPES);
-            case COURSE_PRIVATE_FILE -> new FilePolicy(bucket.getCourse(), StorageVisibility.COURSE_PRIVATE,
-                    limits.getCourseFileBytes(), COURSE_FILE_TYPES);
-            case AI_FILE -> new FilePolicy(bucket.getAi(), StorageVisibility.OWNER_PRIVATE,
-                    limits.getAiFileBytes(), AI_FILE_TYPES);
+            case USER_AVATAR -> {
+                requireBucketType(usage, bucketType, StorageBucketType.MEDIA);
+                yield new FilePolicy(bucket.getMedia(), StorageVisibility.PUBLIC_READ,
+                        limits.getAvatarBytes(), IMAGE_TYPES);
+            }
+            case COURSE_COVER -> {
+                requireBucketType(usage, bucketType, StorageBucketType.MEDIA);
+                yield new FilePolicy(bucket.getMedia(), StorageVisibility.PUBLIC_READ,
+                        limits.getCourseCoverBytes(), IMAGE_TYPES);
+            }
+            case FORUM_IMAGE -> {
+                StorageBucketType resolvedBucketType = resolveCourseBucketType(usage, bucketType);
+                String resolvedBucket = resolveCourseBucket(resolvedBucketType, bucket);
+                StorageVisibility visibility = resolvedBucketType == StorageBucketType.COURSE_PUBLIC
+                        ? StorageVisibility.AUTHENTICATED : StorageVisibility.COURSE_PRIVATE;
+                yield new FilePolicy(resolvedBucket, visibility,
+                        limits.getCourseCoverBytes(), IMAGE_TYPES);
+            }
+            case COURSE_PUBLIC_FILE -> {
+                requireBucketType(usage, bucketType, StorageBucketType.COURSE_PUBLIC);
+                yield new FilePolicy(bucket.getCoursePublic(), StorageVisibility.AUTHENTICATED,
+                        limits.getCourseFileBytes(), COURSE_FILE_TYPES);
+            }
+            case COURSE_PRIVATE_FILE -> {
+                requireBucketType(usage, bucketType, StorageBucketType.COURSE_PRIVATE);
+                yield new FilePolicy(bucket.getCoursePrivate(), StorageVisibility.COURSE_PRIVATE,
+                        limits.getCourseFileBytes(), COURSE_FILE_TYPES);
+            }
+            case AI_FILE -> {
+                requireBucketType(usage, bucketType, StorageBucketType.AI);
+                yield new FilePolicy(bucket.getAi(), StorageVisibility.OWNER_PRIVATE,
+                        limits.getAiFileBytes(), AI_FILE_TYPES);
+            }
         };
+    }
+
+    private void requireBucketType(StorageUsage usage, StorageBucketType bucketType, StorageBucketType expected) {
+        if (bucketType != null && bucketType != expected) {
+            throw invalidBucketType(usage);
+        }
+    }
+
+    private StorageBucketType resolveCourseBucketType(StorageUsage usage, StorageBucketType bucketType) {
+        if (bucketType == null) {
+            return StorageBucketType.COURSE_PRIVATE;
+        }
+        if (bucketType == StorageBucketType.COURSE_PUBLIC || bucketType == StorageBucketType.COURSE_PRIVATE) {
+            return bucketType;
+        }
+        throw invalidBucketType(usage);
+    }
+
+    private BusinessException invalidBucketType(StorageUsage usage) {
+        return new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid bucket type for " + usage.name());
+    }
+
+    private String resolveCourseBucket(StorageBucketType bucketType, StorageProperties.Bucket bucket) {
+        if (bucketType == StorageBucketType.COURSE_PUBLIC) {
+            return bucket.getCoursePublic();
+        }
+        return bucket.getCoursePrivate();
     }
 
     private UUID normalizeScopeId(CreateUploadRequest request, UUID userId) {

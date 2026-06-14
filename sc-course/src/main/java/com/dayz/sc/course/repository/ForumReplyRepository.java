@@ -3,7 +3,6 @@ package com.dayz.sc.course.repository;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.model.entity.ForumReply;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,12 +17,6 @@ public interface ForumReplyRepository {
     void deleteById(UUID id);
 
     Page<ForumReply> findByPostId(UUID postId, int page, int size);
-
-    List<ForumReply> findByParentReplyId(UUID parentReplyId);
-
-    Page<ForumReply> findAll(int page, int size, UUID postId, UUID forumId, UUID courseId, Integer status);
-
-    long countByPostId(UUID postId);
 
     int findMaxFloorNumber(UUID postId);
 }

@@ -9,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,30 +39,8 @@ public class MybatisForumPostRepository implements ForumPostRepository {
     }
 
     @Override
-    public Page<ForumPost> findByForumId(UUID forumId, int page, int size) {
+    public Page<ForumPost> findAll(int page, int size, UUID courseId, Integer status, String keyword) {
         LambdaQueryWrapper<ForumPost> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ForumPost::getForumId, forumId);
-        wrapper.eq(ForumPost::getStatus, 0);
-        wrapper.orderByDesc(ForumPost::getIsTop);
-        wrapper.orderByDesc(ForumPost::getCreatedAt);
-        return forumPostMapper.selectPage(new Page<>(page, size), wrapper);
-    }
-
-    @Override
-    public Page<ForumPost> findByCourseId(UUID courseId, int page, int size) {
-        LambdaQueryWrapper<ForumPost> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ForumPost::getCourseId, courseId);
-        wrapper.eq(ForumPost::getStatus, 0);
-        wrapper.orderByDesc(ForumPost::getCreatedAt);
-        return forumPostMapper.selectPage(new Page<>(page, size), wrapper);
-    }
-
-    @Override
-    public Page<ForumPost> findAll(int page, int size, UUID forumId, UUID courseId, Integer status, String keyword) {
-        LambdaQueryWrapper<ForumPost> wrapper = new LambdaQueryWrapper<>();
-        if (forumId != null) {
-            wrapper.eq(ForumPost::getForumId, forumId);
-        }
         if (courseId != null) {
             wrapper.eq(ForumPost::getCourseId, courseId);
         }
@@ -78,30 +55,4 @@ public class MybatisForumPostRepository implements ForumPostRepository {
         return forumPostMapper.selectPage(new Page<>(page, size), wrapper);
     }
 
-    @Override
-    public long countByForumId(UUID forumId) {
-        LambdaQueryWrapper<ForumPost> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ForumPost::getForumId, forumId);
-        return forumPostMapper.selectCount(wrapper);
-    }
-
-    @Override
-    public List<ForumPost> findHotPosts(UUID courseId, int limit) {
-        LambdaQueryWrapper<ForumPost> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ForumPost::getCourseId, courseId);
-        wrapper.eq(ForumPost::getStatus, 0);
-        wrapper.orderByDesc(ForumPost::getLikeCount);
-        wrapper.last("LIMIT " + limit);
-        return forumPostMapper.selectList(wrapper);
-    }
-
-    @Override
-    public List<ForumPost> findLatestPosts(UUID courseId, int limit) {
-        LambdaQueryWrapper<ForumPost> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ForumPost::getCourseId, courseId);
-        wrapper.eq(ForumPost::getStatus, 0);
-        wrapper.orderByDesc(ForumPost::getCreatedAt);
-        wrapper.last("LIMIT " + limit);
-        return forumPostMapper.selectList(wrapper);
-    }
 }

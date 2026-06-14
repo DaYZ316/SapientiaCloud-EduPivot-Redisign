@@ -2,7 +2,6 @@
 
 import enAdmin from '@/features/admin/i18n/en-US'
 import enLogin from '@/features/auth/i18n/en-US'
-import enCommunity from '@/features/community/i18n/en-US'
 import enCourseDetail from '@/features/course/i18n/en-US/courseDetail'
 import enCourses from '@/features/course/i18n/en-US/courses'
 import enInvitations from '@/features/course/i18n/en-US/invitations'
@@ -18,7 +17,6 @@ import enProfile from '@/features/user/i18n/en-US'
 import enCommon from '@/shared/i18n/en-US'
 import zhAdmin from '@/features/admin/i18n/zh-CN'
 import zhLogin from '@/features/auth/i18n/zh-CN'
-import zhCommunity from '@/features/community/i18n/zh-CN'
 import zhCourseDetail from '@/features/course/i18n/zh-CN/courseDetail'
 import zhCourses from '@/features/course/i18n/zh-CN/courses'
 import zhInvitations from '@/features/course/i18n/zh-CN/invitations'
@@ -52,7 +50,6 @@ const messages = {
         myEnrollments: zhMyEnrollments,
         profile: zhProfile,
         settings: zhSettings,
-        community: zhCommunity,
         admin: zhAdmin,
         chapter: zhChapter.chapter,
         forum: zhForum.forum,
@@ -70,7 +67,6 @@ const messages = {
         myEnrollments: enMyEnrollments,
         profile: enProfile,
         settings: enSettings,
-        community: enCommunity,
         admin: enAdmin,
         chapter: enChapter.chapter,
         forum: enForum.forum,

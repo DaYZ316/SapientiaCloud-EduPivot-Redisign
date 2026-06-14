@@ -428,9 +428,13 @@ services:
         mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
         mc mb -p local/edupivot-media || true
         mc mb -p local/edupivot-course || true
+        mc mb -p local/edupivot-course-public || true
+        mc mb -p local/edupivot-course-private || true
         mc mb -p local/edupivot-ai || true
         mc anonymous set none local/edupivot-media || true
         mc anonymous set none local/edupivot-course || true
+        mc anonymous set none local/edupivot-course-public || true
+        mc anonymous set none local/edupivot-course-private || true
         mc anonymous set none local/edupivot-ai || true
         mc anonymous set download local/edupivot-media/user-avatar || true
         mc anonymous set download local/edupivot-media/course-cover || true
@@ -447,9 +451,13 @@ services:
         EOF
         mc cors set local/edupivot-media /tmp/cors.json
         mc cors set local/edupivot-course /tmp/cors.json
+        mc cors set local/edupivot-course-public /tmp/cors.json
+        mc cors set local/edupivot-course-private /tmp/cors.json
         mc cors set local/edupivot-ai /tmp/cors.json
         mc ilm add local/edupivot-media --prefix "temp/" --expire-days "1" || true
         mc ilm add local/edupivot-course --prefix "temp/" --expire-days "1" || true
+        mc ilm add local/edupivot-course-public --prefix "temp/" --expire-days "1" || true
+        mc ilm add local/edupivot-course-private --prefix "temp/" --expire-days "1" || true
         mc ilm add local/edupivot-ai --prefix "temp/" --expire-days "1" || true
     networks:
       - sc-edupivot-net

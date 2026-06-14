@@ -77,6 +77,8 @@ public class StorageProperties {
     public static class Bucket {
         private String media = "edupivot-media";
         private String course = "edupivot-course";
+        private String coursePublic = "edupivot-course-public";
+        private String coursePrivate = "edupivot-course-private";
         private String ai = "edupivot-ai";
 
         public String getMedia() {
@@ -93,6 +95,22 @@ public class StorageProperties {
 
         public void setCourse(String course) {
             this.course = course;
+        }
+
+        public String getCoursePublic() {
+            return coursePublic;
+        }
+
+        public void setCoursePublic(String coursePublic) {
+            this.coursePublic = coursePublic;
+        }
+
+        public String getCoursePrivate() {
+            return coursePrivate;
+        }
+
+        public void setCoursePrivate(String coursePrivate) {
+            this.coursePrivate = coursePrivate;
         }
 
         public String getAi() {

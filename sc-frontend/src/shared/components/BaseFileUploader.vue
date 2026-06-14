@@ -38,7 +38,7 @@ import {computed, ref} from 'vue'
 import {UploadCloud} from 'lucide-vue-next'
 
 import {completeUpload, createUploadTicket, uploadToMinio} from '@/features/storage/api/storage'
-import type {FileAsset, StorageScopeType, StorageUsage} from '@/features/storage/types/storage'
+import type {FileAsset, StorageBucketType, StorageScopeType, StorageUsage} from '@/features/storage/types/storage'
 
 type UploadFilePreprocessor = (file: File) => File | null | Promise<File | null>
 
@@ -46,6 +46,7 @@ const props = withDefaults(defineProps<{
   usage: StorageUsage
   scopeType: StorageScopeType
   scopeId?: string | null
+  bucketType?: StorageBucketType | null
   accept?: string
   buttonLabel?: string
   disabled?: boolean
@@ -55,6 +56,7 @@ const props = withDefaults(defineProps<{
   buttonLabel: 'Upload',
   disabled: false,
   scopeId: null,
+  bucketType: null,
   prepareFile: undefined,
 })
 
@@ -98,11 +100,24 @@ async function handleFileChange(event: Event) {
     const uploadFile = props.prepareFile ? await props.prepareFile(file) : file
     if (!uploadFile) return
 
+    // 规范化 scopeId：空字符串转 null
+    const normalizedScopeId = props.scopeId === '' ? null : (props.scopeId ?? null)
+
+    // COURSE scope 必须有有效的 scopeId
+    if (props.scopeType === 'COURSE' && !normalizedScopeId) {
+      const text = 'Course upload requires a valid scopeId'
+      message.value = text
+      hasError.value = true
+      emit('error', text)
+      return
+    }
+
     uploading.value = true
     const ticket = await createUploadTicket({
       usage: props.usage,
       scopeType: props.scopeType,
-      scopeId: props.scopeId ?? null,
+      scopeId: normalizedScopeId,
+      bucketType: props.bucketType ?? null,
       fileName: uploadFile.name,
       contentType: uploadFile.type || 'application/octet-stream',
       sizeBytes: uploadFile.size,

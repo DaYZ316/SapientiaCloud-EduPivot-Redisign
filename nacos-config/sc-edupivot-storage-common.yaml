@@ -100,5 +100,7 @@ edupivot:
     bucket:
       media: edupivot-media
       course: edupivot-course
+      course-public: edupivot-course-public
+      course-private: edupivot-course-private
       ai: edupivot-ai
     cleanup-delay-ms: 3600000

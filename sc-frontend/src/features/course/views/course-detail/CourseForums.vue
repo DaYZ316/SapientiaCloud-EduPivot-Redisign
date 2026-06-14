@@ -11,6 +11,7 @@
       :can-comment="canComment"
       :can-manage-course="canManageCourse"
       :current-user-id="currentUserId"
+      :course-is-public="course?.isPublic === 1"
     />
   </section>
 </template>
@@ -20,6 +21,7 @@ import {useI18n} from 'vue-i18n'
 import CourseComments from '@/features/forum/components/CourseComments.vue'
 
 defineProps<{
+  course?: { isPublic?: number } | null
   courseId: string
   canComment: boolean
   canManageCourse?: boolean

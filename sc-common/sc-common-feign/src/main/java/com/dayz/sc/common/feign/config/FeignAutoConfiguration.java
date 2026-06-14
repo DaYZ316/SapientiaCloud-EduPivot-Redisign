@@ -22,6 +22,10 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 @EnableFeignClients(basePackages = "com.dayz.sc")
 @Import({AuthInternalClientFallback.class, StorageInternalClientFallback.class})
 public class FeignAutoConfiguration {
+
+    private static final String HEADER_USER_ID = "X-User-Id";
+    private static final String HEADER_USER_ROLE = "X-User-Role";
+
     @Bean
     public RequestInterceptor bearerTokenRelayRequestInterceptor() {
         return template -> {
@@ -30,6 +34,14 @@ public class FeignAutoConfiguration {
                 String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
                 if (authorization != null && !authorization.isBlank()) {
                     template.header(HttpHeaders.AUTHORIZATION, authorization);
+                }
+                String userId = request.getHeader(HEADER_USER_ID);
+                String userRole = request.getHeader(HEADER_USER_ROLE);
+                if (userId != null && !userId.isBlank()) {
+                    template.header(HEADER_USER_ID, userId);
+                }
+                if (userRole != null && !userRole.isBlank()) {
+                    template.header(HEADER_USER_ROLE, userRole);
                 }
             }
         };

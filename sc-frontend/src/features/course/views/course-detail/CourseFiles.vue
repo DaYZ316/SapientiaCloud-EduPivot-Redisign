@@ -11,6 +11,7 @@
           :usage="uploadVisibility === 'PUBLIC' ? 'COURSE_PUBLIC_FILE' : 'COURSE_PRIVATE_FILE'"
           scope-type="COURSE"
           :scope-id="courseId"
+          :bucket-type="uploadVisibility === 'PUBLIC' ? 'COURSE_PUBLIC' : 'COURSE_PRIVATE'"
           :button-label="t('courseDetail.uploadFile')"
           @uploaded="handleFileUploaded"
           @error="handleUploadError"

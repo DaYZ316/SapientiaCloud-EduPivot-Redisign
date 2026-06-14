@@ -15,6 +15,34 @@
         >
           <component :is="action.icon" :size="15" stroke-width="1.9"/>
         </button>
+        <BaseFileUploader
+          v-if="imageUploadOptions"
+          :usage="imageUploadOptions.usage"
+          :scope-type="imageUploadOptions.scopeType"
+          :scope-id="imageUploadOptions.scopeId ?? null"
+          :bucket-type="imageUploadOptions.bucketType ?? null"
+          :accept="imageUploadOptions.accept"
+          :button-label="imageUploadOptions.buttonLabel || 'Upload image'"
+          :disabled="disabled"
+          :prepare-file="prepareImageFile"
+          @uploaded="handleImageUploaded"
+          @error="emit('image-upload-error', $event)"
+        >
+          <template #trigger="{ openPicker, progress, uploading, disabled: uploadDisabled }">
+            <button
+              class="base-text-editor-tool"
+              type="button"
+              :title="uploading ? `${progress}%` : imageUploadOptions.buttonLabel || 'Upload image'"
+              :aria-label="imageUploadOptions.buttonLabel || 'Upload image'"
+              :disabled="uploadDisabled"
+              @mousedown.prevent
+              @click="openPicker"
+            >
+              <ImageIcon :size="15" stroke-width="1.9"/>
+              <span v-if="uploading" class="base-text-editor-tool-progress">{{ progress }}</span>
+            </button>
+          </template>
+        </BaseFileUploader>
       </div>
     </div>
 
@@ -39,6 +67,15 @@
 
     <input v-if="name" type="hidden" :name="name" :value="modelValue"/>
 
+    <div v-if="imagePreviews.length > 0" class="base-text-editor-images">
+      <figure v-for="image in imagePreviews" :key="image.id" class="base-text-editor-image">
+        <img :src="image.url" :alt="image.fileName"/>
+        <button type="button" :aria-label="`Remove ${image.fileName}`" :disabled="disabled" @click="removeImage(image.id)">
+          <X :size="13" stroke-width="2"/>
+        </button>
+      </figure>
+    </div>
+
     <div v-if="maxLength != null" class="base-text-editor-footer">
       <span class="base-text-editor-count">{{ characterCount }} / {{ maxLength }}</span>
     </div>
@@ -48,10 +85,21 @@
 <script setup lang="ts">
 import {computed, nextTick, onMounted, ref, watch} from 'vue'
 import {
-  Bold, Eraser, Italic, Link, List, ListOrdered, Quote,
+  Bold, Eraser, Image as ImageIcon, Italic, Link, List, ListOrdered, Quote, X,
 } from 'lucide-vue-next'
+import type {FileAsset, StorageBucketType, StorageScopeType, StorageUsage} from '@/features/storage/types/storage'
+import BaseFileUploader from '@/shared/components/BaseFileUploader.vue'
 
 type ToolbarActionId = 'bold' | 'italic' | 'unorderedList' | 'orderedList' | 'quote' | 'link' | 'clear'
+type UploadFilePreprocessor = (file: File) => File | null | Promise<File | null>
+type ImageUploadOptions = {
+  usage: StorageUsage
+  scopeType: StorageScopeType
+  scopeId?: string | null
+  bucketType?: StorageBucketType | null
+  accept?: string
+  buttonLabel?: string
+}
 
 type MarkdownBlock =
   | {type: 'paragraph' | 'quote'; text: string}
@@ -63,25 +111,35 @@ const props = withDefaults(defineProps<{
   id?: string
   name?: string
   rows?: number
+  minRows?: number
   maxLength?: number
   required?: boolean
   disabled?: boolean
   ariaLabel?: string
   toolbar?: boolean
+  imageUploadOptions?: ImageUploadOptions
+  imageAssets?: FileAsset[]
+  prepareImageFile?: UploadFilePreprocessor
 }>(), {
   placeholder: '',
   id: undefined,
   name: undefined,
   rows: 4,
+  minRows: undefined,
   maxLength: undefined,
   required: false,
   disabled: false,
   ariaLabel: undefined,
   toolbar: true,
+  imageUploadOptions: undefined,
+  imageAssets: () => [],
+  prepareImageFile: undefined,
 })
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
+  'update:imageAssets': [value: FileAsset[]]
+  'image-upload-error': [message: string]
   input: [value: string]
   focus: [event: FocusEvent]
   blur: [event: FocusEvent]
@@ -91,8 +149,15 @@ const editorRef = ref<HTMLDivElement | null>(null)
 const characterCount = computed(() => props.modelValue.length)
 const hasContent = computed(() => props.modelValue.trim().length > 0)
 const editorStyle = computed(() => ({
-  minHeight: `${Math.max(props.rows, 4) * 28}px`,
+  minHeight: `${Math.max(props.rows, props.minRows ?? 4) * 28}px`,
 }))
+const imagePreviews = computed(() => props.imageAssets
+  .map(image => ({
+    id: image.id,
+    fileName: image.fileName,
+    url: image.url || '',
+  }))
+  .filter(image => image.url))
 
 const toolbarActions = [
   {id: 'bold', label: 'Bold', icon: Bold},
@@ -157,6 +222,14 @@ function applyAction(action: ToolbarActionId) {
   }
 
   emitEditorValue()
+}
+
+function handleImageUploaded(asset: FileAsset) {
+  emit('update:imageAssets', [...props.imageAssets, asset])
+}
+
+function removeImage(imageId: string) {
+  emit('update:imageAssets', props.imageAssets.filter(image => image.id !== imageId))
 }
 
 async function updateEditorValue(value: string) {
@@ -436,7 +509,17 @@ function escapeAttribute(value: string) {
   gap: 4px;
 }
 
+.base-text-editor-tools :deep(.base-file-uploader) {
+  display: contents;
+}
+
+.base-text-editor-tools :deep(.base-file-uploader-progress),
+.base-text-editor-tools :deep(.base-file-uploader-message) {
+  display: none;
+}
+
 .base-text-editor-tool {
+  position: relative;
   width: 30px;
   height: 30px;
   display: grid;
@@ -467,6 +550,20 @@ function escapeAttribute(value: string) {
 .base-text-editor-tool:disabled {
   cursor: not-allowed;
   opacity: 0.4;
+}
+
+.base-text-editor-tool-progress {
+  position: absolute;
+  inset: auto 3px 3px auto;
+  min-width: 14px;
+  padding: 1px 3px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .base-text-editor:hover:not(.disabled) {
@@ -541,6 +638,55 @@ function escapeAttribute(value: string) {
   color: var(--color-primary);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.base-text-editor-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 96px));
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+
+.base-text-editor-image {
+  position: relative;
+  margin: 0;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid var(--color-outline-light);
+  border-radius: 6px;
+  background: var(--color-surface-container);
+}
+
+.base-text-editor-image img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.base-text-editor-image button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  color: var(--color-on-surface);
+  cursor: pointer;
+}
+
+.base-text-editor-image button:hover:not(:disabled) {
+  background: var(--color-surface);
+}
+
+.base-text-editor-image button:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
 }
 
 .base-text-editor-footer {

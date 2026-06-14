@@ -1,5 +1,6 @@
 package com.dayz.sc.storage.model.dto;
 
+import com.dayz.sc.storage.model.enums.StorageBucketType;
 import com.dayz.sc.storage.model.enums.StorageScopeType;
 import com.dayz.sc.storage.model.enums.StorageUsage;
 import jakarta.validation.constraints.Min;
@@ -16,5 +17,6 @@ public record CreateUploadRequest(
         @NotBlank @Size(max = 255) String fileName,
         @NotBlank @Size(max = 128) String contentType,
         @Min(1) long sizeBytes,
-        @Size(max = 128) String sha256
+        @Size(max = 128) String sha256,
+        StorageBucketType bucketType
 ) {}

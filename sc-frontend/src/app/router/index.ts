@@ -148,21 +148,6 @@ export const router = createRouter({
                     meta: {requiredRole: 2},
                 },
                 {
-                    path: 'community',
-                    name: 'community',
-                    component: () => import('@/features/forum/views/ForumListView.vue'),
-                },
-                {
-                    path: 'community/forums/:id',
-                    name: 'forum-detail',
-                    component: () => import('@/features/forum/views/ForumDetailView.vue'),
-                },
-                {
-                    path: 'community/posts/:id',
-                    name: 'post-detail',
-                    component: () => import('@/features/forum/views/PostDetailView.vue'),
-                },
-                {
                     path: 'profile',
                     name: 'profile',
                     component: () => import('@/features/user/views/ProfileView.vue'),

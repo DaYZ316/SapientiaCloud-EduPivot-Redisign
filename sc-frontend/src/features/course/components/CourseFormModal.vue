@@ -9,7 +9,6 @@
           </button>
         </div>
         <form class="modal-body course-editor-form" @submit.prevent="handleSubmit">
-          <!-- Section 01: Basic Information -->
           <section class="editor-section">
             <div class="editor-section-heading">
               <span>01</span>
@@ -73,7 +72,6 @@
             </div>
           </section>
 
-          <!-- Section 02: Publishing & Schedule -->
           <section class="editor-section">
             <div class="editor-section-heading">
               <span>02</span>
@@ -109,13 +107,11 @@
             </div>
           </section>
 
-          <!-- Section 03: Teacher Team -->
           <section v-if="showTeacherSection" class="editor-section">
             <div class="editor-section-heading">
               <span>03</span>
               <h3>{{ t('courses.modal.sections.teacherTeam') }}</h3>
             </div>
-            <!-- Admin edit: primary teacher select -->
             <div v-if="mode === 'edit' && isAdmin" class="form-group">
               <label>{{ t('courses.modal.primaryTeacherLabel') }}</label>
               <BaseSelect
@@ -127,7 +123,6 @@
                 @change="handleMainTeacherChange"
               />
             </div>
-            <!-- Assistant panel -->
             <div class="assistant-panel">
               <div class="assistant-panel-header">
                 <div>
@@ -169,7 +164,7 @@
 
           <div class="modal-footer editor-footer">
             <button type="button" class="btn-secondary" @click="emit('close')">{{ t('courses.modal.cancel') }}</button>
-            <button type="submit" class="btn-primary" :disabled="submitting">
+            <button type="submit" class="btn-primary" :disabled="isSubmitting">
               {{ submitLabel }}
             </button>
           </div>
@@ -184,33 +179,35 @@ import {computed, reactive, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {Search, X} from 'lucide-vue-next'
 
+import {listTeachers} from '@/features/user/api/user'
 import BaseImageUploader from '@/shared/components/BaseImageUploader.vue'
 import BaseNumberStepper from '@/shared/components/BaseNumberStepper.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import {notify} from '@/shared/composables/useGlobalNotification'
-import {useAuthStore} from '@/features/auth/stores/auth'
-import {listTeachers} from '@/features/user/api/user'
 
 import type {Course, CreateCourseRequest, UpdateCourseRequest} from '@/features/course/types/course'
-import type {UserProfile} from '@/features/user/types/user'
 import type {FileAsset} from '@/features/storage/types/storage'
+import type {UserProfile} from '@/features/user/types/user'
 
 type SelectOption = { label: string; value: string | number | undefined }
 
 interface Props {
   visible: boolean
-  mode: 'create' | 'edit'
+  mode?: 'create' | 'edit'
   course?: Course | null
   showTeacherSection?: boolean
   isAdmin?: boolean
   canEditCourseStatus?: boolean
+  submitting?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  mode: 'create',
   course: null,
   showTeacherSection: false,
   isAdmin: false,
   canEditCourseStatus: false,
+  submitting: false,
 })
 
 const emit = defineEmits<{
@@ -220,10 +217,7 @@ const emit = defineEmits<{
 }>()
 
 const {t} = useI18n()
-const authStore = useAuthStore()
-const submitting = ref(false)
-
-// ── Form Data ──
+const localSubmitting = ref(false)
 
 const form = reactive({
   title: '',
@@ -241,14 +235,23 @@ const form = reactive({
   status: 0,
 })
 
-const showStatusField = computed(() => props.mode === 'edit' && props.canEditCourseStatus)
+const teachers = ref<UserProfile[]>([])
+const teacherLoading = ref(false)
+const assistantKeyword = ref('')
+let teacherSearchTimer: ReturnType<typeof setTimeout> | null = null
+let teacherPage = 1
+let teacherLoadingMore = false
+let teacherHasMore = true
+let teacherLoadMoreArmed = true
+const scrollLoadThreshold = 50
+const teacherListPageSize = 20
 
+const isSubmitting = computed(() => props.submitting || localSubmitting.value)
+const showStatusField = computed(() => props.mode === 'edit' && props.canEditCourseStatus)
 const submitLabel = computed(() => {
-  if (submitting.value) return t('courses.modal.saving')
+  if (isSubmitting.value) return t('courses.modal.saving')
   return props.mode === 'create' ? t('courses.modal.save') : t('courses.modal.update')
 })
-
-// ── Select Options ──
 
 const courseLevelOptions = computed<SelectOption[]>(() => [
   {label: t('courses.level.beginner'), value: 1},
@@ -272,19 +275,6 @@ const courseVisibilityOptions = computed<SelectOption[]>(() => [
   {label: t('courses.visibility.public'), value: 1},
 ])
 
-// ── Teacher / Assistant Management ──
-
-const teachers = ref<UserProfile[]>([])
-const teacherLoading = ref(false)
-const assistantKeyword = ref('')
-let teacherSearchTimer: ReturnType<typeof setTimeout> | null = null
-let teacherPage = 1
-let teacherLoadingMore = false
-let teacherHasMore = true
-let teacherLoadMoreArmed = true
-const scrollLoadThreshold = 50
-const teacherListPageSize = 20
-
 const teacherOptions = computed<SelectOption[]>(() => {
   const options = teachers.value.map((teacher) => ({
     label: formatTeacherName(teacher),
@@ -301,16 +291,9 @@ const teacherOptions = computed<SelectOption[]>(() => {
   return options
 })
 
-const assistantCandidates = computed(() => {
-  const excludeIds = new Set<string>()
-  if (form.teacherId) {
-    excludeIds.add(form.teacherId)
-  }
-  if (authStore.user?.id) {
-    excludeIds.add(authStore.user.id)
-  }
-  return teachers.value.filter((teacher) => !excludeIds.has(teacher.id))
-})
+const assistantCandidates = computed(() =>
+  teachers.value.filter((teacher) => teacher.id !== form.teacherId),
+)
 
 const filteredAssistantCandidates = computed(() => {
   const keyword = assistantKeyword.value.trim().toLowerCase()
@@ -340,37 +323,6 @@ function formatTeacherMeta(teacher: UserProfile): string {
   ].filter(Boolean).join(' / ')
 }
 
-function isAssistantSelected(teacherId: string): boolean {
-  return form.assistantIds.includes(teacherId)
-}
-
-function toggleAssistant(teacherId: string) {
-  if (teacherId === form.teacherId) return
-
-  if (isAssistantSelected(teacherId)) {
-    form.assistantIds = form.assistantIds.filter((id) => id !== teacherId)
-    return
-  }
-
-  form.assistantIds = [...form.assistantIds, teacherId]
-}
-
-function selectAllAssistants() {
-  const mergedIds = new Set(form.assistantIds)
-  filteredAssistantCandidates.value.forEach((teacher) => mergedIds.add(teacher.id))
-  form.assistantIds = Array.from(mergedIds)
-}
-
-function clearAssistants() {
-  form.assistantIds = []
-}
-
-function handleMainTeacherChange() {
-  form.assistantIds = form.assistantIds.filter((id) => id !== form.teacherId)
-}
-
-// ── Teacher List Loading ──
-
 function hasNextPage(response: {page: number; size: number; total: number}): boolean {
   return response.page * response.size < response.total
 }
@@ -378,8 +330,8 @@ function hasNextPage(response: {page: number; size: number; total: number}): boo
 function handleTeacherListScroll(event: Event) {
   const element = event.target as HTMLElement | null
   if (!element) return
-  const isNearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < scrollLoadThreshold
 
+  const isNearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < scrollLoadThreshold
   if (!isNearBottom) {
     teacherLoadMoreArmed = true
     return
@@ -412,11 +364,17 @@ async function searchTeachers(keyword: string) {
   teacherPage = 1
   teacherHasMore = true
   teacherLoadMoreArmed = true
+  teacherLoading.value = true
   try {
     const response = await listTeachers({page: 1, size: teacherListPageSize, keyword: keyword || undefined})
     teachers.value = response.records
     teacherHasMore = hasNextPage(response)
-  } catch {}
+  } catch {
+    teachers.value = []
+    teacherHasMore = false
+  } finally {
+    teacherLoading.value = false
+  }
 }
 
 function debouncedSearchTeachers(keyword: string) {
@@ -428,7 +386,34 @@ function loadTeacherOptions() {
   if (teachers.value.length === 0) debouncedSearchTeachers('')
 }
 
-// ── Cover Image ──
+function isAssistantSelected(teacherId: string): boolean {
+  return form.assistantIds.includes(teacherId)
+}
+
+function toggleAssistant(teacherId: string) {
+  if (teacherId === form.teacherId) return
+
+  if (isAssistantSelected(teacherId)) {
+    form.assistantIds = form.assistantIds.filter((id) => id !== teacherId)
+    return
+  }
+
+  form.assistantIds = [...form.assistantIds, teacherId]
+}
+
+function selectAllAssistants() {
+  const mergedIds = new Set(form.assistantIds)
+  filteredAssistantCandidates.value.forEach((teacher) => mergedIds.add(teacher.id))
+  form.assistantIds = Array.from(mergedIds)
+}
+
+function clearAssistants() {
+  form.assistantIds = []
+}
+
+function handleMainTeacherChange() {
+  form.assistantIds = form.assistantIds.filter((id) => id !== form.teacherId)
+}
 
 function handleCoverUploaded(asset: FileAsset) {
   form.coverFileId = asset.id
@@ -439,8 +424,6 @@ function clearCover() {
   form.coverFileId = ''
   form.coverUrl = ''
 }
-
-// ── Form Reset / Sync ──
 
 function resetForm() {
   form.title = ''
@@ -466,7 +449,7 @@ function syncFromCourse(course: Course) {
   form.coverUrl = course.coverUrl || ''
   form.coverFileId = course.coverFileId || ''
   form.teacherId = course.teacherId || ''
-  form.assistantIds = (course.teacherIds || []).filter((id) => id !== course.teacherId)
+  form.assistantIds = (course.teacherIds || []).filter((teacherId) => teacherId !== course.teacherId)
   form.semester = course.semester || ''
   form.location = course.location || ''
   form.courseType = course.courseType ?? 0
@@ -476,14 +459,12 @@ function syncFromCourse(course: Course) {
   assistantKeyword.value = ''
 }
 
-// ── Submit ──
-
-async function handleSubmit() {
-  if (!form.title) return
-  submitting.value = true
+function handleSubmit() {
+  if (!form.title || isSubmitting.value) return
+  localSubmitting.value = true
   try {
     if (props.mode === 'create') {
-      const request: CreateCourseRequest = {
+      emit('created', {
         title: form.title,
         description: form.description || undefined,
         level: form.level,
@@ -495,32 +476,29 @@ async function handleSubmit() {
         courseType: form.courseType,
         isPublic: form.isPublic,
         maxStudents: form.maxStudents,
-      }
-      emit('created', request)
-    } else {
-      const request: UpdateCourseRequest = {
-        title: form.title,
-        description: form.description || undefined,
-        level: form.level,
-        coverUrl: form.coverFileId ? undefined : form.coverUrl || undefined,
-        coverFileId: form.coverFileId || undefined,
-        teacherId: props.isAdmin ? form.teacherId || undefined : undefined,
-        assistantIds: props.isAdmin ? form.assistantIds : undefined,
-        semester: form.semester || undefined,
-        location: form.location || undefined,
-        courseType: form.courseType,
-        isPublic: form.isPublic,
-        maxStudents: form.maxStudents,
-        status: props.canEditCourseStatus ? form.status : undefined,
-      }
-      emit('updated', request)
+      })
+      return
     }
+
+    emit('updated', {
+      title: form.title,
+      description: form.description || undefined,
+      level: form.level,
+      coverUrl: form.coverFileId ? undefined : form.coverUrl || undefined,
+      coverFileId: form.coverFileId || undefined,
+      teacherId: props.isAdmin ? form.teacherId || undefined : undefined,
+      assistantIds: props.isAdmin ? form.assistantIds : undefined,
+      semester: form.semester || undefined,
+      location: form.location || undefined,
+      courseType: form.courseType,
+      isPublic: form.isPublic,
+      maxStudents: form.maxStudents,
+      status: props.canEditCourseStatus ? form.status : undefined,
+    })
   } finally {
-    submitting.value = false
+    localSubmitting.value = false
   }
 }
-
-// ── Watch visibility to sync form ──
 
 watch(() => props.visible, (isVisible) => {
   if (!isVisible) return
@@ -535,9 +513,43 @@ watch(() => props.visible, (isVisible) => {
     loadTeacherOptions()
   }
 })
+
+watch(() => props.course, (course) => {
+  if (props.visible && props.mode === 'edit' && course) {
+    syncFromCourse(course)
+  }
+})
 </script>
 
 <style scoped>
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--color-overlay);
+}
+
+.modal {
+  width: 100%;
+  max-width: 400px;
+  max-height: calc(100dvh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-outline-light);
+  border-radius: 24px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.16);
+}
+
+.modal-lg,
 .course-editor-modal {
   max-width: 920px;
 }
@@ -630,10 +642,6 @@ watch(() => props.visible, (isVisible) => {
   grid-column: span 2;
 }
 
-.editor-grid:not(.basic-editor-grid) > .form-group:has(.base-image-uploader) {
-  grid-column: span 2;
-}
-
 .basic-editor-grid {
   grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
   column-gap: 28px;
@@ -707,33 +715,43 @@ watch(() => props.visible, (isVisible) => {
   min-width: 0;
   display: grid;
   gap: 8px;
+  margin-bottom: 20px;
 }
 
 .form-group label {
-  font-family: var(--font-body);
+  display: block;
+  font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: var(--color-on-surface);
 }
 
-.input-field {
+.form-group .input-field {
   width: 100%;
-  box-sizing: border-box;
   padding: 12px 0;
+  box-sizing: border-box;
   background: transparent;
-  border: 0;
+  border: none;
   border-bottom: 1px solid var(--login-field-border);
+  border-radius: 0;
   color: var(--login-text);
   font-family: var(--font-body);
   font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
   outline: none;
+  transition: border-color 0.2s;
 }
 
-.input-field:focus {
+.form-group .input-field:focus {
   border-bottom-color: var(--login-text);
 }
 
-textarea.input-field {
+.form-group .input-field::placeholder {
+  color: var(--login-muted);
+}
+
+.form-group textarea.input-field {
   min-height: 108px;
   padding: 14px 16px;
   resize: vertical;
@@ -741,11 +759,65 @@ textarea.input-field {
   border: 1px solid var(--color-outline-light);
   border-radius: 14px;
   line-height: 1.6;
+  box-shadow: none;
 }
 
-textarea.input-field:focus {
+.form-group textarea.input-field:hover:not(:disabled) {
+  border-color: var(--color-outline-variant);
+}
+
+.form-group textarea.input-field:focus {
   background: var(--color-surface-card);
   border-color: var(--color-on-surface);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+}
+
+.form-group :deep(.modal-select-control) {
+  width: 100%;
+  min-width: 0;
+}
+
+.form-group :deep(.modal-select-control .base-select-trigger) {
+  min-height: 49px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--login-field-border);
+  border-radius: 0;
+  color: var(--color-on-surface);
+  font-size: 16px;
+  font-weight: 400;
+  box-shadow: none;
+}
+
+.form-group :deep(.modal-select-control .base-select-trigger:hover),
+.form-group :deep(.modal-select-control.open .base-select-trigger) {
+  background: transparent;
+  border-bottom-color: var(--color-on-surface);
+  box-shadow: 0 1px 0 var(--color-on-surface);
+}
+
+.form-group :deep(.modal-select-control .base-select-menu) {
+  top: calc(100% + 8px);
+  right: auto;
+  left: 0;
+  min-width: 100%;
+  margin-top: 0;
+  padding: 6px;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-outline-light);
+  border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+}
+
+.form-group :deep(.modal-select-control .base-select-option) {
+  min-height: 38px;
+  font-size: 15px;
+}
+
+.form-group :deep(.modal-select-control .base-select-option:hover),
+.form-group :deep(.modal-select-control .base-select-option.selected) {
+  background: var(--color-surface-container);
 }
 
 .assistant-panel {
@@ -782,166 +854,185 @@ textarea.input-field:focus {
 
 .assistant-actions {
   display: flex;
-  gap: 8px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .assistant-actions button {
-  padding: 4px 10px;
-  font-family: var(--font-body);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--color-muted);
+  font-family: var(--font-label);
   font-size: 12px;
-  font-weight: 600;
-  color: var(--color-primary);
-  background: none;
-  border: 1px solid var(--color-outline-light);
-  border-radius: 6px;
+  font-weight: 800;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: color 0.2s;
 }
 
 .assistant-actions button:hover {
-  background: var(--color-primary-soft);
+  color: var(--color-on-surface);
 }
 
 .assistant-search {
+  min-height: 42px;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 0 12px;
   margin-bottom: 12px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--color-muted);
 }
 
 .assistant-search input {
-  flex: 1;
-  border: none;
+  width: 100%;
   background: transparent;
-  font-family: var(--font-body);
-  font-size: 14px;
+  border: 0;
   color: var(--color-on-surface);
-  outline: none;
-}
-
-.assistant-empty {
-  padding: 24px;
-  text-align: center;
-  font-family: var(--font-body);
-  font-size: 14px;
-  color: var(--color-muted);
+  outline: 0;
 }
 
 .assistant-list {
+  max-height: 260px;
   display: grid;
-  gap: 4px;
-  max-height: 240px;
+  gap: 8px;
   overflow-y: auto;
 }
 
 .assistant-option {
-  display: flex;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 10px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.assistant-option:hover {
   background: var(--color-surface-card);
+  border: 1px solid var(--color-outline-light);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
 }
 
+.assistant-option:hover,
 .assistant-option.selected {
-  background: var(--color-primary-soft);
+  background: var(--color-surface-container);
+  border-color: var(--color-outline-variant);
 }
 
-.assistant-option input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--color-primary);
+.assistant-option input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-on-surface);
 }
 
 .assistant-copy {
-  flex: 1;
   min-width: 0;
   display: grid;
   gap: 2px;
 }
 
 .assistant-copy strong {
+  color: var(--color-on-surface);
   font-family: var(--font-body);
   font-size: 14px;
-  font-weight: 600;
-  color: var(--color-on-surface);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 700;
 }
 
 .assistant-copy small {
+  overflow: hidden;
+  color: var(--color-muted);
   font-family: var(--font-body);
   font-size: 12px;
-  color: var(--color-muted);
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .assistant-state {
+  color: var(--color-muted);
   font-family: var(--font-label);
   font-size: 11px;
-  font-weight: 700;
-  color: var(--color-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-weight: 800;
 }
 
-.editor-footer {
-  padding: 20px 28px;
+.assistant-empty {
+  padding: 18px 12px;
+  border: 1px dashed var(--color-outline-light);
+  border-radius: 10px;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  text-align: center;
+}
+
+.modal-footer.editor-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  padding: 16px 28px 20px;
+  background: var(--color-surface-card);
   border-top: 1px solid var(--color-outline-light);
 }
 
+.btn-primary,
 .btn-secondary {
-  padding: 10px 24px;
-  font-family: var(--font-body);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 28px;
+  border-radius: var(--radius-sm);
+  font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
   font-weight: 600;
-  color: var(--color-on-surface);
-  background: transparent;
-  border: 1px solid var(--color-outline-light);
-  border-radius: 8px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-secondary:hover {
-  background: var(--color-surface-canvas);
+  transition: all 0.2s;
 }
 
 .btn-primary {
-  padding: 10px 24px;
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-on-primary);
   background: var(--color-primary);
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.15s;
+  color: var(--color-on-primary);
+  border: 1px solid var(--color-primary);
 }
 
-.btn-primary:hover {
-  background: var(--color-primary-hover);
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-soft);
 }
 
 .btn-primary:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--color-on-surface);
+  color: var(--color-on-surface);
+}
+
+.btn-secondary:hover {
+  background: var(--color-on-surface);
+  color: var(--color-on-primary);
+}
+
+@media (max-width: 768px) {
+  .basic-editor-grid,
+  .basic-field-row,
+  .editor-grid,
+  .editor-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-span-2 {
+    grid-column: auto;
+  }
 }
 </style>

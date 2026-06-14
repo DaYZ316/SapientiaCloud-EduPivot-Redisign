@@ -10,7 +10,6 @@ import java.util.UUID;
 public record ForumReplyVO(
         @JsonProperty("id") UUID id,
         @JsonProperty("postId") UUID postId,
-        @JsonProperty("forumId") UUID forumId,
         @JsonProperty("courseId") UUID courseId,
         @JsonProperty("sysUserId") UUID sysUserId,
         @JsonProperty("content") String content,

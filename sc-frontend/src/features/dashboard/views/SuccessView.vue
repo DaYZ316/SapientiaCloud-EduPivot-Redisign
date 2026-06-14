@@ -76,7 +76,7 @@
               <span>{{ t('success.submitAssignment') }}</span>
               <ArrowRight :size="16"/>
             </router-link>
-            <router-link to="/community" class="action-item">
+            <router-link to="/courses" class="action-item">
               <span>{{ t('success.contactAdvisor') }}</span>
               <ArrowRight :size="16"/>
             </router-link>

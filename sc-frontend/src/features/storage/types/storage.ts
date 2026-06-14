@@ -8,6 +8,8 @@ export type StorageUsage =
 
 export type StorageScopeType = 'USER' | 'COURSE' | 'AI'
 
+export type StorageBucketType = 'MEDIA' | 'COURSE_PUBLIC' | 'COURSE_PRIVATE' | 'AI'
+
 export interface CreateUploadRequest {
   usage: StorageUsage
   scopeType: StorageScopeType
@@ -16,6 +18,7 @@ export interface CreateUploadRequest {
   contentType: string
   sizeBytes: number
   sha256?: string | null
+  bucketType?: StorageBucketType | null
 }
 
 export interface UploadTicket {

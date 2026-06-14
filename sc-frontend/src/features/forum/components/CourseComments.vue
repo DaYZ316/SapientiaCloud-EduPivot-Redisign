@@ -1,31 +1,27 @@
 <template>
   <div class="course-comments">
     <form v-if="canComment" class="comment-composer" @submit.prevent="submitComment">
+      <div class="composer-head">
+        <div>
+          <span class="composer-kicker">{{ t('forum.composerKicker') }}</span>
+          <strong>{{ t('forum.composerTitle') }}</strong>
+        </div>
+        <span>{{ t('forum.composerHint') }}</span>
+      </div>
       <BaseTextEditor
         v-model="commentContent"
-        :rows="4"
+        v-model:image-assets="commentImages"
+        :rows="3"
+        :min-rows="3"
         :placeholder="t('forum.commentPlaceholder')"
+        :image-upload-options="imageUploadOptions"
+        :prepare-image-file="validateImageFile"
+        @image-upload-error="handleUploadError"
       />
-      <div v-if="commentImagePreviews.length > 0" class="image-preview-list">
-        <figure v-for="image in commentImagePreviews" :key="image.id" class="image-preview-item">
-          <img :src="image.url" :alt="image.fileName"/>
-          <button type="button" @click="removeCommentImage(image.id)">x</button>
-        </figure>
-      </div>
       <div class="composer-footer">
         <div class="composer-actions">
-          <BaseFileUploader
-            usage="FORUM_IMAGE"
-            scope-type="COURSE"
-            :scope-id="courseId"
-            accept="image/jpeg,image/png,image/webp"
-            :button-label="t('forum.uploadImage')"
-            :disabled="submitting"
-            :prepare-file="validateImageFile"
-            @uploaded="handleCommentImageUploaded"
-            @error="handleUploadError"
-          />
-          <button class="btn-submit" :disabled="submitting || !commentContent.trim()">
+          <button class="btn-submit" type="submit" :disabled="submitting || !commentContent.trim()">
+            <Send :size="14" stroke-width="1.8"/>
             {{ t('forum.submitComment') }}
           </button>
         </div>
@@ -34,6 +30,11 @@
 
     <div v-else class="readonly-hint">
       {{ t('forum.commentsReadonly') }}
+    </div>
+
+    <div v-if="!loading" class="comment-summary">
+      <strong>{{ t('forum.commentCount', {count: comments.length}) }}</strong>
+      <span>{{ canComment ? t('forum.commentsParticipationOpen') : t('forum.commentsReadonlyShort') }}</span>
     </div>
 
     <div v-if="loading" class="loading-list">
@@ -53,33 +54,26 @@
         </div>
         <div class="comment-body">
           <div class="comment-meta">
-            <strong>{{ t('forum.courseMember') }}</strong>
-            <span>{{ formatTime(comment.createdAt) }}</span>
-            <span v-if="comment.replyCount">{{ comment.replyCount }} {{ t('forum.replies') }}</span>
+            <div class="comment-identity">
+              <strong>{{ t('forum.courseMember') }}</strong>
+              <span>{{ formatTime(comment.createdAt) }}</span>
+            </div>
+            <span v-if="comment.replyCount" class="reply-count">{{ comment.replyCount }} {{ t('forum.replies') }}</span>
           </div>
 
           <!-- 编辑模式 -->
           <div v-if="editingCommentId === comment.id" class="edit-composer">
-            <BaseTextEditor v-model="editingContent" :rows="4"/>
-            <div v-if="editingImages.length > 0" class="image-preview-list compact">
-              <figure v-for="image in editingImages" :key="image.id" class="image-preview-item">
-                <img :src="image.url || undefined" :alt="image.fileName"/>
-                <button type="button" @click="removeEditCommentImage(image.id)">x</button>
-              </figure>
-            </div>
+            <BaseTextEditor
+              v-model="editingContent"
+              v-model:image-assets="editingImages"
+              :rows="3"
+              :min-rows="3"
+              :image-upload-options="imageUploadOptions"
+              :prepare-image-file="validateImageFile"
+              @image-upload-error="handleUploadError"
+            />
             <div class="composer-footer">
               <div class="composer-actions">
-                <BaseFileUploader
-                  usage="FORUM_IMAGE"
-                  scope-type="COURSE"
-                  :scope-id="courseId"
-                  accept="image/jpeg,image/png,image/webp"
-                  :button-label="t('forum.uploadImage')"
-                  :disabled="savingEdit"
-                  :prepare-file="validateImageFile"
-                  @uploaded="handleEditCommentImageUploaded"
-                  @error="handleUploadError"
-                />
                 <button class="btn-cancel" type="button" @click="cancelEditComment">{{ t('forum.cancelEdit') }}</button>
                 <button class="btn-submit" :disabled="savingEdit || !editingContent.trim()" @click="saveEditComment(comment)">
                   {{ t('forum.saveEdit') }}
@@ -101,6 +95,7 @@
                 {{ repliesOpen[comment.id] ? t('forum.hideReplies') : t('forum.showReplies') }}
               </button>
               <button v-if="canComment" class="action-btn" type="button" @click="startReply(comment.id, null)">
+                <MessageCircle :size="14"/>
                 {{ t('forum.reply') }}
               </button>
               <button v-if="canEditComment(comment)" class="action-btn" type="button" @click="startEditComment(comment)">
@@ -138,29 +133,18 @@
               </div>
               <BaseTextEditor
                 v-model="replyContent"
-                :rows="3"
+                v-model:image-assets="replyImages"
+                :rows="2"
+                :min-rows="2"
                 :placeholder="t('forum.replyPlaceholder')"
+                :image-upload-options="imageUploadOptions"
+                :prepare-image-file="validateImageFile"
+                @image-upload-error="handleUploadError"
               />
-              <div v-if="replyImagePreviews.length > 0" class="image-preview-list compact">
-                <figure v-for="image in replyImagePreviews" :key="image.id" class="image-preview-item">
-                  <img :src="image.url" :alt="image.fileName"/>
-                  <button type="button" @click="removeReplyImage(image.id)">x</button>
-                </figure>
-              </div>
               <div class="composer-footer">
                 <div class="composer-actions">
-                  <BaseFileUploader
-                    usage="FORUM_IMAGE"
-                    scope-type="COURSE"
-                    :scope-id="courseId"
-                    accept="image/jpeg,image/png,image/webp"
-                    :button-label="t('forum.uploadImage')"
-                    :disabled="submittingReply"
-                    :prepare-file="validateImageFile"
-                    @uploaded="handleReplyImageUploaded"
-                    @error="handleUploadError"
-                  />
-                  <button class="btn-submit" :disabled="submittingReply || !replyContent.trim()">
+                  <button class="btn-submit" type="submit" :disabled="submittingReply || !replyContent.trim()">
+                    <Send :size="14" stroke-width="1.8"/>
                     {{ t('forum.submitReply') }}
                   </button>
                 </div>
@@ -176,7 +160,7 @@
 <script lang="ts" setup>
 import {computed, onMounted, reactive, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {MessageCircle, Pencil, Trash2, User} from 'lucide-vue-next'
+import {MessageCircle, Pencil, Send, Trash2, User} from 'lucide-vue-next'
 import {
   createCommentReply,
   createCourseComment,
@@ -186,9 +170,8 @@ import {
   updatePost,
 } from '@/features/forum/api/forum'
 import type {ForumPost, ForumReply} from '@/features/forum/types/forum'
-import type {FileAsset} from '@/features/storage/types/storage'
+import type {FileAsset, StorageBucketType} from '@/features/storage/types/storage'
 import {notify} from '@/shared/composables/useGlobalNotification'
-import BaseFileUploader from '@/shared/components/BaseFileUploader.vue'
 import BaseTextEditor from '@/shared/components/BaseTextEditor.vue'
 import ForumContentPreview from '@/features/forum/components/ForumContentPreview.vue'
 import ReplyTree from '@/features/forum/components/ReplyTree.vue'
@@ -198,6 +181,7 @@ const props = defineProps<{
   canComment: boolean
   canManageCourse?: boolean
   currentUserId?: string
+  courseIsPublic?: boolean
 }>()
 
 const {t} = useI18n()
@@ -222,8 +206,14 @@ const editingContent = ref('')
 const editingImages = ref<FileAsset[]>([])
 const savingEdit = ref(false)
 
-const commentImagePreviews = computed(() => filePreviews(commentImages.value))
-const replyImagePreviews = computed(() => filePreviews(replyImages.value))
+const imageUploadOptions = computed(() => ({
+  usage: 'FORUM_IMAGE' as const,
+  scopeType: 'COURSE' as const,
+  scopeId: props.courseId,
+  bucketType: (props.courseIsPublic ? 'COURSE_PUBLIC' : 'COURSE_PRIVATE') as StorageBucketType,
+  accept: 'image/jpeg,image/png,image/webp',
+  buttonLabel: t('forum.uploadImage'),
+}))
 
 onMounted(loadComments)
 
@@ -311,32 +301,6 @@ function formatTime(dateStr: string) {
   return new Date(dateStr).toLocaleString()
 }
 
-function handleCommentImageUploaded(asset: FileAsset) {
-  commentImages.value = [...commentImages.value, asset]
-}
-
-function handleReplyImageUploaded(asset: FileAsset) {
-  replyImages.value = [...replyImages.value, asset]
-}
-
-function removeCommentImage(imageId: string) {
-  commentImages.value = commentImages.value.filter(image => image.id !== imageId)
-}
-
-function removeReplyImage(imageId: string) {
-  replyImages.value = replyImages.value.filter(image => image.id !== imageId)
-}
-
-function filePreviews(files: FileAsset[]) {
-  return files
-    .map(file => ({
-      id: file.id,
-      fileName: file.fileName,
-      url: file.url || '',
-    }))
-    .filter(file => file.url)
-}
-
 function validateImageFile(file: File) {
   if (!file.type.startsWith('image/')) {
     notify.error(t('forum.imageTypeError'))
@@ -373,12 +337,16 @@ async function saveEditComment(comment: ForumPost) {
   if (!editingContent.value.trim()) return
   savingEdit.value = true
   try {
-    const imageUrls = editingImages.value.length > 0
-      ? editingImages.value.map(image => image.id)
-      : comment.imageUrls
-    await updatePost(comment.id, {content: editingContent.value, imageUrls})
+    const payload = editingImages.value.length > 0
+      ? {content: editingContent.value, imageUrls: editingImages.value.map(image => image.id)}
+      : {content: editingContent.value}
+    await updatePost(comment.id, payload)
     comment.content = editingContent.value
-    if (imageUrls) comment.imageUrls = imageUrls
+    if (editingImages.value.length > 0) {
+      comment.imageUrls = editingImages.value
+        .map(image => image.url)
+        .filter((url): url is string => Boolean(url))
+    }
     cancelEditComment()
     notify.success(t('forum.commentUpdated'))
   } catch {
@@ -399,14 +367,6 @@ async function handleDeleteComment(comment: ForumPost) {
   }
 }
 
-function handleEditCommentImageUploaded(asset: FileAsset) {
-  editingImages.value = [...editingImages.value, asset]
-}
-
-function removeEditCommentImage(imageId: string) {
-  editingImages.value = editingImages.value.filter(image => image.id !== imageId)
-}
-
 function handleReplyDeleted(commentId: string) {
   const comment = comments.value.find(item => item.id === commentId)
   if (comment && comment.replyCount > 0) comment.replyCount -= 1
@@ -418,18 +378,58 @@ function handleReplyDeleted(commentId: string) {
 .course-comments {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .comment-composer,
 .reply-composer {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
+  gap: 10px;
+  padding: 14px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+}
+
+.composer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.composer-head div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.composer-kicker {
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.composer-head strong {
+  color: var(--color-on-surface);
+  font-family: var(--font-label);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.composer-head > span {
+  max-width: 260px;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: right;
 }
 
 .composer-footer,
@@ -447,14 +447,19 @@ function handleReplyDeleted(commentId: string) {
 
 .composer-actions {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
 }
 
 .btn-submit {
-  padding: 8px 16px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 14px;
   border: none;
   border-radius: var(--radius-sm);
   background: var(--color-primary);
@@ -463,6 +468,17 @@ function handleReplyDeleted(commentId: string) {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.btn-submit:hover:not(:disabled) {
+  background: var(--color-primary-soft);
+}
+
+.btn-submit:active:not(:disabled),
+.btn-cancel:active,
+.action-btn:active {
+  transform: translateY(1px);
 }
 
 .btn-submit:disabled {
@@ -471,7 +487,7 @@ function handleReplyDeleted(commentId: string) {
 }
 
 .readonly-hint {
-  padding: 14px 16px;
+  padding: 12px 14px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
   border-radius: var(--radius-sm);
@@ -480,20 +496,42 @@ function handleReplyDeleted(commentId: string) {
   font-size: 13px;
 }
 
+.comment-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 2px 2px 12px;
+  border-bottom: 1px solid var(--color-outline-light);
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.comment-summary strong {
+  color: var(--color-on-surface);
+  font-family: var(--font-label);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .comment-list,
 .loading-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
 }
 
 .comment-card {
-  display: flex;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
   gap: 12px;
-  padding: 18px;
-  background: var(--color-surface-card);
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-md);
+  padding: 16px 0;
+  background: transparent;
+  border-bottom: 1px solid var(--color-outline-light);
+  border-radius: 0;
 }
 
 .comment-avatar {
@@ -503,20 +541,34 @@ function handleReplyDeleted(commentId: string) {
   place-items: center;
   flex-shrink: 0;
   background: var(--color-surface-container-high);
+  border: 1px solid var(--color-outline-light);
   border-radius: 50%;
   color: var(--color-muted);
 }
 
 .comment-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   flex: 1;
   min-width: 0;
 }
 
 .comment-meta {
+  justify-content: space-between;
   flex-wrap: wrap;
   font-family: var(--font-body);
   font-size: 12px;
   color: var(--color-muted);
+  line-height: 1.4;
+}
+
+.comment-identity {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .comment-meta strong {
@@ -524,21 +576,33 @@ function handleReplyDeleted(commentId: string) {
   font-size: 13px;
 }
 
+.reply-count {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  font-variant-numeric: tabular-nums;
+}
+
 .comment-content {
-  margin: 10px 0 12px;
+  max-width: 72ch;
+  margin: 0;
 }
 
 .action-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 0;
+  min-height: 28px;
+  padding: 0;
   border: none;
   background: none;
   color: var(--color-muted);
   font-family: var(--font-body);
   font-size: 12px;
   cursor: pointer;
+  transition: color 0.2s ease, transform 0.2s ease;
 }
 
 .action-btn:hover {
@@ -553,11 +617,16 @@ function handleReplyDeleted(commentId: string) {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin: 8px 0;
+  margin: 2px 0 0;
+  padding: 12px;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
 }
 
 .btn-cancel {
-  padding: 8px 16px;
+  min-height: 36px;
+  padding: 0 14px;
   border: 1px solid var(--color-outline-light);
   border-radius: var(--radius-sm);
   background: transparent;
@@ -566,6 +635,7 @@ function handleReplyDeleted(commentId: string) {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
 .btn-cancel:hover {
@@ -574,9 +644,9 @@ function handleReplyDeleted(commentId: string) {
 }
 
 .replies-panel {
-  margin-top: 12px;
+  margin-top: 6px;
   padding-left: 16px;
-  border-left: 2px solid var(--color-outline-light);
+  border-left: 1px solid var(--color-outline);
 }
 
 .reply-loading {
@@ -603,6 +673,9 @@ function handleReplyDeleted(commentId: string) {
 .reply-target button {
   width: 22px;
   height: 22px;
+  display: grid;
+  place-items: center;
+  padding: 0;
   border: none;
   background: none;
   color: var(--color-muted);
@@ -614,7 +687,9 @@ function handleReplyDeleted(commentId: string) {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  padding: 48px 24px;
+  padding: 42px 24px;
+  border: 1px dashed var(--color-outline-light);
+  border-radius: var(--radius-sm);
   color: var(--color-muted);
   text-align: center;
 }
@@ -637,53 +712,8 @@ function handleReplyDeleted(commentId: string) {
 }
 
 .skeleton-comment {
-  height: 128px;
-  border-radius: var(--radius-md);
-}
-
-.image-preview-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 136px));
-  gap: 10px;
-}
-
-.image-preview-list.compact {
-  grid-template-columns: repeat(auto-fill, minmax(82px, 112px));
-}
-
-.image-preview-item {
-  position: relative;
-  overflow: hidden;
-  margin: 0;
-  background: var(--color-surface-container);
-  border: 1px solid var(--color-outline-light);
+  height: 108px;
   border-radius: var(--radius-sm);
-}
-
-.image-preview-item img {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  display: block;
-  object-fit: cover;
-}
-
-.image-preview-item button {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 22px;
-  height: 22px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  background: color-mix(in srgb, var(--color-on-surface) 72%, transparent);
-  border: 0;
-  border-radius: 50%;
-  color: var(--color-on-primary);
-  cursor: pointer;
-  font-family: var(--font-body);
-  font-size: 12px;
-  line-height: 1;
 }
 
 .shimmer {
@@ -694,5 +724,35 @@ function handleReplyDeleted(commentId: string) {
 
 @keyframes shimmer {
   to { background-position-x: -200%; }
+}
+
+@media (max-width: 640px) {
+  .composer-head,
+  .comment-summary {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .composer-head > span {
+    max-width: none;
+    text-align: left;
+  }
+
+  .comment-card {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .comment-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .comment-meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
 }
 </style>

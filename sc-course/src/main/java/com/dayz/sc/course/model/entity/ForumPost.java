@@ -1,7 +1,7 @@
 package com.dayz.sc.course.model.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.dayz.sc.course.config.PostgresJsonbStringListTypeHandler;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -11,14 +11,11 @@ import java.util.UUID;
 
 @Getter
 @Setter
-@TableName("edu_forum_post")
+@TableName(value = "edu_forum_post", autoResultMap = true)
 public class ForumPost {
 
     @TableId(type = IdType.INPUT)
     private UUID id;
-
-    @TableField("forum_id")
-    private UUID forumId;
 
     @TableField("course_id")
     private UUID courseId;
@@ -35,13 +32,13 @@ public class ForumPost {
     @TableField("post_type")
     private Integer postType;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = PostgresJsonbStringListTypeHandler.class)
     private List<String> attachmentUrls;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = PostgresJsonbStringListTypeHandler.class)
     private List<String> imageUrls;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = PostgresJsonbStringListTypeHandler.class)
     private List<String> tags;
 
     @TableField("view_count")
