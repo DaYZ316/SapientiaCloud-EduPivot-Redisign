@@ -16,7 +16,6 @@ public record ForumReplyVO(
         @JsonProperty("content") String content,
         @JsonProperty("parentReplyId") @Nullable UUID parentReplyId,
         @JsonProperty("replyToUserId") @Nullable UUID replyToUserId,
-        @JsonProperty("isAnonymous") int isAnonymous,
         @JsonProperty("attachmentUrls") @Nullable List<String> attachmentUrls,
         @JsonProperty("imageUrls") @Nullable List<String> imageUrls,
         @JsonProperty("likeCount") long likeCount,

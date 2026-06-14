@@ -6,6 +6,16 @@
         :alt="course.title"
         @error="useFallbackImage($event, COURSE_COVER_FALLBACK)"
       />
+      <div class="cover-gradient"></div>
+      <div class="teacher-chip">
+        <img
+          class="teacher-avatar"
+          :src="teacherAvatar"
+          :alt="teacherName"
+          @error="useFallbackImage($event, TEACHER_AVATAR_FALLBACK)"
+        />
+        <span>{{ teacherName }}</span>
+      </div>
     </figure>
 
     <div class="course-info">
@@ -16,19 +26,6 @@
 
       <div class="course-tags" aria-label="Course metadata">
         <span v-for="tag in metadataTags" :key="tag" class="course-tag">{{ tag }}</span>
-      </div>
-
-      <div class="teacher-row">
-        <img
-          class="teacher-avatar"
-          :src="teacherAvatar"
-          :alt="teacherName"
-          @error="useFallbackImage($event, TEACHER_AVATAR_FALLBACK)"
-        />
-        <div class="teacher-copy">
-          <strong>{{ teacherName }}</strong>
-          <span>{{ t('courses.card.instructor') }}</span>
-        </div>
       </div>
 
       <dl class="course-facts">
@@ -53,7 +50,7 @@
       <div class="course-actions">
         <button type="button" class="view-button" @click="$emit('view', course.id)">
           <span>{{ t('courses.viewDetails') }}</span>
-          <ArrowRight :size="15" stroke-width="1.8"/>
+          <ArrowRight :size="14" stroke-width="2"/>
         </button>
       </div>
     </div>
@@ -172,14 +169,24 @@ function useFallbackImage(event: Event, fallback: string) {
   overflow: hidden;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
-  transition: border-color 0.2s ease, background 0.2s ease;
+  border-radius: 24px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.03);
+  transition:
+    box-shadow 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .course-card:hover {
   border-color: var(--color-on-surface);
-  background: var(--color-surface-container);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--color-on-surface) 8%, transparent),
+    0 2px 4px rgba(0, 0, 0, 0.06),
+    0 12px 40px rgba(0, 0, 0, 0.08);
 }
+
+/* cover */
 
 .course-cover {
   position: relative;
@@ -189,26 +196,80 @@ function useFallbackImage(event: Event, fallback: string) {
   place-items: center;
   overflow: hidden;
   background: var(--color-surface-canvas);
-  border-bottom: 1px solid var(--color-outline-light);
 }
 
 .course-cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+.course-card:hover .course-cover img {
+  transform: scale(1.04);
+}
+
+.cover-gradient {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 50%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent);
+  pointer-events: none;
+}
+
+/* teacher chip overlaid on cover */
+
+.teacher-chip {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  left: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px 8px 8px;
+  background: rgba(0, 0, 0, 0.36);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+}
+
+.teacher-chip .teacher-avatar {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.teacher-chip span {
+  overflow: hidden;
+  color: #fff;
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* info section */
 
 .course-info {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 16px;
-  padding: 18px;
+  gap: 14px;
+  padding: 18px 20px 20px;
 }
 
 .course-heading {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .course-heading h3 {
@@ -217,9 +278,9 @@ function useFallbackImage(event: Event, fallback: string) {
   margin: 0;
   color: var(--color-on-surface);
   font-family: var(--font-heading);
-  font-size: 23px;
-  font-weight: 600;
-  line-height: 1.15;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
   text-wrap: balance;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -231,78 +292,38 @@ function useFallbackImage(event: Event, fallback: string) {
   margin: 0;
   color: var(--color-muted);
   font-family: var(--font-body);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 13.5px;
+  line-height: 1.5;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
+/* tags */
+
 .course-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
 }
 
 .course-tag {
-  padding: 4px 7px;
-  background: var(--color-surface-canvas);
-  border: 1px solid var(--color-outline-light);
-  color: var(--color-on-surface);
+  padding: 3px 8px;
+  background: var(--color-surface-container);
+  border: 1px solid transparent;
+  color: var(--color-muted);
   font-family: var(--font-label);
   font-size: 11px;
   font-weight: 600;
   line-height: 1;
+  border-radius: 6px;
 }
 
-.teacher-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 0;
-  border-top: 1px solid var(--color-outline-light);
-  border-bottom: 1px solid var(--color-outline-light);
-}
-
-.teacher-avatar {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 auto;
-  object-fit: cover;
-  border: 1px solid var(--color-outline);
-  border-radius: 4px;
-}
-
-.teacher-copy {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.teacher-copy strong,
-.teacher-copy span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.teacher-copy strong {
-  color: var(--color-on-surface);
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.teacher-copy span {
-  color: var(--color-muted);
-  font-family: var(--font-label);
-  font-size: 11px;
-  font-weight: 700;
-}
+/* facts */
 
 .course-facts {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px 16px;
   margin: 0;
 }
 
@@ -311,12 +332,12 @@ function useFallbackImage(event: Event, fallback: string) {
 }
 
 .course-facts dt {
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   color: var(--color-muted);
   font-family: var(--font-label);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -326,11 +347,13 @@ function useFallbackImage(event: Event, fallback: string) {
   color: var(--color-on-surface);
   font-family: var(--font-body);
   font-size: 13px;
-  font-weight: 700;
-  line-height: 1.25;
+  font-weight: 600;
+  line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* actions */
 
 .course-actions {
   display: flex;
@@ -342,8 +365,8 @@ function useFallbackImage(event: Event, fallback: string) {
 .view-button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0;
+  gap: 5px;
+  padding: 4px 0;
   background: transparent;
   border: 0;
   border-bottom: 1px solid var(--color-on-surface);
@@ -353,16 +376,17 @@ function useFallbackImage(event: Event, fallback: string) {
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.04em;
-  transition: gap 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  transition: gap 0.3s cubic-bezier(0.22, 1, 0.36, 1), color 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .view-button:hover,
 .view-button:focus-visible {
-  gap: 9px;
+  gap: 10px;
   color: var(--color-muted);
-  border-color: var(--color-muted);
   outline: none;
 }
+
+/* mobile */
 
 @media (max-width: 520px) {
   .course-info {
@@ -370,11 +394,17 @@ function useFallbackImage(event: Event, fallback: string) {
   }
 
   .course-heading h3 {
-    font-size: 21px;
+    font-size: 20px;
   }
 
   .course-facts {
     grid-template-columns: 1fr;
+  }
+
+  .teacher-chip {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
   }
 }
 </style>

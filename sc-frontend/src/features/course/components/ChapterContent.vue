@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="chapter-content">
     <div v-if="!chapter" class="empty-content">
       <FileText :size="32" stroke-width="1.4"/>
@@ -32,8 +32,15 @@
       </div>
 
       <div class="content-meta">
-        <span><Eye :size="14"/> {{ chapter.viewCount }} {{ t('chapter.viewCount') }}</span>
-        <span><Heart :size="14"/> {{ chapter.likeCount }} {{ t('chapter.likeCount') }}</span>
+        <span class="meta-item"><Eye :size="14"/> {{ chapter.viewCount }} {{ t('chapter.viewCount') }}</span>
+        <button
+          class="meta-item like-button"
+          :class="{ liked: chapter.likedByMe }"
+          @click="$emit('likeToggle')"
+        >
+          <Heart :size="14" :fill="chapter.likedByMe ? 'currentColor' : 'none'"/>
+          {{ chapter.likeCount }} {{ t('chapter.likeCount') }}
+        </button>
       </div>
     </div>
   </div>
@@ -46,6 +53,10 @@ import type {Chapter} from '@/features/course/types/chapter'
 
 defineProps<{
   chapter: Chapter | null
+}>()
+
+defineEmits<{
+  likeToggle: []
 }>()
 
 const {t} = useI18n()
@@ -150,9 +161,31 @@ const {t} = useI18n()
   color: var(--color-muted);
 }
 
-.content-meta span {
+.meta-item {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.like-button {
+  padding: 4px 8px;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.like-button:hover {
+  border-color: var(--color-on-surface);
+  color: var(--color-on-surface);
+}
+
+.like-button.liked {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 </style>

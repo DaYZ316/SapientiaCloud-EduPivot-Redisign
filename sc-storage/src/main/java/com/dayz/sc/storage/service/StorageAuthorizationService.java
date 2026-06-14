@@ -26,6 +26,7 @@ public class StorageAuthorizationService {
         switch (request.usage()) {
             case USER_AVATAR -> authorizeUserAvatar(request, userId, role);
             case COURSE_COVER, COURSE_PUBLIC_FILE, COURSE_PRIVATE_FILE -> requireCourseManager(request.scopeId());
+            case FORUM_IMAGE -> requireCourseReader(request);
             case AI_FILE -> authorizeAiFile(request, userId, role);
         }
     }
@@ -53,7 +54,7 @@ public class StorageAuthorizationService {
         if (SecurityUtils.isAdmin(role)) {
             return;
         }
-        if ((usage == StorageUsage.USER_AVATAR || usage == StorageUsage.AI_FILE)
+        if ((usage == StorageUsage.USER_AVATAR || usage == StorageUsage.FORUM_IMAGE || usage == StorageUsage.AI_FILE)
                 && object.getOwnerUserId().equals(userId)) {
             return;
         }
@@ -87,6 +88,12 @@ public class StorageAuthorizationService {
             return;
         }
         throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid AI file scope");
+    }
+
+    private void requireCourseReader(CreateUploadRequest request) {
+        if (request.scopeType() != StorageScopeType.COURSE || request.scopeId() == null || !canReadPrivateCourse(request.scopeId())) {
+            throw new BusinessException(ErrorCodes.FORBIDDEN);
+        }
     }
 
     private void requireCourseManager(UUID courseId) {

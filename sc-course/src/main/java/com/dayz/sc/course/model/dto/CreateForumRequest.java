@@ -12,6 +12,5 @@ public record CreateForumRequest(
         @NotBlank @Size(max = 200) String forumName,
         @Size(max = 2000) String description,
         int forumType,
-        int allowAnonymous,
         List<String> tags
 ) {}

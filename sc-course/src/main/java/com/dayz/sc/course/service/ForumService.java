@@ -2,6 +2,9 @@ package com.dayz.sc.course.service;
 
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.feign.client.StorageInternalClient;
+import com.dayz.sc.common.feign.dto.StorageObjectInfo;
+import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.common.util.PageUtils;
@@ -44,6 +47,9 @@ public class ForumService {
     private static final int FLAG_ON = 1;
     private static final int DEFAULT_COMMENT_POST_TYPE = 0;
     private static final int COMMENT_TITLE_MAX_LENGTH = 40;
+    private static final String FORUM_IMAGE_USAGE = "FORUM_IMAGE";
+    private static final String COURSE_SCOPE_TYPE = "COURSE";
+    private static final String READY_STATUS = "READY";
     private static final String DEFAULT_COMMENT_FORUM_NAME = "\u8bfe\u7a0b\u8bc4\u8bba\u533a";
     private static final String DEFAULT_COMMENT_TITLE = "\u8bfe\u7a0b\u8bc4\u8bba";
 
@@ -53,6 +59,7 @@ public class ForumService {
     private final ForumRepository forumRepository;
     private final ForumPostRepository forumPostRepository;
     private final ForumReplyRepository forumReplyRepository;
+    private final StorageInternalClient storageInternalClient;
 
     // ==================== Forum CRUD ====================
 
@@ -63,7 +70,6 @@ public class ForumService {
         forum.setForumName(request.forumName());
         forum.setDescription(request.description());
         forum.setForumType(request.forumType());
-        forum.setAllowAnonymous(request.allowAnonymous());
         forum.setTags(request.tags());
         forum.setPostCount(0L);
         forum.setReplyCount(0L);
@@ -87,9 +93,6 @@ public class ForumService {
         }
         if (request.forumType() != null) {
             forum.setForumType(request.forumType());
-        }
-        if (request.allowAnonymous() != null) {
-            forum.setAllowAnonymous(request.allowAnonymous());
         }
         if (request.tags() != null) {
             forum.setTags(request.tags());
@@ -146,7 +149,12 @@ public class ForumService {
         Page<ForumPost> result = forumPostRepository.findAll(page, size,
                 forum.get().getId(), courseId, PostStatus.NORMAL.getCode(), null);
 
-        List<ForumPostVO> voList = result.getRecords().stream().map(this::toForumPostVO).toList();
+        List<ForumPost> posts = result.getRecords();
+        Map<UUID, String> imageUrls = loadImageUrlMap(posts.stream()
+                .flatMap(post -> parseImageIds(post.getImageUrls()).stream())
+                .distinct()
+                .toList());
+        List<ForumPostVO> voList = posts.stream().map(post -> toForumPostVO(post, imageUrls)).toList();
         return new PageResponse<>(voList, result.getTotal(), page, size);
     }
 
@@ -155,6 +163,7 @@ public class ForumService {
         requireCourseMember(courseId, userId, role);
 
         Forum forum = getOrCreateDefaultForum(courseId);
+        validateCommentImages(courseId, request.imageUrls());
         ForumPost post = new ForumPost();
         post.setForumId(forum.getId());
         post.setCourseId(courseId);
@@ -162,7 +171,7 @@ public class ForumService {
         post.setTitle(commentTitle(request.content()));
         post.setContent(request.content());
         post.setPostType(DEFAULT_COMMENT_POST_TYPE);
-        post.setIsAnonymous(flagValue(request.isAnonymous()));
+        post.setImageUrls(request.imageUrls());
         post.setViewCount(0L);
         post.setLikeCount(0L);
         post.setReplyCount(0L);
@@ -194,7 +203,6 @@ public class ForumService {
         post.setTitle(request.title());
         post.setContent(request.content());
         post.setPostType(request.postType());
-        post.setIsAnonymous(request.isAnonymous());
         post.setAttachmentUrls(request.attachmentUrls());
         post.setImageUrls(request.imageUrls());
         post.setTags(request.tags());
@@ -235,9 +243,6 @@ public class ForumService {
         }
         if (request.postType() != null) {
             post.setPostType(request.postType());
-        }
-        if (request.isAnonymous() != null) {
-            post.setIsAnonymous(request.isAnonymous());
         }
         if (request.attachmentUrls() != null) {
             post.setAttachmentUrls(request.attachmentUrls());
@@ -377,7 +382,6 @@ public class ForumService {
         reply.setContent(request.content());
         reply.setParentReplyId(request.parentReplyId());
         reply.setReplyToUserId(request.replyToUserId());
-        reply.setIsAnonymous(request.isAnonymous());
         reply.setAttachmentUrls(request.attachmentUrls());
         reply.setImageUrls(request.imageUrls());
         reply.setLikeCount(0L);
@@ -421,10 +425,14 @@ public class ForumService {
         Map<UUID, List<ForumReply>> childrenMap = allReplies.stream()
                 .filter(r -> r.getParentReplyId() != null)
                 .collect(Collectors.groupingBy(ForumReply::getParentReplyId));
+        Map<UUID, String> imageUrls = loadImageUrlMap(allReplies.stream()
+                .flatMap(reply -> parseImageIds(reply.getImageUrls()).stream())
+                .distinct()
+                .toList());
 
         return allReplies.stream()
                 .filter(r -> r.getParentReplyId() == null)
-                .map(r -> toForumReplyVOWithChildren(r, childrenMap))
+                .map(r -> toForumReplyVOWithChildren(r, childrenMap, imageUrls))
                 .toList();
     }
 
@@ -446,15 +454,15 @@ public class ForumService {
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
         requireDefaultCommentPost(post);
         requireCourseMember(post.getCourseId(), userId, role);
+        validateCommentImages(post.getCourseId(), request.imageUrls());
 
         return createReply(new CreateForumReplyRequest(
                 postId,
                 request.content(),
                 request.parentReplyId(),
                 request.replyToUserId(),
-                flagValue(request.isAnonymous()),
                 null,
-                null
+                request.imageUrls()
         ), userId, ipAddress, userAgent);
     }
 
@@ -492,6 +500,49 @@ public class ForumService {
         }
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    public void updateReply(UUID replyId, UpdateForumReplyRequest request, UUID userId, Integer role) {
+        ForumReply reply = forumReplyRepository.findById(replyId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+
+        if (!reply.getSysUserId().equals(userId) && !SecurityUtils.isAdmin(role)) {
+            throw new BusinessException(ErrorCodes.FORBIDDEN);
+        }
+
+        reply.setContent(request.content());
+        if (request.imageUrls() != null) {
+            reply.setImageUrls(request.imageUrls());
+        }
+
+        forumReplyRepository.update(reply);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteReply(UUID replyId, UUID userId, Integer role) {
+        ForumReply reply = forumReplyRepository.findById(replyId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+
+        if (!reply.getSysUserId().equals(userId) && !SecurityUtils.isAdmin(role)) {
+            throw new BusinessException(ErrorCodes.FORBIDDEN);
+        }
+
+        forumReplyRepository.deleteById(replyId);
+
+        // 递减帖子回复计数
+        ForumPost post = forumPostRepository.findById(reply.getPostId()).orElse(null);
+        if (post != null && post.getReplyCount() > 0) {
+            post.setReplyCount(post.getReplyCount() - 1);
+            forumPostRepository.update(post);
+        }
+
+        // 递减论坛回复计数
+        Forum forum = forumRepository.findById(reply.getForumId()).orElse(null);
+        if (forum != null && forum.getReplyCount() > 0) {
+            forum.setReplyCount(forum.getReplyCount() - 1);
+            forumRepository.update(forum);
+        }
+    }
+
     // ==================== VO Converters ====================
 
     private ForumVO toForumVO(Forum forum) {
@@ -501,7 +552,6 @@ public class ForumService {
                 forum.getForumName(),
                 forum.getDescription(),
                 forum.getForumType(),
-                forum.getAllowAnonymous(),
                 forum.getPostCount(),
                 forum.getReplyCount(),
                 forum.getStatus(),
@@ -522,7 +572,6 @@ public class ForumService {
         forum.setCourseId(courseId);
         forum.setForumName(DEFAULT_COMMENT_FORUM_NAME);
         forum.setForumType(0);
-        forum.setAllowAnonymous(FLAG_ON);
         forum.setPostCount(0L);
         forum.setReplyCount(0L);
         forum.setStatus(ForumStatus.NORMAL.getCode());
@@ -560,10 +609,6 @@ public class ForumService {
                 .orElse(false);
     }
 
-    private int flagValue(Integer value) {
-        return value != null && value == FLAG_ON ? FLAG_ON : FLAG_OFF;
-    }
-
     private String commentTitle(String content) {
         String normalized = content == null ? "" : content.replaceAll("\\s+", " ").trim();
         if (normalized.isEmpty()) {
@@ -575,6 +620,10 @@ public class ForumService {
     }
 
     private ForumPostVO toForumPostVO(ForumPost post) {
+        return toForumPostVO(post, Map.of());
+    }
+
+    private ForumPostVO toForumPostVO(ForumPost post, Map<UUID, String> imageUrlMap) {
         return new ForumPostVO(
                 post.getId(),
                 post.getForumId(),
@@ -583,9 +632,8 @@ public class ForumService {
                 post.getTitle(),
                 post.getContent(),
                 post.getPostType(),
-                post.getIsAnonymous(),
                 post.getAttachmentUrls(),
-                post.getImageUrls(),
+                resolveImageUrls(post.getImageUrls(), imageUrlMap),
                 post.getTags(),
                 post.getViewCount(),
                 post.getLikeCount(),
@@ -605,6 +653,10 @@ public class ForumService {
     }
 
     private ForumReplyVO toForumReplyVO(ForumReply reply) {
+        return toForumReplyVO(reply, Map.of());
+    }
+
+    private ForumReplyVO toForumReplyVO(ForumReply reply, Map<UUID, String> imageUrlMap) {
         return new ForumReplyVO(
                 reply.getId(),
                 reply.getPostId(),
@@ -614,9 +666,8 @@ public class ForumService {
                 reply.getContent(),
                 reply.getParentReplyId(),
                 reply.getReplyToUserId(),
-                reply.getIsAnonymous(),
                 reply.getAttachmentUrls(),
-                reply.getImageUrls(),
+                resolveImageUrls(reply.getImageUrls(), imageUrlMap),
                 reply.getLikeCount(),
                 reply.getReplyCount(),
                 reply.getIsAccepted(),
@@ -628,10 +679,12 @@ public class ForumService {
         );
     }
 
-    private ForumReplyVO toForumReplyVOWithChildren(ForumReply reply, Map<UUID, List<ForumReply>> childrenMap) {
+    private ForumReplyVO toForumReplyVOWithChildren(ForumReply reply,
+                                                    Map<UUID, List<ForumReply>> childrenMap,
+                                                    Map<UUID, String> imageUrlMap) {
         List<ForumReply> childReplies = childrenMap.getOrDefault(reply.getId(), List.of());
         List<ForumReplyVO> children = childReplies.stream()
-                .map(r -> toForumReplyVOWithChildren(r, childrenMap))
+                .map(r -> toForumReplyVOWithChildren(r, childrenMap, imageUrlMap))
                 .toList();
 
         return new ForumReplyVO(
@@ -643,9 +696,8 @@ public class ForumService {
                 reply.getContent(),
                 reply.getParentReplyId(),
                 reply.getReplyToUserId(),
-                reply.getIsAnonymous(),
                 reply.getAttachmentUrls(),
-                reply.getImageUrls(),
+                resolveImageUrls(reply.getImageUrls(), imageUrlMap),
                 reply.getLikeCount(),
                 reply.getReplyCount(),
                 reply.getIsAccepted(),
@@ -655,5 +707,75 @@ public class ForumService {
                 reply.getCreatedAt(),
                 reply.getUpdatedAt()
         );
+    }
+
+    private List<UUID> parseImageIds(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        return values.stream()
+                .map(this::parseUuidOrNull)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+    }
+
+    private void validateCommentImages(UUID courseId, List<String> imageIds) {
+        if (imageIds == null || imageIds.isEmpty()) {
+            return;
+        }
+
+        for (String imageId : imageIds) {
+            UUID fileId = parseUuidOrNull(imageId);
+            if (fileId == null) {
+                throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid comment image");
+            }
+            StorageObjectInfo file = requireStorageFile(fileId);
+            if (!READY_STATUS.equals(file.status())
+                    || !FORUM_IMAGE_USAGE.equals(file.usage())
+                    || !COURSE_SCOPE_TYPE.equals(file.scopeType())
+                    || !courseId.equals(file.scopeId())) {
+                throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid comment image");
+            }
+        }
+    }
+
+    private StorageObjectInfo requireStorageFile(UUID fileId) {
+        ApiResponse<StorageObjectInfo> response = storageInternalClient.getFile(fileId);
+        if (response == null || response.code() != ErrorCodes.SUCCESS.code() || response.data() == null) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid comment image");
+        }
+        return response.data();
+    }
+
+    private UUID parseUuidOrNull(String value) {
+        try {
+            return value == null ? null : UUID.fromString(value);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
+    }
+
+    private Map<UUID, String> loadImageUrlMap(List<UUID> imageIds) {
+        if (imageIds.isEmpty()) {
+            return Map.of();
+        }
+        ApiResponse<Map<UUID, String>> response = storageInternalClient.getUrls(imageIds);
+        if (response == null || response.code() != ErrorCodes.SUCCESS.code() || response.data() == null) {
+            return Map.of();
+        }
+        return response.data();
+    }
+
+    private List<String> resolveImageUrls(List<String> values, Map<UUID, String> imageUrlMap) {
+        if (values == null || values.isEmpty()) {
+            return values;
+        }
+        return values.stream()
+                .map(value -> {
+                    UUID imageId = parseUuidOrNull(value);
+                    return imageId == null ? value : imageUrlMap.get(imageId);
+                })
+                .filter(java.util.Objects::nonNull)
+                .toList();
     }
 }

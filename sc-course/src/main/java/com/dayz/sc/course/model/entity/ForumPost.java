@@ -35,9 +35,6 @@ public class ForumPost {
     @TableField("post_type")
     private Integer postType;
 
-    @TableField("is_anonymous")
-    private Integer isAnonymous;
-
     @TableField(typeHandler = JacksonTypeHandler.class)
     private List<String> attachmentUrls;
 

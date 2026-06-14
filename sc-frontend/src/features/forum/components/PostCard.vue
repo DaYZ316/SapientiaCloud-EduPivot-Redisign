@@ -18,7 +18,7 @@
           <div class="author-avatar">
             <User :size="14"/>
           </div>
-          <span>{{ post.isAnonymous ? t('forum.anonymousUser') : '' }}</span>
+          <span></span>
         </div>
 
         <div class="post-stats">

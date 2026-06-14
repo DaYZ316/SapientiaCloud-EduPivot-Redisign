@@ -12,7 +12,6 @@ public record CreateForumPostRequest(
         @NotBlank @Size(max = 500) String title,
         @NotBlank String content,
         int postType,
-        int isAnonymous,
         List<String> attachmentUrls,
         List<String> imageUrls,
         List<String> tags,

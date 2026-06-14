@@ -9,6 +9,7 @@ import type {
   CreateReplyRequest,
   CreateCourseCommentRequest,
   CreateCourseCommentReplyRequest,
+  UpdateForumReplyRequest,
 } from '@/features/forum/types/forum'
 
 export function getForums() {
@@ -131,4 +132,12 @@ export function unacceptReply(id: string) {
 
 export function toggleReplyLike(id: string) {
   return request<void>({method: 'POST', url: "/api/forums/replies/" + id + "/like", silent: true})
+}
+
+export function updateReply(id: string, data: UpdateForumReplyRequest) {
+  return request<void>({method: 'PUT', url: "/api/forums/replies/" + id, data, silent: true})
+}
+
+export function deleteReply(id: string) {
+  return request<void>({method: 'DELETE', url: "/api/forums/replies/" + id, silent: true})
 }

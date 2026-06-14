@@ -1,12 +1,8 @@
-﻿<template>
+<template>
   <div class="course-detail-page">
-    <button class="back-link" @click="router.push('/courses')">
-      <ArrowLeft :size="16"/>
-      {{ t('courseDetail.backToCourses') }}
-    </button>
-
-    <div v-if="loading" class="detail-grid" aria-label="Loading course">
-      <section class="primary-column">
+    <div v-if="loading" class="loading-layout" :aria-label="t('courseDetail.loading')">
+      <section class="loading-main">
+        <div class="skeleton-line skeleton-kicker shimmer"></div>
         <div class="skeleton-title shimmer"></div>
         <div class="skeleton-cover shimmer"></div>
         <div class="skeleton-line shimmer"></div>
@@ -18,209 +14,192 @@
     <div v-else-if="!course" class="empty-state">
       <BookOpen :size="36" stroke-width="1.4"/>
       <h1>{{ t('courseDetail.courseNotFound') }}</h1>
-      <button class="secondary-button" @click="router.push('/courses')">{{ t('courseDetail.browseCourses') }}</button>
+      <button class="secondary-button" type="button" @click="router.push('/courses')">
+        {{ t('courseDetail.browseCourses') }}
+      </button>
     </div>
 
     <div v-else class="detail-layout">
-      <div class="course-hero">
-        <div class="hero-content">
-          <div class="metadata-chips">
-            <span class="chip chip-solid">{{ getLevelLabel(course.level) }}</span>
-            <span class="chip chip-muted">{{ getStatusLabel(course.status) }}</span>
-          </div>
-          <h1>{{ course.title }}</h1>
-          <p class="course-description">{{ course.description || t('courseDetail.noDescription') }}</p>
-          <div class="teacher-row">
-            <div class="teacher-avatar">
-              <img :src="course.teacherAvatar || teacherFallbackUrl" alt="Instructor avatar"/>
-            </div>
-            <div>
-              <p class="teacher-label">{{ t('courseDetail.instructor') }}</p>
-              <strong>{{ course.teacherName || t('courseDetail.unknownTeacher') }}</strong>
-            </div>
-          </div>
-        </div>
-        <div class="hero-cover">
-          <img :src="course.coverUrl || courseCoverFallbackUrl" alt="Course cover"/>
-        </div>
-      </div>
+      <main class="detail-canvas">
+        <section class="course-main-column">
+          <button class="back-link" type="button" @click="router.push('/courses')">
+            <ArrowLeft :size="16" stroke-width="1.8"/>
+            {{ t('courseDetail.backToCourses') }}
+          </button>
 
-      <div class="detail-grid">
-        <section class="primary-column">
-          <div class="tab-nav">
+          <section class="course-hero">
+            <div class="hero-kicker">Academic Course</div>
+            <h1>{{ course.title }}</h1>
+            <p class="course-description">{{ course.description || t('courseDetail.noDescription') }}</p>
+
+            <dl class="metadata-grid">
+              <div class="metadata-item">
+                <dt>Level</dt>
+                <dd><School :size="16" stroke-width="1.7"/> {{ levelLabel }}</dd>
+              </div>
+              <div class="metadata-item">
+                <dt>Status</dt>
+                <dd><CircleCheck :size="16" stroke-width="1.7"/> {{ statusLabel }}</dd>
+              </div>
+              <div class="metadata-item">
+                <dt>Access</dt>
+                <dd>
+                  <Globe v-if="course.isPublic === 1" :size="16" stroke-width="1.7"/>
+                  <LockKeyhole v-else :size="16" stroke-width="1.7"/>
+                  {{ visibilityLabel }}
+                </dd>
+              </div>
+              <div class="metadata-item">
+                <dt>Format</dt>
+                <dd><DoorOpen :size="16" stroke-width="1.7"/> {{ courseTypeLabel || t('courseDetail.toBeArranged') }}</dd>
+              </div>
+              <div class="metadata-item">
+                <dt>{{ t('courseDetail.semester') }}</dt>
+                <dd><CalendarDays :size="16" stroke-width="1.7"/> {{ course.semester || t('courseDetail.toBeArranged') }}</dd>
+              </div>
+              <div class="metadata-item">
+                <dt>{{ t('courseDetail.location') }}</dt>
+                <dd><MapPin :size="16" stroke-width="1.7"/> {{ course.location || t('courseDetail.toBeArranged') }}</dd>
+              </div>
+            </dl>
+
             <button
+              class="primary-action hero-action"
+              type="button"
+              :disabled="primaryActionDisabled"
+              @click="handlePrimaryAction"
+            >
+              {{ primaryActionLabel }}
+            </button>
+          </section>
+
+          <nav class="tab-nav" :aria-label="t('courseDetail.contentTabs')">
+            <router-link
               v-for="tab in visibleTabs"
               :key="tab.key"
               class="tab-btn"
-              :class="{active: activeTab === tab.key}"
-              @click="activeTab = tab.key"
+              :class="{active: activeTabKey === tab.key}"
+              :to="'/courses/' + courseId + '/' + tab.key"
             >
-              <component :is="tab.icon" :size="16"/>
               {{ tab.label }}
-            </button>
-          </div>
+            </router-link>
+          </nav>
 
-          <div class="tab-content">
-            <div v-if="activeTab === 'chapters'" class="tab-panel">
-              <div class="panel-header">
-                <h3>{{ t('chapter.title') }}</h3>
-                <button v-if="isTeacher" class="btn-add" @click="showChapterEditor = true">
-                  <Plus :size="14"/>
-                  {{ t('chapter.addChapter') }}
-                </button>
-              </div>
-              <ChapterTree
-                :chapters="chapterTree"
-                :is-editable="isTeacher"
-                @select="handleChapterSelect"
-                @edit="handleEditChapter"
-                @delete="handleDeleteChapter"
-                @add-child="handleAddChildChapter"
-              />
-            </div>
-
-            <div v-if="activeTab === 'forums'" class="tab-panel">
-              <div class="panel-header">
-                <h3>{{ t('forum.commentsTitle') }}</h3>
-              </div>
-              <CourseComments :course-id="courseId" :can-comment="canComment"/>
-            </div>
-
-            <div v-if="activeTab === 'banks'" class="tab-panel">
-              <div class="panel-header">
-                <h3>{{ t('questionBank.title') }}</h3>
-                <button v-if="isTeacher" class="btn-add" @click="router.push('/courses/' + courseId + '/question-banks')">
-                  <Plus :size="14"/>
-                  {{ t('questionBank.newBank') }}
-                </button>
-              </div>
-              <div v-if="courseBanks.length === 0" class="empty-tab">
-                <Database :size="28" stroke-width="1.4"/>
-                <p>{{ t('questionBank.noBanks') }}</p>
-              </div>
-              <div v-else class="bank-list">
-                <div
-                  v-for="bank in courseBanks"
-                  :key="bank.id"
-                  class="bank-item"
-                  @click="router.push('/question-banks/' + bank.id)"
-                >
-                  <div class="bank-icon"><Database :size="18"/></div>
-                  <div class="bank-info">
-                    <h4>{{ bank.bankName }}</h4>
-                    <p>{{ bank.questionCount }} {{ t('questionBank.questionCount') }}</p>
-                  </div>
-                  <button v-if="isStudent" class="btn-practice" @click.stop="router.push('/question-banks/' + bank.id + '/practice')">
-                    {{ t('questionBank.practice') }}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div v-if="activeTab === 'files'" class="tab-panel">
-              <div class="panel-header">
-                <h3>{{ t('courseDetail.files') }}</h3>
-              </div>
-              <div v-if="courseFiles.length === 0" class="empty-tab">
-                <FolderOpen :size="28" stroke-width="1.4"/>
-                <p>{{ t('chapter.noAttachments') }}</p>
-              </div>
-              <div v-else class="file-list">
-                <a
-                  v-for="file in courseFiles"
-                  :key="file.id"
-                  :href="file.url || '#'"
-                  target="_blank"
-                  class="file-item"
-                >
-                  <FileDown :size="16"/>
-                  <span>{{ file.displayName }}</span>
-                  <span class="file-visibility">{{ file.visibility }}</span>
-                </a>
-              </div>
-            </div>
-            <div v-if="activeTab === 'students'" class="tab-panel">
-              <div class="panel-header">
-                <h3>{{ t('courseDetail.studentsTab') }}</h3>
-                <span class="count-badge">{{ courseStudents.length }}</span>
-              </div>
-              <div v-if="courseStudents.length === 0" class="empty-tab">
-                <Users :size="28" stroke-width="1.4"/>
-                <p>{{ t('courseDetail.noStudents') }}</p>
-              </div>
-              <div v-else class="member-list">
-                <div v-for="s in courseStudents" :key="s.id" class="member-item">
-                  <div class="member-avatar">
-                    <img v-if="s.avatarUrl" :src="s.avatarUrl" alt=""/>
-                    <User v-else :size="18"/>
-                  </div>
-                  <div class="member-info">
-                    <strong>{{ s.displayName || s.email }}</strong>
-                    <span>{{ s.email }}</span>
-                  </div>
-                  <span class="member-status" :class="'status-' + s.status">{{ EnrollmentStatus[s.status] || '--' }}</span>
-                </div>
-              </div>
-            </div>
-
-            <div v-if="activeTab === 'assistants'" class="tab-panel">
-              <div class="panel-header">
-                <h3>{{ t('courseDetail.assistantsTab') }}</h3>
-                <span class="count-badge">{{ courseAssistants.length }}</span>
-              </div>
-              <div v-if="courseAssistants.length === 0" class="empty-tab">
-                <UserCheck :size="28" stroke-width="1.4"/>
-                <p>{{ t('courseDetail.noAssistants') }}</p>
-              </div>
-              <div v-else class="member-list">
-                <div v-for="a in courseAssistants" :key="a.id" class="member-item">
-                  <div class="member-avatar">
-                    <img v-if="a.avatarUrl" :src="a.avatarUrl" alt=""/>
-                    <User v-else :size="18"/>
-                  </div>
-                  <div class="member-info">
-                    <strong>{{ a.displayName || a.email }}</strong>
-                    <span>{{ a.email }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <router-view
+            :course="course"
+            :course-id="courseId"
+            :chapter-tree="chapterTree"
+            :banks="courseBanks"
+            :files="courseFiles"
+            :students="courseStudents"
+            :assistants="assistantOnlyInfos"
+            :can-manage-course="canManageCourse"
+            :can-access-course-content="canAccessCourseContent"
+            :can-comment="canComment"
+            :is-student="isStudent"
+            :format-date="formatDate"
+            :current-user-id="authStore.user?.id"
+            @open-chapter-editor="openChapterEditor"
+            @select-chapter="handleChapterSelect"
+            @edit-chapter="handleEditChapter"
+            @delete-chapter="handleDeleteChapter"
+            @add-child-chapter="handleAddChildChapter"
+            @refresh="reloadActiveTabData"
+            @refresh-banks="reloadBanks"
+            @refresh-files="reloadFiles"
+            @refresh-students="reloadStudents"
+            @refresh-course="reloadCourse"
+          />
         </section>
 
-        <aside class="action-rail">
-          <section>
-            <h2>{{ t('courseDetail.enrollment') }}</h2>
-            <div class="capacity-header">
-              <span>{{ t('courseDetail.capacity') }}</span>
-              <strong>{{ course.currentStudents }}{{ capacitySuffix }} {{ t('courseDetail.students') }}</strong>
+        <aside class="course-side-column">
+          <div class="cover-frame">
+            <img
+              :src="course.coverUrl || courseCoverFallbackUrl"
+              :alt="course.title"
+              @error="useFallbackImage($event, courseCoverFallbackUrl)"
+            />
+          </div>
+
+          <section class="teaching-team-panel">
+            <div class="panel-kicker">{{ t('courseDetail.teachingTeam') }}</div>
+            <div class="team-lead">
+              <div class="team-avatar">
+                <img
+                  :src="course.teacherAvatar || teacherFallbackUrl"
+                  :alt="course.teacherName || t('courseDetail.unknownTeacher')"
+                  @error="useFallbackImage($event, teacherFallbackUrl)"
+                />
+              </div>
+              <div class="team-copy">
+                <strong>{{ course.teacherName || t('courseDetail.unknownTeacher') }}</strong>
+                <span>{{ t('courseDetail.primaryInstructor') }}</span>
+              </div>
             </div>
-            <div class="capacity-track">
-              <span :style="{width:  + capacityPercent + '%'}"></span>
+            <div class="assistant-row">
+              <span>{{ t('courseDetail.assistantsTab') }} ({{ assistantOnlyInfos.length }})</span>
+              <div class="assistant-stack">
+                <div
+                  v-for="assistant in assistantOnlyInfos.slice(0, 2)"
+                  :key="assistant.id"
+                  class="assistant-avatar"
+                  :title="assistant.displayName || assistant.id"
+                >
+                  <img
+                    :src="assistant.avatarUrl || teacherFallbackUrl"
+                    :alt="assistant.displayName || assistant.id"
+                    @error="useFallbackImage($event, teacherFallbackUrl)"
+                  />
+                </div>
+                <div v-if="assistantOnlyInfos.length === 0" class="assistant-avatar empty">
+                  <User :size="16" stroke-width="1.7"/>
+                </div>
+              </div>
             </div>
           </section>
 
-          <div class="date-list">
-            <div>
-              <span><CalendarDays :size="18"/> {{ t('courseDetail.created') }}</span>
-              <strong>{{ formatDate(course.createdAt) }}</strong>
+          <section class="enrollment-panel">
+            <div class="capacity-block">
+              <span class="year-badge">{{ course.semester || 'Academic Year' }}</span>
+              <h3>{{ t('courseDetail.capacity') }}</h3>
+              <div class="capacity-header">
+                <span>{{ course.currentStudents }} {{ t('courseDetail.enrolled') }}</span>
+                <span>{{ maxStudentsLabel }}</span>
+              </div>
+              <div class="capacity-track">
+                <span :style="{width: capacityPercent + '%'}"></span>
+              </div>
             </div>
-            <div>
-              <span><RefreshCw :size="18"/> {{ t('courseDetail.updated') }}</span>
-              <strong>{{ course.updatedAt ? formatDate(course.updatedAt) : t('courseDetail.noUpdates') }}</strong>
-            </div>
-          </div>
 
-          <button
-            v-if="canEnroll"
-            class="enroll-button"
-            :disabled="enrolling || isFull || course.enrolled"
-            @click="handleEnroll"
-          >
-            {{ enrollLabel }}
-          </button>
+            <div v-if="canManageCourse" class="admin-actions">
+              <h3>Administration</h3>
+              <button class="secondary-action" type="button" @click="openEditModal">
+                <Pencil :size="18" stroke-width="1.8"/>
+                {{ t('courseDetail.editCourse') }}
+              </button>
+              <button class="secondary-action" type="button" @click="openChapterEditor">
+                <Plus :size="18" stroke-width="1.8"/>
+                {{ t('chapter.addChapter') }}
+              </button>
+              <button class="secondary-action" type="button" @click="goToCourseBanks">
+                <Database :size="18" stroke-width="1.8"/>
+                {{ t('courseDetail.manageBanks') }}
+              </button>
+            </div>
+
+            <div class="date-list">
+              <div>
+                <span>{{ t('courseDetail.created') }}:</span>
+                <strong>{{ formatDate(course.createdAt) }}</strong>
+              </div>
+              <div>
+                <span>{{ t('courseDetail.updated') }}:</span>
+                <strong>{{ course.updatedAt ? formatDate(course.updatedAt) : t('courseDetail.noUpdates') }}</strong>
+              </div>
+            </div>
+          </section>
         </aside>
-      </div>
+      </main>
     </div>
 
     <ChapterEditor
@@ -231,35 +210,65 @@
       @close="closeChapterEditor"
       @save="handleSaveChapter"
     />
+
+    <CourseFormModal
+      :visible="showEditModal"
+      mode="edit"
+      :course="course"
+      :show-teacher-section="isAdmin"
+      :is-admin="isAdmin"
+      :can-edit-course-status="canEditCourseStatus"
+      @close="showEditModal = false"
+      @updated="handleCourseUpdated"
+    />
   </div>
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, ref} from 'vue'
+import {computed, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
 import {
-  ArrowLeft, BookOpen, CalendarDays, RefreshCw, Plus,
-  MessageCircle, Users, UserCheck, User, Database, FolderOpen, FileDown,
+  ArrowLeft,
+  BookOpen,
+  CalendarDays,
+  CircleCheck,
+  Database,
+  DoorOpen,
+  Globe,
+  LockKeyhole,
+  MapPin,
+  MessageCircle,
+  Pencil,
+  Plus,
+  School,
+  User,
+  UserCheck,
+  Users,
 } from 'lucide-vue-next'
 
-import {enroll, getCourse, listCourseFiles, getCourseEnrollments} from '@/features/course/api/course'
-import {getChapterTree, createChapter, updateChapter, deleteChapter} from '@/features/course/api/chapter'
+import {deleteChapter, getChapterTree, createChapter, updateChapter} from '@/features/course/api/chapter'
+import {enroll, getCourse, getCourseEnrollments, listCourseFiles, updateCourse} from '@/features/course/api/course'
 import {getCourseQuestionBanks} from '@/features/question-bank/api/questionBank'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import {useAuthStore} from '@/features/auth/stores/auth'
 
 import type {Chapter, CreateChapterRequest, UpdateChapterRequest} from '@/features/course/types/chapter'
+import type {
+  CourseDetail,
+  CourseFile,
+  Enrollment,
+  UpdateCourseRequest,
+} from '@/features/course/types/course'
 import type {QuestionBank} from '@/features/question-bank/types/questionBank'
-import type {CourseFile} from '@/features/course/types/course'
-import {EnrollmentStatus} from '@/features/course/types/course'
 
-import ChapterTree from '@/features/course/components/ChapterTree.vue'
 import ChapterEditor from '@/features/course/components/ChapterEditor.vue'
-import CourseComments from '@/features/forum/components/CourseComments.vue'
+import CourseFormModal from '@/features/course/components/CourseFormModal.vue'
 
+type TabKey = 'overview' | 'chapters' | 'forums' | 'banks' | 'files' | 'students' | 'assistants'
+type TeacherInfo = NonNullable<CourseDetail['teacherInfos']>[number]
 
-const {t} = useI18n()
+const {t, locale} = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -268,22 +277,31 @@ const courseId = route.params.id as string
 
 const loading = ref(true)
 const enrolling = ref(false)
-const course = ref<any>(null)
+const course = ref<CourseDetail | null>(null)
 const chapterTree = ref<Chapter[]>([])
 const courseBanks = ref<QuestionBank[]>([])
 const courseFiles = ref<CourseFile[]>([])
-const courseStudents = ref<any[]>([])
-const courseAssistants = ref<any[]>([])
-const activeTab = ref('chapters')
+const courseStudents = ref<Enrollment[]>([])
 const showChapterEditor = ref(false)
+const showEditModal = ref(false)
 const editingChapter = ref<Chapter | null>(null)
 const parentChapterId = ref<string | null>(null)
 
-const isTeacher = computed(() => authStore.user?.role === 2)
-const isStudent = computed(() => authStore.user?.role === 1)
-const isAdmin = computed(() => authStore.user?.role === 0)
+const courseCoverFallbackUrl = '/assets/course-cover-default.png'
+const teacherFallbackUrl = '/assets/avatar-teacher-default.png'
 
-const canEnroll = computed(() => isStudent.value && !course.value?.enrolled)
+const isAdmin = computed(() => authStore.user?.role === 0)
+const isStudent = computed(() => authStore.user?.role === 1)
+const isPublished = computed(() => course.value?.status === 1)
+const canEditCourseStatus = computed(() => {
+  const userId = authStore.user?.id
+  return Boolean(isAdmin.value || (userId && course.value?.teacherId === userId))
+})
+const canManageCourse = computed(() => {
+  const userId = authStore.user?.id
+  if (!userId || !course.value) return isAdmin.value
+  return isAdmin.value || course.value.teacherId === userId || Boolean(course.value.teacherIds?.includes(userId))
+})
 const canComment = computed(() => {
   const userId = authStore.user?.id
   if (!userId || !course.value) return false
@@ -292,89 +310,187 @@ const canComment = computed(() => {
     || Boolean(course.value.enrolled)
     || Boolean(course.value.teacherIds?.includes(userId))
 })
-const isFull = computed(() => course.value && course.value.maxStudents > 0 && course.value.currentStudents >= course.value.maxStudents)
+const isFull = computed(() => {
+  if (!course.value || course.value.maxStudents <= 0) return false
+  return course.value.currentStudents >= course.value.maxStudents
+})
+const showEnrollButton = computed(() => isStudent.value && !course.value?.enrolled)
+const canAccessCourseContent = computed(() => canManageCourse.value || Boolean(course.value?.enrolled))
+
+const assistantOnlyInfos = computed<TeacherInfo[]>(() => {
+  if (!course.value?.teacherInfos) return []
+  return course.value.teacherInfos.filter(info => info.id !== course.value?.teacherId)
+})
 
 const capacityPercent = computed(() => {
-  if (!course.value || !course.value.maxStudents) return 0
+  if (!course.value || course.value.maxStudents <= 0) return 0
   return Math.min((course.value.currentStudents / course.value.maxStudents) * 100, 100)
 })
-const capacitySuffix = computed(() => course.value?.maxStudents ? '/' + course.value.maxStudents : '')
-
+const levelLabel = computed(() => {
+  const labels: Record<number, string> = {
+    1: t('courses.level.beginner'),
+    2: t('courses.level.intermediate'),
+    3: t('courses.level.advanced'),
+  }
+  return labels[course.value?.level || 0] || t('courseDetail.levelUnknown')
+})
+const statusLabel = computed(() => {
+  const labels: Record<number, string> = {
+    0: t('courses.status.draft'),
+    1: t('courses.status.published'),
+    2: t('courses.status.archived'),
+  }
+  return labels[course.value?.status ?? -1] || t('courseDetail.statusUnknown')
+})
+const courseTypeLabel = computed(() => {
+  if (course.value?.courseType === null || course.value?.courseType === undefined) return ''
+  const labels: Record<number, string> = {
+    0: t('courses.courseType.required'),
+    1: t('courses.courseType.elective'),
+  }
+  return labels[course.value.courseType] || ''
+})
+const visibilityLabel = computed(() => {
+  if (!course.value) return ''
+  return course.value.isPublic === 1 ? t('courses.visibility.public') : t('courses.visibility.private')
+})
 const enrollLabel = computed(() => {
-  if (course.value?.enrolled) return t('courseDetail.enrolled')
+  if (enrolling.value) return t('courseDetail.enrolling')
+  if (!isPublished.value) return t('courseDetail.notOpen')
   if (isFull.value) return t('courseDetail.full')
-  return t('courseDetail.enroll')
+  return t('courseDetail.enrollNow')
+})
+const primaryActionLabel = computed(() => {
+  if (showEnrollButton.value) return enrollLabel.value
+  if (firstChapter.value && (course.value?.enrolled || canManageCourse.value)) return t('courseDetail.continueLearning')
+  return emptyActionLabel.value
+})
+const primaryActionDisabled = computed(() => {
+  if (showEnrollButton.value) return enrolling.value || isFull.value || !isPublished.value
+  return !(firstChapter.value && (course.value?.enrolled || canManageCourse.value))
+})
+const maxStudentsLabel = computed(() => {
+  if (!course.value || course.value.maxStudents <= 0) return t('courseDetail.unlimited')
+  return `${course.value.maxStudents} Max`
+})
+const emptyActionLabel = computed(() => {
+  if (!firstChapter.value) return t('courseDetail.noChapterAction')
+  return t('courseDetail.viewOnly')
 })
 
-const courseCoverFallbackUrl = '/assets/course-cover-fallback.png'
-const teacherFallbackUrl = '/assets/avatar-teacher-default.png'
+function flattenChapters(chapters: Chapter[]): Chapter[] {
+  return chapters.flatMap(chapter => [chapter, ...flattenChapters(chapter.children || [])])
+}
 
-const tabs = [
-  {key: 'chapters', label: '章节', icon: BookOpen, roles: [0, 1, 2]},
-  {key: 'forums', label: '评论', icon: MessageCircle, roles: [0, 1, 2]},
-  {key: 'banks', label: '题库', icon: Database, roles: [0, 1, 2]},
-  {key: 'files', label: '文件', icon: FolderOpen, roles: [0, 1, 2]},
-  {key: 'students', label: t('courseDetail.studentsTab'), icon: Users, roles: [0, 2]},
-  {key: 'assistants', label: t('courseDetail.assistantsTab'), icon: UserCheck, roles: [0, 2]},
-]
+const flatChapters = computed(() => flattenChapters(chapterTree.value))
+const firstChapter = computed(() => flatChapters.value.find(chapter => chapter.status === 1) || flatChapters.value[0] || null)
 
+const tabs = computed(() => [
+  {key: 'overview' as const, label: t('courseDetail.overviewTab'), icon: BookOpen, roles: [0, 1, 2]},
+  {key: 'chapters' as const, label: t('courseDetail.chaptersTab'), icon: BookOpen, roles: [0, 1, 2]},
+  {key: 'forums' as const, label: t('courseDetail.discussionTab'), icon: MessageCircle, roles: [0, 1, 2]},
+  {key: 'banks' as const, label: t('courseDetail.practiceTab'), icon: Database, roles: [0, 1, 2]},
+  {key: 'files' as const, label: t('courseDetail.filesTab'), icon: Database, roles: [0, 1, 2]},
+  {key: 'students' as const, label: t('courseDetail.studentsTab'), icon: Users, roles: [0, 2]},
+  {key: 'assistants' as const, label: t('courseDetail.assistantsTab'), icon: UserCheck, roles: [0, 2]},
+])
 const visibleTabs = computed(() => {
   const role = authStore.user?.role ?? 1
-  return tabs.filter(tab => tab.roles.includes(role))
+  return tabs.value.filter(tab => tab.roles.includes(role))
 })
 
-function getLevelLabel(level: number) {
-  const labels: Record<number, string> = {1: '初级', 2: '中级', 3: '高级'}
-  return labels[level] || '未知'
-}
+const activeTabKey = computed(() => {
+  const path = route.path
+  const match = path.match(/\/courses\/[^/]+\/(\w+)/)
+  if (match) {
+    const key = match[1] as TabKey
+    if (tabs.value.some(tab => tab.key === key)) return key
+  }
+  return 'overview'
+})
 
-function getStatusLabel(status: number) {
-  const labels: Record<number, string> = {0: '草稿', 1: '已发布', 2: '已归档'}
-  return labels[status] || '未知'
-}
+onMounted(loadCourseDetail)
 
-function formatDate(dateStr: string) {
-  if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleDateString()
-}
+watch(activeTabKey, () => {
+  if (!course.value || loading.value) return
+  void reloadActiveTabData()
+})
 
-onMounted(async () => {
+async function loadCourseDetail() {
+  loading.value = true
   try {
-const [courseData, chapters, banks, files, studentsResp] = await Promise.all([
-      getCourse(courseId),
+    const courseData = await getCourse(courseId)
+
+    course.value = courseData
+    const [chapters, banks, files] = await Promise.allSettled([
       getChapterTree(courseId),
       getCourseQuestionBanks(courseId),
       listCourseFiles(courseId),
-      getCourseEnrollments(courseId, 1, 200),
     ])
-    course.value = courseData
-    chapterTree.value = chapters || []
-    courseBanks.value = banks || []
-    courseFiles.value = files || []
-    courseStudents.value = studentsResp?.records || []
-    courseAssistants.value = courseData.teacherInfos || []
 
+    chapterTree.value = chapters.status === 'fulfilled' ? chapters.value || [] : []
+    courseBanks.value = banks.status === 'fulfilled' ? banks.value || [] : []
+    courseFiles.value = files.status === 'fulfilled' ? files.value || [] : []
+    courseStudents.value = []
 
-
-
-
+    if (authStore.user?.role === 0 || authStore.user?.role === 2) {
+      try {
+        const studentsResp = await getCourseEnrollments(courseId, 1, 200)
+        courseStudents.value = studentsResp.records || []
+      } catch {
+        courseStudents.value = []
+      }
+    }
   } finally {
     loading.value = false
   }
-})
+}
 
 async function handleEnroll() {
+  if (!course.value || enrolling.value || isFull.value || !isPublished.value) return
   enrolling.value = true
   try {
     await enroll({courseId})
-    if (course.value) course.value.enrolled = true
-    if (course.value) course.value.currentStudents++
-    notify.success('选课成功')
+    course.value.enrolled = true
+    course.value.currentStudents += 1
+    notify.success(t('courseDetail.alert.enrollSuccess'))
   } catch {
-    notify.error('选课失败')
+    notify.error(t('courseDetail.alert.enrollFailed'))
   } finally {
     enrolling.value = false
   }
+}
+
+function openEditModal() {
+  showEditModal.value = true
+}
+
+function handlePrimaryAction() {
+  if (showEnrollButton.value) {
+    void handleEnroll()
+    return
+  }
+  if (firstChapter.value && (course.value?.enrolled || canManageCourse.value)) {
+    handleChapterSelect(firstChapter.value)
+  }
+}
+
+async function handleCourseUpdated(request: UpdateCourseRequest) {
+  if (!course.value) return
+  try {
+    await updateCourse(course.value.id, request)
+    notify.success(t('courseDetail.alert.updateSuccess'))
+    showEditModal.value = false
+    await loadCourseDetail()
+  } catch {
+    notify.error(t('courseDetail.alert.updateFailed'))
+  }
+}
+
+function openChapterEditor() {
+  editingChapter.value = null
+  parentChapterId.value = null
+  showChapterEditor.value = true
 }
 
 function handleChapterSelect(chapter: Chapter) {
@@ -383,6 +499,7 @@ function handleChapterSelect(chapter: Chapter) {
 
 function handleEditChapter(chapter: Chapter) {
   editingChapter.value = chapter
+  parentChapterId.value = null
   showChapterEditor.value = true
 }
 
@@ -390,10 +507,10 @@ async function handleDeleteChapter(chapter: Chapter) {
   if (!confirm(t('chapter.confirmDelete'))) return
   try {
     await deleteChapter(chapter.id)
-    notify.success('删除成功')
+    notify.success(t('courseDetail.alert.deleteChapterSuccess'))
     chapterTree.value = await getChapterTree(courseId)
   } catch {
-    notify.error('删除失败')
+    notify.error(t('courseDetail.alert.deleteChapterFailed'))
   }
 }
 
@@ -413,194 +530,765 @@ async function handleSaveChapter(data: CreateChapterRequest | UpdateChapterReque
   try {
     if (editingChapter.value) {
       await updateChapter(editingChapter.value.id, data as UpdateChapterRequest)
-      notify.success('更新成功')
+      notify.success(t('courseDetail.alert.updateChapterSuccess'))
     } else {
       await createChapter(data as CreateChapterRequest)
-      notify.success('创建成功')
+      notify.success(t('courseDetail.alert.createChapterSuccess'))
     }
     closeChapterEditor()
     chapterTree.value = await getChapterTree(courseId)
   } catch {
-    notify.error('操作失败')
+    notify.error(t('courseDetail.alert.saveChapterFailed'))
   }
+}
+
+function goToCourseBanks() {
+  router.push({name: 'course-question-banks', params: {courseId}})
+}
+
+async function reloadActiveTabData() {
+  switch (activeTabKey.value) {
+    case 'overview':
+      await reloadCourse()
+      break
+    case 'chapters':
+      await reloadChapters()
+      break
+    case 'banks':
+      await reloadBanks()
+      break
+    case 'files':
+      await reloadFiles()
+      break
+    case 'students':
+      await Promise.all([reloadStudents(), reloadCourse()])
+      break
+    case 'assistants':
+      await reloadCourse()
+      break
+  }
+}
+
+async function reloadChapters() {
+  chapterTree.value = await getChapterTree(courseId)
+}
+
+async function reloadBanks() {
+  courseBanks.value = await getCourseQuestionBanks(courseId)
+}
+
+async function reloadFiles() {
+  courseFiles.value = await listCourseFiles(courseId)
+}
+
+async function reloadStudents() {
+  if (authStore.user?.role !== 0 && authStore.user?.role !== 2) {
+    courseStudents.value = []
+    return
+  }
+  try {
+    const resp = await getCourseEnrollments(courseId, 1, 200)
+    courseStudents.value = resp.records || []
+  } catch {
+    courseStudents.value = []
+  }
+}
+
+async function reloadCourse() {
+  course.value = await getCourse(courseId)
+}
+
+function formatDate(dateStr?: string | null) {
+  if (!dateStr) return '-'
+  const date = new Date(dateStr)
+  if (Number.isNaN(date.getTime())) return '-'
+  return new Intl.DateTimeFormat(String(locale.value), {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+}
+
+function useFallbackImage(event: Event, fallback: string) {
+  const image = event.target as HTMLImageElement
+  if (image.dataset.fallbackApplied === 'true') return
+  image.dataset.fallbackApplied = 'true'
+  image.src = fallback
 }
 </script>
 
 <style scoped>
-.course-detail-page { max-width: 100%; }
+.course-detail-page {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 10px 0 48px;
+  background: var(--color-surface-canvas);
+  box-shadow: 0 0 0 100vmax var(--color-surface-canvas);
+  clip-path: inset(0 -100vmax);
+  color: var(--color-on-surface);
+}
 
 .back-link {
-  display: inline-flex; align-items: center; gap: 6px; padding: 0;
-  border: none; background: none; color: var(--color-muted);
-  font-family: var(--font-body); font-size: 13px; cursor: pointer; margin-bottom: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0;
+  margin-bottom: 24px;
+  background: none;
+  border: 0;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-family: var(--font-label);
+  font-size: 13px;
+  font-weight: 700;
+  transition: color 0.2s ease, transform 0.2s ease;
 }
-.back-link:hover { color: var(--color-on-surface); }
 
-.detail-layout { display: flex; flex-direction: column; gap: 32px; }
+.back-link:hover,
+.back-link:focus-visible {
+  color: var(--color-on-surface);
+  outline: none;
+}
+
+.back-link:active,
+.primary-action:active,
+.secondary-action:active,
+.btn-add:active,
+.btn-practice:active,
+.text-action:active {
+  transform: translateY(1px);
+}
+
+.detail-layout {
+  display: block;
+}
+
+.detail-canvas {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 48px;
+  align-items: start;
+}
+
+.course-main-column,
+.course-side-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 32px;
+}
+
+.course-main-column {
+  grid-column: span 7;
+}
+
+.course-side-column {
+  grid-column: span 5;
+}
+
+.back-link {
+  gap: 8px;
+  min-height: 18px;
+  margin: 0 0 -8px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+}
 
 .course-hero {
-  display: grid; grid-template-columns: 1fr 400px; gap: 40px;
-  padding: 32px; background: var(--color-surface-card);
-  border: 1px solid var(--color-outline-light); border-radius: var(--radius-lg);
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
 }
 
-.hero-content { display: flex; flex-direction: column; gap: 16px; }
-.hero-content h1 { margin: 0; font-family: var(--font-heading); font-size: 40px; font-weight: 600; color: var(--color-on-surface); line-height: 1.2; }
-.course-description { margin: 0; font-family: var(--font-body); font-size: 15px; color: var(--color-muted); line-height: 1.6; }
+.hero-kicker,
+.metadata-item dt,
+.panel-kicker,
+.admin-actions h3,
+.panel-header span,
+.rail-label,
+.overview-item span,
+.hero-facts dt,
+.chapter-summary span {
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
 
-.metadata-chips { display: flex; gap: 8px; }
-.chip { font-family: var(--font-body); font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 6px; }
-.chip-solid { background: var(--color-primary); color: var(--color-on-primary); }
-.chip-muted { background: var(--color-surface-container-high); color: var(--color-muted); }
+.course-hero h1 {
+  max-width: 680px;
+  margin: 0;
+  color: var(--color-on-surface);
+  font-family: var(--font-heading);
+  font-size: clamp(36px, 4.3vw, 48px);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  text-wrap: balance;
+}
 
-.teacher-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
-.teacher-avatar { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: var(--color-surface-container-high); }
-.teacher-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.teacher-label { margin: 0; font-family: var(--font-body); font-size: 12px; color: var(--color-muted); }
-.teacher-row strong { font-family: var(--font-body); font-size: 15px; color: var(--color-on-surface); }
+.course-description {
+  max-width: 65ch;
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  font-family: var(--font-body);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.6;
+}
 
-.hero-cover { border-radius: var(--radius-lg); overflow: hidden; aspect-ratio: 16/9; }
-.hero-cover img { width: 100%; height: 100%; object-fit: cover; }
+.metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 0;
+}
 
-.detail-grid { display: grid; grid-template-columns: 1fr 320px; gap: 32px; }
+.metadata-item {
+  min-width: 0;
+  padding: 12px;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+}
+
+.metadata-item dt {
+  margin: 0 0 8px;
+}
+
+.metadata-item dd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metadata-item svg {
+  flex: 0 0 auto;
+}
+
+.primary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  width: auto;
+  padding: 0 32px;
+  align-self: flex-start;
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  color: var(--color-on-primary);
+  cursor: pointer;
+  font-family: var(--font-label);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  text-transform: none;
+  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.hero-action {
+  width: 100%;
+  align-self: stretch;
+  margin-top: 4px;
+}
+
+.primary-action:hover:not(:disabled) {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-soft);
+}
+
+.primary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
 
 .tab-nav {
-  display: flex; gap: 2px; margin-bottom: 24px;
-  background: var(--color-surface-card); border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-md); padding: 4px;
+  display: flex;
+  gap: 32px;
+  padding: 0;
+  overflow-x: auto;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-outline-light);
+  border-radius: 0;
 }
 
 .tab-btn {
-  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 10px 16px; border: none; background: none; color: var(--color-muted);
-  font-family: var(--font-body); font-size: 13px; font-weight: 500;
-  cursor: pointer; border-radius: var(--radius-sm); transition: background 0.15s, color 0.15s;
-}
-.tab-btn.active { background: var(--color-surface-container-high); color: var(--color-on-surface); }
-
-.tab-content { min-height: 300px; }
-
-.tab-panel { display: flex; flex-direction: column; gap: 16px; }
-
-.panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.panel-header h3 { margin: 0; font-family: var(--font-heading); font-size: 20px; font-weight: 600; color: var(--color-on-surface); }
-
-.btn-add {
-  display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;
-  border: 1px solid var(--color-outline-light); border-radius: var(--radius-sm);
-  background: none; color: var(--color-on-surface); font-family: var(--font-body);
-  font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.15s;
-}
-.btn-add:hover { background: var(--color-surface-container); }
-
-.empty-tab {
-  display: flex; flex-direction: column; align-items: center; gap: 12px;
-  padding: 48px 24px; color: var(--color-muted); text-align: center;
-}
-.empty-tab p { margin: 0; font-family: var(--font-body); font-size: 14px; }
-
-.forum-list, .bank-list, .file-list { display: flex; flex-direction: column; gap: 8px; }
-
-.forum-item, .bank-item, .file-item {
-  display: flex; align-items: center; gap: 12px; padding: 14px 16px;
-  background: var(--color-surface-card); border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm); cursor: pointer; transition: border-color 0.15s; text-decoration: none; color: inherit;
-}
-.forum-item:hover, .bank-item:hover, .file-item:hover { border-color: var(--color-on-surface); }
-
-.forum-icon, .bank-icon {
-  width: 36px; height: 36px; display: grid; place-items: center;
-  background: var(--color-surface-container-high); border-radius: 10px; color: var(--color-on-surface); flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: max-content;
+  min-height: 42px;
+  padding: 0 0 11px;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-family: var(--font-label);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
-.forum-info, .bank-info { flex: 1; min-width: 0; }
-.forum-info h4, .bank-info h4 { margin: 0; font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-on-surface); }
-.forum-info p, .bank-info p { margin: 2px 0 0; font-family: var(--font-body); font-size: 12px; color: var(--color-muted); }
-
-.forum-stats { font-family: var(--font-body); font-size: 12px; color: var(--color-muted); }
-
-.btn-practice {
-  padding: 6px 14px; border: 1px solid var(--color-outline-light); border-radius: var(--radius-sm);
-  background: none; color: var(--color-on-surface); font-family: var(--font-body);
-  font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.15s;
-}
-.btn-practice:hover { background: var(--color-surface-container); }
-
-.file-item span { font-family: var(--font-body); font-size: 13px; color: var(--color-on-surface); }
-.file-visibility { font-size: 11px !important; color: var(--color-muted) !important; margin-left: auto; }
-
-.action-rail {
-  display: flex; flex-direction: column; gap: 24px;
-  background: var(--color-surface-card); border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-lg); padding: 28px; position: sticky; top: 24px; height: fit-content;
-}
-.action-rail section { display: flex; flex-direction: column; gap: 12px; }
-.action-rail h2 { margin: 0; font-family: var(--font-heading); font-size: 20px; font-weight: 600; color: var(--color-on-surface); }
-
-.capacity-header { display: flex; justify-content: space-between; align-items: baseline; }
-.capacity-header span { font-family: var(--font-body); font-size: 13px; color: var(--color-muted); }
-.capacity-header strong { font-family: var(--font-body); font-size: 16px; font-weight: 400; color: var(--color-primary); }
-
-.capacity-track { height: 4px; overflow: hidden; background: var(--color-surface-container-high); }
-.capacity-track span { display: block; height: 100%; background: var(--color-primary); transition: width 0.2s ease; }
-
-.date-list { display: flex; flex-direction: column; gap: 12px; padding: 24px 0; border-top: 1px solid var(--color-outline-light); border-bottom: 1px solid var(--color-outline-light); }
-.date-list div { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.date-list span { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-body); font-size: 13px; color: var(--color-muted); }
-.date-list strong { color: var(--color-primary); font-family: var(--font-body); font-size: 14px; font-weight: 400; }
-
-.enroll-button, .secondary-button {
-  min-height: 48px; border-radius: var(--radius-sm); font-family: var(--font-body);
-  font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
-  cursor: pointer; transition: background 0.2s, color 0.2s, opacity 0.2s;
-}
-.enroll-button { width: 100%; padding: 16px 24px; border: none; background: var(--color-primary); color: var(--color-on-primary); }
-.enroll-button:hover:not(:disabled) { background: var(--color-outline); }
-.enroll-button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.secondary-button { padding: 0 24px; border: 1px solid var(--color-primary); background: transparent; color: var(--color-primary); }
-.secondary-button:hover { background: var(--color-primary); color: var(--color-on-primary); }
-
-.empty-state { min-height: 420px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; color: var(--color-on-surface-variant); }
-.empty-state h1 { margin: 0; color: var(--color-primary); font-family: var(--font-heading); font-size: clamp(32px, 5vw, 48px); font-weight: 600; }
-
-.skeleton-title { width: min(760px, 90%); height: 86px; border-radius: 24px; }
-.skeleton-cover { aspect-ratio: 16 / 9; width: 100%; border-radius: 48px; }
-.skeleton-line { width: min(680px, 100%); height: 20px; border-radius: 8px; }
-.skeleton-line.short { width: min(420px, 68%); }
-.skeleton-rail { min-height: 360px; }
-
-.shimmer { background: linear-gradient(110deg, var(--color-surface-container-high) 8%, var(--color-surface-canvas) 18%, var(--color-surface-container-high) 33%); background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite; }
-@keyframes shimmer { to { background-position-x: -200%; } }
-
-@media (max-width: 1024px) {
-  .course-hero { grid-template-columns: 1fr; }
-  .detail-grid { grid-template-columns: 1fr; }
-  .action-rail { position: static; }
+.tab-btn:hover,
+.tab-btn:focus-visible {
+  background: transparent;
+  color: var(--color-on-surface);
 }
 
-@media (max-width: 640px) {
-  .course-hero { padding: 20px; }
-  .hero-content h1 { font-size: 28px; }
-  .tab-btn { font-size: 12px; padding: 8px 10px; }
+.tab-btn.active {
+  background: transparent;
+  border-bottom-color: var(--color-primary);
+  color: var(--color-on-surface);
 }
-.member-list { display: flex; flex-direction: column; gap: 0; }
-.member-item {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 0; border-bottom: 1px solid var(--color-border, #2a2a2a);
+
+.tab-content {
+  min-height: 360px;
 }
-.member-item:last-child { border-bottom: none; }
-.member-avatar {
-  width: 36px; height: 36px; border-radius: 50%; overflow: hidden;
-  background: var(--color-surface, #1a1a1a); display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; color: var(--color-muted);
+
+.tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
-.member-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.member-info { flex: 1; min-width: 0; }
-.member-info strong { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.member-info span { font-size: 12px; color: var(--color-muted); }
-.count-badge {
-  background: var(--color-surface, #1a1a1a); padding: 2px 8px; border-radius: 10px;
-  font-size: 12px; color: var(--color-muted);
+
+.cover-frame {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--color-surface-container-high);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+}
+
+.cover-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.teaching-team-panel,
+.enrollment-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+}
+
+.team-lead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-outline-light);
+}
+
+.team-avatar,
+.assistant-avatar {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--color-surface-container-high);
+  border: 1px solid var(--color-outline-light);
+  border-radius: 50%;
+  color: var(--color-on-surface);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.team-avatar {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+}
+
+.team-avatar img,
+.assistant-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.team-copy {
+  min-width: 0;
+}
+
+.team-copy strong {
+  display: block;
+  overflow: hidden;
+  color: var(--color-on-surface);
+  font-family: var(--font-label);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-copy span,
+.assistant-row > span {
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.assistant-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.assistant-stack {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+
+.assistant-avatar {
+  width: 32px;
+  height: 32px;
+  margin-left: -8px;
+}
+
+.assistant-avatar:last-child {
+  margin-left: 0;
+}
+
+.assistant-avatar.empty {
+  margin-left: 0;
+  color: var(--color-muted);
+}
+
+.capacity-block,
+.admin-actions,
+.date-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.capacity-block,
+.admin-actions {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-outline-light);
+}
+
+.year-badge {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 24px;
+  align-items: center;
+  padding: 0 8px;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-on-surface);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.capacity-block h3 {
+  margin: 0;
+  color: var(--color-on-surface);
+  font-family: var(--font-label);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.capacity-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.capacity-track {
+  height: 4px;
+  overflow: hidden;
+  background: var(--color-surface-container-high);
+  border-radius: 999px;
+}
+
+.capacity-track span {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+}
+
+.admin-actions h3 {
+  margin: 0 0 2px;
+}
+
+.secondary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px;
+  min-height: 40px;
+  width: 100%;
+  padding: 0 12px;
+  background: transparent;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-on-surface);
+  cursor: pointer;
+  font-family: var(--font-label);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.secondary-action:hover,
+.secondary-action:focus-visible {
+  background: var(--color-surface-container);
+  border-color: var(--color-outline);
+}
+
+.date-list {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.date-list div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.date-list span,
+.date-list strong {
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.date-list strong {
+  color: var(--color-on-surface);
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-outline-light);
+}
+
+.panel-header h2 {
+  margin: 6px 0 0;
+  color: var(--color-on-surface);
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.empty-state {
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.empty-state h1 {
+  margin: 0;
+  color: var(--color-on-surface);
+  font-family: var(--font-heading);
+  font-size: clamp(32px, 5vw, 48px);
+  font-weight: 600;
+}
+
+.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 22px;
+  background: transparent;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-on-surface);
+  cursor: pointer;
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.secondary-button:hover {
+  background: var(--color-surface-container-high);
+  border-color: var(--color-outline);
+}
+
+.loading-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 48px;
+  align-items: start;
+}
+
+.loading-main,
+.skeleton-rail {
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+}
+
+.loading-main {
+  display: grid;
+  gap: 16px;
+  padding: 28px;
+}
+
+.skeleton-kicker {
+  width: 140px;
+  height: 16px;
+}
+
+.skeleton-title {
+  width: min(760px, 90%);
+  height: 88px;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-cover {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-line {
+  width: min(680px, 100%);
+  height: 18px;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-line.short {
+  width: min(420px, 68%);
+}
+
+.skeleton-rail {
+  min-height: 360px;
+}
+
+.shimmer {
+  background: linear-gradient(
+    110deg,
+    var(--color-surface-container-high) 8%,
+    var(--color-surface-canvas) 18%,
+    var(--color-surface-container-high) 33%
+  );
+  background-size: 200% 100%;
+}
+
+@media (max-width: 1180px) {
+  .detail-canvas,
+  .loading-layout {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .course-main-column,
+  .course-side-column {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .course-detail-page {
+    padding-bottom: 32px;
+  }
+
+  .course-main-column,
+  .course-side-column {
+    gap: 24px;
+  }
+
+  .course-hero h1 {
+    font-size: 32px;
+  }
+
+  .course-description {
+    font-size: 16px;
+  }
+
+  .metadata-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hero-action {
+    width: 100%;
+  }
+
+  .tab-nav {
+    gap: 24px;
+  }
+}
+
+@media (max-width: 520px) {
+  .metadata-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .assistant-row,
+  .date-list div {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 </style>

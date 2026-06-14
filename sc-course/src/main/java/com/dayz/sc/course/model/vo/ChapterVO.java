@@ -20,6 +20,7 @@ public record ChapterVO(
         @JsonProperty("status") int status,
         @JsonProperty("viewCount") long viewCount,
         @JsonProperty("likeCount") long likeCount,
+        @JsonProperty("likedByMe") boolean likedByMe,
         @JsonProperty("children") @Nullable List<ChapterVO> children,
         @JsonProperty("createdAt") Instant createdAt,
         @JsonProperty("updatedAt") Instant updatedAt

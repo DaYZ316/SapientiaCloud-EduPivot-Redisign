@@ -11,7 +11,6 @@ public record CreateForumReplyRequest(
         @NotBlank String content,
         UUID parentReplyId,
         UUID replyToUserId,
-        int isAnonymous,
         List<String> attachmentUrls,
         List<String> imageUrls
 ) {}

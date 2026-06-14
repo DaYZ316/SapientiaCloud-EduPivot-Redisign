@@ -19,22 +19,14 @@
           <textarea v-model="form.content" class="textarea" rows="10" :placeholder="t('forum.postContent')"></textarea>
         </div>
 
-        <div class="field-row">
-          <div class="field">
-            <label>{{ t('forum.postType') }}</label>
-            <select v-model="form.postType" class="input">
-              <option :value="0">普通帖子</option>
-              <option :value="1">提问</option>
-              <option :value="2">分享</option>
-              <option :value="3">资源</option>
-            </select>
-          </div>
-          <div class="field checkbox-field">
-            <label class="checkbox-label">
-              <input v-model="form.isAnonymous" type="checkbox"/>
-              {{ t('forum.anonymous') }}
-            </label>
-          </div>
+        <div class="field">
+          <label>{{ t('forum.postType') }}</label>
+          <select v-model="form.postType" class="input">
+            <option :value="0">普通帖子</option>
+            <option :value="1">提问</option>
+            <option :value="2">分享</option>
+            <option :value="3">资源</option>
+          </select>
         </div>
       </div>
 
@@ -71,7 +63,6 @@ const form = reactive({
   title: '',
   content: '',
   postType: 0,
-  isAnonymous: false,
 })
 
 watch(() => props.visible, (val) => {
@@ -79,7 +70,6 @@ watch(() => props.visible, (val) => {
     form.title = ''
     form.content = ''
     form.postType = 0
-    form.isAnonymous = false
   }
 })
 
@@ -90,7 +80,6 @@ function handleSave() {
     title: form.title,
     content: form.content,
     postType: form.postType,
-    isAnonymous: form.isAnonymous ? 1 : 0,
   })
 }
 </script>
@@ -198,29 +187,6 @@ select.input:focus {
 .textarea {
   resize: vertical;
   min-height: 80px;
-}
-
-.field-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  align-items: start;
-}
-
-.checkbox-field {
-  display: flex;
-  align-items: center;
-  padding-top: 24px;
-}
-
-.checkbox-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-body);
-  font-size: 14px;
-  color: var(--color-on-surface);
-  cursor: pointer;
 }
 
 .editor-footer {

@@ -44,5 +44,11 @@
     backToBank: '返回题库',
     noQuestions: '暂无题目',
     noQuestionsDesc: '还没有添加任何题目',
+    bankTypePractice: '练习',
+    bankTypeExam: '考试',
+    bankTypeHomework: '作业',
+    difficultyEasy: '简单',
+    difficultyMedium: '中等',
+    difficultyHard: '困难',
   },
 }

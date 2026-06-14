@@ -853,9 +853,13 @@ function handleUserListScroll(event: Event) {
 }
 
 const filteredUsers = computed(() => {
-  if (!userSearchQuery.value.trim()) return availableUsers.value
+  // 排除当前用户（不能给自己发通知）
+  const candidates = authStore.user?.id
+    ? availableUsers.value.filter(user => user.id !== authStore.user!.id)
+    : availableUsers.value
+  if (!userSearchQuery.value.trim()) return candidates
   const query = userSearchQuery.value.toLowerCase()
-  return availableUsers.value.filter(user =>
+  return candidates.filter(user =>
     user.displayName?.toLowerCase().includes(query) ||
     user.email?.toLowerCase().includes(query)
   )

@@ -38,9 +38,6 @@ public class ForumReply {
     @TableField("reply_to_user_id")
     private UUID replyToUserId;
 
-    @TableField("is_anonymous")
-    private Integer isAnonymous;
-
     @TableField(typeHandler = JacksonTypeHandler.class)
     private List<String> attachmentUrls;
 

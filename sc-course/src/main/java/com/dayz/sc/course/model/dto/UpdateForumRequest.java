@@ -8,7 +8,6 @@ public record UpdateForumRequest(
         @Size(max = 200) String forumName,
         @Size(max = 2000) String description,
         Integer forumType,
-        Integer allowAnonymous,
         List<String> tags,
         Integer status
 ) {}

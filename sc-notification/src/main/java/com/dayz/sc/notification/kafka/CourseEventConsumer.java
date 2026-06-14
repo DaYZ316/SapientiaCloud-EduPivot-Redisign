@@ -110,12 +110,19 @@ public class CourseEventConsumer {
         log.info("Received CourseStatusChangedEvent for course: {} action: {}", event.courseId(), event.action());
         String title;
         String content;
-        if ("PUBLISHED".equals(event.action())) {
-            title = "课程已发布";
-            content = "课程「" + event.courseTitle() + "」已发布，快来查看吧";
-        } else {
-            title = "课程已归档";
-            content = "课程「" + event.courseTitle() + "」已归档";
+        switch (event.action()) {
+            case "PUBLISHED" -> {
+                title = "课程已发布";
+                content = "课程「" + event.courseTitle() + "」已发布，快来查看吧";
+            }
+            case "DRAFT" -> {
+                title = "课程已设为草稿";
+                content = "课程「" + event.courseTitle() + "」已设置为草稿";
+            }
+            default -> {
+                title = "课程已归档";
+                content = "课程「" + event.courseTitle() + "」已归档";
+            }
         }
 
         Notification notification = new Notification();

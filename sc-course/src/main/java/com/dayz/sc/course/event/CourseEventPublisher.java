@@ -11,7 +11,6 @@ import com.dayz.sc.course.model.entity.Course;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import com.dayz.sc.common.util.UuidV7Generator;
 import org.springframework.beans.factory.ObjectProvider;
@@ -24,7 +23,6 @@ import org.springframework.stereotype.Component;
 public class CourseEventPublisher {
 
     private final ObjectProvider<KafkaTemplate<String, Object>> kafkaTemplateProvider;
-    private final ObjectProvider<ObjectMapper> objectMapperProvider;
 
     public void publishCourseCreated(Course course) {
         if (course == null || course.getId() == null) {
@@ -81,7 +79,7 @@ public class CourseEventPublisher {
         CourseStatusChangedEvent event = new CourseStatusChangedEvent(
                 UuidV7Generator.generate(), courseId, courseTitle, teacherId, action,
                 "COURSE_STATUS_CHANGED", Instant.now(), "sc-course");
-        kafkaTemplate.send(KafkaTopicConstants.COURSE_EVENTS, courseId.toString(), toJson(event))
+        kafkaTemplate.send(KafkaTopicConstants.COURSE_EVENTS, courseId.toString(), event)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
                         log.error("Failed to publish CourseStatusChangedEvent for course {}", courseId, ex);
@@ -103,7 +101,7 @@ public class CourseEventPublisher {
                 UuidV7Generator.generate(), courseId, courseTitle,
                 studentId, studentName, teacherId, action,
                 "ENROLLMENT_CHANGED", Instant.now(), "sc-course");
-        kafkaTemplate.send(KafkaTopicConstants.COURSE_EVENTS, courseId.toString(), toJson(event))
+        kafkaTemplate.send(KafkaTopicConstants.COURSE_EVENTS, courseId.toString(), event)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
                         log.error("Failed to publish EnrollmentChangedEvent for course {}", courseId, ex);
@@ -126,7 +124,7 @@ public class CourseEventPublisher {
                 UuidV7Generator.generate(), courseId, courseTitle,
                 inviterId, inviterName, inviteeId, inviteeName, action,
                 "INVITATION_CHANGED", Instant.now(), "sc-course");
-        kafkaTemplate.send(KafkaTopicConstants.COURSE_EVENTS, courseId.toString(), toJson(event))
+        kafkaTemplate.send(KafkaTopicConstants.COURSE_EVENTS, courseId.toString(), event)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
                         log.error("Failed to publish InvitationChangedEvent for course {}", courseId, ex);
@@ -134,16 +132,5 @@ public class CourseEventPublisher {
                         log.debug("Published InvitationChangedEvent for course {}", courseId);
                     }
                 });
-    }
-
-    private String toJson(Object event) {
-        try {
-            ObjectMapper mapper = objectMapperProvider.getIfAvailable();
-            if (mapper == null) return null;
-            return mapper.writeValueAsString(event);
-        } catch (Exception e) {
-            log.error("Failed to serialize event to JSON", e);
-            return null;
-        }
     }
 }

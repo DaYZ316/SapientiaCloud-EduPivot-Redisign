@@ -20,7 +20,7 @@
           </div>
           <h1 class="post-title">{{ post.title }}</h1>
           <div class="post-meta">
-            <span class="author">{{ post.isAnonymous ? t('forum.anonymousUser') : '' }}</span>
+            <span class="author"></span>
             <span class="time">{{ formatTime(post.createdAt) }}</span>
             <span><Eye :size="14"/> {{ post.viewCount }} {{ t('forum.views') }}</span>
             <span><Heart :size="14"/> {{ post.likeCount }} {{ t('forum.likes') }}</span>
@@ -123,7 +123,7 @@ function handleReplyTo(reply: ForumReply) {
   replyingTo.value = reply
 }
 
-async function handleCreateReply(content: string, isAnonymous: boolean, replyToUserId?: string | null) {
+async function handleCreateReply(content: string, replyToUserId?: string | null) {
   if (!post.value) return
   try {
     await createReply({
@@ -133,7 +133,6 @@ async function handleCreateReply(content: string, isAnonymous: boolean, replyToU
       content,
       parentReplyId: replyingTo.value?.id || null,
       replyToUserId: replyToUserId || replyingTo.value?.sysUserId || null,
-      isAnonymous: isAnonymous ? 1 : 0,
     })
     replyingTo.value = null
     notify.success('回复成功')

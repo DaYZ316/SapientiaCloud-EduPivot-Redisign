@@ -1,6 +1,7 @@
 export type StorageUsage =
   | 'USER_AVATAR'
   | 'COURSE_COVER'
+  | 'FORUM_IMAGE'
   | 'COURSE_PUBLIC_FILE'
   | 'COURSE_PRIVATE_FILE'
   | 'AI_FILE'

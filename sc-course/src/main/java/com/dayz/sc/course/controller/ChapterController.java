@@ -7,10 +7,12 @@ import com.dayz.sc.common.security.support.JwtPrincipalResolver;
 import com.dayz.sc.course.model.dto.CreateChapterRequest;
 import com.dayz.sc.course.model.dto.ChapterPageRequest;
 import com.dayz.sc.course.model.dto.UpdateChapterRequest;
+import com.dayz.sc.course.model.vo.ChapterInteractionVO;
 import com.dayz.sc.course.model.vo.ChapterVO;
 import com.dayz.sc.course.service.ChapterService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -42,20 +44,29 @@ public class ChapterController {
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<ChapterVO> getChapter(@PathVariable UUID id) {
-        ChapterVO chapter = chapterService.getChapter(id);
+    public ApiResponse<ChapterVO> getChapter(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal @Nullable Jwt jwt) {
+        UUID userId = jwt != null ? JwtPrincipalResolver.userId(jwt) : null;
+        ChapterVO chapter = chapterService.getChapter(id, userId);
         return ApiResponse.ok(chapter);
     }
 
     @GetMapping("/course/{courseId}")
-    public ApiResponse<List<ChapterVO>> listChaptersByCourse(@PathVariable UUID courseId) {
-        List<ChapterVO> chapters = chapterService.listChaptersByCourse(courseId);
+    public ApiResponse<List<ChapterVO>> listChaptersByCourse(
+            @PathVariable UUID courseId,
+            @AuthenticationPrincipal @Nullable Jwt jwt) {
+        UUID userId = jwt != null ? JwtPrincipalResolver.userId(jwt) : null;
+        List<ChapterVO> chapters = chapterService.listChaptersByCourse(courseId, userId);
         return ApiResponse.ok(chapters);
     }
 
     @GetMapping("/course/{courseId}/tree")
-    public ApiResponse<List<ChapterVO>> getChapterTree(@PathVariable UUID courseId) {
-        List<ChapterVO> tree = chapterService.getChapterTree(courseId);
+    public ApiResponse<List<ChapterVO>> getChapterTree(
+            @PathVariable UUID courseId,
+            @AuthenticationPrincipal @Nullable Jwt jwt) {
+        UUID userId = jwt != null ? JwtPrincipalResolver.userId(jwt) : null;
+        List<ChapterVO> tree = chapterService.getChapterTree(courseId, userId);
         return ApiResponse.ok(tree);
     }
 
@@ -80,5 +91,35 @@ public class ChapterController {
         Integer role = JwtPrincipalResolver.role(jwt);
         chapterService.deleteChapter(id, userId, role);
         return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/{id}/view")
+    public ApiResponse<ChapterInteractionVO> viewChapter(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        ChapterInteractionVO interaction = chapterService.viewChapter(id, userId, role);
+        return ApiResponse.ok(interaction);
+    }
+
+    @PostMapping("/{id}/like")
+    public ApiResponse<ChapterInteractionVO> likeChapter(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        ChapterInteractionVO interaction = chapterService.likeChapter(id, userId, role);
+        return ApiResponse.ok(interaction);
+    }
+
+    @DeleteMapping("/{id}/like")
+    public ApiResponse<ChapterInteractionVO> unlikeChapter(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        ChapterInteractionVO interaction = chapterService.unlikeChapter(id, userId, role);
+        return ApiResponse.ok(interaction);
     }
 }

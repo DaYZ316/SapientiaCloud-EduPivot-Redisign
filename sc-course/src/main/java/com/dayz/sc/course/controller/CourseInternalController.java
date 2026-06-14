@@ -8,6 +8,7 @@ import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.course.model.entity.Course;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
 import com.dayz.sc.course.model.vo.CourseAccessVO;
+import com.dayz.sc.course.repository.CourseTeacherRepository;
 import com.dayz.sc.course.repository.CourseRepository;
 import com.dayz.sc.course.repository.EnrollmentRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class CourseInternalController {
 
     private final CourseRepository courseRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final CourseTeacherRepository courseTeacherRepository;
 
     @GetMapping("/{courseId}/access")
     public ApiResponse<CourseAccessVO> access(@PathVariable UUID courseId,
@@ -35,6 +37,7 @@ public class CourseInternalController {
 
         boolean admin = SecurityUtils.isAdmin(role);
         boolean isPrimaryTeacher = course.getTeacherId().equals(userId);
+        boolean courseTeacher = courseTeacherRepository.existsByCourseIdAndTeacherId(courseId, userId);
         boolean manager = admin || isPrimaryTeacher;
         boolean enrolled = enrollmentRepository.findByCourseIdAndStudentId(courseId, userId)
                 .map(enrollment -> enrollment.getStatus() == EnrollmentStatus.ACTIVE.getCode()
@@ -45,7 +48,7 @@ public class CourseInternalController {
                 courseId,
                 manager,
                 true,
-                manager || enrolled,
+                manager || courseTeacher || enrolled,
                 isPrimaryTeacher
         ));
     }

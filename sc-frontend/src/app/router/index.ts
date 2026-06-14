@@ -54,8 +54,48 @@ export const router = createRouter({
                 },
                 {
                     path: 'courses/:id',
-                    name: 'course-detail',
                     component: () => import('@/features/course/views/CourseDetailView.vue'),
+                    children: [
+                        {
+                            path: '',
+                            redirect: () => ({name: 'course-overview'}),
+                        },
+                        {
+                            path: 'overview',
+                            name: 'course-overview',
+                            component: () => import('@/features/course/views/course-detail/CourseOverview.vue'),
+                        },
+                        {
+                            path: 'chapters',
+                            name: 'course-chapters',
+                            component: () => import('@/features/course/views/course-detail/CourseChapters.vue'),
+                        },
+                        {
+                            path: 'forums',
+                            name: 'course-forums',
+                            component: () => import('@/features/course/views/course-detail/CourseForums.vue'),
+                        },
+                        {
+                            path: 'banks',
+                            name: 'course-banks',
+                            component: () => import('@/features/course/views/course-detail/CourseBanks.vue'),
+                        },
+                        {
+                            path: 'files',
+                            name: 'course-files',
+                            component: () => import('@/features/course/views/course-detail/CourseFiles.vue'),
+                        },
+                        {
+                            path: 'students',
+                            name: 'course-students',
+                            component: () => import('@/features/course/views/course-detail/CourseStudents.vue'),
+                        },
+                        {
+                            path: 'assistants',
+                            name: 'course-assistants',
+                            component: () => import('@/features/course/views/course-detail/CourseAssistants.vue'),
+                        },
+                    ],
                 },
                 {
                     path: 'courses/:courseId/chapters/:chapterId',

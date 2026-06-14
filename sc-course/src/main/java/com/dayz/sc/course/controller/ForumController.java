@@ -297,4 +297,27 @@ public class ForumController {
         forumService.unlikeReply(id);
         return ApiResponse.ok(null);
     }
+
+    @PutMapping("/replies/{id}")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
+    public ApiResponse<Void> updateReply(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateForumReplyRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        forumService.updateReply(id, request, userId, role);
+        return ApiResponse.ok(null);
+    }
+
+    @DeleteMapping("/replies/{id}")
+    @RateLimited(maxRequests = 10, windowSeconds = 60)
+    public ApiResponse<Void> deleteReply(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        forumService.deleteReply(id, userId, role);
+        return ApiResponse.ok(null);
+    }
 }

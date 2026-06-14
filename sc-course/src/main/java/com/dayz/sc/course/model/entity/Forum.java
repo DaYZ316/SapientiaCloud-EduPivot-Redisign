@@ -29,9 +29,6 @@ public class Forum {
     @TableField("forum_type")
     private Integer forumType;
 
-    @TableField("allow_anonymous")
-    private Integer allowAnonymous;
-
     @TableField("post_count")
     private Long postCount;
 

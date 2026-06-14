@@ -11,9 +11,17 @@
   status: number
   viewCount: number
   likeCount: number
+  likedByMe: boolean
   children: Chapter[] | null
   createdAt: string
   updatedAt: string
+}
+
+export interface ChapterInteraction {
+  chapterId: string
+  viewCount: number
+  likeCount: number
+  likedByMe: boolean
 }
 
 export interface CreateChapterRequest {

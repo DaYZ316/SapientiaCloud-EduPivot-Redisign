@@ -28,4 +28,10 @@ public interface ChapterRepository {
     long countByCourseId(UUID courseId);
 
     boolean existsByCourseIdAndChapterName(UUID courseId, String chapterName);
+
+    void incrementViewCount(UUID id);
+
+    void incrementLikeCount(UUID id);
+
+    void decrementLikeCount(UUID id);
 }

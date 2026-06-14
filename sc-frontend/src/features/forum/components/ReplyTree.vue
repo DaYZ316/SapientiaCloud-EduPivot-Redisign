@@ -18,12 +18,31 @@
 
         <div class="reply-content">
           <div class="reply-header">
-            <span class="reply-author">{{ reply.isAnonymous ? t('forum.anonymousUser') : '' }}</span>
+            <span class="reply-author"></span>
             <span v-if="reply.isAccepted" class="accepted-badge">✓ {{ t('forum.accepted') }}</span>
             <span class="reply-time">{{ formatTime(reply.createdAt) }}</span>
           </div>
 
-          <p class="reply-text">{{ reply.content }}</p>
+          <!-- 编辑回复模式 -->
+          <div v-if="editingReplyId === reply.id" class="edit-reply-composer">
+            <textarea v-model="editingContent" class="edit-reply-textarea" rows="3"></textarea>
+            <div class="edit-reply-actions">
+              <button class="btn-cancel-edit" type="button" @click="cancelEdit">
+                <X :size="14"/>
+              </button>
+              <button class="btn-save-edit" :disabled="savingEdit || !editingContent.trim()" @click="saveEdit(reply)">
+                {{ t('forum.saveEdit') }}
+              </button>
+            </div>
+          </div>
+
+          <ForumContentPreview
+            v-else
+            class="reply-text"
+            :content="reply.content"
+            :image-urls="reply.imageUrls"
+            compact
+          />
 
           <div class="reply-actions">
             <button v-if="showLike" class="action-btn" @click="$emit('like', reply)">
@@ -33,6 +52,14 @@
             <button v-if="canReply" class="action-btn" @click="$emit('reply', reply)">
               <MessageCircle :size="14"/>
               {{ t('forum.reply') }}
+            </button>
+            <button v-if="canEditReply(reply)" class="action-btn" @click="startEdit(reply)">
+              <Pencil :size="13"/>
+              {{ t('forum.editReply') }}
+            </button>
+            <button v-if="canEditReply(reply)" class="action-btn danger" @click="handleDelete(reply)">
+              <Trash2 :size="13"/>
+              {{ t('forum.deleteReply') }}
             </button>
           </div>
 
@@ -47,14 +74,25 @@
               </div>
               <div class="reply-content">
                 <div class="reply-header">
-                  <span class="reply-author">{{ child.isAnonymous ? t('forum.anonymousUser') : '' }}</span>
+                  <span class="reply-author"></span>
                   <span class="reply-time">{{ formatTime(child.createdAt) }}</span>
                 </div>
-                <p class="reply-text">{{ child.content }}</p>
+                <ForumContentPreview
+                  class="reply-text"
+                  :content="child.content"
+                  :image-urls="child.imageUrls"
+                  compact
+                />
                 <div class="reply-actions">
                   <button v-if="showLike" class="action-btn" @click="$emit('like', child)">
                     <Heart :size="14"/>
                     {{ child.likeCount }}
+                  </button>
+                  <button v-if="canEditReply(child)" class="action-btn" @click="startEdit(child)">
+                    <Pencil :size="13"/>
+                  </button>
+                  <button v-if="canEditReply(child)" class="action-btn danger" @click="handleDelete(child)">
+                    <Trash2 :size="13"/>
                   </button>
                 </div>
               </div>
@@ -67,25 +105,77 @@
 </template>
 
 <script lang="ts" setup>
+import {ref} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {User, Heart, MessageCircle} from 'lucide-vue-next'
+import {User, Heart, MessageCircle, Pencil, Trash2, X} from 'lucide-vue-next'
+import {updateReply, deleteReply} from '@/features/forum/api/forum'
 import type {ForumReply} from '@/features/forum/types/forum'
+import {notify} from '@/shared/composables/useGlobalNotification'
+import ForumContentPreview from '@/features/forum/components/ForumContentPreview.vue'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   replies: ForumReply[]
   showLike?: boolean
   canReply?: boolean
+  currentUserId?: string
+  canManage?: boolean
 }>(), {
   showLike: true,
   canReply: true,
 })
 
-defineEmits<{
+const emit = defineEmits<{
   like: [reply: ForumReply]
   reply: [reply: ForumReply]
+  deleted: []
 }>()
 
 const {t} = useI18n()
+
+// 编辑回复状态
+const editingReplyId = ref<string | null>(null)
+const editingContent = ref('')
+const savingEdit = ref(false)
+
+function canEditReply(reply: ForumReply): boolean {
+  return Boolean(props.currentUserId && (reply.sysUserId === props.currentUserId || props.canManage))
+}
+
+function startEdit(reply: ForumReply) {
+  editingReplyId.value = reply.id
+  editingContent.value = reply.content
+}
+
+function cancelEdit() {
+  editingReplyId.value = null
+  editingContent.value = ''
+}
+
+async function saveEdit(reply: ForumReply) {
+  if (!editingContent.value.trim()) return
+  savingEdit.value = true
+  try {
+    await updateReply(reply.id, {content: editingContent.value})
+    reply.content = editingContent.value
+    cancelEdit()
+    notify.success(t('forum.replyUpdated'))
+  } catch {
+    notify.error(t('forum.replyFailed'))
+  } finally {
+    savingEdit.value = false
+  }
+}
+
+async function handleDelete(reply: ForumReply) {
+  if (!confirm(t('forum.confirmDeleteReply'))) return
+  try {
+    await deleteReply(reply.id)
+    notify.success(t('forum.replyDeleted'))
+    emit('deleted')
+  } catch {
+    notify.error(t('forum.replyFailed'))
+  }
+}
 
 function formatTime(dateStr: string) {
   const date = new Date(dateStr)
@@ -207,10 +297,6 @@ function formatTime(dateStr: string) {
 
 .reply-text {
   margin: 0;
-  font-family: var(--font-body);
-  font-size: 14px;
-  color: var(--color-on-surface);
-  line-height: 1.6;
 }
 
 .reply-actions {
@@ -233,6 +319,76 @@ function formatTime(dateStr: string) {
 
 .action-btn:hover {
   color: var(--color-on-surface);
+}
+
+.action-btn.danger:hover {
+  color: #ef4444;
+}
+
+.edit-reply-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.edit-reply-textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-container);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.edit-reply-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.edit-reply-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.btn-cancel-edit {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.btn-cancel-edit:hover {
+  background: var(--color-surface-container);
+  border-color: var(--color-outline);
+}
+
+.btn-save-edit {
+  padding: 4px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-save-edit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .nested-replies {

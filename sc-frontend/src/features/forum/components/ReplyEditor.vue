@@ -1,7 +1,7 @@
 ﻿<template>
   <div class="reply-editor">
     <div v-if="replyTo" class="reply-to-hint">
-      {{ t('forum.replyTo') }} {{ replyTo.isAnonymous ? t('forum.anonymousUser') : '' }}
+      {{ t('forum.replyTo') }}
       <button class="cancel-reply" @click="('cancel-reply')">
         <X :size="14"/>
       </button>
@@ -15,10 +15,6 @@
       ></textarea>
     </div>
     <div class="editor-footer">
-      <label class="checkbox-label">
-        <input v-model="isAnonymous" type="checkbox"/>
-        {{ t('forum.anonymous') }}
-      </label>
       <button
         class="btn-submit"
         :disabled="!content.trim()"
@@ -41,19 +37,17 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  submit: [content: string, isAnonymous: boolean, replyToUserId?: string | null]
+  submit: [content: string, replyToUserId?: string | null]
   'cancel-reply': []
 }>()
 
 const {t} = useI18n()
 const content = ref('')
-const isAnonymous = ref(false)
 
 function handleSubmit() {
   if (!content.value.trim()) return
-  emit('submit', content.value, isAnonymous.value, props.replyTo?.sysUserId || null)
+  emit('submit', content.value, props.replyTo?.sysUserId || null)
   content.value = ''
-  isAnonymous.value = false
 }
 </script>
 
@@ -115,17 +109,7 @@ function handleSubmit() {
 .editor-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-}
-
-.checkbox-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-body);
-  font-size: 13px;
-  color: var(--color-muted);
-  cursor: pointer;
+  justify-content: flex-end;
 }
 
 .btn-submit {

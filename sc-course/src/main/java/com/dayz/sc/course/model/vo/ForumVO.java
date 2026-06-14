@@ -13,7 +13,6 @@ public record ForumVO(
         @JsonProperty("forumName") String forumName,
         @JsonProperty("description") @Nullable String description,
         @JsonProperty("forumType") int forumType,
-        @JsonProperty("allowAnonymous") int allowAnonymous,
         @JsonProperty("postCount") long postCount,
         @JsonProperty("replyCount") long replyCount,
         @JsonProperty("status") int status,

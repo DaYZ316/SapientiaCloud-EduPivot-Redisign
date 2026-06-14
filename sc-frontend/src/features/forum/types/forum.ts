@@ -4,7 +4,6 @@
   forumName: string
   description: string | null
   forumType: number
-  allowAnonymous: number
   postCount: number
   replyCount: number
   status: number
@@ -21,7 +20,6 @@ export interface ForumPost {
   title: string
   content: string
   postType: number
-  isAnonymous: number
   attachmentUrls: string[] | null
   imageUrls: string[] | null
   tags: string[] | null
@@ -50,7 +48,8 @@ export interface ForumReply {
   content: string
   parentReplyId: string | null
   replyToUserId: string | null
-  isAnonymous: number
+  attachmentUrls: string[] | null
+  imageUrls: string[] | null
   likeCount: number
   replyCount: number
   isAccepted: number
@@ -65,7 +64,6 @@ export interface CreateForumRequest {
   forumName: string
   description?: string
   forumType?: number
-  allowAnonymous?: number
   tags?: string[]
 }
 
@@ -75,7 +73,8 @@ export interface CreatePostRequest {
   title: string
   content: string
   postType?: number
-  isAnonymous?: number
+  attachmentUrls?: string[] | null
+  imageUrls?: string[] | null
   tags?: string[]
   chapterId?: string | null
 }
@@ -87,19 +86,23 @@ export interface CreateReplyRequest {
   content: string
   parentReplyId?: string | null
   replyToUserId?: string | null
-  isAnonymous?: number
 }
 
 export interface CreateCourseCommentRequest {
   content: string
-  isAnonymous?: number
+  imageUrls?: string[] | null
 }
 
 export interface CreateCourseCommentReplyRequest {
   content: string
   parentReplyId?: string | null
   replyToUserId?: string | null
-  isAnonymous?: number
+  imageUrls?: string[] | null
+}
+
+export interface UpdateForumReplyRequest {
+  content: string
+  imageUrls?: string[] | null
 }
 
 export const ForumType: Record<number, string> = {

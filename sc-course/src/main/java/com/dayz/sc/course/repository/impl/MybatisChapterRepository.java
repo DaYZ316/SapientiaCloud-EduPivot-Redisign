@@ -86,6 +86,21 @@ public class MybatisChapterRepository implements ChapterRepository {
         return chapterMapper.selectCount(wrapper) > 0;
     }
 
+    @Override
+    public void incrementViewCount(UUID id) {
+        chapterMapper.incrementViewCount(id);
+    }
+
+    @Override
+    public void incrementLikeCount(UUID id) {
+        chapterMapper.incrementLikeCount(id);
+    }
+
+    @Override
+    public void decrementLikeCount(UUID id) {
+        chapterMapper.decrementLikeCount(id);
+    }
+
     private LambdaQueryWrapper<Chapter> buildFilterWrapper(UUID courseId, Integer status, String keyword) {
         LambdaQueryWrapper<Chapter> wrapper = new LambdaQueryWrapper<>();
         if (courseId != null) {

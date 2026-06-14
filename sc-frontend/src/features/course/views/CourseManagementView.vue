@@ -284,7 +284,7 @@
               <X :size="20"/>
             </button>
           </div>
-          <form class="modal-body course-editor-form" @submit.prevent="submitEdit">
+          <form class="modal-body course-editor-form" @submit.prevent="submitEditCourse">
             <section class="editor-section">
               <div class="editor-section-heading">
                 <span>01</span>
@@ -354,7 +354,7 @@
                 <h3>{{ t('courses.modal.sections.publishing') }}</h3>
               </div>
               <div class="editor-grid editor-grid-3">
-                <div v-if="isAdmin" class="form-group">
+                <div v-if="canEditCourseStatus" class="form-group">
                   <label>{{ t('courses.modal.statusLabel') }}</label>
                   <BaseSelect
                     v-model="editForm.status"
@@ -579,6 +579,7 @@ const isTeacherPage = computed(() => route.name === 'teacher-courses')
 const isPrimaryTeacherCourses = computed(() => teacherCourseRole.value === 'primary')
 const canManageCourses = computed(() => isAdmin.value || (isTeacher.value && isTeacherPage.value && isPrimaryTeacherCourses.value))
 const canCreateCourse = computed(() => canManageCourses.value)
+const canEditCourseStatus = computed(() => canManageCourses.value)
 const pageTitle = computed(() => isAdmin.value ? t('common.navigation.courseManagement') : t('myEnrollments.title'))
 
 // Shared state
@@ -1130,8 +1131,9 @@ function clearEditCover() {
   editForm.coverUrl = ''
 }
 
-async function submitEdit() {
-  if (!editForm.title || !editingCourse.value) return
+async function submitEditCourse() {
+  if (!editingCourse.value) return
+  if (!editForm.title) return
   submitting.value = true
   try {
     const request: UpdateCourseRequest = {
@@ -1147,7 +1149,7 @@ async function submitEdit() {
       courseType: editForm.courseType,
       isPublic: editForm.isPublic,
       maxStudents: editForm.maxStudents,
-      status: isAdmin.value ? editForm.status : undefined,
+      status: canEditCourseStatus.value ? editForm.status : undefined,
     }
     await updateCourse(editingCourse.value.id, request)
     closeEditModal()

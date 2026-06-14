@@ -19,19 +19,22 @@
         />
       </div>
       <div class="chapter-main">
-        <ChapterContent :chapter="chapter"/>
+        <ChapterContent
+          :chapter="chapter"
+          @like-toggle="handleLikeToggle"
+        />
       </div>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import {onMounted, ref} from 'vue'
+import {onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
 import {ArrowLeft} from 'lucide-vue-next'
-import {getChapter, getChapterTree} from '@/features/course/api/chapter'
-import type {Chapter} from '@/features/course/types/chapter'
+import {getChapter, getChapterTree, viewChapter, likeChapter, unlikeChapter} from '@/features/course/api/chapter'
+import type {Chapter, ChapterInteraction} from '@/features/course/types/chapter'
 import ChapterTree from '@/features/course/components/ChapterTree.vue'
 import ChapterContent from '@/features/course/components/ChapterContent.vue'
 
@@ -39,29 +42,69 @@ const {t} = useI18n()
 const route = useRoute()
 const router = useRouter()
 
-const courseId = route.params.courseId as string
-const chapterId = route.params.chapterId as string
-
 const loading = ref(true)
 const chapter = ref<Chapter | null>(null)
 const chapterTree = ref<Chapter[]>([])
 
-onMounted(async () => {
+const courseId = ref(route.params.courseId as string)
+const chapterId = ref(route.params.chapterId as string)
+
+async function loadChapter(cid: string, chid: string) {
+  loading.value = true
   try {
     const [chapterData, treeData] = await Promise.all([
-      getChapter(chapterId),
-      getChapterTree(courseId),
+      getChapter(chid),
+      getChapterTree(cid),
     ])
     chapter.value = chapterData
     chapterTree.value = treeData
+    recordView(chid)
   } finally {
     loading.value = false
   }
-})
+}
+
+function recordView(chid: string) {
+  viewChapter(chid).then((interaction: ChapterInteraction) => {
+    if (chapter.value && chapter.value.id === chid) {
+      chapter.value.viewCount = interaction.viewCount
+      chapter.value.likeCount = interaction.likeCount
+      chapter.value.likedByMe = interaction.likedByMe
+    }
+  }).catch(() => {})
+}
+
+async function handleLikeToggle() {
+  if (!chapter.value) return
+  try {
+    const interaction = chapter.value.likedByMe
+      ? await unlikeChapter(chapter.value.id)
+      : await likeChapter(chapter.value.id)
+    chapter.value.likeCount = interaction.likeCount
+    chapter.value.likedByMe = interaction.likedByMe
+  } catch {
+    // 保持服务端结果为准，不做本地回滚
+  }
+}
 
 function handleSelectChapter(ch: Chapter) {
-  router.push('/courses/' + courseId + '/chapters/' + ch.id)
+  router.push('/courses/' + courseId.value + '/chapters/' + ch.id)
 }
+
+onMounted(() => {
+  loadChapter(courseId.value, chapterId.value)
+})
+
+watch(
+  () => [route.params.courseId, route.params.chapterId],
+  ([newCourseId, newChapterId]) => {
+    if (newCourseId && newChapterId) {
+      courseId.value = newCourseId as string
+      chapterId.value = newChapterId as string
+      loadChapter(newCourseId as string, newChapterId as string)
+    }
+  }
+)
 </script>
 
 <style scoped>

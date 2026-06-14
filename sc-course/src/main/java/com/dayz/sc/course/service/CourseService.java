@@ -152,7 +152,7 @@ public class CourseService {
 
         // 发布课程状态变更事件
         if (request.status() != null && !Objects.equals(previousStatus, request.status())) {
-            String action = CourseStatus.PUBLISHED.getCode() == request.status() ? "PUBLISHED" : "ARCHIVED";
+            String action = CourseStatus.fromCode(request.status()).name();
             courseEventPublisher.publishCourseStatusChanged(
                     course.getId(), course.getTitle(), course.getTeacherId(), action);
         }

@@ -15,7 +15,6 @@ public record ForumPostVO(
         @JsonProperty("title") String title,
         @JsonProperty("content") String content,
         @JsonProperty("postType") int postType,
-        @JsonProperty("isAnonymous") int isAnonymous,
         @JsonProperty("attachmentUrls") @Nullable List<String> attachmentUrls,
         @JsonProperty("imageUrls") @Nullable List<String> imageUrls,
         @JsonProperty("tags") @Nullable List<String> tags,

@@ -342,6 +342,8 @@ public class StorageService {
                     limits.getAvatarBytes(), IMAGE_TYPES);
             case COURSE_COVER -> new FilePolicy(bucket.getMedia(), StorageVisibility.PUBLIC_READ,
                     limits.getCourseCoverBytes(), IMAGE_TYPES);
+            case FORUM_IMAGE -> new FilePolicy(bucket.getCourse(), StorageVisibility.COURSE_PRIVATE,
+                    limits.getCourseCoverBytes(), IMAGE_TYPES);
             case COURSE_PUBLIC_FILE -> new FilePolicy(bucket.getCourse(), StorageVisibility.AUTHENTICATED,
                     limits.getCourseFileBytes(), COURSE_FILE_TYPES);
             case COURSE_PRIVATE_FILE -> new FilePolicy(bucket.getCourse(), StorageVisibility.COURSE_PRIVATE,

@@ -44,5 +44,11 @@
     backToBank: 'Back to Bank',
     noQuestions: 'No questions yet',
     noQuestionsDesc: 'No questions added',
+    bankTypePractice: 'Practice',
+    bankTypeExam: 'Exam',
+    bankTypeHomework: 'Homework',
+    difficultyEasy: 'Easy',
+    difficultyMedium: 'Medium',
+    difficultyHard: 'Hard',
   },
 }
