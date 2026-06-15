@@ -138,11 +138,11 @@ function getNotificationIcon(type: string) {
 
 .welcome-section h1 {
   margin: 0;
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 48px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
-  line-height: 1.2;
+  line-height: 1.3;
 }
 
 /* ---- Dashboard Grid ---- */
@@ -185,7 +185,7 @@ function getNotificationIcon(type: string) {
 }
 
 .stat-value {
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 48px;
   font-weight: 700;
   color: var(--color-on-surface);
@@ -209,9 +209,9 @@ function getNotificationIcon(type: string) {
 
 .section-header h2 {
   margin: 0;
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 
@@ -235,7 +235,7 @@ function getNotificationIcon(type: string) {
 }
 
 .notification-item.unread .notification-title {
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .notification-icon {
@@ -329,9 +329,9 @@ function getNotificationIcon(type: string) {
 
 .profile-name {
   margin: 0 0 4px;
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 
@@ -348,7 +348,7 @@ function getNotificationIcon(type: string) {
   margin: 0 0 20px;
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--color-muted);

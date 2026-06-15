@@ -12,18 +12,23 @@
         class="reply-item"
         :class="{accepted: reply.isAccepted}"
       >
-        <div class="reply-avatar">
-          <User :size="16"/>
-        </div>
+        <UserAvatarLink
+          :user-id="reply.sysUserId"
+          :display-name="userMap[reply.sysUserId]?.displayName"
+          :avatar-url="userMap[reply.sysUserId]?.avatarUrl"
+          :role="userMap[reply.sysUserId]?.role"
+          size="small"
+          :show-name="true"
+          :linkable="false"
+        />
 
         <div class="reply-content">
           <div class="reply-header">
-            <span class="reply-author"></span>
+            <span class="reply-author">{{ userMap[reply.sysUserId]?.displayName || '' }}</span>
             <span v-if="reply.isAccepted" class="accepted-badge">✓ {{ t('forum.accepted') }}</span>
             <span class="reply-time">{{ formatTime(reply.createdAt) }}</span>
           </div>
 
-          <!-- 编辑回复模式 -->
           <div v-if="editingReplyId === reply.id" class="edit-reply-composer">
             <textarea v-model="editingContent" class="edit-reply-textarea" rows="3"></textarea>
             <div class="edit-reply-actions">
@@ -69,12 +74,18 @@
               :key="child.id"
               class="reply-item nested"
             >
-              <div class="reply-avatar small">
-                <User :size="12"/>
-              </div>
+              <UserAvatarLink
+                :user-id="child.sysUserId"
+                :display-name="userMap[child.sysUserId]?.displayName"
+                :avatar-url="userMap[child.sysUserId]?.avatarUrl"
+                :role="userMap[child.sysUserId]?.role"
+                size="tiny"
+                :show-name="true"
+                :linkable="false"
+              />
               <div class="reply-content">
                 <div class="reply-header">
-                  <span class="reply-author"></span>
+                  <span class="reply-author">{{ userMap[child.sysUserId]?.displayName || '' }}</span>
                   <span class="reply-time">{{ formatTime(child.createdAt) }}</span>
                 </div>
                 <ForumContentPreview
@@ -107,11 +118,13 @@
 <script lang="ts" setup>
 import {ref} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {User, Heart, MessageCircle, Pencil, Trash2, X} from 'lucide-vue-next'
+import {Heart, MessageCircle, Pencil, Trash2, X} from 'lucide-vue-next'
 import {updateReply, deleteReply} from '@/features/forum/api/forum'
 import type {ForumReply} from '@/features/forum/types/forum'
+import type {UserBasicInfo} from '@/features/user/types/user'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import ForumContentPreview from '@/features/forum/components/ForumContentPreview.vue'
+import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 
 const props = withDefaults(defineProps<{
   replies: ForumReply[]
@@ -119,9 +132,11 @@ const props = withDefaults(defineProps<{
   canReply?: boolean
   currentUserId?: string
   canManage?: boolean
+  userMap?: Record<string, UserBasicInfo>
 }>(), {
   showLike: true,
   canReply: true,
+  userMap: () => ({}),
 })
 
 const emit = defineEmits<{
@@ -132,7 +147,6 @@ const emit = defineEmits<{
 
 const {t} = useI18n()
 
-// 编辑回复状态
 const editingReplyId = ref<string | null>(null)
 const editingContent = ref('')
 const savingEdit = ref(false)
@@ -275,14 +289,14 @@ function formatTime(dateStr: string) {
 .reply-author {
   font-family: var(--font-body);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 
-.accepted-badge {
+            <span v-if="reply.isAccepted" class="accepted-badge">✓ {{ t('forum.accepted') }}</span>
   font-family: var(--font-body);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 400;
   color: #22c55e;
   background: rgba(34, 197, 94, 0.12);
   padding: 1px 6px;
@@ -382,7 +396,7 @@ function formatTime(dateStr: string) {
   color: var(--color-on-primary);
   font-family: var(--font-body);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   cursor: pointer;
 }
 

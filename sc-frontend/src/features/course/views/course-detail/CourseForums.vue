@@ -11,7 +11,6 @@
       :can-comment="canComment"
       :can-manage-course="canManageCourse"
       :current-user-id="currentUserId"
-      :course-is-public="course?.isPublic === 1"
     />
   </section>
 </template>
@@ -45,7 +44,7 @@ const {t} = useI18n()
   color: var(--color-muted);
   font-family: var(--font-label);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1;
   letter-spacing: 0.05em;
   text-transform: uppercase;

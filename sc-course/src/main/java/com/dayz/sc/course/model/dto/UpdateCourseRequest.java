@@ -2,7 +2,6 @@ package com.dayz.sc.course.model.dto;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.util.List;
@@ -19,7 +18,7 @@ public record UpdateCourseRequest(
         @Size(max = 20) String semester,
         @Size(max = 100) String location,
         Integer courseType,
-        @NotNull @Min(0) @Max(1) Integer isPublic,
+        @Min(0) @Max(1) Integer isPublic,
         @Min(0) Integer maxStudents,
         Integer status
 ) {}

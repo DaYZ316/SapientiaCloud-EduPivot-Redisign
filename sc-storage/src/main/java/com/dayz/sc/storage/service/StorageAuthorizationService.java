@@ -25,13 +25,22 @@ public class StorageAuthorizationService {
     public void authorizeCreate(CreateUploadRequest request, UUID userId, Integer role) {
         switch (request.usage()) {
             case USER_AVATAR -> authorizeUserAvatar(request, userId, role);
-            case COURSE_COVER, COURSE_PUBLIC_FILE, COURSE_PRIVATE_FILE -> requireCourseManager(request.scopeId());
+            case COURSE_COVER, COURSE_FILE, COURSE_PUBLIC_FILE, COURSE_PRIVATE_FILE -> requireCourseManager(request.scopeId());
             case FORUM_IMAGE -> requireCourseReader(request);
             case AI_FILE -> authorizeAiFile(request, userId, role);
         }
     }
 
     public void authorizeRead(StorageObject object, UUID userId, Integer role) {
+        StorageUsage usage = StorageUsage.valueOf(object.getUsage());
+        if (isCourseScopedProtectedUsage(usage)) {
+            CourseAccess access = courseAccess(object.getScopeId());
+            if (access != null && (access.canReadPublic() || access.canReadPrivate())) {
+                return;
+            }
+            throw new BusinessException(ErrorCodes.STORAGE_UNAUTHORIZED);
+        }
+
         StorageVisibility visibility = StorageVisibility.valueOf(object.getVisibility());
         if (visibility == StorageVisibility.PUBLIC_READ) {
             return;
@@ -59,6 +68,7 @@ public class StorageAuthorizationService {
             return;
         }
         if ((usage == StorageUsage.COURSE_COVER
+                || usage == StorageUsage.COURSE_FILE
                 || usage == StorageUsage.COURSE_PUBLIC_FILE
                 || usage == StorageUsage.COURSE_PRIVATE_FILE)
                 && canManageCourse(object.getScopeId())) {
@@ -110,6 +120,13 @@ public class StorageAuthorizationService {
     private boolean canReadPrivateCourse(UUID courseId) {
         CourseAccess access = courseAccess(courseId);
         return access != null && access.canReadPrivate();
+    }
+
+    private boolean isCourseScopedProtectedUsage(StorageUsage usage) {
+        return usage == StorageUsage.FORUM_IMAGE
+                || usage == StorageUsage.COURSE_FILE
+                || usage == StorageUsage.COURSE_PUBLIC_FILE
+                || usage == StorageUsage.COURSE_PRIVATE_FILE;
     }
 
     private CourseAccess courseAccess(UUID courseId) {

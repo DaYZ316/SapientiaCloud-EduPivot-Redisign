@@ -25,6 +25,27 @@ services:
     networks:
       - sc-edupivot-net
 
+  nacos-config-init:
+    image: python:3.13-alpine
+    container_name: SC-Nacos-Config-Init
+    depends_on:
+      nacos:
+        condition: service_healthy
+    environment:
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_USERNAME: ${NACOS_USERNAME}
+      NACOS_PASSWORD: ${NACOS_PASSWORD}
+      NACOS_CONFIG_DIR: /nacos-config
+    volumes:
+      - ./nacos-config:/nacos-config:ro
+      - ./scripts/nacos_config_init.py:/nacos_config_init.py:ro
+    entrypoint:
+      - python
+      - /nacos_config_init.py
+    restart: "no"
+    networks:
+      - sc-edupivot-net
+
   sc-auth:
     build:
       context: .
@@ -38,6 +59,8 @@ services:
     depends_on:
       nacos:
         condition: service_healthy
+      nacos-config-init:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -86,6 +109,8 @@ services:
     depends_on:
       nacos:
         condition: service_healthy
+      nacos-config-init:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -129,6 +154,8 @@ services:
     depends_on:
       nacos:
         condition: service_healthy
+      nacos-config-init:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -182,6 +209,8 @@ services:
     depends_on:
       nacos:
         condition: service_healthy
+      nacos-config-init:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -233,6 +262,8 @@ services:
     depends_on:
       nacos:
         condition: service_healthy
+      nacos-config-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       sc-auth:
@@ -428,13 +459,9 @@ services:
         mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
         mc mb -p local/edupivot-media || true
         mc mb -p local/edupivot-course || true
-        mc mb -p local/edupivot-course-public || true
-        mc mb -p local/edupivot-course-private || true
         mc mb -p local/edupivot-ai || true
         mc anonymous set none local/edupivot-media || true
         mc anonymous set none local/edupivot-course || true
-        mc anonymous set none local/edupivot-course-public || true
-        mc anonymous set none local/edupivot-course-private || true
         mc anonymous set none local/edupivot-ai || true
         mc anonymous set download local/edupivot-media/user-avatar || true
         mc anonymous set download local/edupivot-media/course-cover || true
@@ -451,13 +478,9 @@ services:
         EOF
         mc cors set local/edupivot-media /tmp/cors.json
         mc cors set local/edupivot-course /tmp/cors.json
-        mc cors set local/edupivot-course-public /tmp/cors.json
-        mc cors set local/edupivot-course-private /tmp/cors.json
         mc cors set local/edupivot-ai /tmp/cors.json
         mc ilm add local/edupivot-media --prefix "temp/" --expire-days "1" || true
         mc ilm add local/edupivot-course --prefix "temp/" --expire-days "1" || true
-        mc ilm add local/edupivot-course-public --prefix "temp/" --expire-days "1" || true
-        mc ilm add local/edupivot-course-private --prefix "temp/" --expire-days "1" || true
         mc ilm add local/edupivot-ai --prefix "temp/" --expire-days "1" || true
     networks:
       - sc-edupivot-net

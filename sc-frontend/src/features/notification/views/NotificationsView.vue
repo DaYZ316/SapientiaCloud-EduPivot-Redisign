@@ -682,7 +682,7 @@ async function confirmDeleteAll() {
     if (activeFilter.value === 'teaching') type = 2
 
     await apiDeleteAllNotifications(type)
-    // 重新加载以获取准确的未读数
+    // 重新加载以获取准确的未读�?
     await loadNotifications()
     await load()
     notify.success(t('notifications.deleteAllSuccess'))
@@ -853,7 +853,7 @@ function handleUserListScroll(event: Event) {
 }
 
 const filteredUsers = computed(() => {
-  // 排除当前用户（不能给自己发通知）
+  // 排除当前用户（不能给自己发通知�?
   const candidates = authStore.user?.id
     ? availableUsers.value.filter(user => user.id !== authStore.user!.id)
     : availableUsers.value
@@ -976,12 +976,12 @@ async function handleSendNotification() {
 
 .page-title {
   margin: 0 0 24px;
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 48px;
-  font-weight: 600;
-  line-height: 1.2;
+  font-weight: 400;
+  line-height: 1.3;
   color: var(--color-on-surface);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .page-subtitle {
@@ -1020,7 +1020,7 @@ async function handleSendNotification() {
 
 .stat-unread {
   color: var(--color-primary);
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .stat-dot {
@@ -1052,7 +1052,7 @@ async function handleSendNotification() {
   background: transparent;
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.1em;
   color: var(--color-primary);
   cursor: pointer;
@@ -1285,7 +1285,7 @@ async function handleSendNotification() {
 
 .card-title {
   margin: 0;
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 20px;
   font-weight: 700;
   line-height: 1.3;
@@ -1306,7 +1306,7 @@ async function handleSendNotification() {
 .card-time {
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.1em;
   color: var(--color-secondary);
   transition: color 0.3s;
@@ -1340,7 +1340,7 @@ async function handleSendNotification() {
   border-radius: var(--radius-sm);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.1em;
 }
 
@@ -1404,9 +1404,9 @@ async function handleSendNotification() {
 
 .empty-state h3 {
   margin: 0 0 8px;
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 22px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 
@@ -1444,7 +1444,7 @@ async function handleSendNotification() {
   background: transparent;
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.1em;
   color: var(--color-on-surface);
   cursor: pointer;
@@ -1618,9 +1618,9 @@ async function handleSendNotification() {
 
 .detail-title {
   margin: 0;
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 28px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.3;
   color: var(--color-on-surface);
   overflow-wrap: anywhere;
@@ -1693,7 +1693,7 @@ async function handleSendNotification() {
   margin: 0;
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-secondary);
@@ -1702,7 +1702,7 @@ async function handleSendNotification() {
 .selected-count {
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-primary);
   letter-spacing: 0.05em;
   padding: 4px 10px;
@@ -1880,7 +1880,7 @@ async function handleSendNotification() {
 .user-role {
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   padding: 2px 8px;
@@ -1912,7 +1912,7 @@ async function handleSendNotification() {
 .modal-body label {
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 

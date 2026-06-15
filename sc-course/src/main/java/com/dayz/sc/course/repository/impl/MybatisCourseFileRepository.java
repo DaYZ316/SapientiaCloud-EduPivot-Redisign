@@ -47,14 +47,4 @@ public class MybatisCourseFileRepository implements CourseFileRepository {
                 .orderByDesc(CourseFile::getCreatedAt);
         return courseFileMapper.selectList(wrapper);
     }
-
-    @Override
-    public List<CourseFile> findByCourseIdAndVisibility(UUID courseId, String visibility) {
-        LambdaQueryWrapper<CourseFile> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(CourseFile::getCourseId, courseId)
-                .eq(CourseFile::getVisibility, visibility)
-                .orderByAsc(CourseFile::getSortOrder)
-                .orderByDesc(CourseFile::getCreatedAt);
-        return courseFileMapper.selectList(wrapper);
-    }
 }

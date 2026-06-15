@@ -48,7 +48,8 @@ public class ChapterController {
             @PathVariable UUID id,
             @AuthenticationPrincipal @Nullable Jwt jwt) {
         UUID userId = jwt != null ? JwtPrincipalResolver.userId(jwt) : null;
-        ChapterVO chapter = chapterService.getChapter(id, userId);
+        Integer role = jwt != null ? JwtPrincipalResolver.role(jwt) : null;
+        ChapterVO chapter = chapterService.getChapter(id, userId, role);
         return ApiResponse.ok(chapter);
     }
 
@@ -57,7 +58,8 @@ public class ChapterController {
             @PathVariable UUID courseId,
             @AuthenticationPrincipal @Nullable Jwt jwt) {
         UUID userId = jwt != null ? JwtPrincipalResolver.userId(jwt) : null;
-        List<ChapterVO> chapters = chapterService.listChaptersByCourse(courseId, userId);
+        Integer role = jwt != null ? JwtPrincipalResolver.role(jwt) : null;
+        List<ChapterVO> chapters = chapterService.listChaptersByCourse(courseId, userId, role);
         return ApiResponse.ok(chapters);
     }
 
@@ -66,7 +68,8 @@ public class ChapterController {
             @PathVariable UUID courseId,
             @AuthenticationPrincipal @Nullable Jwt jwt) {
         UUID userId = jwt != null ? JwtPrincipalResolver.userId(jwt) : null;
-        List<ChapterVO> tree = chapterService.getChapterTree(courseId, userId);
+        Integer role = jwt != null ? JwtPrincipalResolver.role(jwt) : null;
+        List<ChapterVO> tree = chapterService.getChapterTree(courseId, userId, role);
         return ApiResponse.ok(tree);
     }
 

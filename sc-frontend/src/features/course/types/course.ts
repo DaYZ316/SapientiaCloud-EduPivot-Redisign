@@ -9,6 +9,7 @@
   coverUrl: string | null
   coverFileId: string | null
   teacherIds: string[] | null
+  assistantIds?: string[] | null
   teacherInfos?: {id: string; displayName: string | null; avatarUrl: string | null}[] | null
   semester: string | null
   location: string | null
@@ -52,7 +53,7 @@ export interface UpdateCourseRequest {
   semester?: string
   location?: string
   courseType?: number
-  isPublic: number
+  isPublic?: number
   maxStudents?: number
   status?: number
 }
@@ -72,7 +73,6 @@ export interface CourseFile {
 
 export interface BindCourseFileRequest {
   fileId: string
-  visibility: 'PUBLIC' | 'PRIVATE'
   displayName?: string
   sortOrder?: number
 }

@@ -1,5 +1,5 @@
-﻿<template>
-  <div ref="root" class="base-select" :class="{ open: isOpen }" :style="selectStyle">
+<template>
+  <div ref="root" class="base-select" :class="{ open: isOpen, disabled: disabled }" :style="selectStyle">
     <button
       type="button"
       class="base-select-trigger"
@@ -46,12 +46,15 @@ interface SelectOption {
   value: SelectValue
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: SelectValue
   options: SelectOption[]
   placeholder?: string
   minWidth?: string
-}>()
+  disabled?: boolean
+}>(), {
+  disabled: false,
+})
 
 const emit = defineEmits<{
   'update:modelValue': [value: SelectValue]
@@ -73,10 +76,12 @@ function optionKey(option: SelectOption) {
 }
 
 function toggleOpen() {
+  if (props.disabled) return
   isOpen.value = !isOpen.value
 }
 
 function openMenu() {
+  if (props.disabled) return
   isOpen.value = true
 }
 
@@ -102,6 +107,8 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
 })
+
+defineExpose({isOpen})
 </script>
 
 <style scoped>
@@ -127,7 +134,7 @@ onUnmounted(() => {
   border-radius: 16px;
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
   cursor: pointer;
   transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
@@ -153,6 +160,12 @@ onUnmounted(() => {
 
 .base-select.open .base-select-icon {
   transform: rotate(180deg);
+}
+
+.base-select.disabled .base-select-trigger {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .base-select-menu {
@@ -195,7 +208,7 @@ onUnmounted(() => {
 }
 
 .base-select-option.selected {
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .base-select-option svg {

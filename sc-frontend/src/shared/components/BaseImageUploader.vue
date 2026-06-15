@@ -654,7 +654,7 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string) {
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: 28px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .image-crop-icon-button {

@@ -302,9 +302,9 @@ async function handleLogout() {
 }
 
 .nav-logo span {
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: -0.02em;
 }
 
@@ -412,7 +412,7 @@ async function handleLogout() {
 .user-name {
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 
@@ -521,7 +521,7 @@ async function handleLogout() {
   border-radius: 14px;
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-muted);
   text-decoration: none;
   transition: all 0.2s;
@@ -748,6 +748,56 @@ async function handleLogout() {
   .layout-sidebar.sidebar-collapsed .main-content {
     margin-left: 0;
   }
+
+  .layout-sidebar:not(.sidebar-collapsed) .side-nav {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 120;
+    width: min(320px, 86vw);
+    height: 100dvh;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 20px 16px;
+    background: var(--color-surface-card);
+    border-right: 1px solid var(--color-outline-light);
+    border-bottom: none;
+    box-shadow: 16px 0 40px rgba(15, 23, 42, 0.16);
+    animation: mobileSidebarSlideIn 0.22s ease-out both;
+  }
+
+  .layout-sidebar:not(.sidebar-collapsed) .side-nav-header {
+    flex: none;
+    margin-bottom: 28px;
+  }
+
+  .layout-sidebar:not(.sidebar-collapsed) .side-logo {
+    flex: 1;
+    padding: 8px 10px;
+  }
+
+  .layout-sidebar:not(.sidebar-collapsed) .side-nav-links {
+    display: flex;
+  }
+
+  .layout-sidebar:not(.sidebar-collapsed) .side-nav-footer {
+    width: 100%;
+    margin-top: auto;
+    margin-left: 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-outline-light);
+  }
+
+  @keyframes mobileSidebarSlideIn {
+    from {
+      transform: translateX(-100%);
+    }
+
+    to {
+      transform: translateX(0);
+    }
+  }
 }
 
 @media (max-width: 640px) {
@@ -761,6 +811,10 @@ async function handleLogout() {
 
   .layout-sidebar .side-nav {
     padding: 0 16px;
+  }
+
+  .layout-sidebar:not(.sidebar-collapsed) .side-nav {
+    padding: 20px 16px;
   }
 
   .layout-sidebar .main-content {

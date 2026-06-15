@@ -21,10 +21,14 @@
     <div v-else-if="students.length > 0" class="student-grid">
       <div v-for="student in students" :key="student.id" class="student-card">
         <div class="card-header">
-          <div class="student-avatar">
-            <img v-if="student.avatarUrl" :src="student.avatarUrl" alt=""/>
-            <img v-else src="/assets/avatar-student-default.png" alt=""/>
-          </div>
+          <UserAvatarLink
+            :user-id="student.id"
+            :display-name="student.displayName"
+            :avatar-url="student.avatarUrl"
+            :role="1"
+            size="large"
+            :show-name="false"
+          />
           <span class="student-badge">{{ t('admin.studentList.studentBadge') }}</span>
         </div>
         <div class="card-content">
@@ -79,6 +83,7 @@ import {computed, onMounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {ChevronLeft, ChevronRight, GraduationCap, Search} from 'lucide-vue-next'
 import BaseSkeleton from '@/shared/components/BaseSkeleton.vue'
+import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import {pageUsers} from '@/features/user/api/user'
 import type {UserProfile} from '@/features/user/types/user'
@@ -159,11 +164,12 @@ onMounted(() => {
 
 .page-header h1 {
   margin: 0 0 16px;
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 48px;
-  font-weight: 600;
+  font-weight: 400;
+  line-height: 1.3;
   color: var(--color-on-surface);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .page-subtitle {
@@ -284,7 +290,7 @@ onMounted(() => {
   border-radius: var(--radius-sm);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.08em;
 }
 
@@ -294,9 +300,9 @@ onMounted(() => {
 
 .student-name {
   margin: 0 0 4px;
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 
@@ -322,7 +328,7 @@ onMounted(() => {
 .detail-label {
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-muted);
@@ -353,9 +359,9 @@ onMounted(() => {
 
 .empty-state h3 {
   margin: 0 0 8px;
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 
@@ -389,7 +395,7 @@ onMounted(() => {
   background: transparent;
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
   cursor: pointer;
   transition: all 0.2s;

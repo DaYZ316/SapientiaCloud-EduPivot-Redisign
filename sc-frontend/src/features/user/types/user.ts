@@ -76,3 +76,10 @@ export interface UpdateUserRequest {
 }
 
 export type UserPageResponse = PageResponse<UserProfile>
+
+export interface UserBasicInfo {
+    id: string
+    displayName: string | null
+    avatarUrl: string | null
+    role?: number | null
+}

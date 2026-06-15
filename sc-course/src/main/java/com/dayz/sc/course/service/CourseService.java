@@ -132,7 +132,7 @@ public class CourseService {
         if (request.courseType() != null) {
             course.setCourseType(request.courseType());
         }
-        course.setIsPublic(request.isPublic());
+        // isPublic 在创建后不可修改，忽略请求中的值
         Integer previousStatus = course.getStatus();
         if (request.status() != null) {
             // 只有主讲教师或管理员才能变更课程状态

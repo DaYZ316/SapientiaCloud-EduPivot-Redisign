@@ -67,7 +67,7 @@ const difficultyClass = computed(() => 'diff-' + props.question.difficulty)
 .status-badge {
   font-family: var(--font-body);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.03em;
   padding: 2px 8px;
   border-radius: 4px;
@@ -109,7 +109,7 @@ const difficultyClass = computed(() => 'diff-' + props.question.difficulty)
 }
 
 .score {
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 </style>

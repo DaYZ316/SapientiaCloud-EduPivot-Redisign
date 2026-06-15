@@ -6,12 +6,10 @@
         <h2>{{ t('courseDetail.files') }}</h2>
       </div>
       <div v-if="canManageCourse" class="header-actions">
-        <BaseSelect v-model="uploadVisibility" :options="visibilityOptions" class="visibility-select"/>
         <BaseFileUploader
-          :usage="uploadVisibility === 'PUBLIC' ? 'COURSE_PUBLIC_FILE' : 'COURSE_PRIVATE_FILE'"
+          usage="COURSE_FILE"
           scope-type="COURSE"
           :scope-id="courseId"
-          :bucket-type="uploadVisibility === 'PUBLIC' ? 'COURSE_PUBLIC' : 'COURSE_PRIVATE'"
           :button-label="t('courseDetail.uploadFile')"
           @uploaded="handleFileUploaded"
           @error="handleUploadError"
@@ -30,8 +28,8 @@
         class="file-item"
       >
         <a
-          :href="canAccessCourseContent && file.url ? file.url : undefined"
-          :aria-disabled="!canAccessCourseContent || !file.url"
+          :href="canAccessFile && file.url ? file.url : undefined"
+          :aria-disabled="!canAccessFile || !file.url"
           target="_blank"
           rel="noreferrer"
           class="file-link"
@@ -56,7 +54,7 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, ref} from 'vue'
+import {computed} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {FileDown, FolderOpen, Trash2} from 'lucide-vue-next'
 import {bindCourseFile, deleteCourseFile} from '@/features/course/api/course'
@@ -64,10 +62,10 @@ import {notify} from '@/shared/composables/useGlobalNotification'
 import type {CourseFile} from '@/features/course/types/course'
 import type {FileAsset} from '@/features/storage/types/storage'
 import BaseFileUploader from '@/shared/components/BaseFileUploader.vue'
-import BaseSelect from '@/shared/components/BaseSelect.vue'
 
 const props = defineProps<{
   courseId: string
+  course?: { isPublic?: number } | null
   files: CourseFile[]
   canAccessCourseContent: boolean
   canManageCourse?: boolean
@@ -78,13 +76,7 @@ const emit = defineEmits<{
 }>()
 
 const {t} = useI18n()
-
-const uploadVisibility = ref<'PUBLIC' | 'PRIVATE'>('PUBLIC')
-
-const visibilityOptions = computed(() => [
-  {label: t('courseDetail.filePublicLabel'), value: 'PUBLIC'},
-  {label: t('courseDetail.filePrivateLabel'), value: 'PRIVATE'},
-])
+const canAccessFile = computed(() => props.course?.isPublic === 1 || props.canAccessCourseContent)
 
 function formatFileVisibility(visibility: CourseFile['visibility']) {
   return visibility === 'PUBLIC' ? t('courseDetail.filePublic') : t('courseDetail.filePrivate')
@@ -101,7 +93,6 @@ async function handleFileUploaded(asset: FileAsset) {
   try {
     await bindCourseFile(props.courseId, {
       fileId: asset.id,
-      visibility: uploadVisibility.value,
       displayName: asset.fileName,
     })
     notify.success(t('courseDetail.fileUploaded'))
@@ -141,7 +132,7 @@ async function handleDelete(file: CourseFile) {
   color: var(--color-muted);
   font-family: var(--font-label);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -160,10 +151,6 @@ async function handleDelete(file: CourseFile) {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.visibility-select {
-  min-width: 120px;
 }
 
 .file-list {
@@ -269,7 +256,7 @@ async function handleDelete(file: CourseFile) {
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .empty-tab p {

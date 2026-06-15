@@ -349,21 +349,13 @@ public class StorageService {
                         limits.getCourseCoverBytes(), IMAGE_TYPES);
             }
             case FORUM_IMAGE -> {
-                StorageBucketType resolvedBucketType = resolveCourseBucketType(usage, bucketType);
-                String resolvedBucket = resolveCourseBucket(resolvedBucketType, bucket);
-                StorageVisibility visibility = resolvedBucketType == StorageBucketType.COURSE_PUBLIC
-                        ? StorageVisibility.AUTHENTICATED : StorageVisibility.COURSE_PRIVATE;
-                yield new FilePolicy(resolvedBucket, visibility,
-                        limits.getCourseCoverBytes(), IMAGE_TYPES);
+                requireCourseBucketType(usage, bucketType);
+                yield new FilePolicy(bucket.getCourse(), StorageVisibility.COURSE_PRIVATE,
+                        limits.getForumImageBytes(), IMAGE_TYPES);
             }
-            case COURSE_PUBLIC_FILE -> {
-                requireBucketType(usage, bucketType, StorageBucketType.COURSE_PUBLIC);
-                yield new FilePolicy(bucket.getCoursePublic(), StorageVisibility.AUTHENTICATED,
-                        limits.getCourseFileBytes(), COURSE_FILE_TYPES);
-            }
-            case COURSE_PRIVATE_FILE -> {
-                requireBucketType(usage, bucketType, StorageBucketType.COURSE_PRIVATE);
-                yield new FilePolicy(bucket.getCoursePrivate(), StorageVisibility.COURSE_PRIVATE,
+            case COURSE_FILE, COURSE_PUBLIC_FILE, COURSE_PRIVATE_FILE -> {
+                requireCourseBucketType(usage, bucketType);
+                yield new FilePolicy(bucket.getCourse(), StorageVisibility.COURSE_PRIVATE,
                         limits.getCourseFileBytes(), COURSE_FILE_TYPES);
             }
             case AI_FILE -> {
@@ -380,25 +372,14 @@ public class StorageService {
         }
     }
 
-    private StorageBucketType resolveCourseBucketType(StorageUsage usage, StorageBucketType bucketType) {
-        if (bucketType == null) {
-            return StorageBucketType.COURSE_PRIVATE;
+    private void requireCourseBucketType(StorageUsage usage, StorageBucketType bucketType) {
+        if (bucketType != null && bucketType != StorageBucketType.COURSE_PUBLIC && bucketType != StorageBucketType.COURSE_PRIVATE) {
+            throw invalidBucketType(usage);
         }
-        if (bucketType == StorageBucketType.COURSE_PUBLIC || bucketType == StorageBucketType.COURSE_PRIVATE) {
-            return bucketType;
-        }
-        throw invalidBucketType(usage);
     }
 
     private BusinessException invalidBucketType(StorageUsage usage) {
         return new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid bucket type for " + usage.name());
-    }
-
-    private String resolveCourseBucket(StorageBucketType bucketType, StorageProperties.Bucket bucket) {
-        if (bucketType == StorageBucketType.COURSE_PUBLIC) {
-            return bucket.getCoursePublic();
-        }
-        return bucket.getCoursePrivate();
     }
 
     private UUID normalizeScopeId(CreateUploadRequest request, UUID userId) {

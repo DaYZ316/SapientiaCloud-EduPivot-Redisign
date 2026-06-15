@@ -77,8 +77,6 @@ public class StorageProperties {
     public static class Bucket {
         private String media = "edupivot-media";
         private String course = "edupivot-course";
-        private String coursePublic = "edupivot-course-public";
-        private String coursePrivate = "edupivot-course-private";
         private String ai = "edupivot-ai";
 
         public String getMedia() {
@@ -95,22 +93,6 @@ public class StorageProperties {
 
         public void setCourse(String course) {
             this.course = course;
-        }
-
-        public String getCoursePublic() {
-            return coursePublic;
-        }
-
-        public void setCoursePublic(String coursePublic) {
-            this.coursePublic = coursePublic;
-        }
-
-        public String getCoursePrivate() {
-            return coursePrivate;
-        }
-
-        public void setCoursePrivate(String coursePrivate) {
-            this.coursePrivate = coursePrivate;
         }
 
         public String getAi() {
@@ -146,6 +128,7 @@ public class StorageProperties {
     public static class Limits {
         private long avatarBytes = 2L * 1024 * 1024;
         private long courseCoverBytes = 5L * 1024 * 1024;
+        private long forumImageBytes = 5L * 1024 * 1024;
         private long courseFileBytes = 200L * 1024 * 1024;
         private long aiFileBytes = 100L * 1024 * 1024;
 
@@ -163,6 +146,14 @@ public class StorageProperties {
 
         public void setCourseCoverBytes(long courseCoverBytes) {
             this.courseCoverBytes = courseCoverBytes;
+        }
+
+        public long getForumImageBytes() {
+            return forumImageBytes;
+        }
+
+        public void setForumImageBytes(long forumImageBytes) {
+            this.forumImageBytes = forumImageBytes;
         }
 
         public long getCourseFileBytes() {

@@ -150,7 +150,7 @@ const expanded = ref(true)
 .status-badge {
   font-family: var(--font-body);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.05em;
   padding: 2px 8px;
   border-radius: 4px;

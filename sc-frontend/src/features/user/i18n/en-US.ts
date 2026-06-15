@@ -149,4 +149,48 @@ export default {
     placeholder: {
         user: 'User',
     },
+    userProfile: {
+        back: 'Back',
+        notFound: 'User not found',
+        backToDashboard: 'Back to dashboard',
+        noUserId: 'No user ID provided.',
+        fetchError: 'Could not load this user\'s profile.',
+        joined: 'Joined',
+        noBio: 'This user hasn\'t added a bio yet.',
+        aboutLabel: 'About',
+        aboutTitle: 'About this user',
+        infoLabel: 'Info',
+        infoTitle: 'Public info',
+        bio: {
+            student: 'This user is a student on SapientiaCloud.',
+            teacher: 'This user is a teacher on SapientiaCloud.',
+            user: 'This user is on SapientiaCloud.',
+        },
+        kicker: {
+            student: 'Student profile',
+            teacher: 'Teacher profile',
+            user: 'User profile',
+        },
+        identity: {
+            studentLabel: 'StudentInfo',
+            studentTitle: 'Academic identity',
+            teacherLabel: 'TeacherInfo',
+            teacherTitle: 'Teaching identity',
+            userLabel: 'User',
+            userTitle: 'Account identity',
+        },
+        identityFields: {
+            studentNo: 'Student No.',
+            grade: 'Grade',
+            major: 'Major',
+            school: 'School',
+            employeeNo: 'Employee No.',
+            department: 'Department',
+            title: 'Title',
+        },
+        publicFields: {
+            role: 'Role',
+            joined: 'Joined',
+        },
+    },
 }

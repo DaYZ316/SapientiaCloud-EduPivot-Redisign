@@ -93,7 +93,8 @@ const {t} = useI18n()
   margin: 0;
   font-family: var(--font-heading);
   font-size: 28px;
-  font-weight: 600;
+  font-weight: 400;
+  line-height: 1.3;
   color: var(--color-on-surface);
 }
 
@@ -111,6 +112,24 @@ const {t} = useI18n()
   line-height: 1.8;
 }
 
+.content-html :deep(figure.chapter-image) {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.content-html :deep(img) {
+  max-width: min(100%, 720px);
+  max-height: 520px;
+  width: auto;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-container);
+}
+
 .content-placeholder {
   font-family: var(--font-body);
   font-size: 14px;
@@ -124,7 +143,7 @@ const {t} = useI18n()
   margin: 0 0 12px;
   font-family: var(--font-body);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 

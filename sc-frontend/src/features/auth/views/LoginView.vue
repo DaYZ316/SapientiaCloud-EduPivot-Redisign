@@ -242,7 +242,7 @@ const themePreferenceIcon = computed(() => {
   }
   return Monitor
 })
-const languageGlyph = computed(() => locale.value === 'zh-CN' ? '中' : 'EN')
+const languageGlyph = computed(() => locale.value === 'zh-CN' ? '\u4e2d' : 'EN')
 
 const formData = reactive({
   email: '',
@@ -461,9 +461,9 @@ onMounted(() => {
   margin: 0;
   font-family: var(--font-heading);
   font-size: 48px;
-  font-weight: 600;
+  font-weight: 400;
   color: #ffffff;
-  line-height: 1.2;
+  line-height: 1.3;
   letter-spacing: 0;
 }
 
@@ -603,7 +603,7 @@ onMounted(() => {
   border: 0;
   font-family: var(--font-label);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--login-text);
@@ -627,7 +627,7 @@ onMounted(() => {
   border-radius: 9999px;
   font-family: var(--font-label);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   cursor: pointer;
@@ -675,7 +675,7 @@ onMounted(() => {
   margin-bottom: 10px;
   font-family: var(--font-label);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--login-text);
 }
 
@@ -717,7 +717,7 @@ onMounted(() => {
 .role-name {
   font-family: var(--font-label);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 /* ---- Switch Mode ---- */
@@ -761,7 +761,7 @@ onMounted(() => {
   padding: 0 16px;
   font-family: var(--font-label);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--login-muted);
@@ -789,7 +789,7 @@ onMounted(() => {
   border-radius: 9999px;
   font-family: var(--font-label);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--login-text);

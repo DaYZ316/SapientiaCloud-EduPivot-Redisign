@@ -21,6 +21,4 @@ public interface CourseFileRepository {
     void deleteById(UUID id);
 
     List<CourseFile> findByCourseId(UUID courseId);
-
-    List<CourseFile> findByCourseIdAndVisibility(UUID courseId, String visibility);
 }

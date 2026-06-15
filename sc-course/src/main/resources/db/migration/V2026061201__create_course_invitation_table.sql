@@ -20,13 +20,13 @@ COMMENT ON COLUMN edu_course_invitation.message IS '邀请留言';
 COMMENT ON COLUMN edu_course_invitation.deleted IS '软删除: 0=正常, 1=已删除';
 
 -- 唯一约束：同一课程对同一助教只能有一个未删除的邀请
-CREATE UNIQUE INDEX uk_course_invitation_course_invitee
+CREATE UNIQUE INDEX IF NOT EXISTS uk_course_invitation_course_invitee
     ON edu_course_invitation(course_id, invitee_id) WHERE deleted = 0;
 
 -- 索引：按被邀请人查询邀请
-CREATE INDEX idx_course_invitation_invitee_status
+CREATE INDEX IF NOT EXISTS idx_course_invitation_invitee_status
     ON edu_course_invitation(invitee_id, status) WHERE deleted = 0;
 
 -- 索引：按课程查询邀请
-CREATE INDEX idx_course_invitation_course
+CREATE INDEX IF NOT EXISTS idx_course_invitation_course
     ON edu_course_invitation(course_id) WHERE deleted = 0;

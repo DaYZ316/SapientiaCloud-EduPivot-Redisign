@@ -149,4 +149,48 @@ export default {
     placeholder: {
         user: '用户',
     },
+    userProfile: {
+        back: '返回',
+        notFound: '未找到用户',
+        backToDashboard: '返回仪表盘',
+        noUserId: '未提供用户 ID。',
+        fetchError: '无法加载该用户的档案。',
+        joined: '加入时间',
+        noBio: '该用户尚未添加个人简介。',
+        aboutLabel: '关于',
+        aboutTitle: '关于此用户',
+        infoLabel: '信息',
+        infoTitle: '公开信息',
+        bio: {
+            student: '该用户是智语·云枢的学生。',
+            teacher: '该用户是智语·云枢的教师。',
+            user: '该用户是智语·云枢的用户。',
+        },
+        kicker: {
+            student: '学生档案',
+            teacher: '教师档案',
+            user: '用户档案',
+        },
+        identity: {
+            studentLabel: '学生信息',
+            studentTitle: '学籍身份',
+            teacherLabel: '教师信息',
+            teacherTitle: '教学身份',
+            userLabel: '用户',
+            userTitle: '账户身份',
+        },
+        identityFields: {
+            studentNo: '学号',
+            grade: '年级',
+            major: '专业',
+            school: '学院',
+            employeeNo: '工号',
+            department: '部门',
+            title: '职称',
+        },
+        publicFields: {
+            role: '角色',
+            joined: '加入时间',
+        },
+    },
 }

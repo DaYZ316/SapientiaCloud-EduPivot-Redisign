@@ -94,6 +94,8 @@
             :students="courseStudents"
             :assistants="assistantOnlyInfos"
             :can-manage-course="canManageCourse"
+            :can-manage-assistants="canManageAssistants"
+            :is-admin="isAdmin"
             :can-access-course-content="canAccessCourseContent"
             :can-comment="canComment"
             :is-student="isStudent"
@@ -124,13 +126,14 @@
           <section class="teaching-team-panel">
             <div class="panel-kicker">{{ t('courseDetail.teachingTeam') }}</div>
             <div class="team-lead">
-              <div class="team-avatar">
-                <img
-                  :src="course.teacherAvatar || teacherFallbackUrl"
-                  :alt="course.teacherName || t('courseDetail.unknownTeacher')"
-                  @error="useFallbackImage($event, teacherFallbackUrl)"
-                />
-              </div>
+              <UserAvatarLink
+                :user-id="course.teacherId"
+                :display-name="course.teacherName || t('courseDetail.unknownTeacher')"
+                :avatar-url="course.teacherAvatar"
+                :role="2"
+                size="large"
+                :show-name="false"
+              />
               <div class="team-copy">
                 <strong>{{ course.teacherName || t('courseDetail.unknownTeacher') }}</strong>
                 <span>{{ t('courseDetail.primaryInstructor') }}</span>
@@ -142,16 +145,18 @@
                 <div
                   v-for="assistant in assistantOnlyInfos.slice(0, 2)"
                   :key="assistant.id"
-                  class="assistant-avatar"
-                  :title="assistant.displayName || assistant.id"
+                  class="assistant-chip"
                 >
-                  <img
-                    :src="assistant.avatarUrl || teacherFallbackUrl"
-                    :alt="assistant.displayName || assistant.id"
-                    @error="useFallbackImage($event, teacherFallbackUrl)"
+                  <UserAvatarLink
+                    :user-id="assistant.id"
+                    :display-name="assistant.displayName"
+                    :avatar-url="assistant.avatarUrl"
+                    :role="2"
+                    size="small"
+                    :show-name="false"
                   />
                 </div>
-                <div v-if="assistantOnlyInfos.length === 0" class="assistant-avatar empty">
+                <div v-if="assistantOnlyInfos.length === 0" class="assistant-chip empty">
                   <User :size="16" stroke-width="1.7"/>
                 </div>
               </div>
@@ -264,6 +269,7 @@ import type {QuestionBank} from '@/features/question-bank/types/questionBank'
 
 import ChapterEditor from '@/features/course/components/ChapterEditor.vue'
 import CourseFormModal from '@/features/course/components/CourseFormModal.vue'
+import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 
 type TabKey = 'overview' | 'chapters' | 'forums' | 'banks' | 'files' | 'students' | 'assistants'
 type TeacherInfo = NonNullable<CourseDetail['teacherInfos']>[number]
@@ -288,7 +294,6 @@ const editingChapter = ref<Chapter | null>(null)
 const parentChapterId = ref<string | null>(null)
 
 const courseCoverFallbackUrl = '/assets/course-cover-default.png'
-const teacherFallbackUrl = '/assets/avatar-teacher-default.png'
 
 const isAdmin = computed(() => authStore.user?.role === 0)
 const isStudent = computed(() => authStore.user?.role === 1)
@@ -301,6 +306,11 @@ const canManageCourse = computed(() => {
   const userId = authStore.user?.id
   if (!userId || !course.value) return isAdmin.value
   return isAdmin.value || course.value.teacherId === userId || Boolean(course.value.teacherIds?.includes(userId))
+})
+const canManageAssistants = computed(() => {
+  const userId = authStore.user?.id
+  if (!userId || !course.value) return isAdmin.value
+  return isAdmin.value || course.value.teacherId === userId || Boolean(course.value.teacherIds?.includes(userId)) || Boolean(course.value.assistantIds?.includes(userId))
 })
 const canComment = computed(() => {
   const userId = authStore.user?.id
@@ -694,7 +704,7 @@ function useFallbackImage(event: Event, fallback: string) {
   margin: 0 0 -8px;
   color: var(--color-muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1;
   letter-spacing: 0;
   text-transform: none;
@@ -723,7 +733,7 @@ function useFallbackImage(event: Event, fallback: string) {
   color: var(--color-muted);
   font-family: var(--font-label);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -736,8 +746,8 @@ function useFallbackImage(event: Event, fallback: string) {
   font-family: var(--font-heading);
   font-size: clamp(36px, 4.3vw, 48px);
   font-weight: 400;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  letter-spacing: 0;
+  line-height: 1.3;
   text-wrap: balance;
 }
 
@@ -806,7 +816,7 @@ function useFallbackImage(event: Event, fallback: string) {
   cursor: pointer;
   font-family: var(--font-label);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.05em;
   line-height: 1;
   text-transform: none;
@@ -856,7 +866,7 @@ function useFallbackImage(event: Event, fallback: string) {
   cursor: pointer;
   font-family: var(--font-label);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1;
   text-decoration: none;
   transition: background 0.2s ease, color 0.2s ease;
@@ -918,33 +928,6 @@ function useFallbackImage(event: Event, fallback: string) {
   border-bottom: 1px solid var(--color-outline-light);
 }
 
-.team-avatar,
-.assistant-avatar {
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  background: var(--color-surface-container-high);
-  border: 1px solid var(--color-outline-light);
-  border-radius: 50%;
-  color: var(--color-on-surface);
-  font-family: var(--font-label);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.team-avatar {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 auto;
-}
-
-.team-avatar img,
-.assistant-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
 .team-copy {
   min-width: 0;
 }
@@ -955,7 +938,7 @@ function useFallbackImage(event: Event, fallback: string) {
   color: var(--color-on-surface);
   font-family: var(--font-label);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -982,18 +965,23 @@ function useFallbackImage(event: Event, fallback: string) {
   justify-content: flex-end;
 }
 
-.assistant-avatar {
-  width: 32px;
-  height: 32px;
+.assistant-chip {
   margin-left: -8px;
 }
 
-.assistant-avatar:last-child {
+.assistant-chip:last-child {
   margin-left: 0;
 }
 
-.assistant-avatar.empty {
+.assistant-chip.empty {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
   margin-left: 0;
+  background: var(--color-surface-container-high);
+  border: 1px solid var(--color-outline-light);
+  border-radius: 50%;
   color: var(--color-muted);
 }
 
@@ -1032,7 +1020,7 @@ function useFallbackImage(event: Event, fallback: string) {
   color: var(--color-on-surface);
   font-family: var(--font-label);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .capacity-header {
@@ -1077,7 +1065,7 @@ function useFallbackImage(event: Event, fallback: string) {
   cursor: pointer;
   font-family: var(--font-label);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   text-decoration: none;
   transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
@@ -1148,7 +1136,8 @@ function useFallbackImage(event: Event, fallback: string) {
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: clamp(32px, 5vw, 48px);
-  font-weight: 600;
+  font-weight: 400;
+  line-height: 1.3;
 }
 
 .secondary-button {

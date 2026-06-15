@@ -91,7 +91,7 @@
       <div class="start-card">
         <BookOpen :size="48" stroke-width="1.4"/>
         <h2>{{ t('questionBank.startPractice') }}</h2>
-        <p>{{ session?.totalQuestions || 0 }} 道题目</p>
+        <p>{{ session?.totalQuestions || 0 }} 道题</p>
         <button class="btn-primary" @click="startNewSession">
           {{ t('questionBank.startPractice') }}
         </button>
@@ -229,13 +229,13 @@ function handleBack() {
 .back-link:hover { color: var(--color-on-surface); }
 .practice-container { max-width: 720px; }
 .practice-header { display: flex; flex-direction: column; gap: 16px; margin-bottom: 32px; }
-.practice-header h2 { margin: 0; font-family: var(--font-heading); font-size: 28px; font-weight: 600; color: var(--color-on-surface); }
+.practice-header h2 { margin: 0; font-family: var(--font-heading); font-size: 28px; font-weight: 400; line-height: 1.3; color: var(--color-on-surface); }
 .question-panel { display: flex; flex-direction: column; gap: 20px; padding: 32px; background: var(--color-surface-card); border: 1px solid var(--color-outline-light); border-radius: var(--radius-lg); }
 .question-meta { display: flex; gap: 8px; }
-.type-badge, .score-badge { font-family: var(--font-body); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 4px; }
+.type-badge, .score-badge { font-family: var(--font-body); font-size: 11px; font-weight: 400; padding: 3px 10px; border-radius: 4px; }
 .type-badge { background: var(--color-surface-container-high); color: var(--color-on-surface); }
 .score-badge { background: var(--color-surface-container-high); color: var(--color-on-surface); }
-.question-title { margin: 0; font-family: var(--font-heading); font-size: 22px; font-weight: 600; color: var(--color-on-surface); line-height: 1.4; }
+.question-title { margin: 0; font-family: var(--font-heading); font-size: 22px; font-weight: 400; color: var(--color-on-surface); line-height: 1.4; }
 .question-content { margin: 0; font-family: var(--font-body); font-size: 15px; color: var(--color-muted); line-height: 1.6; }
 .options-list { display: flex; flex-direction: column; gap: 8px; }
 .option-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--color-surface-container); border: 1px solid var(--color-outline-light); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.15s; }
@@ -243,7 +243,7 @@ function handleBack() {
 .option-item.selected { border-color: var(--color-primary); background: var(--color-surface-container-high); }
 .option-item.correct { border-color: #22c55e; background: rgba(34, 197, 94, 0.08); }
 .option-item.wrong { border-color: #ef4444; background: rgba(239, 68, 68, 0.08); }
-.option-label { font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-on-surface); min-width: 24px; }
+.option-label { font-family: var(--font-body); font-size: 14px; font-weight: 400; color: var(--color-on-surface); min-width: 24px; }
 .option-content { font-family: var(--font-body); font-size: 14px; color: var(--color-on-surface); flex: 1; }
 .check-icon { color: #22c55e; flex-shrink: 0; }
 .answer-textarea { width: 100%; padding: 12px 14px; background: var(--color-surface-container); border: 1px solid var(--color-outline-light); border-radius: var(--radius-sm); color: var(--color-on-surface); font-family: var(--font-body); font-size: 14px; outline: none; resize: vertical; }
@@ -251,7 +251,7 @@ function handleBack() {
 .explanations { display: flex; flex-direction: column; gap: 8px; padding: 16px; background: var(--color-surface-container); border-radius: var(--radius-sm); }
 .explanation-item { font-family: var(--font-body); font-size: 13px; color: var(--color-muted); }
 .practice-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
-.btn-submit, .btn-next { padding: 10px 24px; border: none; border-radius: var(--radius-sm); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn-submit, .btn-next { padding: 10px 24px; border: none; border-radius: var(--radius-sm); font-family: var(--font-body); font-size: 13px; font-weight: 400; cursor: pointer; }
 .btn-submit { background: var(--color-primary); color: var(--color-on-primary); }
 .btn-submit:hover:not(:disabled) { background: var(--color-primary-soft); }
 .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -261,7 +261,7 @@ function handleBack() {
 .start-card { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 48px; background: var(--color-surface-card); border: 1px solid var(--color-outline-light); border-radius: var(--radius-lg); text-align: center; }
 .start-card h2 { margin: 0; font-family: var(--font-heading); font-size: 24px; color: var(--color-on-surface); }
 .start-card p { margin: 0; font-family: var(--font-body); font-size: 14px; color: var(--color-muted); }
-.btn-primary { padding: 12px 32px; border: none; border-radius: var(--radius-sm); background: var(--color-primary); color: var(--color-on-primary); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer; }
+.btn-primary { padding: 12px 32px; border: none; border-radius: var(--radius-sm); background: var(--color-primary); color: var(--color-on-primary); font-family: var(--font-body); font-size: 14px; font-weight: 400; cursor: pointer; }
 .btn-primary:hover { background: var(--color-primary-soft); }
 .result-container { max-width: 600px; margin: 0 auto; }
 </style>

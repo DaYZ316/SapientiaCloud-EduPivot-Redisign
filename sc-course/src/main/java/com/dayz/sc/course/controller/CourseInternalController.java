@@ -47,7 +47,7 @@ public class CourseInternalController {
         return ApiResponse.ok(new CourseAccessVO(
                 courseId,
                 manager,
-                true,
+                Integer.valueOf(1).equals(course.getIsPublic()),
                 manager || courseTeacher || enrolled,
                 isPrimaryTeacher
         ));

@@ -53,11 +53,14 @@
           <tr v-for="user in users" :key="user.id">
             <td>
               <div class="user-cell">
-                <div class="user-avatar">
-                  <img v-if="user.avatarUrl" :src="user.avatarUrl" alt=""/>
-                  <img v-else :src="getDefaultAvatar(user.role)" alt=""/>
-                </div>
-                <span class="user-name">{{ user.displayName || '-' }}</span>
+                <UserAvatarLink
+                  :user-id="user.id"
+                  :display-name="user.displayName || '-'"
+                  :avatar-url="user.avatarUrl"
+                  :role="user.role"
+                  size="medium"
+                  :show-name="true"
+                />
               </div>
             </td>
             <td>{{ user.email || '-' }}</td>
@@ -166,6 +169,7 @@ import {useI18n} from 'vue-i18n'
 import {ChevronLeft, ChevronRight, KeyRound, Pencil, Search, Users, X} from 'lucide-vue-next'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import BaseSkeleton from '@/shared/components/BaseSkeleton.vue'
+import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import {pageUsers, resetPassword, updateUser} from '@/features/user/api/user'
 import {useAuthStore} from '@/features/auth/stores/auth'
@@ -244,15 +248,6 @@ function getRoleClass(role?: number | null): string {
     default: return ''
   }
 }
-
-function getDefaultAvatar(role?: number | null): string {
-  switch (role) {
-    case 0: return '/assets/avatar-admin-default.png'
-    case 2: return '/assets/avatar-teacher-default.png'
-    default: return '/assets/avatar-student-default.png'
-  }
-}
-
 
 async function loadUsers() {
   loading.value = true
@@ -351,11 +346,12 @@ onMounted(() => {
 
 .page-header h1 {
   margin: 0 0 16px;
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 48px;
-  font-weight: 600;
+  font-weight: 400;
+  line-height: 1.3;
   color: var(--color-on-surface);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .page-subtitle {
@@ -455,7 +451,7 @@ onMounted(() => {
   text-align: left;
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--color-muted);
@@ -507,7 +503,7 @@ onMounted(() => {
 }
 
 .user-name {
-  font-weight: 600;
+  font-weight: 400;
 }
 
 /* Badges */
@@ -516,7 +512,7 @@ onMounted(() => {
   padding: 4px 12px;
   border-radius: var(--radius-sm);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.05em;
 }
 
@@ -541,7 +537,7 @@ onMounted(() => {
   padding: 4px 12px;
   border-radius: var(--radius-sm);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .status-badge.active {
@@ -599,7 +595,7 @@ onMounted(() => {
   border-radius: var(--radius-sm);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.05em;
   cursor: pointer;
   transition: all 0.2s;
@@ -621,7 +617,7 @@ onMounted(() => {
   border-radius: var(--radius-sm);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
   cursor: pointer;
   transition: all 0.2s;
@@ -650,9 +646,9 @@ onMounted(() => {
 
 .empty-state h3 {
   margin: 0 0 8px;
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 
@@ -686,7 +682,7 @@ onMounted(() => {
   background: transparent;
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
   cursor: pointer;
   transition: all 0.2s;
@@ -738,9 +734,9 @@ onMounted(() => {
 
 .modal-header h2 {
   margin: 0;
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 28px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 
@@ -775,7 +771,7 @@ onMounted(() => {
   margin-bottom: 8px;
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 

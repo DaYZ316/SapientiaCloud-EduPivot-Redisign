@@ -29,6 +29,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CourseFileService {
 
+    private static final String READY_STATUS = "READY";
+    private static final String COURSE_SCOPE_TYPE = "COURSE";
+    private static final String COURSE_FILE_USAGE = "COURSE_FILE";
+    private static final String COURSE_PUBLIC_FILE_USAGE = "COURSE_PUBLIC_FILE";
+    private static final String COURSE_PRIVATE_FILE_USAGE = "COURSE_PRIVATE_FILE";
+
     private final CourseFileRepository courseFileRepository;
     private final CourseRepository courseRepository;
     private final EnrollmentRepository enrollmentRepository;
@@ -39,29 +45,29 @@ public class CourseFileService {
         Course course = requireCourse(courseId);
         requireManageCourse(course, userId, role);
         StorageObjectInfo file = requireStorageFile(request.fileId());
-        validateCourseFile(file, courseId, request.visibility());
+        CourseFileVisibility visibility = courseFileVisibility(course);
+        validateCourseFile(file, courseId);
 
         CourseFile courseFile = new CourseFile();
         courseFile.setCourseId(courseId);
         courseFile.setStorageObjectId(request.fileId());
-        courseFile.setVisibility(request.visibility().name());
+        courseFile.setVisibility(visibility.name());
         courseFile.setDisplayName(StringUtils.hasText(request.displayName()) ? request.displayName() : file.fileName());
         courseFile.setCreatedBy(userId);
         courseFile.setSortOrder(request.sortOrder() == null ? 0 : request.sortOrder());
         courseFile.setId(UuidV7Generator.generate());
         courseFileRepository.save(courseFile);
-        return toVO(courseFile, Map.of(request.fileId(), internalUrl(request.fileId())));
+        return toVO(courseFile, Map.of(request.fileId(), internalUrl(request.fileId())), visibility);
     }
 
     public List<CourseFileVO> listFiles(UUID courseId, UUID userId, Integer role) {
         Course course = requireCourse(courseId);
-        boolean canReadPrivate = canReadPrivate(course, userId, role);
+        CourseFileVisibility visibility = courseFileVisibility(course);
+        boolean canReadFiles = visibility == CourseFileVisibility.PUBLIC || canReadPrivate(course, userId, role);
 
-        List<CourseFile> files = canReadPrivate
-                ? courseFileRepository.findByCourseId(courseId)
-                : courseFileRepository.findByCourseIdAndVisibility(courseId, CourseFileVisibility.PUBLIC.name());
+        List<CourseFile> files = canReadFiles ? courseFileRepository.findByCourseId(courseId) : List.of();
         Map<UUID, String> urls = internalUrls(files.stream().map(CourseFile::getStorageObjectId).distinct().toList());
-        return files.stream().map(file -> toVO(file, urls)).toList();
+        return files.stream().map(file -> toVO(file, urls, visibility)).toList();
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -76,16 +82,19 @@ public class CourseFileService {
         courseFileRepository.deleteById(courseFileId);
     }
 
-    private void validateCourseFile(StorageObjectInfo file, UUID courseId, CourseFileVisibility visibility) {
-        String expectedUsage = visibility == CourseFileVisibility.PUBLIC
-                ? "COURSE_PUBLIC_FILE"
-                : "COURSE_PRIVATE_FILE";
-        if (!"READY".equals(file.status())
-                || !expectedUsage.equals(file.usage())
-                || !"COURSE".equals(file.scopeType())
+    private void validateCourseFile(StorageObjectInfo file, UUID courseId) {
+        if (!READY_STATUS.equals(file.status())
+                || !isAllowedCourseFileUsage(file.usage())
+                || !COURSE_SCOPE_TYPE.equals(file.scopeType())
                 || !courseId.equals(file.scopeId())) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid course file");
         }
+    }
+
+    private boolean isAllowedCourseFileUsage(String usage) {
+        return COURSE_FILE_USAGE.equals(usage)
+                || COURSE_PUBLIC_FILE_USAGE.equals(usage)
+                || COURSE_PRIVATE_FILE_USAGE.equals(usage);
     }
 
     private Course requireCourse(UUID courseId) {
@@ -117,6 +126,12 @@ public class CourseFileService {
         return response.data();
     }
 
+    private CourseFileVisibility courseFileVisibility(Course course) {
+        return Integer.valueOf(1).equals(course.getIsPublic())
+                ? CourseFileVisibility.PUBLIC
+                : CourseFileVisibility.PRIVATE;
+    }
+
     private String internalUrl(UUID fileId) {
         Map<UUID, String> urls = internalUrls(List.of(fileId));
         return urls.get(fileId);
@@ -133,12 +148,12 @@ public class CourseFileService {
         return response.data();
     }
 
-    private CourseFileVO toVO(CourseFile file, Map<UUID, String> urls) {
+    private CourseFileVO toVO(CourseFile file, Map<UUID, String> urls, CourseFileVisibility visibility) {
         return new CourseFileVO(
                 file.getId(),
                 file.getCourseId(),
                 file.getStorageObjectId(),
-                file.getVisibility(),
+                visibility.name(),
                 file.getDisplayName(),
                 urls.get(file.getStorageObjectId()),
                 file.getCreatedBy(),

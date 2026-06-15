@@ -14,5 +14,6 @@ import java.util.UUID;
 public record UserBasicInfo(
         @JsonProperty UUID id,
         @JsonProperty @Nullable String displayName,
-        @JsonProperty @Nullable String avatarUrl
+        @JsonProperty @Nullable String avatarUrl,
+        @JsonProperty @Nullable Integer role
 ) {}

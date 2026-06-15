@@ -61,13 +61,24 @@ CREATE TABLE IF NOT EXISTS edu_forum_post (
     deleted           SMALLINT NOT NULL DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS idx_edu_forum_post_forum_id ON edu_forum_post(forum_id);
 CREATE INDEX IF NOT EXISTS idx_edu_forum_post_course_id ON edu_forum_post(course_id);
 CREATE INDEX IF NOT EXISTS idx_edu_forum_post_user_id ON edu_forum_post(sys_user_id);
-CREATE INDEX IF NOT EXISTS idx_edu_forum_post_forum_status ON edu_forum_post(forum_id, status);
 CREATE INDEX IF NOT EXISTS idx_edu_forum_post_course_status ON edu_forum_post(course_id, status);
 CREATE INDEX IF NOT EXISTS idx_edu_forum_post_chapter ON edu_forum_post(chapter_id);
-CREATE INDEX IF NOT EXISTS idx_edu_forum_post_top_essence ON edu_forum_post(forum_id, is_top DESC, is_essence DESC);
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'edu_forum_post'
+          AND column_name = 'forum_id'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_edu_forum_post_forum_id ON edu_forum_post(forum_id);
+        CREATE INDEX IF NOT EXISTS idx_edu_forum_post_forum_status ON edu_forum_post(forum_id, status);
+        CREATE INDEX IF NOT EXISTS idx_edu_forum_post_top_essence ON edu_forum_post(forum_id, is_top DESC, is_essence DESC);
+    END IF;
+END $$;
 
 COMMENT ON TABLE edu_forum_post IS '论坛帖子';
 COMMENT ON COLUMN edu_forum_post.post_type IS '帖子类型: 0=普通, 1=公告';
@@ -104,12 +115,23 @@ CREATE TABLE IF NOT EXISTS edu_forum_reply (
 );
 
 CREATE INDEX IF NOT EXISTS idx_edu_forum_reply_post_id ON edu_forum_reply(post_id);
-CREATE INDEX IF NOT EXISTS idx_edu_forum_reply_forum_id ON edu_forum_reply(forum_id);
 CREATE INDEX IF NOT EXISTS idx_edu_forum_reply_course_id ON edu_forum_reply(course_id);
 CREATE INDEX IF NOT EXISTS idx_edu_forum_reply_user_id ON edu_forum_reply(sys_user_id);
 CREATE INDEX IF NOT EXISTS idx_edu_forum_reply_parent ON edu_forum_reply(parent_reply_id);
 CREATE INDEX IF NOT EXISTS idx_edu_forum_reply_post_status ON edu_forum_reply(post_id, status);
 CREATE INDEX IF NOT EXISTS idx_edu_forum_reply_post_floor ON edu_forum_reply(post_id, floor_number);
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'edu_forum_reply'
+          AND column_name = 'forum_id'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_edu_forum_reply_forum_id ON edu_forum_reply(forum_id);
+    END IF;
+END $$;
 
 COMMENT ON TABLE edu_forum_reply IS '论坛回复';
 COMMENT ON COLUMN edu_forum_reply.parent_reply_id IS '父回复ID (树形结构)';

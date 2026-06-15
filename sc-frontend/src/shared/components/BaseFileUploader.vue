@@ -50,6 +50,7 @@ const props = withDefaults(defineProps<{
   accept?: string
   buttonLabel?: string
   disabled?: boolean
+  maxSizeMb?: number
   prepareFile?: UploadFilePreprocessor
 }>(), {
   accept: undefined,
@@ -100,10 +101,16 @@ async function handleFileChange(event: Event) {
     const uploadFile = props.prepareFile ? await props.prepareFile(file) : file
     if (!uploadFile) return
 
-    // 规范化 scopeId：空字符串转 null
+    if (props.maxSizeMb != null && uploadFile.size > props.maxSizeMb * 1024 * 1024) {
+      const text = `File must be ${props.maxSizeMb}MB or smaller`
+      message.value = text
+      hasError.value = true
+      emit('error', text)
+      return
+    }
     const normalizedScopeId = props.scopeId === '' ? null : (props.scopeId ?? null)
 
-    // COURSE scope 必须有有效的 scopeId
+    // COURSE scope 需要有效的 scopeId
     if (props.scopeType === 'COURSE' && !normalizedScopeId) {
       const text = 'Course upload requires a valid scopeId'
       message.value = text
@@ -162,7 +169,7 @@ async function handleFileChange(event: Event) {
   color: var(--color-on-surface);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   cursor: pointer;
   transition: border-color 0.2s, background 0.2s;
 }

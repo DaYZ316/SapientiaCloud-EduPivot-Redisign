@@ -1,9 +1,24 @@
 ﻿import {request} from '@/shared/api/request'
-import type {UpdateUserRequest, UserPageQuery, UserPageResponse, UserProfile,} from '@/features/user/types/user'
+import type {UpdateUserRequest, UserBasicInfo, UserPageQuery, UserPageResponse, UserProfile,} from '@/features/user/types/user'
 
 export function getCurrentUser() {
     return request<UserProfile>({
         url: '/api/auth/users/me',
+        method: 'GET',
+    })
+}
+
+export function getUserById(id: string) {
+    return request<UserProfile>({
+        url: `/api/auth/users/${id}`,
+        method: 'GET',
+    })
+}
+
+export function getUsersBasicInfo(ids: string[]) {
+    const query = ids.map(id => `ids=${id}`).join('&')
+    return request<UserBasicInfo[]>({
+        url: `/api/auth/users/basic?${query}`,
         method: 'GET',
     })
 }

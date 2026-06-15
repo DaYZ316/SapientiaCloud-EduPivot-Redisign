@@ -61,6 +61,7 @@
                     v-model="form.isPublic"
                     class="modal-select-control"
                     :options="courseVisibilityOptions"
+                    :disabled="mode === 'edit'"
                     min-width="100%"
                   />
                 </div>
@@ -491,7 +492,6 @@ function handleSubmit() {
       semester: form.semester || undefined,
       location: form.location || undefined,
       courseType: form.courseType,
-      isPublic: form.isPublic,
       maxStudents: form.maxStudents,
       status: props.canEditCourseStatus ? form.status : undefined,
     })
@@ -565,7 +565,7 @@ watch(() => props.course, (course) => {
   margin: 0;
   font-family: 'Bodoni Moda', serif;
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 
@@ -623,7 +623,7 @@ watch(() => props.course, (course) => {
   margin: 0;
   font-family: var(--font-heading);
   font-size: 28px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 
@@ -722,7 +722,7 @@ watch(() => props.course, (course) => {
   display: block;
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 
@@ -989,7 +989,7 @@ watch(() => props.course, (course) => {
   border-radius: var(--radius-sm);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   cursor: pointer;

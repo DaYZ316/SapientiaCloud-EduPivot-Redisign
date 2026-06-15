@@ -254,9 +254,10 @@ onMounted(() => {
 
 .page-header h1 {
   margin: 0;
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 48px;
-  font-weight: 600;
+  font-weight: 400;
+  line-height: 1.3;
   color: var(--color-on-surface);
 }
 
@@ -277,7 +278,7 @@ onMounted(() => {
   border-radius: 8px;
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-muted);
   cursor: pointer;
   transition: all 0.2s;
@@ -351,7 +352,7 @@ onMounted(() => {
   margin: 0 0 8px;
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 
@@ -372,7 +373,7 @@ onMounted(() => {
   border-radius: var(--radius-sm);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .invitation-status-badge.pending {
@@ -434,9 +435,9 @@ onMounted(() => {
 
 .empty-state h3 {
   margin: 16px 0 0;
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 
@@ -459,7 +460,7 @@ onMounted(() => {
   border-radius: 8px;
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
   cursor: pointer;
   transition: all 0.2s;
@@ -514,9 +515,9 @@ onMounted(() => {
 
 .modal-header h2 {
   margin: 0;
-  font-family: 'Bodoni Moda', serif;
+  font-family: var(--font-heading);
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 
@@ -570,7 +571,7 @@ onMounted(() => {
   border-radius: var(--radius-sm);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   cursor: pointer;
   transition: all 0.2s;
 }

@@ -139,7 +139,8 @@ public class UserManagementService {
                 .map(user -> new UserBasicInfo(
                         user.getId(),
                         user.getDisplayName(),
-                        resolveAvatarUrl(user, avatarUrls)))
+                        resolveAvatarUrl(user, avatarUrls),
+                        user.getRole()))
                 .toList();
     }
 

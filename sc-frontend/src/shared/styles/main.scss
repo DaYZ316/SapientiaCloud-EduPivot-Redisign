@@ -124,7 +124,7 @@ textarea {
   margin: 0 0 12px;
   font-family: var(--font-label);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.1em;
   color: var(--color-muted);
   text-transform: uppercase;
@@ -152,7 +152,7 @@ textarea {
   border-radius: var(--radius-pill);
   font-family: var(--font-label);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   cursor: pointer;
@@ -178,7 +178,7 @@ textarea {
   border-radius: var(--radius-pill);
   font-family: var(--font-label);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-primary);
   cursor: pointer;
   transition: all 0.2s;
@@ -194,7 +194,7 @@ textarea {
   border: none;
   font-family: var(--font-body);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-muted);
   cursor: pointer;
   text-decoration: none;
@@ -277,7 +277,7 @@ textarea {
   margin: 0;
   font-family: var(--font-heading);
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.25;
   color: var(--color-on-surface);
   overflow-wrap: anywhere;
@@ -362,7 +362,7 @@ textarea {
   border-radius: var(--radius-pill);
   font-family: var(--font-label);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.05em;
 }
 
@@ -375,7 +375,7 @@ textarea {
   border-radius: var(--radius-pill);
   font-family: var(--font-label);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 /* ---- Dividers ---- */
@@ -405,6 +405,7 @@ textarea {
 
 ::-webkit-scrollbar {
   width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {

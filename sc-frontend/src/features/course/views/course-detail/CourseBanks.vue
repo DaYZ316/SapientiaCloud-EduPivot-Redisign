@@ -63,7 +63,7 @@
       </article>
     </div>
 
-    <!-- 创建/编辑题库对话框 -->
+    <!-- 创建/编辑题库对话�?-->
     <Teleport to="body">
       <div v-if="showCreateDialog || showEditDialog" class="modal-overlay" @click.self="closeDialogs">
         <div class="modal-content">
@@ -231,7 +231,7 @@ async function handleDelete(bank: QuestionBank) {
   color: var(--color-muted);
   font-family: var(--font-label);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -400,7 +400,7 @@ async function handleDelete(bank: QuestionBank) {
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .empty-tab p {
@@ -434,7 +434,7 @@ async function handleDelete(bank: QuestionBank) {
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .modal-content form {
@@ -450,7 +450,7 @@ async function handleDelete(bank: QuestionBank) {
   color: var(--color-muted);
   font-family: var(--font-body);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .modal-content input,
@@ -485,7 +485,7 @@ async function handleDelete(bank: QuestionBank) {
   color: var(--color-muted);
   font-family: var(--font-label);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   cursor: pointer;
 }
 
@@ -502,7 +502,7 @@ async function handleDelete(bank: QuestionBank) {
   color: var(--color-on-primary);
   font-family: var(--font-label);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   cursor: pointer;
 }
 

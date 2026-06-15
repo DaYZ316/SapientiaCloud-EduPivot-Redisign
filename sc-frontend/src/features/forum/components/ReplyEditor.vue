@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="reply-editor">
     <div v-if="replyTo" class="reply-to-hint">
       {{ t('forum.replyTo') }}
@@ -120,7 +120,7 @@ function handleSubmit() {
   color: var(--color-on-primary);
   font-family: var(--font-body);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   cursor: pointer;
   transition: background 0.15s;
 }

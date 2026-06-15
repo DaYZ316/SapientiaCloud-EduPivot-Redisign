@@ -713,8 +713,8 @@ function maskIp(ip?: string | null): string {
   margin: 0;
   font-family: var(--font-heading);
   font-size: clamp(36px, 5vw, 56px);
-  font-weight: 600;
-  line-height: 1.02;
+  font-weight: 400;
+  line-height: 1.3;
   letter-spacing: 0;
   text-wrap: balance;
 }
@@ -821,7 +821,7 @@ function maskIp(ip?: string | null): string {
   margin: 0;
   font-family: var(--font-heading);
   font-size: 32px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.1;
   letter-spacing: 0;
 }
@@ -869,7 +869,7 @@ function maskIp(ip?: string | null): string {
   color: var(--color-muted);
   font-family: var(--font-label);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .identity-item span,
@@ -1057,7 +1057,7 @@ function maskIp(ip?: string | null): string {
   border-radius: var(--radius-pill);
   color: var(--color-on-surface-variant);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .security-note {

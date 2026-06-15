@@ -7,7 +7,11 @@
         @error="useFallbackImage($event, COURSE_COVER_FALLBACK)"
       />
       <div class="cover-gradient"></div>
-      <div class="teacher-chip">
+      <a
+        class="teacher-chip"
+        :href="`/profile/${course.teacherId}`"
+        @click.prevent="navigateToTeacher"
+      >
         <img
           class="teacher-avatar"
           :src="teacherAvatar"
@@ -15,7 +19,7 @@
           @error="useFallbackImage($event, TEACHER_AVATAR_FALLBACK)"
         />
         <span>{{ teacherName }}</span>
-      </div>
+      </a>
     </figure>
 
     <div class="course-info">
@@ -60,8 +64,10 @@
 <script lang="ts" setup>
 import {computed} from 'vue'
 import {useI18n} from 'vue-i18n'
+import {useRouter} from 'vue-router'
 import {ArrowRight} from 'lucide-vue-next'
 
+import {useAuthStore} from '@/features/auth/stores/auth'
 import type {Course} from '@/features/course/types/course'
 
 const COURSE_COVER_FALLBACK = '/assets/course-cover-default.png'
@@ -76,6 +82,8 @@ defineEmits<{
 }>()
 
 const {t, locale} = useI18n()
+const router = useRouter()
+const authStore = useAuthStore()
 
 const coverSrc = computed(() => props.course.coverUrl || COURSE_COVER_FALLBACK)
 const teacherAvatar = computed(() => props.course.teacherAvatar || TEACHER_AVATAR_FALLBACK)
@@ -149,6 +157,19 @@ function formatDate(dateStr?: string | null): string {
   }).format(date)
 }
 
+function navigateToTeacher(event: Event) {
+  event.stopPropagation()
+  if (!props.course.teacherId) {
+    return
+  }
+
+  if (authStore.user?.id === props.course.teacherId) {
+    router.push({name: 'profile'})
+  } else {
+    router.push({name: 'user-profile', params: {userId: props.course.teacherId}})
+  }
+}
+
 function useFallbackImage(event: Event, fallback: string) {
   const image = event.target as HTMLImageElement
   if (image.dataset.fallbackApplied === 'true') {
@@ -169,7 +190,7 @@ function useFallbackImage(event: Event, fallback: string) {
   overflow: hidden;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 24px;
+  border-radius: var(--radius-lg);
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.04),
     0 4px 16px rgba(0, 0, 0, 0.03);
@@ -181,6 +202,7 @@ function useFallbackImage(event: Event, fallback: string) {
 .course-card:hover {
   border-color: var(--color-on-surface);
   box-shadow:
+    inset 0 0 0 1px var(--color-on-surface),
     0 0 0 3px color-mix(in srgb, var(--color-on-surface) 8%, transparent),
     0 2px 4px rgba(0, 0, 0, 0.06),
     0 12px 40px rgba(0, 0, 0, 0.08);
@@ -196,6 +218,21 @@ function useFallbackImage(event: Event, fallback: string) {
   place-items: center;
   overflow: hidden;
   background: var(--color-surface-canvas);
+  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
+}
+
+.course-cover::after {
+  position: absolute;
+  inset: 0;
+  border: 1px solid transparent;
+  border-radius: inherit;
+  content: '';
+  pointer-events: none;
+  transition: border-color 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.course-card:hover .course-cover::after {
+  border-color: var(--color-on-surface);
 }
 
 .course-cover img {
@@ -235,6 +272,14 @@ function useFallbackImage(event: Event, fallback: string) {
   border-radius: 12px;
   backdrop-filter: blur(12px) saturate(140%);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.teacher-chip:hover {
+  background: rgba(0, 0, 0, 0.5);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .teacher-chip .teacher-avatar {
@@ -313,7 +358,7 @@ function useFallbackImage(event: Event, fallback: string) {
   color: var(--color-muted);
   font-family: var(--font-label);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1;
   border-radius: 6px;
 }
@@ -347,7 +392,7 @@ function useFallbackImage(event: Event, fallback: string) {
   color: var(--color-on-surface);
   font-family: var(--font-body);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="practice-result">
     <div class="result-icon">
       <CheckCircle v-if="accuracy >= 60" :size="48" stroke-width="1.5"/>
@@ -77,7 +77,7 @@ const accuracy = computed(() => {
   margin: 0;
   font-family: var(--font-heading);
   font-size: 28px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 
@@ -118,7 +118,7 @@ const accuracy = computed(() => {
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   cursor: pointer;
   transition: background 0.15s;
 }

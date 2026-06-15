@@ -95,12 +95,11 @@ edupivot:
     limits:
       avatar-bytes: 2097152
       course-cover-bytes: 5242880
+      forum-image-bytes: 5242880
       course-file-bytes: 209715200
       ai-file-bytes: 104857600
     bucket:
       media: edupivot-media
       course: edupivot-course
-      course-public: edupivot-course-public
-      course-private: edupivot-course-private
       ai: edupivot-ai
     cleanup-delay-ms: 3600000

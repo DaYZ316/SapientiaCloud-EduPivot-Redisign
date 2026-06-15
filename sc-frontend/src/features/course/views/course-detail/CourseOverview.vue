@@ -3,13 +3,14 @@
     <section class="instructor-biography">
       <h2>Instructor Biography</h2>
       <div class="instructor-row">
-        <div class="biography-avatar">
-          <img
-            :src="course.teacherAvatar || teacherFallbackUrl"
-            :alt="course.teacherName || t('courseDetail.unknownTeacher')"
-            @error="useFallbackImage($event, teacherFallbackUrl)"
-          />
-        </div>
+        <UserAvatarLink
+          :user-id="course.teacherId"
+          :display-name="course.teacherName || t('courseDetail.unknownTeacher')"
+          :avatar-url="course.teacherAvatar"
+          :role="2"
+          size="xl"
+          :show-name="false"
+        />
         <div class="biography-copy">
           <h3>{{ course.teacherName || t('courseDetail.unknownTeacher') }}</h3>
           <p class="biography-role">{{ t('courseDetail.primaryInstructor') }}</p>
@@ -24,6 +25,7 @@
 import {computed} from 'vue'
 import {useI18n} from 'vue-i18n'
 import type {CourseDetail} from '@/features/course/types/course'
+import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 
 const props = defineProps<{
   course: CourseDetail
@@ -32,20 +34,11 @@ const props = defineProps<{
 
 const {t} = useI18n()
 
-const teacherFallbackUrl = '/assets/avatar-teacher-default.png'
-
 const actionDescription = computed(() => {
   if (props.canManageCourse) return t('courseDetail.teacherActionDescription')
   if (props.course.enrolled) return t('courseDetail.studentActionDescription')
   return t('courseDetail.guestActionDescription')
 })
-
-function useFallbackImage(event: Event, fallback: string) {
-  const image = event.target as HTMLImageElement
-  if (image.dataset.fallbackApplied === 'true') return
-  image.dataset.fallbackApplied = 'true'
-  image.src = fallback
-}
 </script>
 
 <style scoped>
@@ -60,8 +53,8 @@ function useFallbackImage(event: Event, fallback: string) {
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: 22px;
-  font-weight: 500;
-  line-height: 1.4;
+  font-weight: 400;
+  line-height: 1.3;
 }
 
 .instructor-row {
@@ -95,7 +88,7 @@ function useFallbackImage(event: Event, fallback: string) {
   color: var(--color-on-surface);
   font-family: var(--font-label);
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.2;
 }
 

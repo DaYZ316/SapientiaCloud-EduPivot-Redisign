@@ -24,6 +24,7 @@
           :accept="imageUploadOptions.accept"
           :button-label="imageUploadOptions.buttonLabel || 'Upload image'"
           :disabled="disabled"
+          :max-size-mb="imageUploadOptions.maxSizeMb"
           :prepare-file="prepareImageFile"
           @uploaded="handleImageUploaded"
           @error="emit('image-upload-error', $event)"
@@ -91,6 +92,7 @@ import type {FileAsset, StorageBucketType, StorageScopeType, StorageUsage} from 
 import BaseFileUploader from '@/shared/components/BaseFileUploader.vue'
 
 type ToolbarActionId = 'bold' | 'italic' | 'unorderedList' | 'orderedList' | 'quote' | 'link' | 'clear'
+type ContentFormat = 'markdown' | 'html'
 type UploadFilePreprocessor = (file: File) => File | null | Promise<File | null>
 type ImageUploadOptions = {
   usage: StorageUsage
@@ -99,6 +101,7 @@ type ImageUploadOptions = {
   bucketType?: StorageBucketType | null
   accept?: string
   buttonLabel?: string
+  maxSizeMb?: number
 }
 
 type MarkdownBlock =
@@ -117,6 +120,7 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   ariaLabel?: string
   toolbar?: boolean
+  contentFormat?: ContentFormat
   imageUploadOptions?: ImageUploadOptions
   imageAssets?: FileAsset[]
   prepareImageFile?: UploadFilePreprocessor
@@ -131,6 +135,7 @@ const props = withDefaults(defineProps<{
   disabled: false,
   ariaLabel: undefined,
   toolbar: true,
+  contentFormat: 'markdown',
   imageUploadOptions: undefined,
   imageAssets: () => [],
   prepareImageFile: undefined,
@@ -151,7 +156,7 @@ const hasContent = computed(() => props.modelValue.trim().length > 0)
 const editorStyle = computed(() => ({
   minHeight: `${Math.max(props.rows, props.minRows ?? 4) * 28}px`,
 }))
-const imagePreviews = computed(() => props.imageAssets
+const imagePreviews = computed(() => props.contentFormat === 'html' ? [] : props.imageAssets
   .map(image => ({
     id: image.id,
     fileName: image.fileName,
@@ -175,7 +180,7 @@ onMounted(() => {
 
 watch(() => props.modelValue, (value) => {
   const editor = editorRef.value
-  if (!editor || editorToMarkdown(editor) === value) return
+  if (!editor || editorToValue(editor) === value) return
   syncEditorFromValue()
 })
 
@@ -226,6 +231,9 @@ function applyAction(action: ToolbarActionId) {
 
 function handleImageUploaded(asset: FileAsset) {
   emit('update:imageAssets', [...props.imageAssets, asset])
+  if (props.contentFormat === 'html') {
+    insertImageAsset(asset)
+  }
 }
 
 function removeImage(imageId: string) {
@@ -233,7 +241,7 @@ function removeImage(imageId: string) {
 }
 
 async function updateEditorValue(value: string) {
-  setEditorHtml(markdownToEditorHtml(value))
+  setEditorHtml(valueToEditorHtml(value))
   emit('update:modelValue', value)
   emit('input', value)
   await nextTick()
@@ -244,10 +252,10 @@ function emitEditorValue() {
   const editor = editorRef.value
   if (!editor) return
 
-  let value = editorToMarkdown(editor)
+  let value = editorToValue(editor)
   if (props.maxLength != null && value.length > props.maxLength) {
     value = value.slice(0, props.maxLength)
-    setEditorHtml(markdownToEditorHtml(value))
+    setEditorHtml(valueToEditorHtml(value))
   }
 
   emit('update:modelValue', value)
@@ -255,7 +263,7 @@ function emitEditorValue() {
 }
 
 function syncEditorFromValue() {
-  setEditorHtml(markdownToEditorHtml(props.modelValue))
+  setEditorHtml(valueToEditorHtml(props.modelValue))
 }
 
 function setEditorHtml(html: string) {
@@ -278,6 +286,14 @@ function applyLink() {
   document.execCommand('createLink', false, url)
 }
 
+function insertImageAsset(asset: FileAsset) {
+  if (!asset.url) return
+  editorRef.value?.focus()
+  const imageHtml = `<figure class="chapter-image"><img src="${escapeAttribute(asset.url)}" data-storage-file-id="${escapeAttribute(asset.id)}" alt="${escapeAttribute(asset.fileName)}" loading="lazy"></figure><p><br></p>`
+  document.execCommand('insertHTML', false, imageHtml)
+  emitEditorValue()
+}
+
 function normalizeUrl(value: string | null) {
   const trimmed = value?.trim() ?? ''
   if (!trimmed) return ''
@@ -296,6 +312,14 @@ function isSelectionInside(tagName: string) {
   }
 
   return false
+}
+
+function valueToEditorHtml(content: string) {
+  return props.contentFormat === 'html' ? sanitizeEditorHtml(content, false) : markdownToEditorHtml(content)
+}
+
+function editorToValue(editor: HTMLElement) {
+  return props.contentFormat === 'html' ? editorToHtml(editor) : editorToMarkdown(editor)
 }
 
 function markdownToEditorHtml(content: string) {
@@ -414,6 +438,80 @@ function editorToMarkdown(editor: HTMLElement) {
     .filter(Boolean)
     .join('\n')
     .trim()
+}
+
+function editorToHtml(editor: HTMLElement) {
+  return Array.from(editor.childNodes)
+    .map(node => serializeHtmlNode(node, true))
+    .join('')
+    .trim()
+}
+
+function sanitizeEditorHtml(content: string, normalizeImages = true) {
+  const template = document.createElement('template')
+  template.innerHTML = content
+  return Array.from(template.content.childNodes)
+    .map(node => serializeHtmlNode(node, normalizeImages))
+    .join('')
+}
+
+function serializeHtmlNode(node: Node, normalizeImages: boolean): string {
+  if (node.nodeType === Node.TEXT_NODE) return escapeHtml(node.textContent ?? '')
+  if (!(node instanceof HTMLElement)) return ''
+
+  const tag = node.tagName.toLowerCase()
+  if (tag === 'br') return '<br>'
+  if (tag === 'strong' || tag === 'b') return `<strong>${serializeHtmlChildren(node, normalizeImages)}</strong>`
+  if (tag === 'em' || tag === 'i') return `<em>${serializeHtmlChildren(node, normalizeImages)}</em>`
+  if (tag === 'a') return serializeHtmlLink(node, normalizeImages)
+  if (tag === 'ul' || tag === 'ol') return `<${tag}>${serializeHtmlChildren(node, normalizeImages)}</${tag}>`
+  if (tag === 'li') return `<li>${serializeHtmlChildren(node, normalizeImages)}</li>`
+  if (tag === 'blockquote') return `<blockquote>${serializeHtmlChildren(node, normalizeImages)}</blockquote>`
+  if (tag === 'figure') return serializeHtmlFigure(node, normalizeImages)
+  if (tag === 'img') return serializeHtmlImage(node, normalizeImages)
+  if (tag === 'div' || tag === 'p') return `<p>${serializeHtmlChildren(node, normalizeImages)}</p>`
+
+  return serializeHtmlChildren(node, normalizeImages)
+}
+
+function serializeHtmlChildren(node: Node, normalizeImages: boolean) {
+  return Array.from(node.childNodes).map(child => serializeHtmlNode(child, normalizeImages)).join('')
+}
+
+function serializeHtmlLink(node: HTMLElement, normalizeImages: boolean) {
+  const url = normalizeUrl(node.getAttribute('href'))
+  if (!url) return serializeHtmlChildren(node, normalizeImages)
+  return `<a href="${escapeAttribute(url)}">${serializeHtmlChildren(node, normalizeImages)}</a>`
+}
+
+function serializeHtmlFigure(node: HTMLElement, normalizeImages: boolean) {
+  const content = serializeHtmlChildren(node, normalizeImages)
+  if (!content.trim()) return ''
+  return `<figure class="chapter-image">${content}</figure>`
+}
+
+function serializeHtmlImage(node: HTMLElement, normalizeImages: boolean) {
+  const fileId = normalizeStorageFileId(node.getAttribute('data-storage-file-id') || storageFileIdFromSrc(node.getAttribute('src')))
+  if (!fileId) return ''
+
+  const src = normalizeImages ? `sc-storage-file:${fileId}` : normalizeImageSrc(node.getAttribute('src'), fileId)
+  const alt = node.getAttribute('alt') ?? ''
+  return `<img src="${escapeAttribute(src)}" data-storage-file-id="${escapeAttribute(fileId)}" alt="${escapeAttribute(alt)}" loading="lazy">`
+}
+
+function storageFileIdFromSrc(value: string | null) {
+  const match = value?.match(/^sc-storage-file:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i)
+  return match?.[1] ?? ''
+}
+
+function normalizeStorageFileId(value: string | null) {
+  const trimmed = value?.trim() ?? ''
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed) ? trimmed : ''
+}
+
+function normalizeImageSrc(value: string | null, fileId: string) {
+  const trimmed = value?.trim() ?? ''
+  return trimmed ? trimmed : `sc-storage-file:${fileId}`
 }
 
 function serializeBlockNode(node: Node): string {
@@ -640,6 +738,24 @@ function escapeAttribute(value: string) {
   text-underline-offset: 3px;
 }
 
+.base-text-editor-input :deep(figure.chapter-image) {
+  display: flex;
+  justify-content: center;
+  margin: 14px 0;
+}
+
+.base-text-editor-input :deep(figure.chapter-image img) {
+  display: block;
+  max-width: min(100%, 560px);
+  max-height: 360px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-container);
+}
+
 .base-text-editor-images {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(72px, 96px));
@@ -698,7 +814,7 @@ function escapeAttribute(value: string) {
 .base-text-editor-count {
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.08em;
   color: var(--color-muted);
   font-variant-numeric: tabular-nums;

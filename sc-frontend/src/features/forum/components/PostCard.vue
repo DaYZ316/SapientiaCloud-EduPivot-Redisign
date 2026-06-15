@@ -119,7 +119,7 @@ function formatTime(dateStr: string) {
   gap: 4px;
   font-family: var(--font-body);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.03em;
   padding: 2px 8px;
   border-radius: 4px;
@@ -144,7 +144,7 @@ function formatTime(dateStr: string) {
   margin: 0;
   font-family: var(--font-heading);
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
   line-height: 1.3;
 }

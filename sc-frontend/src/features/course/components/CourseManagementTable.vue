@@ -273,7 +273,7 @@ function formatDate(dateStr: string): string {
 .course-summary span {
   color: var(--color-muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .level-badge,

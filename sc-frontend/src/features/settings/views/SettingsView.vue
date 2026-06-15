@@ -106,8 +106,8 @@ const activeTabConfig = computed<SettingsTab>(() =>
   margin: 10px 0 0;
   font-family: var(--font-heading);
   font-size: clamp(40px, 6vw, 56px);
-  font-weight: 600;
-  line-height: 1.05;
+  font-weight: 400;
+  line-height: 1.3;
   color: var(--color-on-surface);
 }
 

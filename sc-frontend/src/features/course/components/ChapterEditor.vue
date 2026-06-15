@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div v-if="visible" class="editor-overlay" @click.self="emit('close')">
     <div class="editor-dialog">
       <div class="editor-header">
@@ -8,7 +8,7 @@
         </button>
       </div>
 
-      <div class="editor-body">
+      <div ref="editorBodyRef" class="editor-body">
         <div class="field">
           <label>{{ t('chapter.chapterName') }} *</label>
           <input v-model="form.chapterName" type="text" class="input" :placeholder="t('chapter.chapterName')"/>
@@ -21,20 +21,28 @@
 
         <div class="field">
           <label>{{ t('chapter.content') }}</label>
-          <textarea v-model="form.content" class="textarea content-input" rows="8" :placeholder="t('chapter.content')"></textarea>
+          <BaseTextEditor
+            v-model="form.content"
+            :placeholder="t('chapter.content')"
+            :rows="8"
+            content-format="html"
+            :image-upload-options="imageUploadOptions"
+            :prepare-image-file="validateImageFile"
+            aria-label="Chapter content"
+            @image-upload-error="handleUploadError"
+          />
         </div>
 
         <div class="field-row">
           <div class="field">
             <label>{{ t('chapter.status') }}</label>
-            <select v-model="form.status" class="input">
-              <option :value="0">{{ t('chapter.draft') }}</option>
-              <option :value="1">{{ t('chapter.published') }}</option>
-            </select>
+            <div ref="selectWrapRef" class="select-fixed-wrap">
+              <BaseSelect ref="selectRef" v-model="form.status" :options="statusOptions"/>
+            </div>
           </div>
           <div class="field">
             <label>{{ t('chapter.sortOrder') }}</label>
-            <input v-model.number="form.sortOrder" type="number" class="input" min="0"/>
+            <BaseNumberStepper v-model="form.sortOrder" :min="0"/>
           </div>
         </div>
       </div>
@@ -50,10 +58,14 @@
 </template>
 
 <script lang="ts" setup>
-import {reactive, watch} from 'vue'
+import {computed, nextTick, onUnmounted, reactive, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {X} from 'lucide-vue-next'
+import BaseNumberStepper from '@/shared/components/BaseNumberStepper.vue'
+import BaseSelect from '@/shared/components/BaseSelect.vue'
+import BaseTextEditor from '@/shared/components/BaseTextEditor.vue'
 import type {Chapter, CreateChapterRequest, UpdateChapterRequest} from '@/features/course/types/chapter'
+import {notify} from '@/shared/composables/useGlobalNotification'
 
 const props = defineProps<{
   visible: boolean
@@ -77,6 +89,58 @@ const form = reactive({
   content: '',
   status: 0,
   sortOrder: 0,
+})
+
+const CHAPTER_IMAGE_MAX_SIZE_MB = 5
+const CHAPTER_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
+const statusOptions = computed(() => [
+  {label: t('chapter.draft'), value: 0},
+  {label: t('chapter.published'), value: 1},
+])
+const imageUploadOptions = computed(() => ({
+  usage: 'FORUM_IMAGE' as const,
+  scopeType: 'COURSE' as const,
+  scopeId: props.courseId,
+  accept: CHAPTER_IMAGE_TYPES.join(','),
+  buttonLabel: t('chapter.uploadImage'),
+  maxSizeMb: CHAPTER_IMAGE_MAX_SIZE_MB,
+}))
+
+const editorBodyRef = ref<HTMLElement | null>(null)
+const selectWrapRef = ref<HTMLElement | null>(null)
+const selectRef = ref<InstanceType<typeof BaseSelect> | null>(null)
+
+function positionMenu() {
+  const wrap = selectWrapRef.value
+  const menu = wrap?.querySelector('.base-select-menu') as HTMLElement | undefined
+  if (!wrap || !menu) return
+  const rect = wrap.getBoundingClientRect()
+  menu.style.position = 'fixed'
+  menu.style.top = `${rect.bottom + 6}px`
+  menu.style.left = `${rect.left}px`
+  menu.style.right = 'auto'
+  menu.style.minWidth = `${rect.width}px`
+  menu.style.zIndex = '1100'
+}
+
+function onEditorScroll() {
+  const menu = selectWrapRef.value?.querySelector('.base-select-menu') as HTMLElement | undefined
+  if (menu) positionMenu()
+}
+
+watch(() => selectRef.value?.isOpen, async (open) => {
+  if (open) {
+    await nextTick()
+    positionMenu()
+    editorBodyRef.value?.addEventListener('scroll', onEditorScroll, {passive: true})
+  } else {
+    editorBodyRef.value?.removeEventListener('scroll', onEditorScroll)
+  }
+})
+
+onUnmounted(() => {
+  editorBodyRef.value?.removeEventListener('scroll', onEditorScroll)
 })
 
 watch(() => props.visible, (val) => {
@@ -116,6 +180,22 @@ function handleSave() {
     } as CreateChapterRequest)
   }
 }
+
+function validateImageFile(file: File) {
+  if (!CHAPTER_IMAGE_TYPES.includes(file.type)) {
+    notify.error(t('chapter.imageTypeError'))
+    return null
+  }
+  if (file.size > CHAPTER_IMAGE_MAX_SIZE_MB * 1024 * 1024) {
+    notify.error(t('chapter.imageSizeError'))
+    return null
+  }
+  return file
+}
+
+function handleUploadError() {
+  notify.error(t('chapter.imageUploadFailed'))
+}
 </script>
 
 <style scoped>
@@ -138,7 +218,6 @@ function handleSave() {
   border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 .editor-header {
@@ -152,7 +231,7 @@ function handleSave() {
   margin: 0;
   font-family: var(--font-heading);
   font-size: 22px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-on-surface);
 }
 
@@ -191,15 +270,14 @@ function handleSave() {
 .field label {
   font-family: var(--font-body);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--color-muted);
 }
 
 .input,
-.textarea,
-select.input {
+.textarea {
   width: 100%;
   padding: 10px 14px;
   background: var(--color-surface-container);
@@ -213,8 +291,7 @@ select.input {
 }
 
 .input:focus,
-.textarea:focus,
-select.input:focus {
+.textarea:focus {
   border-color: var(--color-on-surface);
 }
 
@@ -223,14 +300,49 @@ select.input:focus {
   min-height: 60px;
 }
 
-.content-input {
-  min-height: 200px;
-}
-
 .field-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  align-items: end;
+}
+
+.field-row :deep(.base-select-trigger) {
+  min-height: 42px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-container);
+  font-family: var(--font-body);
+}
+
+.select-fixed-wrap {
+  position: relative;
+}
+
+.field-row :deep(.base-number-stepper) {
+  min-height: 42px;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+}
+
+.field-row :deep(.base-number-stepper:focus-within) {
+  border-color: var(--color-on-surface);
+  box-shadow: none;
+}
+
+.field-row :deep(.base-number-stepper-button) {
+  height: 42px;
+  color: var(--color-muted);
+}
+
+.field-row :deep(.base-number-stepper-button:hover:not(:disabled)) {
+  color: var(--color-on-surface);
+}
+
+.field-row :deep(.base-number-stepper-input) {
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 14px;
 }
 
 .editor-footer {
@@ -243,12 +355,13 @@ select.input:focus {
 
 .btn-cancel,
 .btn-save {
-  padding: 10px 20px;
+  height: 42px;
+  padding: 0 20px;
   border: none;
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   cursor: pointer;
   transition: background 0.15s;
 }

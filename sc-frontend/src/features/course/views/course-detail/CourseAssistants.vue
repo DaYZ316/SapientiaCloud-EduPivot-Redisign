@@ -7,21 +7,25 @@
       </div>
       <div class="header-right">
         <span class="count-badge">{{ assistants.length }}</span>
-        <button v-if="canManageCourse" class="btn-add" type="button" @click="showInviteDialog = true">
+        <button v-if="canManageAssistants" class="btn-add" type="button" @click="openDialog">
           <Plus :size="14" stroke-width="2"/>
-          {{ t('courseDetail.inviteAssistant') }}
+          {{ isAdmin ? t('courseDetail.addAssistant') : t('courseDetail.inviteAssistant') }}
         </button>
       </div>
     </div>
 
-    <!-- 待处理邀请 -->
-    <div v-if="canManageCourse && pendingInvitations.length > 0" class="pending-section">
+    <!-- 待处理邀�?-->
+    <div v-if="canManageAssistants && !isAdmin && pendingInvitations.length > 0" class="pending-section">
       <h4>{{ t('courseDetail.pendingInvitations') }}</h4>
       <div class="invitation-list">
         <div v-for="inv in pendingInvitations" :key="inv.id" class="invitation-item">
-          <div class="member-avatar">
-            <User :size="16" stroke-width="1.7"/>
-          </div>
+          <UserAvatarLink
+            :user-id="inv.inviteeId"
+            :display-name="inv.inviteeName"
+            :role="2"
+            size="medium"
+            :show-name="false"
+          />
           <div class="member-info">
             <strong>{{ inv.inviteeName || inv.inviteeId }}</strong>
             <span>{{ formatDate(inv.createdAt) }}</span>
@@ -45,19 +49,20 @@
     </div>
     <div v-else-if="assistants.length > 0" class="member-list">
       <div v-for="assistant in assistants" :key="assistant.id" class="member-item">
-        <div class="member-avatar">
-          <img
-            :src="assistant.avatarUrl || teacherFallbackUrl"
-            :alt="assistant.displayName || assistant.id"
-            @error="useFallbackImage($event, teacherFallbackUrl)"
-          />
-        </div>
+        <UserAvatarLink
+          :user-id="assistant.id"
+          :display-name="assistant.displayName"
+          :avatar-url="assistant.avatarUrl"
+          :role="2"
+          size="medium"
+          :show-name="false"
+        />
         <div class="member-info">
           <strong>{{ assistant.displayName || assistant.id }}</strong>
           <span>{{ t('courseDetail.assistantInstructor') }}</span>
         </div>
         <button
-          v-if="canManageCourse"
+          v-if="canManageAssistants"
           class="btn-icon danger"
           type="button"
           :title="t('courseDetail.removeAssistant')"
@@ -68,57 +73,117 @@
       </div>
     </div>
 
-    <!-- 邀请对话框 -->
+    <!-- 邀�?添加助教对话�?-->
     <Teleport to="body">
-      <div v-if="showInviteDialog" class="modal-overlay" @click.self="closeInviteDialog">
+      <div v-if="showDialog" class="modal-overlay" @click.self="closeDialog">
         <div class="modal-content">
-          <h3>{{ t('courseDetail.inviteAssistant') }}</h3>
-          <form @submit.prevent="handleInvite">
-            <label>
-              {{ t('courseDetail.searchTeacher') }}
-              <div class="search-input-wrapper">
-                <input
-                  v-model="searchKeyword"
-                  type="text"
-                  :placeholder="t('courseDetail.searchTeacher')"
-                  @input="handleSearch"
-                />
-              </div>
-            </label>
-            <div v-if="searchResults.length > 0" class="search-results">
+          <h3>{{ isAdmin ? t('courseDetail.addAssistant') : t('courseDetail.inviteAssistant') }}</h3>
+
+          <div class="teacher-search">
+            <Search :size="14" stroke-width="1.8"/>
+            <input
+              v-model="searchKeyword"
+              type="text"
+              :placeholder="t('courseDetail.searchTeacherPlaceholder')"
+              @input="handleSearch"
+            />
+          </div>
+
+          <div
+            ref="teacherListRef"
+            class="teacher-list"
+            @scroll="handleScroll"
+            @wheel="handleWheel"
+          >
+            <div v-if="loading && teachers.length === 0" class="teacher-status">
+              {{ t('courseDetail.loadingTeachers') }}
+            </div>
+
+            <div v-else-if="teachers.length === 0" class="teacher-status">
+              {{ t('courseDetail.noTeachersFound') }}
+            </div>
+
+            <template v-else>
               <div
-                v-for="teacher in searchResults"
+                v-for="teacher in teachers"
                 :key="teacher.id"
-                class="search-result-item"
-                :class="{selected: selectedInviteeId === teacher.id}"
-                @click="selectInvitee(teacher)"
+                class="teacher-card"
+                :class="{inviting: invitingTeacherId === teacher.id}"
               >
-                <div class="member-avatar small">
-                  <img
-                    v-if="teacher.avatarUrl"
-                    :src="teacher.avatarUrl"
-                    :alt="teacher.displayName || teacher.id"
-                    @error="useFallbackImage($event, teacherFallbackUrl)"
+                <div class="teacher-card-main">
+                  <UserAvatarLink
+                    :user-id="teacher.id"
+                    :display-name="teacher.displayName"
+                    :avatar-url="teacher.avatarUrl"
+                    :role="2"
+                    size="small"
+                    :show-name="false"
                   />
-                  <User v-else :size="14" stroke-width="1.7"/>
+                  <div class="teacher-info">
+                    <strong>{{ teacher.displayName || teacher.id }}</strong>
+                    <span v-if="teacher.email">{{ teacher.email }}</span>
+                  </div>
+                  <div class="teacher-actions">
+                    <!-- Admin: 直接添加 -->
+                    <button
+                      v-if="isAdmin"
+                      class="btn-teacher-action add"
+                      type="button"
+                      :disabled="actionLoadingId === teacher.id"
+                      @click="handleDirectAdd(teacher)"
+                    >
+                      {{ actionLoadingId === teacher.id ? '...' : t('courseDetail.add') }}
+                    </button>
+                    <!-- Teacher: 邀�?-->
+                    <button
+                      v-else-if="invitingTeacherId !== teacher.id"
+                      class="btn-teacher-action invite"
+                      type="button"
+                      :disabled="invitingTeacherId !== null"
+                      @click="startInvite(teacher)"
+                    >
+                      {{ t('courseDetail.invite') }}
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <strong>{{ teacher.displayName || teacher.id }}</strong>
-                  <span v-if="teacher.email">{{ teacher.email }}</span>
+                <!-- Teacher: 展开的留言区域 -->
+                <div v-if="invitingTeacherId === teacher.id" class="invite-expand">
+                  <textarea
+                    v-model="inviteMessage"
+                    rows="2"
+                    maxlength="500"
+                    :placeholder="t('courseDetail.inviteMessagePlaceholder')"
+                  ></textarea>
+                  <div class="invite-expand-actions">
+                    <button type="button" class="btn-cancel-sm" @click="cancelInvite">
+                      {{ t('courseDetail.cancel') }}
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-send"
+                      :disabled="actionLoadingId !== null"
+                      @click="handleSendInvite"
+                    >
+                      {{ actionLoadingId === teacher.id ? '...' : t('courseDetail.sendInvite') }}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-            <label>
-              {{ t('courseDetail.invitationMessage') }}
-              <textarea v-model="inviteMessage" rows="3" maxlength="500"></textarea>
-            </label>
-            <div class="modal-actions">
-              <button type="button" class="btn-cancel" @click="closeInviteDialog">{{ t('courseDetail.cancel') }}</button>
-              <button type="submit" class="btn-submit" :disabled="inviting || !selectedInviteeId">
-                {{ t('courseDetail.save') }}
-              </button>
-            </div>
-          </form>
+
+              <div v-if="loading" class="teacher-status">
+                {{ t('courseDetail.loadingTeachers') }}
+              </div>
+              <div v-else-if="!hasMore && teachers.length > 0" class="teacher-status done">
+                {{ t('courseDetail.allTeachersLoaded') }}
+              </div>
+            </template>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-cancel" @click="closeDialog">
+              {{ t('courseDetail.close') }}
+            </button>
+          </div>
         </div>
       </div>
     </Teleport>
@@ -128,11 +193,12 @@
 <script lang="ts" setup>
 import {onMounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {Plus, Trash2, User, UserCheck, X} from 'lucide-vue-next'
+import {Plus, Search, Trash2, UserCheck, X} from 'lucide-vue-next'
 import {sendInvitation, getSentInvitations, withdrawInvitation} from '@/features/course/api/invitation'
 import {updateCourse} from '@/features/course/api/course'
 import {listTeachers} from '@/features/user/api/user'
 import {notify} from '@/shared/composables/useGlobalNotification'
+import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 import type {CourseDetail} from '@/features/course/types/course'
 import type {CourseInvitation} from '@/features/course/types/invitation'
 import type {UserProfile} from '@/features/user/types/user'
@@ -144,6 +210,8 @@ const props = defineProps<{
   course: CourseDetail
   assistants: TeacherInfo[]
   canManageCourse?: boolean
+  canManageAssistants?: boolean
+  isAdmin?: boolean
   formatDate: (dateStr?: string | null) => string
 }>()
 
@@ -153,20 +221,31 @@ const emit = defineEmits<{
 
 const {t} = useI18n()
 
-const teacherFallbackUrl = '/assets/avatar-teacher-default.png'
-
-const showInviteDialog = ref(false)
-const inviting = ref(false)
+const showDialog = ref(false)
+const teachers = ref<UserProfile[]>([])
 const searchKeyword = ref('')
-const searchResults = ref<UserProfile[]>([])
-const selectedInviteeId = ref<string | null>(null)
+const page = ref(1)
+const hasMore = ref(true)
+const loading = ref(false)
+const teacherListRef = ref<HTMLElement | null>(null)
+let loadMoreArmed = true
+
+const actionLoadingId = ref<string | null>(null)
+const invitingTeacherId = ref<string | null>(null)
 const inviteMessage = ref('')
+
 const pendingInvitations = ref<CourseInvitation[]>([])
+
+const PAGE_SIZE = 20
+const EXCLUDE_IDS = () => new Set([
+  props.course.teacherId,
+  ...props.assistants.map(a => a.id),
+])
 
 onMounted(loadPendingInvitations)
 
 async function loadPendingInvitations() {
-  if (!props.canManageCourse) return
+  if (!props.canManageCourse || props.isAdmin) return
   try {
     const resp = await getSentInvitations({status: 0, size: 100})
     pendingInvitations.value = (resp.records || []).filter(inv => inv.courseId === props.courseId)
@@ -175,59 +254,152 @@ async function loadPendingInvitations() {
   }
 }
 
-let searchTimeout: ReturnType<typeof setTimeout> | null = null
+function openDialog() {
+  showDialog.value = true
+  if (teachers.value.length === 0) {
+    void loadTeachers(true)
+  }
+}
+
+function closeDialog() {
+  showDialog.value = false
+  searchKeyword.value = ''
+  teachers.value = []
+  page.value = 1
+  hasMore.value = true
+  loadMoreArmed = true
+  invitingTeacherId.value = null
+  inviteMessage.value = ''
+}
+
+// 加载教师列表
+async function loadTeachers(reset = false) {
+  if (loading.value) return
+  if (!reset && !hasMore.value) return
+
+  loading.value = true
+  try {
+    if (reset) {
+      page.value = 1
+      hasMore.value = true
+      loadMoreArmed = true
+    }
+
+    const resp = await listTeachers({
+      page: page.value,
+      size: PAGE_SIZE,
+      keyword: searchKeyword.value.trim() || undefined,
+    })
+
+    const excludeIds = EXCLUDE_IDS()
+    const pendingIds = new Set(pendingInvitations.value.map(inv => inv.inviteeId))
+    const filtered = (resp.records || []).filter(u => !excludeIds.has(u.id) && !pendingIds.has(u.id))
+
+    if (reset) {
+      teachers.value = filtered
+    } else {
+      teachers.value = [...teachers.value, ...filtered]
+    }
+
+    hasMore.value = hasNextPage(resp)
+    page.value++
+  } catch {
+    if (reset) teachers.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+// 搜索防抖
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 function handleSearch() {
-  if (searchTimeout) clearTimeout(searchTimeout)
-  if (!searchKeyword.value.trim()) {
-    searchResults.value = []
-    return
-  }
-  searchTimeout = setTimeout(async () => {
-    try {
-      const resp = await listTeachers({keyword: searchKeyword.value, size: 10})
-      const existingIds = new Set([
-        props.course.teacherId,
-        ...props.assistants.map(a => a.id),
-      ])
-      searchResults.value = (resp.records || []).filter(u => !existingIds.has(u.id))
-    } catch {
-      searchResults.value = []
-    }
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    void loadTeachers(true)
   }, 300)
 }
 
-function selectInvitee(user: UserProfile) {
-  selectedInviteeId.value = user.id
-  searchKeyword.value = user.displayName || user.email || user.id
-  searchResults.value = []
+function hasNextPage(response: {page: number; size: number; total: number}): boolean {
+  return response.page * response.size < response.total
 }
 
-async function handleInvite() {
-  if (!selectedInviteeId.value) return
-  inviting.value = true
+// 滚动加载
+function handleScroll() {
+  const el = teacherListRef.value
+  if (!el || loading.value || !hasMore.value) return
+
+  const {scrollTop, scrollHeight, clientHeight} = el
+  const isNearBottom = scrollHeight - scrollTop - clientHeight < 80
+  if (!isNearBottom) {
+    loadMoreArmed = true
+    return
+  }
+
+  if (!loadMoreArmed) return
+  loadMoreArmed = false
+  void loadTeachers(false)
+}
+
+// 防止滚动穿透到页面
+function handleWheel(e: WheelEvent) {
+  const el = teacherListRef.value
+  if (!el) return
+
+  const {scrollTop, scrollHeight, clientHeight} = el
+  const atTop = scrollTop <= 0 && e.deltaY < 0
+  const atBottom = scrollHeight - scrollTop - clientHeight <= 1 && e.deltaY > 0
+
+  if (atTop || atBottom) {
+    e.preventDefault()
+  }
+}
+
+// Admin: 直接添加
+async function handleDirectAdd(teacher: UserProfile) {
+  if (!confirm(t('courseDetail.confirmAddAssistant'))) return
+  actionLoadingId.value = teacher.id
+  try {
+    await sendInvitation({courseId: props.courseId, inviteeId: teacher.id})
+    notify.success(t('courseDetail.assistantAdded'))
+    teachers.value = teachers.value.filter(u => u.id !== teacher.id)
+    emit('refresh')
+  } catch {
+    notify.error(t('courseDetail.saveChapterFailed'))
+  } finally {
+    actionLoadingId.value = null
+  }
+}
+
+function startInvite(teacher: UserProfile) {
+  invitingTeacherId.value = teacher.id
+  inviteMessage.value = ''
+}
+
+function cancelInvite() {
+  invitingTeacherId.value = null
+  inviteMessage.value = ''
+}
+
+async function handleSendInvite() {
+  if (!invitingTeacherId.value) return
+  actionLoadingId.value = invitingTeacherId.value
   try {
     await sendInvitation({
       courseId: props.courseId,
-      inviteeId: selectedInviteeId.value,
+      inviteeId: invitingTeacherId.value,
       message: inviteMessage.value || undefined,
     })
     notify.success(t('courseDetail.invitationSent'))
-    closeInviteDialog()
+    teachers.value = teachers.value.filter(u => u.id !== invitingTeacherId.value)
+    invitingTeacherId.value = null
+    inviteMessage.value = ''
     await loadPendingInvitations()
   } catch {
     notify.error(t('courseDetail.saveChapterFailed'))
   } finally {
-    inviting.value = false
+    actionLoadingId.value = null
   }
-}
-
-function closeInviteDialog() {
-  showInviteDialog.value = false
-  searchKeyword.value = ''
-  searchResults.value = []
-  selectedInviteeId.value = null
-  inviteMessage.value = ''
 }
 
 async function handleWithdraw(inv: CourseInvitation) {
@@ -241,25 +413,19 @@ async function handleWithdraw(inv: CourseInvitation) {
   }
 }
 
+// 移除助教
 async function handleRemove(assistant: TeacherInfo) {
   if (!confirm(t('courseDetail.confirmRemoveAssistant'))) return
   try {
     const remainingIds = props.assistants
       .filter(a => a.id !== assistant.id)
       .map(a => a.id)
-    await updateCourse(props.courseId, {assistantIds: remainingIds, isPublic: props.course.isPublic})
+    await updateCourse(props.courseId, {assistantIds: remainingIds})
     notify.success(t('courseDetail.assistantRemoved'))
     emit('refresh')
   } catch {
     notify.error(t('courseDetail.saveChapterFailed'))
   }
-}
-
-function useFallbackImage(event: Event, fallback: string) {
-  const image = event.target as HTMLImageElement
-  if (image.dataset.fallbackApplied === 'true') return
-  image.dataset.fallbackApplied = 'true'
-  image.src = fallback
 }
 </script>
 
@@ -277,7 +443,7 @@ function useFallbackImage(event: Event, fallback: string) {
   color: var(--color-muted);
   font-family: var(--font-label);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -332,6 +498,7 @@ function useFallbackImage(event: Event, fallback: string) {
   border-color: var(--color-outline);
 }
 
+/* 待处理邀�?*/
 .pending-section {
   margin-top: 16px;
   padding-bottom: 16px;
@@ -343,7 +510,7 @@ function useFallbackImage(event: Event, fallback: string) {
   color: var(--color-muted);
   font-family: var(--font-label);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -363,6 +530,7 @@ function useFallbackImage(event: Event, fallback: string) {
   border-radius: var(--radius-sm);
 }
 
+/* 助教列表 */
 .member-list {
   display: grid;
   gap: 10px;
@@ -378,30 +546,6 @@ function useFallbackImage(event: Event, fallback: string) {
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
   border-radius: var(--radius-sm);
-}
-
-.member-avatar {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  flex: 0 0 auto;
-  overflow: hidden;
-  background: var(--color-surface-container-high);
-  border: 1px solid var(--color-outline-light);
-  border-radius: 50%;
-  color: var(--color-muted);
-}
-
-.member-avatar.small {
-  width: 32px;
-  height: 32px;
-}
-
-.member-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .member-info {
@@ -470,7 +614,7 @@ function useFallbackImage(event: Event, fallback: string) {
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .empty-tab p {
@@ -482,6 +626,7 @@ function useFallbackImage(event: Event, fallback: string) {
   line-height: 1.55;
 }
 
+/* 对话�?*/
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -492,7 +637,10 @@ function useFallbackImage(event: Event, fallback: string) {
 }
 
 .modal-content {
-  width: min(480px, 90vw);
+  display: flex;
+  flex-direction: column;
+  width: min(520px, 90vw);
+  max-height: calc(100dvh - 48px);
   padding: 24px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
@@ -500,97 +648,243 @@ function useFallbackImage(event: Event, fallback: string) {
 }
 
 .modal-content h3 {
-  margin: 0 0 20px;
+  margin: 0 0 16px;
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
-.modal-content form {
+/* 搜索�?*/
+.teacher-search {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-muted);
 }
 
-.modal-content label {
+.teacher-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+
+.teacher-search input::placeholder {
+  color: var(--color-muted);
+}
+
+/* 教师列表 */
+.teacher-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: var(--color-muted);
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.modal-content input,
-.modal-content textarea {
-  padding: 10px 12px;
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-container);
-  color: var(--color-on-surface);
-  font-family: var(--font-body);
-  font-size: 14px;
-}
-
-.modal-content input:focus,
-.modal-content textarea:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
-
-.search-input-wrapper {
-  position: relative;
-}
-
-.search-results {
-  display: grid;
-  gap: 4px;
-  max-height: 200px;
+  max-height: 400px;
   overflow-y: auto;
-  padding: 4px;
-  background: var(--color-surface-container);
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
+  padding-right: 4px;
+  margin-bottom: 16px;
 }
 
-.search-result-item {
+.teacher-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.teacher-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.teacher-list::-webkit-scrollbar-thumb {
+  background: var(--color-outline-light);
+  border-radius: 999px;
+}
+
+.teacher-card {
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-card);
+  transition: background 0.15s ease;
+}
+
+.teacher-card:hover {
+  background: var(--color-surface-container);
+}
+
+.teacher-card.inviting {
+  border-color: var(--color-outline);
+  background: var(--color-surface-container);
+}
+
+.teacher-card-main {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background 0.15s ease;
 }
 
-.search-result-item:hover {
-  background: var(--color-surface-container-high);
+.teacher-info {
+  min-width: 0;
+  flex: 1;
 }
 
-.search-result-item.selected {
-  background: var(--color-primary-soft, var(--color-surface-container-high));
-}
-
-.search-result-item strong {
+.teacher-info strong {
   display: block;
+  overflow: hidden;
   color: var(--color-on-surface);
+  font-family: var(--font-body);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.search-result-item span {
+.teacher-info span {
   display: block;
+  overflow: hidden;
   color: var(--color-muted);
+  font-family: var(--font-body);
   font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+.teacher-actions {
+  flex: 0 0 auto;
+}
+
+.btn-teacher-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-on-surface);
+  cursor: pointer;
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 700;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-teacher-action:hover:not(:disabled) {
+  background: var(--color-surface-container-high);
+  border-color: var(--color-outline);
+}
+
+.btn-teacher-action.add:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.btn-teacher-action.invite:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.btn-teacher-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 邀请展开区域 */
+.invite-expand {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 10px 10px;
+}
+
+.invite-expand textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-card);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 13px;
+  resize: vertical;
+}
+
+.invite-expand textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.invite-expand textarea::placeholder {
+  color: var(--color-muted);
+}
+
+.invite-expand-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.btn-cancel-sm {
+  padding: 5px 12px;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.btn-cancel-sm:hover {
+  background: var(--color-surface-container-high);
+  border-color: var(--color-outline);
+}
+
+.btn-send {
+  padding: 5px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  cursor: pointer;
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.btn-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.teacher-status {
+  padding: 18px;
+  text-align: center;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+
+.teacher-status.done {
+  font-size: 11px;
+  opacity: 0.7;
+  padding: 10px;
+}
+
+/* 底部按钮 */
 .modal-actions {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
-  margin-top: 4px;
 }
 
 .btn-cancel {
@@ -601,30 +895,13 @@ function useFallbackImage(event: Event, fallback: string) {
   color: var(--color-muted);
   font-family: var(--font-label);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   cursor: pointer;
 }
 
 .btn-cancel:hover {
   background: var(--color-surface-container);
   border-color: var(--color-outline);
-}
-
-.btn-submit {
-  padding: 10px 20px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  font-family: var(--font-label);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.btn-submit:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 @media (max-width: 760px) {

@@ -49,13 +49,19 @@
 
     <div v-else class="comment-list">
       <article v-for="comment in comments" :key="comment.id" class="comment-card">
-        <div class="comment-avatar">
-          <User :size="18"/>
-        </div>
+        <UserAvatarLink
+          :user-id="comment.sysUserId"
+          :display-name="userMap[comment.sysUserId]?.displayName"
+          :avatar-url="userMap[comment.sysUserId]?.avatarUrl"
+          :role="userMap[comment.sysUserId]?.role"
+          size="medium"
+          :show-name="true"
+          :linkable="false"
+        />
         <div class="comment-body">
           <div class="comment-meta">
             <div class="comment-identity">
-              <strong>{{ t('forum.courseMember') }}</strong>
+              <strong>{{ userMap[comment.sysUserId]?.displayName || t('forum.courseMember') }}</strong>
               <span>{{ formatTime(comment.createdAt) }}</span>
             </div>
             <span v-if="comment.replyCount" class="reply-count">{{ comment.replyCount }} {{ t('forum.replies') }}</span>
@@ -118,6 +124,7 @@
               :can-reply="canComment"
               :current-user-id="currentUserId"
               :can-manage="canManageCourse"
+              :user-map="userMap"
               @reply="startReply(comment.id, $event)"
               @deleted="handleReplyDeleted(comment.id)"
             />
@@ -160,7 +167,10 @@
 <script lang="ts" setup>
 import {computed, onMounted, reactive, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {MessageCircle, Pencil, Send, Trash2, User} from 'lucide-vue-next'
+import {MessageCircle, Pencil, Send, Trash2} from 'lucide-vue-next'
+import {getUsersBasicInfo} from '@/features/user/api/user'
+import type {UserBasicInfo} from '@/features/user/types/user'
+import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 import {
   createCommentReply,
   createCourseComment,
@@ -170,7 +180,7 @@ import {
   updatePost,
 } from '@/features/forum/api/forum'
 import type {ForumPost, ForumReply} from '@/features/forum/types/forum'
-import type {FileAsset, StorageBucketType} from '@/features/storage/types/storage'
+import type {FileAsset} from '@/features/storage/types/storage'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import BaseTextEditor from '@/shared/components/BaseTextEditor.vue'
 import ForumContentPreview from '@/features/forum/components/ForumContentPreview.vue'
@@ -181,7 +191,6 @@ const props = defineProps<{
   canComment: boolean
   canManageCourse?: boolean
   currentUserId?: string
-  courseIsPublic?: boolean
 }>()
 
 const {t} = useI18n()
@@ -200,7 +209,10 @@ const repliesOpen = reactive<Record<string, boolean>>({})
 const replyLoading = reactive<Record<string, boolean>>({})
 const repliesByComment = reactive<Record<string, ForumReply[]>>({})
 
-// 编辑评论状态
+// 用户信息缓存
+const userMap = reactive<Record<string, UserBasicInfo>>({})
+
+// 编辑评论状�?
 const editingCommentId = ref<string | null>(null)
 const editingContent = ref('')
 const editingImages = ref<FileAsset[]>([])
@@ -210,7 +222,6 @@ const imageUploadOptions = computed(() => ({
   usage: 'FORUM_IMAGE' as const,
   scopeType: 'COURSE' as const,
   scopeId: props.courseId,
-  bucketType: (props.courseIsPublic ? 'COURSE_PUBLIC' : 'COURSE_PRIVATE') as StorageBucketType,
   accept: 'image/jpeg,image/png,image/webp',
   buttonLabel: t('forum.uploadImage'),
 }))
@@ -222,8 +233,22 @@ async function loadComments() {
   try {
     const data = await getCourseComments(props.courseId, {page: 1, size: 50})
     comments.value = data.records || []
+    await fetchUsersForItems(comments.value.map(c => c.sysUserId))
   } finally {
     loading.value = false
+  }
+}
+
+async function fetchUsersForItems(userIds: string[]) {
+  const newIds = userIds.filter(id => id && !userMap[id])
+  if (newIds.length === 0) return
+  try {
+    const users = await getUsersBasicInfo(newIds)
+    for (const u of users) {
+      userMap[u.id] = u
+    }
+  } catch {
+    // 静默失败，头像显示默认�?
   }
 }
 
@@ -257,6 +282,12 @@ async function loadReplies(commentId: string) {
   replyLoading[commentId] = true
   try {
     repliesByComment[commentId] = await getCommentReplies(commentId)
+    const replies = repliesByComment[commentId] || []
+    const userIds = replies.flatMap(r => [
+      r.sysUserId,
+      ...(r.children?.map(c => c.sysUserId) || []),
+    ])
+    await fetchUsersForItems(userIds)
   } finally {
     replyLoading[commentId] = false
   }
@@ -466,7 +497,7 @@ function handleReplyDeleted(commentId: string) {
   color: var(--color-on-primary);
   font-family: var(--font-body);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   cursor: pointer;
   transition: background 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
@@ -633,7 +664,7 @@ function handleReplyDeleted(commentId: string) {
   color: var(--color-muted);
   font-family: var(--font-body);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   cursor: pointer;
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
@@ -703,7 +734,7 @@ function handleReplyDeleted(commentId: string) {
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .empty-state p {

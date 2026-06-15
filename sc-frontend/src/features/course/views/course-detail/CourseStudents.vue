@@ -14,9 +14,13 @@
     </div>
     <div v-else class="member-list">
       <div v-for="student in students" :key="student.id" class="member-item">
-        <div class="member-avatar">
-          <img :src="studentFallbackUrl" :alt="student.studentName || student.studentId"/>
-        </div>
+        <UserAvatarLink
+          :user-id="student.studentId"
+          :display-name="student.studentName"
+          :role="1"
+          size="medium"
+          :show-name="false"
+        />
         <div class="member-info">
           <strong>{{ student.studentName || student.studentId }}</strong>
           <span>{{ formatDate(student.enrolledAt) }}</span>
@@ -29,7 +33,7 @@
             class="status-select"
             @change="handleStatusChange(student, student.status)"
           />
-          <span v-else class="member-status">{{ EnrollmentStatusLabel[student.status] || t('courseDetail.unknown') }}</span>
+          <span v-else class="member-status">{{ enrollmentStatusLabel[student.status] || t('courseDetail.unknown') }}</span>
           <button
             v-if="canManageCourse && student.status !== 3"
             class="btn-icon danger"
@@ -46,25 +50,14 @@
 </template>
 
 <script lang="ts" setup>
+import {computed} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {Trash2, Users} from 'lucide-vue-next'
 import {updateEnrollmentStatus} from '@/features/course/api/course'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
+import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 import type {Enrollment} from '@/features/course/types/course'
-
-const EnrollmentStatusLabel: Record<number, string> = {
-  0: 'Pending',
-  1: 'Active',
-  2: 'Completed',
-  3: 'Dropped',
-}
-
-const statusOptions = [
-  {label: EnrollmentStatusLabel[0], value: 0},
-  {label: EnrollmentStatusLabel[1], value: 1},
-  {label: EnrollmentStatusLabel[2], value: 2},
-]
 
 const props = defineProps<{
   students: Enrollment[]
@@ -78,7 +71,18 @@ const emit = defineEmits<{
 
 const {t} = useI18n()
 
-const studentFallbackUrl = '/assets/avatar-student-default.png'
+const enrollmentStatusLabel = computed<Record<number, string>>(() => ({
+  0: t('courseDetail.enrollmentStatus.pending'),
+  1: t('courseDetail.enrollmentStatus.active'),
+  2: t('courseDetail.enrollmentStatus.completed'),
+  3: t('courseDetail.enrollmentStatus.dropped'),
+}))
+
+const statusOptions = computed(() => [
+  {label: t('courseDetail.enrollmentStatus.pending'), value: 0},
+  {label: t('courseDetail.enrollmentStatus.active'), value: 1},
+  {label: t('courseDetail.enrollmentStatus.completed'), value: 2},
+])
 
 async function handleStatusChange(student: Enrollment, newStatus: number) {
   try {
@@ -116,7 +120,7 @@ async function handleRemove(student: Enrollment) {
   color: var(--color-muted);
   font-family: var(--font-label);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -156,25 +160,6 @@ async function handleRemove(student: Enrollment) {
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
   border-radius: var(--radius-sm);
-}
-
-.member-avatar {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  overflow: hidden;
-  background: var(--color-surface-container-high);
-  border: 1px solid var(--color-outline-light);
-  border-radius: 50%;
-  color: var(--color-muted);
-  flex: 0 0 auto;
-}
-
-.member-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .member-info {
@@ -265,7 +250,7 @@ async function handleRemove(student: Enrollment) {
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .empty-tab p {
