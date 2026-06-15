@@ -53,6 +53,11 @@ export const router = createRouter({
                     component: () => import('@/features/course/views/CoursesView.vue'),
                 },
                 {
+                    path: 'courses/:courseId/chapter-detail',
+                    name: 'chapter-detail',
+                    component: () => import('@/features/course/views/ChapterView.vue'),
+                },
+                {
                     path: 'courses/:id',
                     component: () => import('@/features/course/views/CourseDetailView.vue'),
                     children: [
@@ -96,11 +101,6 @@ export const router = createRouter({
                             component: () => import('@/features/course/views/course-detail/CourseAssistants.vue'),
                         },
                     ],
-                },
-                {
-                    path: 'courses/:courseId/chapters/:chapterId',
-                    name: 'chapter-detail',
-                    component: () => import('@/features/course/views/ChapterView.vue'),
                 },
                 {
                     path: 'courses/:courseId/question-banks',
@@ -179,6 +179,11 @@ export const router = createRouter({
                     name: 'admin-teachers',
                     component: () => import('@/features/admin/views/TeacherListView.vue'),
                     meta: {requiredRole: 0},
+                },
+                {
+                    path: 'file-preview',
+                    name: 'file-preview',
+                    component: () => import('@/features/file-preview/views/FilePreviewView.vue'),
                 },
             ],
         },

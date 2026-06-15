@@ -12,7 +12,72 @@
       </button>
     </header>
 
-    <div v-if="flatChapters.length > 0" class="chapter-nav-shell">
+    <div v-if="chaptersLoading" class="chapter-nav-shell chapter-loading-shell" aria-hidden="true">
+      <section class="chapter-ledger-panel">
+        <div class="ledger-summary">
+          <div v-for="n in 2" :key="n">
+            <span class="skeleton-block skeleton-kicker shimmer"></span>
+            <strong class="skeleton-block skeleton-count shimmer"></strong>
+          </div>
+        </div>
+
+        <div class="chapter-ledger">
+          <article v-for="n in 4" :key="n" class="chapter-section">
+            <div class="chapter-section-head skeleton-row">
+              <span class="skeleton-block skeleton-number shimmer"></span>
+              <span class="skeleton-stack">
+                <span class="skeleton-block skeleton-kicker shimmer"></span>
+                <strong class="skeleton-block skeleton-title shimmer"></strong>
+                <small class="skeleton-block skeleton-text shimmer"></small>
+              </span>
+              <span class="skeleton-block skeleton-date shimmer"></span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <aside class="lesson-preview-panel">
+        <div class="preview-sticky">
+          <span class="skeleton-block skeleton-kicker shimmer"></span>
+          <span class="skeleton-block skeleton-heading shimmer"></span>
+          <span class="skeleton-block skeleton-text wide shimmer"></span>
+          <span class="skeleton-block skeleton-text shimmer"></span>
+
+          <div class="preview-meta">
+            <div v-for="n in 2" :key="n">
+              <span class="skeleton-block skeleton-kicker shimmer"></span>
+              <span class="skeleton-block skeleton-value shimmer"></span>
+            </div>
+          </div>
+
+          <div class="resource-block">
+            <span class="skeleton-block skeleton-kicker shimmer"></span>
+            <span class="skeleton-block skeleton-text wide shimmer"></span>
+          </div>
+
+          <div class="preview-actions">
+            <span v-for="n in 3" :key="n" class="skeleton-block skeleton-button shimmer"></span>
+          </div>
+        </div>
+      </aside>
+
+      <section class="learning-path">
+        <div class="path-header">
+          <span class="skeleton-block skeleton-kicker shimmer"></span>
+          <strong class="skeleton-block skeleton-path-title shimmer"></strong>
+        </div>
+        <div class="path-rail">
+          <div v-for="n in 4" :key="n" class="path-node skeleton-path-node">
+            <span class="skeleton-block skeleton-number shimmer"></span>
+            <strong class="skeleton-block skeleton-title shimmer"></strong>
+            <small class="skeleton-block skeleton-date shimmer"></small>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <div v-else-if="flatChapters.length > 0" class="chapter-nav-shell">
       <section class="chapter-ledger-panel" :aria-label="t('chapter.title')">
         <div class="ledger-summary">
           <div>
@@ -166,6 +231,7 @@
           </button>
         </div>
       </section>
+
     </div>
 
     <div v-else class="empty-chapter-navigation">
@@ -196,16 +262,17 @@ import type {Chapter} from '@/features/course/types/chapter'
 
 const props = defineProps<{
   chapterTree: Chapter[]
+  chaptersLoading?: boolean
   canManageCourse: boolean
   canAccessCourseContent: boolean
 }>()
 
 const emit = defineEmits<{
   openChapterEditor: []
-  selectChapter: [chapter: Chapter]
   editChapter: [chapter: Chapter]
   deleteChapter: [chapter: Chapter]
   addChildChapter: [chapter: Chapter]
+  selectChapter: [chapter: Chapter]
 }>()
 
 const {t} = useI18n()
@@ -371,6 +438,10 @@ function formatIndex(index: number) {
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: var(--space-md);
   align-items: start;
+}
+
+.chapter-loading-shell {
+  pointer-events: none;
 }
 
 .chapter-ledger-panel,
@@ -567,6 +638,81 @@ function formatIndex(index: number) {
   color: var(--color-on-surface);
 }
 
+.skeleton-block {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-container-high);
+}
+
+.skeleton-kicker {
+  width: 96px;
+  height: 12px;
+}
+
+.skeleton-count {
+  width: 56px;
+  height: 24px;
+}
+
+.skeleton-row {
+  align-items: center;
+  cursor: default;
+}
+
+.skeleton-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.skeleton-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.skeleton-title {
+  width: min(240px, 100%);
+  height: 20px;
+}
+
+.skeleton-heading {
+  width: min(260px, 100%);
+  height: 28px;
+}
+
+.skeleton-text {
+  width: min(300px, 100%);
+  height: 14px;
+}
+
+.skeleton-text.wide {
+  width: 100%;
+}
+
+.skeleton-date {
+  width: 72px;
+  height: 12px;
+  justify-self: end;
+}
+
+.skeleton-value,
+.skeleton-path-title {
+  width: min(140px, 100%);
+  height: 16px;
+}
+
+.skeleton-button {
+  width: 100%;
+  height: 38px;
+}
+
+.skeleton-path-node {
+  cursor: default;
+  gap: var(--space-xs);
+}
+
 .lesson-list {
   display: flex;
   flex-direction: column;
@@ -753,7 +899,7 @@ function formatIndex(index: number) {
 .preview-actions {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
 }
 
 .nav-step,
@@ -900,6 +1046,35 @@ function formatIndex(index: number) {
   font-weight: 700;
 }
 
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-surface-card) 40%,
+    var(--color-surface-card) 60%,
+    transparent 100%
+  );
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 @media (max-width: 1180px) {
   .chapter-nav-shell {
     grid-template-columns: 1fr;
@@ -957,5 +1132,6 @@ function formatIndex(index: number) {
   .preview-meta {
     grid-template-columns: 1fr;
   }
+
 }
 </style>

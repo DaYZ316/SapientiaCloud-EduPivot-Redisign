@@ -327,78 +327,15 @@
     </Teleport>
 
     <!-- Invite Assistant Modal -->
-    <Teleport to="body">
-      <div v-if="showInviteModal" class="modal-overlay">
-        <div class="modal modal-md">
-          <div class="modal-header">
-            <h2>{{ t('enrollmentManagement.inviteModal.title') }}</h2>
-            <button class="btn-close" @click="closeInviteModal">
-              <X :size="20"/>
-            </button>
-          </div>
-          <form class="modal-body invite-modal-body" @submit.prevent="handleInvite">
-            <div class="invite-course-label">
-              <span>{{ t('enrollmentManagement.inviteModal.courseLabel') }}:</span>
-              <strong>{{ inviteTarget?.title }}</strong>
-            </div>
+    <InviteAssistantModal
+      v-model="showInviteModal"
+      :course-id="inviteTarget?.id ?? ''"
+      :course-teacher-id="inviteTarget?.teacherId ?? ''"
+      :assistants="inviteTarget?.teacherInfos ?? []"
+      :is-admin="isAdmin"
+      @invited="onInviteSuccess"
+    />
 
-            <div class="invite-search">
-              <Search :size="16" stroke-width="1.8"/>
-              <input
-                v-model="inviteSearchKeyword" @input="debouncedSearchInviteTeachers(($event.target as HTMLInputElement).value)"
-                type="text"
-                :placeholder="t('enrollmentManagement.inviteModal.searchPlaceholder')"
-              />
-            </div>
-
-            <div v-if="inviteTeacherLoading" class="invite-empty">{{ t('courses.modal.loadingTeachers') }}</div>
-            <div v-else-if="filteredInviteTeachers.length === 0" class="invite-empty">
-              {{ t('enrollmentManagement.inviteModal.noTeachers') }}
-            </div>
-            <div v-else class="invite-teacher-list" @scroll="handleInviteTeacherListScroll">
-              <label
-                v-for="teacher in filteredInviteTeachers"
-                :key="teacher.id"
-                class="invite-teacher-option"
-                :class="{selected: selectedInviteeId === teacher.id}"
-              >
-                <input
-                  type="radio"
-                  name="invitee"
-                  :value="teacher.id"
-                  :checked="selectedInviteeId === teacher.id"
-                  @change="selectedInviteeId = teacher.id"
-                />
-                <span class="invite-teacher-copy">
-                  <strong>{{ formatTeacherName(teacher) }}</strong>
-                  <small>{{ formatTeacherMeta(teacher) || teacher.email || teacher.id }}</small>
-                </span>
-              </label>
-            </div>
-
-            <div class="form-group invite-message-group">
-              <label>{{ t('enrollmentManagement.inviteModal.messageLabel') }}</label>
-              <textarea
-                v-model="inviteMessage"
-                class="input-field"
-                :placeholder="t('enrollmentManagement.inviteModal.messagePlaceholder')"
-                rows="3"
-              ></textarea>
-            </div>
-          </form>
-          <div class="modal-footer">
-            <button class="btn-secondary" @click="closeInviteModal">{{ t('enrollmentManagement.inviteModal.cancel') }}</button>
-            <button
-              class="btn-primary"
-              :disabled="inviteSubmitting || !selectedInviteeId"
-              @click="handleInvite"
-            >
-              {{ inviteSubmitting ? t('enrollmentManagement.inviteModal.sending') : t('enrollmentManagement.inviteModal.confirm') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
   </div>
 </template>
@@ -416,6 +353,7 @@ import BaseImageUploader from '@/shared/components/BaseImageUploader.vue'
 import BaseNumberStepper from '@/shared/components/BaseNumberStepper.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import {notify} from '@/shared/composables/useGlobalNotification'
+import InviteAssistantModal from '@/features/course/components/InviteAssistantModal.vue'
 
 import {createCourse, deleteCourse, getCourses, getTeacherCourses, updateCourse} from '@/features/course/api/course'
 import {sendInvitation} from '@/features/course/api/invitation'
@@ -969,52 +907,14 @@ const filteredInviteTeachers = computed(() => {
 
 async function openInviteModal(course: Course) {
   inviteTarget.value = course
-  inviteSearchKeyword.value = ''
-  inviteMessage.value = ''
-  selectedInviteeId.value = null
   showInviteModal.value = true
-
-  if (inviteTeachers.value.length === 0) debouncedSearchInviteTeachers(inviteSearchKeyword.value)
-
-
-
-
-
-
-
-
-
-
-
 }
 
-function closeInviteModal() {
+function onInviteSuccess() {
   showInviteModal.value = false
-  inviteTarget.value = null
-  inviteSearchKeyword.value = ''
-  inviteMessage.value = ''
-  selectedInviteeId.value = null
+  notify.success(t('enrollmentManagement.alert.inviteSuccess'))
+  void loadData()
 }
-
-async function handleInvite() {
-  if (!inviteTarget.value || !selectedInviteeId.value) return
-  inviteSubmitting.value = true
-  try {
-    await sendInvitation({
-      courseId: inviteTarget.value.id,
-      inviteeId: selectedInviteeId.value,
-      message: inviteMessage.value || undefined,
-    })
-    closeInviteModal()
-    notify.success(t('enrollmentManagement.alert.inviteSuccess'))
-  } catch (error) {
-    console.error('Failed to send invitation:', error)
-    notify.error(t('enrollmentManagement.alert.inviteFailed'))
-  } finally {
-    inviteSubmitting.value = false
-  }
-}
-
 function syncTeacherCourseRole() {
   if (!isTeacherPage.value) {
     return

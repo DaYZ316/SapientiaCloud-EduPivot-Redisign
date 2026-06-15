@@ -16,7 +16,6 @@ public record UpdateQuestionRequest(
         List<String> tags,
         List<String> imageUrls,
         Integer allowPartialCredit,
-        Integer status,
         List<QuestionOptionRequest> options,
         List<QuestionAnswerRequest> answers
 ) {}

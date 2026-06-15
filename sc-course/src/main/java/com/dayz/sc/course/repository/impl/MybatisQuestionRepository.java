@@ -53,7 +53,8 @@ public class MybatisQuestionRepository implements QuestionRepository {
 
     @Override
     public Page<Question> findAll(int page, int size, UUID questionBankId, UUID courseId,
-                                   Integer questionType, Integer difficulty, Integer status, String keyword) {
+                                   Integer questionType, Integer difficulty, Integer status, String keyword,
+                                   UUID sysUserId) {
         LambdaQueryWrapper<Question> wrapper = new LambdaQueryWrapper<>();
         if (questionBankId != null) {
             wrapper.eq(Question::getQuestionBankId, questionBankId);
@@ -69,6 +70,22 @@ public class MybatisQuestionRepository implements QuestionRepository {
         }
         if (status != null) {
             wrapper.eq(Question::getStatus, status);
+            if (sysUserId != null) {
+                // status=0(草稿)：仅自己可见；status=1(已发布)：所有人可见
+                if (status == 0) {
+                    wrapper.eq(Question::getSysUserId, sysUserId);
+                }
+            }
+        } else if (sysUserId != null) {
+            // 未指定 status：已发布 + 当前用户自己的草稿
+            wrapper.and(w -> w
+                    .eq(Question::getStatus, 1)
+                    .or()
+                    .and(inner -> inner
+                            .eq(Question::getStatus, 0)
+                            .eq(Question::getSysUserId, sysUserId)
+                    )
+            );
         }
         if (StringUtils.hasText(keyword)) {
             wrapper.like(Question::getQuestionTitle, keyword);

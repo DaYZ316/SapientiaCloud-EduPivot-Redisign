@@ -23,7 +23,6 @@
         :class="{'is-readonly': !canAccessCourseContent}"
         @click="handleBankOpen(bank.id)"
       >
-        <div class="bank-icon"><Database :size="18" stroke-width="1.8"/></div>
         <div class="bank-info">
           <h3>{{ bank.bankName }}</h3>
           <p>{{ bank.description || t('courseDetail.noBankDescription') }}</p>
@@ -303,7 +302,7 @@ async function handleDelete(bank: QuestionBank) {
 
 .bank-item {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px;
   align-items: center;
   padding: 16px;
@@ -326,16 +325,6 @@ async function handleDelete(bank: QuestionBank) {
 .bank-item.is-readonly:hover {
   background: var(--color-surface-card);
   border-color: var(--color-outline-light);
-}
-
-.bank-icon {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  background: var(--color-surface-container-high);
-  border-radius: var(--radius-sm);
-  color: var(--color-on-surface);
 }
 
 .bank-info {

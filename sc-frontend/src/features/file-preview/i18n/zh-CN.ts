@@ -1,0 +1,23 @@
+export default {
+    title: '文件预览',
+    back: '返回',
+    download: '下载',
+    loading: '正在加载文件...',
+    loadError: '文件加载失败',
+    unsupported: '此文件格式暂不支持在线预览，请下载后查看',
+    previewFailed: '预览失败，请尝试下载后查看',
+    fileNotFound: '文件不存在或已过期',
+    fileType: {
+        pdf: 'PDF 文档',
+        word: 'Word 文档',
+        excel: 'Excel 表格',
+        image: '图片',
+        video: '视频',
+        audio: '音频',
+        text: '文本文件',
+        code: '代码文件',
+        ppt: '演示文稿',
+        markdown: 'Markdown 文档',
+        unknown: '未知格式',
+    },
+}

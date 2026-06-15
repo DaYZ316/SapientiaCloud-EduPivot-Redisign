@@ -134,7 +134,7 @@ const activeTabConfig = computed<SettingsTab>(() =>
   padding: 10px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 24px;
+  border-radius: 12px;
 }
 
 .nav-tab {
@@ -144,7 +144,7 @@ const activeTabConfig = computed<SettingsTab>(() =>
   gap: 12px;
   padding: 0 14px;
   border: 1px solid transparent;
-  border-radius: 16px;
+  border-radius: 8px;
   background: transparent;
   color: var(--color-muted);
   font-family: var(--font-label);
@@ -171,7 +171,7 @@ const activeTabConfig = computed<SettingsTab>(() =>
   min-width: 0;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 32px;
+  border-radius: 16px;
   overflow: visible;
 }
 
@@ -194,7 +194,7 @@ const activeTabConfig = computed<SettingsTab>(() =>
   .settings-nav {
     display: flex;
     overflow-x: auto;
-    border-radius: 20px;
+    border-radius: 10px;
   }
 
   .nav-tab {
@@ -202,7 +202,7 @@ const activeTabConfig = computed<SettingsTab>(() =>
   }
 
   .settings-content {
-    border-radius: 24px;
+    border-radius: 12px;
   }
 }
 </style>

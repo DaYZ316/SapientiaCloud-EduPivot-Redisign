@@ -420,7 +420,19 @@ function handleReplyDeleted(commentId: string) {
   padding: 14px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
+}
+
+.comment-composer :deep(.base-text-editor),
+.comment-composer :deep(.base-text-editor-input figure.chapter-image img),
+.comment-composer :deep(.base-text-editor-image),
+.reply-composer :deep(.base-text-editor),
+.reply-composer :deep(.base-text-editor-input figure.chapter-image img),
+.reply-composer :deep(.base-text-editor-image),
+.edit-composer :deep(.base-text-editor),
+.edit-composer :deep(.base-text-editor-input figure.chapter-image img),
+.edit-composer :deep(.base-text-editor-image) {
+  border-radius: 0;
 }
 
 .composer-head {
@@ -521,7 +533,7 @@ function handleReplyDeleted(commentId: string) {
   padding: 12px 14px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   color: var(--color-muted);
   font-family: var(--font-body);
   font-size: 13px;
@@ -652,7 +664,7 @@ function handleReplyDeleted(commentId: string) {
   padding: 12px;
   background: var(--color-surface-container);
   border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
 }
 
 .btn-cancel {
@@ -720,7 +732,7 @@ function handleReplyDeleted(commentId: string) {
   gap: 10px;
   padding: 42px 24px;
   border: 1px dashed var(--color-outline-light);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   color: var(--color-muted);
   text-align: center;
 }
@@ -744,7 +756,7 @@ function handleReplyDeleted(commentId: string) {
 
 .skeleton-comment {
   height: 108px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
 }
 
 .shimmer {

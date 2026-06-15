@@ -190,7 +190,7 @@ function useFallbackImage(event: Event, fallback: string) {
   overflow: hidden;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.04),
     0 4px 16px rgba(0, 0, 0, 0.03);
@@ -218,7 +218,7 @@ function useFallbackImage(event: Event, fallback: string) {
   place-items: center;
   overflow: hidden;
   background: var(--color-surface-canvas);
-  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
+  border-radius: calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0 0;
 }
 
 .course-cover::after {
@@ -269,7 +269,7 @@ function useFallbackImage(event: Event, fallback: string) {
   padding: 8px 12px 8px 8px;
   background: rgba(0, 0, 0, 0.36);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
+  border-radius: 8px;
   backdrop-filter: blur(12px) saturate(140%);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
   cursor: pointer;

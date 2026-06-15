@@ -71,10 +71,6 @@ export function publishQuestion(id: string) {
   return request<void>({method: 'PUT', url: "/api/question-banks/questions/" + id + "/publish", silent: true})
 }
 
-export function unpublishQuestion(id: string) {
-  return request<void>({method: 'PUT', url: "/api/question-banks/questions/" + id + "/unpublish", silent: true})
-}
-
 export function viewQuestion(id: string) {
   return request<void>({method: 'POST', url: "/api/question-banks/questions/" + id + "/view", silent: true})
 }

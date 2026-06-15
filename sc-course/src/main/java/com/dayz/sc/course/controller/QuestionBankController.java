@@ -90,14 +90,22 @@ public class QuestionBankController {
     }
 
     @GetMapping("/questions")
-    public ApiResponse<PageResponse<QuestionVO>> listQuestions(QuestionPageRequest request) {
-        PageResponse<QuestionVO> response = questionBankService.listQuestions(request);
+    public ApiResponse<PageResponse<QuestionVO>> listQuestions(
+            QuestionPageRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        PageResponse<QuestionVO> response = questionBankService.listQuestions(request, userId, role);
         return ApiResponse.ok(response);
     }
 
     @GetMapping("/questions/{id}")
-    public ApiResponse<QuestionVO> getQuestion(@PathVariable UUID id) {
-        QuestionVO question = questionBankService.getQuestion(id);
+    public ApiResponse<QuestionVO> getQuestion(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        QuestionVO question = questionBankService.getQuestion(id, userId, role);
         return ApiResponse.ok(question);
     }
 
@@ -126,15 +134,12 @@ public class QuestionBankController {
 
     @PutMapping("/questions/{id}/publish")
     @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> publishQuestion(@PathVariable UUID id) {
-        questionBankService.publishQuestion(id);
-        return ApiResponse.ok(null);
-    }
-
-    @PutMapping("/questions/{id}/unpublish")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> unpublishQuestion(@PathVariable UUID id) {
-        questionBankService.unpublishQuestion(id);
+    public ApiResponse<Void> publishQuestion(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        questionBankService.publishQuestion(id, userId, role);
         return ApiResponse.ok(null);
     }
 

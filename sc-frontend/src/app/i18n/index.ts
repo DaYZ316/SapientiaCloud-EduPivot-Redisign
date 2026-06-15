@@ -15,6 +15,7 @@ import enNotifications from '@/features/notification/i18n/en-US'
 import enSettings from '@/features/settings/i18n/en-US'
 import enProfile from '@/features/user/i18n/en-US'
 import enCommon from '@/shared/i18n/en-US'
+import enFilePreview from '@/features/file-preview/i18n/en-US'
 import zhAdmin from '@/features/admin/i18n/zh-CN'
 import zhLogin from '@/features/auth/i18n/zh-CN'
 import zhCourseDetail from '@/features/course/i18n/zh-CN/courseDetail'
@@ -30,6 +31,7 @@ import zhNotifications from '@/features/notification/i18n/zh-CN'
 import zhSettings from '@/features/settings/i18n/zh-CN'
 import zhProfile from '@/features/user/i18n/zh-CN'
 import zhCommon from '@/shared/i18n/zh-CN'
+import zhFilePreview from '@/features/file-preview/i18n/zh-CN'
 
 const LOCALE_STORAGE_KEY = 'edupivot.locale'
 
@@ -54,6 +56,7 @@ const messages = {
         chapter: zhChapter.chapter,
         forum: zhForum.forum,
         questionBank: zhQuestionBank.questionBank,
+        filePreview: zhFilePreview,
     },
     'en-US': {
         common: enCommon,
@@ -71,6 +74,7 @@ const messages = {
         chapter: enChapter.chapter,
         forum: enForum.forum,
         questionBank: enQuestionBank.questionBank,
+        filePreview: enFilePreview,
     },
 }
 

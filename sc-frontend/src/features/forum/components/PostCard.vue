@@ -76,7 +76,7 @@ function formatTime(dateStr: string) {
   padding: 20px 24px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 16px;
+  border-radius: 0;
   cursor: pointer;
   transition: border-color 0.15s;
   position: relative;

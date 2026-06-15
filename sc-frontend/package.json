@@ -30,11 +30,17 @@
   },
   "dependencies": {
     "@microsoft/fetch-event-source": "^2.0.1",
+    "@vue-office/docx": "^1.6.3",
+    "@vue-office/excel": "^1.7.14",
+    "@vue-office/pdf": "^2.0.10",
+    "@vue-office/pptx": "^1.0.1",
     "axios": "^1.16.0",
     "lucide-vue-next": "^1.0.0",
+    "marked": "^18.0.5",
     "pinia": "^3.0.4",
     "sass": "^1.99.0",
     "vue": "^3.5.34",
+    "vue-demi": "^0.14.10",
     "vue-i18n": "^11.4.2",
     "vue-router": "^5.0.6"
   },

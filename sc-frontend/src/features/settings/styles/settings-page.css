@@ -50,7 +50,7 @@
   overflow: visible;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
 }
 
 .settings-panel-header {
@@ -117,7 +117,7 @@
 }
 
 .profile-card-panel .form-group label {
-  font-size: 12px;
+  font-size: 17px;
   color: var(--color-muted);
 }
 
@@ -157,7 +157,7 @@
 .account-name {
   margin: 0;
   font-family: var(--font-label);
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--color-on-surface);
 }
@@ -171,7 +171,7 @@
   border-bottom: 1px solid var(--login-field-border);
   border-radius: 0;
   font-family: var(--font-body);
-  font-size: 16px;
+  font-size: 17px;
   color: var(--login-text);
   outline: none;
   transition: border-color 0.2s;
@@ -210,7 +210,7 @@
   height: 18px;
   padding: 6px;
   margin-right: -4px;
-  border-radius: 10px;
+  border-radius: 6px;
   background-color: color-mix(in srgb, var(--color-outline-light) 50%, transparent);
   cursor: pointer;
   opacity: 0.7;
@@ -233,7 +233,7 @@
   padding: 14px 16px;
   background: var(--color-surface-canvas);
   border: 1px solid var(--color-outline-light);
-  border-radius: 14px;
+  border-radius: 8px;
   line-height: 1.6;
   box-shadow: none;
 }
@@ -264,7 +264,7 @@
   overflow: hidden;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 24px;
+  border-radius: 12px;
   color: var(--color-on-surface);
 }
 
@@ -303,8 +303,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 24px;
-  min-height: 60px;
-  padding-top: 18px;
+  padding-top: 12px;
   border-top: 1px solid var(--color-outline-light);
 }
 
@@ -330,6 +329,10 @@
   color: var(--color-muted);
 }
 
+.account-name {
+  font-size: 14px;
+}
+
 .layout-choice-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -342,7 +345,7 @@
   padding: 20px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 28px;
+  border-radius: 14px;
   color: var(--color-on-surface);
   text-align: left;
   cursor: pointer;
@@ -382,7 +385,7 @@
   display: block;
   background: var(--color-surface-canvas);
   border: 1px solid var(--color-outline-light);
-  border-radius: 16px;
+  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -422,7 +425,7 @@
   bottom: 18px;
   height: 40px;
   border: 1px solid var(--color-outline-light);
-  border-radius: 14px;
+  border-radius: 8px;
   background: color-mix(in srgb, var(--color-surface-card) 55%, var(--color-surface-canvas));
 }
 
@@ -515,7 +518,7 @@
   inset: 0;
   background: var(--color-outline-light);
   border: 1px solid var(--color-outline-light);
-  border-radius: 30px;
+  border-radius: 16px;
   cursor: pointer;
   transition: background 0.2s, border-color 0.2s;
 }

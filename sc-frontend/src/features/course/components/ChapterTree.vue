@@ -52,6 +52,7 @@ const {t} = useI18n()
 .chapter-tree {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .empty-chapters {
@@ -78,5 +79,6 @@ const {t} = useI18n()
 .chapter-list {
   display: flex;
   flex-direction: column;
+  border-top: 1px solid var(--color-outline-light);
 }
 </style>

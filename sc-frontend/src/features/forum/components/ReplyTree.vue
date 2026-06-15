@@ -293,7 +293,7 @@ function formatTime(dateStr: string) {
   color: var(--color-on-surface);
 }
 
-            <span v-if="reply.isAccepted" class="accepted-badge">✓ {{ t('forum.accepted') }}</span>
+.accepted-badge {
   font-family: var(--font-body);
   font-size: 11px;
   font-weight: 400;

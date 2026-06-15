@@ -213,6 +213,9 @@ public class QuestionBankService {
         if (!question.getSysUserId().equals(userId) && !SecurityUtils.isAdmin(role)) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
+        if (question.getStatus() != QuestionStatus.DRAFT.getCode()) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "只能编辑草稿题目");
+        }
 
         if (request.questionTitle() != null) {
             question.setQuestionTitle(request.questionTitle());
@@ -242,10 +245,6 @@ public class QuestionBankService {
         }
         if (request.allowPartialCredit() != null) {
             question.setAllowPartialCredit(request.allowPartialCredit());
-        }
-        if (request.status() != null) {
-            QuestionStatus.fromCode(request.status());
-            question.setStatus(request.status());
         }
 
         questionRepository.update(question);
@@ -305,9 +304,16 @@ public class QuestionBankService {
         questionRepository.deleteById(questionId);
     }
 
-    public QuestionVO getQuestion(UUID questionId) {
+    public QuestionVO getQuestion(UUID questionId, UUID userId, Integer role) {
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+
+        // 草稿只有创建者可见
+        if (question.getStatus() == QuestionStatus.DRAFT.getCode()
+                && !question.getSysUserId().equals(userId)
+                && !SecurityUtils.isAdmin(role)) {
+            throw new BusinessException(ErrorCodes.NOT_FOUND);
+        }
 
         List<QuestionOptionVO> options = questionOptionRepository.findByQuestionId(questionId).stream()
                 .map(this::toQuestionOptionVO)
@@ -319,13 +325,15 @@ public class QuestionBankService {
         return toQuestionVO(question, options, answers);
     }
 
-    public PageResponse<QuestionVO> listQuestions(QuestionPageRequest request) {
+    public PageResponse<QuestionVO> listQuestions(QuestionPageRequest request, UUID userId, Integer role) {
         int page = PageUtils.normalizePage(request.page());
         int size = PageUtils.normalizeSize(request.size());
+        UUID visibleUserId = SecurityUtils.isAdmin(role) ? null : userId;
 
         Page<Question> result = questionRepository.findAll(page, size,
                 request.questionBankId(), request.courseId(),
-                request.questionType(), request.difficulty(), request.status(), request.keyword());
+                request.questionType(), request.difficulty(), request.status(), request.keyword(),
+                visibleUserId);
 
         List<QuestionVO> voList = result.getRecords().stream()
                 .map(q -> toQuestionVO(q, null, null))
@@ -335,18 +343,18 @@ public class QuestionBankService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void publishQuestion(UUID questionId) {
+    public void publishQuestion(UUID questionId, UUID userId, Integer role) {
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
-        question.setStatus(QuestionStatus.PUBLISHED.getCode());
-        questionRepository.update(question);
-    }
 
-    @Transactional(rollbackFor = Exception.class)
-    public void unpublishQuestion(UUID questionId) {
-        Question question = questionRepository.findById(questionId)
-                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
-        question.setStatus(QuestionStatus.DRAFT.getCode());
+        if (!question.getSysUserId().equals(userId) && !SecurityUtils.isAdmin(role)) {
+            throw new BusinessException(ErrorCodes.FORBIDDEN);
+        }
+        if (question.getStatus() != QuestionStatus.DRAFT.getCode()) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "只能发布草稿题目");
+        }
+
+        question.setStatus(QuestionStatus.PUBLISHED.getCode());
         questionRepository.update(question);
     }
 

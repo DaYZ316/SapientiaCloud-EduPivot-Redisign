@@ -22,7 +22,8 @@ public interface QuestionRepository {
     Page<Question> findByQuestionBankId(UUID questionBankId, int page, int size);
 
     Page<Question> findAll(int page, int size, UUID questionBankId, UUID courseId,
-                           Integer questionType, Integer difficulty, Integer status, String keyword);
+                           Integer questionType, Integer difficulty, Integer status, String keyword,
+                           UUID sysUserId);
 
     long countByQuestionBankId(UUID questionBankId);
 

@@ -89,6 +89,7 @@
             :course="course"
             :course-id="courseId"
             :chapter-tree="chapterTree"
+            :chapters-loading="chaptersLoading"
             :banks="courseBanks"
             :files="courseFiles"
             :students="courseStudents"
@@ -282,6 +283,7 @@ const authStore = useAuthStore()
 const courseId = route.params.id as string
 
 const loading = ref(true)
+const chaptersLoading = ref(false)
 const enrolling = ref(false)
 const course = ref<CourseDetail | null>(null)
 const chapterTree = ref<Chapter[]>([])
@@ -504,7 +506,11 @@ function openChapterEditor() {
 }
 
 function handleChapterSelect(chapter: Chapter) {
-  router.push('/courses/' + courseId + '/chapters/' + chapter.id)
+  router.push({
+    name: 'chapter-detail',
+    params: {courseId},
+    query: {chapterId: chapter.id},
+  })
 }
 
 function handleEditChapter(chapter: Chapter) {
@@ -518,7 +524,7 @@ async function handleDeleteChapter(chapter: Chapter) {
   try {
     await deleteChapter(chapter.id)
     notify.success(t('courseDetail.alert.deleteChapterSuccess'))
-    chapterTree.value = await getChapterTree(courseId)
+    await reloadChapters()
   } catch {
     notify.error(t('courseDetail.alert.deleteChapterFailed'))
   }
@@ -546,7 +552,7 @@ async function handleSaveChapter(data: CreateChapterRequest | UpdateChapterReque
       notify.success(t('courseDetail.alert.createChapterSuccess'))
     }
     closeChapterEditor()
-    chapterTree.value = await getChapterTree(courseId)
+    await reloadChapters()
   } catch {
     notify.error(t('courseDetail.alert.saveChapterFailed'))
   }
@@ -580,7 +586,12 @@ async function reloadActiveTabData() {
 }
 
 async function reloadChapters() {
-  chapterTree.value = await getChapterTree(courseId)
+  chaptersLoading.value = true
+  try {
+    chapterTree.value = await getChapterTree(courseId)
+  } finally {
+    chaptersLoading.value = false
+  }
 }
 
 async function reloadBanks() {

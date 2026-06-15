@@ -27,18 +27,20 @@
         :key="file.id"
         class="file-item"
       >
-        <a
-          :href="canAccessFile && file.url ? file.url : undefined"
-          :aria-disabled="!canAccessFile || !file.url"
-          target="_blank"
-          rel="noreferrer"
+        <router-link
+          v-if="canAccessFile && file.url"
+          :to="{ name: 'file-preview', query: { fileId: file.fileId, fileName: file.displayName } }"
           class="file-link"
-          @click="handleFileClick"
         >
           <FileDown :size="16" stroke-width="1.8"/>
           <span>{{ file.displayName }}</span>
           <span class="file-visibility">{{ formatFileVisibility(file.visibility) }}</span>
-        </a>
+        </router-link>
+        <span v-else class="file-link" aria-disabled="true">
+          <FileDown :size="16" stroke-width="1.8"/>
+          <span>{{ file.displayName }}</span>
+          <span class="file-visibility">{{ formatFileVisibility(file.visibility) }}</span>
+        </span>
         <button
           v-if="canManageCourse"
           class="btn-icon danger"
@@ -80,13 +82,6 @@ const canAccessFile = computed(() => props.course?.isPublic === 1 || props.canAc
 
 function formatFileVisibility(visibility: CourseFile['visibility']) {
   return visibility === 'PUBLIC' ? t('courseDetail.filePublic') : t('courseDetail.filePrivate')
-}
-
-function handleFileClick(event: MouseEvent) {
-  const target = event.currentTarget as HTMLAnchorElement
-  if (target.getAttribute('aria-disabled') === 'true') {
-    event.preventDefault()
-  }
 }
 
 async function handleFileUploaded(asset: FileAsset) {

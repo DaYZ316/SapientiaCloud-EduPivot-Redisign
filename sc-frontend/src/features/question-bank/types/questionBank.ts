@@ -73,7 +73,6 @@ export interface UpdateQuestionBankRequest {
 
 export interface CreateQuestionRequest {
   questionBankId: string
-  courseId: string
   questionTitle: string
   questionContent?: string
   questionType: number
@@ -95,6 +94,8 @@ export interface UpdateQuestionRequest {
   estimatedTime?: number
   tags?: string[]
   allowPartialCredit?: number
+  options?: CreateOptionRequest[]
+  answers?: CreateAnswerRequest[]
 }
 
 export interface CreateOptionRequest {

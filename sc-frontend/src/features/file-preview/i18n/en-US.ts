@@ -1,0 +1,23 @@
+export default {
+    title: 'File Preview',
+    back: 'Back',
+    download: 'Download',
+    loading: 'Loading file...',
+    loadError: 'Failed to load file',
+    unsupported: 'This file format does not support online preview, please download to view',
+    previewFailed: 'Preview failed, please try downloading',
+    fileNotFound: 'File not found or expired',
+    fileType: {
+        pdf: 'PDF Document',
+        word: 'Word Document',
+        excel: 'Excel Spreadsheet',
+        image: 'Image',
+        video: 'Video',
+        audio: 'Audio',
+        text: 'Text File',
+        code: 'Code File',
+        ppt: 'Presentation',
+        markdown: 'Markdown Document',
+        unknown: 'Unknown Format',
+    },
+}

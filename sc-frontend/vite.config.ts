@@ -12,6 +12,7 @@ export default defineConfig(({mode}) => {
         resolve: {
             alias: {
                 '@': fileURLToPath(new URL('./src', import.meta.url)),
+                'vue-demi': 'vue-demi/lib/v3/index.mjs',
             },
         },
         server: {
