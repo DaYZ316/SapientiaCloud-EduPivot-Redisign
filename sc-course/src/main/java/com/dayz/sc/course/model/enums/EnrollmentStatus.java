@@ -5,6 +5,12 @@ import com.dayz.sc.common.error.ErrorCodes;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * 状态枚举。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @Getter
 @RequiredArgsConstructor
 public enum EnrollmentStatus {

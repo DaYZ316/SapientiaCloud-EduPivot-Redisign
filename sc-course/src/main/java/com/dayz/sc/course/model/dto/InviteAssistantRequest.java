@@ -6,6 +6,12 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.UUID;
 
+/**
+ * 请求 DTO。
+ *
+ * @author DaYZ
+ * @since 2026-06-13
+ */
 public record InviteAssistantRequest(
         @NotNull UUID courseId,
         @NotNull UUID inviteeId,

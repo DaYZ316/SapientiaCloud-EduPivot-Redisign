@@ -33,7 +33,7 @@
         </div>
         <div class="bank-actions" @click.stop>
           <button
-            v-if="isStudent && course.enrolled"
+            v-if="isStudent && canAccessCourseContent"
             class="btn-practice"
             type="button"
             @click="router.push('/question-banks/' + bank.id + '/practice')"
@@ -103,6 +103,7 @@ import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import {Database, Pencil, Plus, Trash2} from 'lucide-vue-next'
 import {createQuestionBank, updateQuestionBank, deleteQuestionBank} from '@/features/question-bank/api/questionBank'
+import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import type {CourseDetail} from '@/features/course/types/course'
@@ -205,7 +206,7 @@ async function handleSubmit() {
 }
 
 async function handleDelete(bank: QuestionBank) {
-  if (!confirm(t('courseDetail.confirmDeleteBank'))) return
+  if (!(await confirmDialog({message: t('courseDetail.confirmDeleteBank'), confirmVariant: 'danger'}))) return
   try {
     await deleteQuestionBank(bank.id)
     notify.success(t('courseDetail.bankDeleted'))

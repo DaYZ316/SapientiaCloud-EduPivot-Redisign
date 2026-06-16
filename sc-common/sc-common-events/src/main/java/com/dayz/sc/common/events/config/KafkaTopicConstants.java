@@ -1,3 +1,9 @@
+/**
+ * KafkaTopicConstants 相关定义。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 package com.dayz.sc.common.events.config;
 
 public final class KafkaTopicConstants {

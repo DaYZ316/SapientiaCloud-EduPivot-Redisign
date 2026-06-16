@@ -9,6 +9,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Chapter 相关定义。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @Getter
 @Setter
 @TableName("edu_chapter")

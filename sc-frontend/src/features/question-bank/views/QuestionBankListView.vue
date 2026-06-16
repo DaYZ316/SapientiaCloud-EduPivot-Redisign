@@ -2,7 +2,7 @@
   <div class="bank-list-page">
     <div class="page-header">
       <div class="header-left">
-        <button class="back-link" @click="router.back()">
+        <button class="back-link" @click="goBack">
           <ArrowLeft :size="16"/>
         </button>
         <h1>{{ t('questionBank.title') }}</h1>
@@ -100,6 +100,14 @@ const {t} = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+
+function goBack() {
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push({name: 'dashboard'})
+  }
+}
 
 const courseId = route.params.courseId as string
 const loading = ref(true)

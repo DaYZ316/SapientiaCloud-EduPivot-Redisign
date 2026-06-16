@@ -13,13 +13,13 @@
         :class="{accepted: reply.isAccepted}"
       >
         <UserAvatarLink
+          class="reply-author-avatar"
           :user-id="reply.sysUserId"
           :display-name="userMap[reply.sysUserId]?.displayName"
           :avatar-url="userMap[reply.sysUserId]?.avatarUrl"
           :role="userMap[reply.sysUserId]?.role"
-          size="small"
-          :show-name="true"
-          :linkable="false"
+          size="medium"
+          :show-name="false"
         />
 
         <div class="reply-content">
@@ -75,13 +75,13 @@
               class="reply-item nested"
             >
               <UserAvatarLink
+                class="reply-author-avatar"
                 :user-id="child.sysUserId"
                 :display-name="userMap[child.sysUserId]?.displayName"
                 :avatar-url="userMap[child.sysUserId]?.avatarUrl"
                 :role="userMap[child.sysUserId]?.role"
-                size="tiny"
-                :show-name="true"
-                :linkable="false"
+                size="medium"
+                :show-name="false"
               />
               <div class="reply-content">
                 <div class="reply-header">
@@ -122,6 +122,7 @@ import {Heart, MessageCircle, Pencil, Trash2, X} from 'lucide-vue-next'
 import {updateReply, deleteReply} from '@/features/forum/api/forum'
 import type {ForumReply} from '@/features/forum/types/forum'
 import type {UserBasicInfo} from '@/features/user/types/user'
+import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import ForumContentPreview from '@/features/forum/components/ForumContentPreview.vue'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
@@ -181,7 +182,7 @@ async function saveEdit(reply: ForumReply) {
 }
 
 async function handleDelete(reply: ForumReply) {
-  if (!confirm(t('forum.confirmDeleteReply'))) return
+  if (!(await confirmDialog({message: t('forum.confirmDeleteReply'), confirmVariant: 'danger'}))) return
   try {
     await deleteReply(reply.id)
     notify.success(t('forum.replyDeleted'))
@@ -235,13 +236,17 @@ function formatTime(dateStr: string) {
 .reply-list {
   display: flex;
   flex-direction: column;
+  gap: 0;
 }
 
 .reply-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
   gap: 12px;
   padding: 16px 0;
+  background: transparent;
   border-bottom: 1px solid var(--color-outline-light);
+  border-radius: 0;
 }
 
 .reply-item:last-child {
@@ -250,46 +255,41 @@ function formatTime(dateStr: string) {
 
 .reply-item.accepted {
   border: 1px solid #22c55e;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   padding: 16px;
   margin: 4px 0;
   background: rgba(34, 197, 94, 0.04);
 }
 
-.reply-avatar {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  background: var(--color-surface-container-high);
-  border-radius: 50%;
-  color: var(--color-muted);
-  flex-shrink: 0;
-}
-
-.reply-avatar.small {
-  width: 24px;
-  height: 24px;
+.reply-author-avatar {
+  align-self: start;
+  width: 44px;
+  margin-top: 2px;
 }
 
 .reply-content {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  flex: 1;
   min-width: 0;
 }
 
 .reply-header {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--color-muted);
+  line-height: 1.4;
 }
 
 .reply-author {
-  font-family: var(--font-body);
   font-size: 13px;
-  font-weight: 400;
+  font-weight: 700;
   color: var(--color-on-surface);
 }
 
@@ -304,18 +304,20 @@ function formatTime(dateStr: string) {
 }
 
 .reply-time {
-  font-family: var(--font-body);
   font-size: 12px;
   color: var(--color-muted);
 }
 
 .reply-text {
+  max-width: 72ch;
   margin: 0;
 }
 
 .reply-actions {
   display: flex;
+  align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .action-btn {
@@ -328,11 +330,17 @@ function formatTime(dateStr: string) {
   font-family: var(--font-body);
   font-size: 12px;
   cursor: pointer;
-  padding: 4px 0;
+  min-height: 28px;
+  padding: 0;
+  transition: color 0.2s ease, transform 0.2s ease;
 }
 
 .action-btn:hover {
   color: var(--color-on-surface);
+}
+
+.action-btn:active {
+  transform: translateY(1px);
 }
 
 .action-btn.danger:hover {
@@ -407,13 +415,33 @@ function formatTime(dateStr: string) {
 
 .nested-replies {
   margin-top: 8px;
-  padding-left: 12px;
-  border-left: 2px solid var(--color-outline-light);
   display: flex;
   flex-direction: column;
+  border-top: 1px solid var(--color-outline-light);
 }
 
 .reply-item.nested {
-  padding: 8px 0;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--color-outline-light);
+}
+
+.reply-item.nested:last-child {
+  border-bottom: none;
+}
+
+@media (max-width: 640px) {
+  .reply-item {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .reply-author-avatar {
+    width: 38px;
+  }
+
+  .reply-author-avatar :deep(.user-avatar-link__avatar) {
+    width: 38px;
+    height: 38px;
+  }
 }
 </style>

@@ -6,6 +6,12 @@ import org.jspecify.annotations.Nullable;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * 视图对象。
+ *
+ * @author DaYZ
+ * @since 2026-06-13
+ */
 public record CourseInvitationVO(
         @JsonProperty("id") UUID id,
         @JsonProperty("courseId") UUID courseId,

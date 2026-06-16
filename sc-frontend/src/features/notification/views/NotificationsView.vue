@@ -205,105 +205,52 @@
       </Transition>
     </div>
 
-    <!-- Mark All Read Confirm Modal -->
-    <Teleport to="body">
-      <div v-if="showMarkAllReadConfirm" class="modal-overlay">
-        <div class="modal confirm-modal">
-          <div class="modal-header">
-            <h2>{{ t('notifications.markAllReadConfirmTitle') }}</h2>
-            <button class="btn-close" type="button" @click="closeMarkAllReadConfirm">
-              <X :size="20"/>
-            </button>
-          </div>
-          <div class="modal-body">
-            <p class="confirm-message">{{ t('notifications.markAllReadConfirmMessage') }}</p>
-            <div class="modal-actions">
-              <button class="btn-secondary" type="button" @click="closeMarkAllReadConfirm">
-                {{ t('notifications.modal.cancel') }}
-              </button>
-              <button class="btn-primary" type="button" @click="confirmMarkAllRead">
-                {{ t('notifications.markAllRead') }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <BaseConfirmDialog
+      :visible="showMarkAllReadConfirm"
+      :title="t('notifications.markAllReadConfirmTitle')"
+      :message="t('notifications.markAllReadConfirmMessage')"
+      :cancel-text="t('notifications.modal.cancel')"
+      :confirm-text="t('notifications.markAllRead')"
+      :close-label="t('notifications.modal.cancel')"
+      @cancel="closeMarkAllReadConfirm"
+      @confirm="confirmMarkAllRead"
+    />
 
-    <!-- Delete All Confirm Modal -->
-    <Teleport to="body">
-      <div v-if="showDeleteAllConfirm" class="modal-overlay">
-        <div class="modal confirm-modal">
-          <div class="modal-header">
-            <h2>{{ t('notifications.deleteAllConfirmTitle') }}</h2>
-            <button class="btn-close" type="button" @click="closeDeleteAllConfirm">
-              <X :size="20"/>
-            </button>
-          </div>
-          <div class="modal-body">
-            <p class="confirm-message">{{ t('notifications.deleteAllConfirmMessage') }}</p>
-            <div class="modal-actions">
-              <button class="btn-secondary" type="button" @click="closeDeleteAllConfirm">
-                {{ t('notifications.modal.cancel') }}
-              </button>
-              <button class="btn-primary btn-danger" type="button" @click="confirmDeleteAll">
-                {{ t('notifications.deleteAll') }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <BaseConfirmDialog
+      :visible="showDeleteAllConfirm"
+      :title="t('notifications.deleteAllConfirmTitle')"
+      :message="t('notifications.deleteAllConfirmMessage')"
+      :cancel-text="t('notifications.modal.cancel')"
+      :confirm-text="t('notifications.deleteAll')"
+      :close-label="t('notifications.modal.cancel')"
+      confirm-variant="danger"
+      @cancel="closeDeleteAllConfirm"
+      @confirm="confirmDeleteAll"
+    />
 
-    <!-- Delete Single Confirm Modal -->
-    <Teleport to="body">
-      <div v-if="showDeleteConfirm" class="modal-overlay">
-        <div class="modal confirm-modal">
-          <div class="modal-header">
-            <h2>{{ t('notifications.deleteConfirmTitle') }}</h2>
-            <button class="btn-close" type="button" @click="closeDeleteConfirm">
-              <X :size="20"/>
-            </button>
-          </div>
-          <div class="modal-body">
-            <p class="confirm-message">{{ t('notifications.deleteConfirmMessage') }}</p>
-            <div class="modal-actions">
-              <button class="btn-secondary" type="button" @click="closeDeleteConfirm">
-                {{ t('notifications.modal.cancel') }}
-              </button>
-              <button class="btn-primary btn-danger" type="button" @click="confirmDeleteNotification">
-                {{ t('notifications.delete') }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <BaseConfirmDialog
+      :visible="showDeleteConfirm"
+      :title="t('notifications.deleteConfirmTitle')"
+      :message="t('notifications.deleteConfirmMessage')"
+      :cancel-text="t('notifications.modal.cancel')"
+      :confirm-text="t('notifications.delete')"
+      :close-label="t('notifications.modal.cancel')"
+      confirm-variant="danger"
+      @cancel="closeDeleteConfirm"
+      @confirm="confirmDeleteNotification"
+    />
 
-    <!-- Recall Confirm Modal -->
-    <Teleport to="body">
-      <div v-if="showRecallConfirm" class="modal-overlay">
-        <div class="modal confirm-modal">
-          <div class="modal-header">
-            <h2>{{ t('notifications.recallConfirmTitle') }}</h2>
-            <button class="btn-close" type="button" @click="closeRecallConfirm">
-              <X :size="20"/>
-            </button>
-          </div>
-          <div class="modal-body">
-            <p class="confirm-message">{{ t('notifications.recallConfirmMessage') }}</p>
-            <div class="modal-actions">
-              <button class="btn-secondary" type="button" @click="closeRecallConfirm">
-                {{ t('notifications.modal.cancel') }}
-              </button>
-              <button class="btn-primary btn-danger" type="button" @click="confirmRecallNotification">
-                {{ t('notifications.recall') }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <BaseConfirmDialog
+      :visible="showRecallConfirm"
+      :title="t('notifications.recallConfirmTitle')"
+      :message="t('notifications.recallConfirmMessage')"
+      :cancel-text="t('notifications.modal.cancel')"
+      :confirm-text="t('notifications.recall')"
+      :close-label="t('notifications.modal.cancel')"
+      confirm-variant="danger"
+      @cancel="closeRecallConfirm"
+      @confirm="confirmRecallNotification"
+    />
 
     <!-- Send Notification Modal -->
     <Teleport to="body">
@@ -460,6 +407,7 @@ import type {UserProfile} from '@/features/user/types/user'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {useUnreadCount} from '@/shared/composables/useUnreadCount'
 import {notify} from '@/shared/composables/useGlobalNotification'
+import BaseConfirmDialog from '@/shared/components/BaseConfirmDialog.vue'
 import NotificationContentEditor from '@/features/notification/components/NotificationContentEditor.vue'
 import NotificationContentPreview from '@/features/notification/components/NotificationContentPreview.vue'
 import NotificationListSkeleton from '@/features/notification/components/NotificationListSkeleton.vue'
@@ -1655,20 +1603,6 @@ async function handleSendNotification() {
     opacity: 1;
     transform: translateX(0);
   }
-}
-
-/* ---- Confirm Modal ---- */
-
-.confirm-modal {
-  max-width: 440px;
-}
-
-.confirm-message {
-  margin: 0 0 24px;
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 16px;
-  line-height: 1.6;
-  color: var(--color-secondary);
 }
 
 /* ---- User Selection Panel ---- */

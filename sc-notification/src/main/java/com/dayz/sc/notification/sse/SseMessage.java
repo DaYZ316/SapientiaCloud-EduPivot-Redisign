@@ -4,6 +4,12 @@ import com.dayz.sc.notification.model.vo.NotificationVO;
 
 import java.util.UUID;
 
+/**
+ * SseMessage 相关定义。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 public record SseMessage(
         UUID targetUserId,
         UUID excludeUserId,

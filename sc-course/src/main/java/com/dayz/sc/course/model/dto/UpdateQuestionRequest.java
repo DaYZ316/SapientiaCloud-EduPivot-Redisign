@@ -6,6 +6,12 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.List;
 
+/**
+ * 请求 DTO。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 public record UpdateQuestionRequest(
         @Size(max = 500) String questionTitle,
         String questionContent,

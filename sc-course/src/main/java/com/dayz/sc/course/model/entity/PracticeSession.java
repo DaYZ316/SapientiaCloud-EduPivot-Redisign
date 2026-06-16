@@ -8,6 +8,12 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * PracticeSession 相关定义。
+ *
+ * @author DaYZ
+ * @since 2026-06-13
+ */
 @Getter
 @Setter
 @TableName("edu_practice_session")

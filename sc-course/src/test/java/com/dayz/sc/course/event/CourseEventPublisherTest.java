@@ -26,6 +26,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+/**
+ * CourseEventPublisherTest 相关定义。
+ *
+ * @author DaYZ
+ * @since 2026-06-14
+ */
 @ExtendWith(MockitoExtension.class)
 class CourseEventPublisherTest {
 

@@ -124,6 +124,7 @@ import {useI18n} from 'vue-i18n'
 import {ChevronLeft, ChevronRight, Plus, Trash2, UserCheck, X} from 'lucide-vue-next'
 import {getSentInvitations, withdrawInvitation} from '@/features/course/api/invitation'
 import {updateCourse} from '@/features/course/api/course'
+import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 import InviteAssistantModal from '@/features/course/components/InviteAssistantModal.vue'
@@ -207,7 +208,7 @@ function handleInvited() {
 }
 
 async function handleWithdraw(inv: CourseInvitation) {
-  if (!confirm(t('courseDetail.confirmWithdraw'))) return
+  if (!(await confirmDialog({message: t('courseDetail.confirmWithdraw'), confirmVariant: 'danger'}))) return
   try {
     await withdrawInvitation(inv.id)
     notify.success(t('courseDetail.invitationWithdrawn'))
@@ -219,7 +220,7 @@ async function handleWithdraw(inv: CourseInvitation) {
 
 // 移除助教
 async function handleRemove(assistant: TeacherInfo) {
-  if (!confirm(t('courseDetail.confirmRemoveAssistant'))) return
+  if (!(await confirmDialog({message: t('courseDetail.confirmRemoveAssistant'), confirmVariant: 'danger'}))) return
   try {
     const remainingIds = props.assistants
       .filter(a => a.id !== assistant.id)

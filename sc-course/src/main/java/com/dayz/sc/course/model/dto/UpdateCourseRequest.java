@@ -7,6 +7,12 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * 请求 DTO。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 public record UpdateCourseRequest(
         @Size(max = 200) String title,
         @Size(max = 5000) String description,

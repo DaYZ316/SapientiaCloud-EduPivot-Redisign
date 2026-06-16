@@ -37,6 +37,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * 业务服务。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @Service
 @RequiredArgsConstructor
 public class ForumService {

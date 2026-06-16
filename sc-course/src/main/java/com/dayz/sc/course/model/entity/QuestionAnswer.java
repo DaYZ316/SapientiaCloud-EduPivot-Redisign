@@ -8,6 +8,12 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * QuestionAnswer 相关定义。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @Getter
 @Setter
 @TableName("edu_question_answer")

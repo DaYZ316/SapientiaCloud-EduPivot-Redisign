@@ -1,6 +1,7 @@
 <template>
   <RouterView/>
   <SessionExpiredDialog/>
+  <GlobalConfirmDialog/>
   <GlobalNotification/>
 </template>
 
@@ -10,6 +11,7 @@ import {RouterView} from 'vue-router'
 
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {useUiPreferencesStore} from '@/features/settings/stores/uiPreferences'
+import GlobalConfirmDialog from '@/shared/components/GlobalConfirmDialog.vue'
 import GlobalNotification from '@/shared/components/GlobalNotification.vue'
 import SessionExpiredDialog from '@/shared/components/SessionExpiredDialog.vue'
 

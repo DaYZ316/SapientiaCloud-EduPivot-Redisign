@@ -7,6 +7,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * 视图对象。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 public record ForumReplyVO(
         @JsonProperty("id") UUID id,
         @JsonProperty("postId") UUID postId,

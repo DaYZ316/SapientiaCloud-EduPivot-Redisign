@@ -15,6 +15,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * 数据访问接口。
+ *
+ * @author DaYZ
+ * @since 2026-06-14
+ */
 @Repository
 @RequiredArgsConstructor
 public class MybatisChapterLikeRepository implements ChapterLikeRepository {

@@ -15,6 +15,12 @@ import org.springframework.context.annotation.Configuration;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * 配置类。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @Configuration
 @MapperScan("com.dayz.sc.storage.mapper")
 public class MybatisPlusConfig {

@@ -7,6 +7,12 @@ import lombok.Setter;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Enrollment 相关定义。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @Getter
 @Setter
 @TableName("edu_enrollment")

@@ -4,6 +4,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * 数据访问接口。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 public interface CourseTeacherRepository {
 
     List<UUID> findTeacherIdsByCourseId(UUID courseId);

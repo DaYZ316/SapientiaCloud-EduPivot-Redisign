@@ -5,6 +5,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * FileAsset 相关定义。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 public record FileAsset(
         @JsonProperty("id") UUID id,
         @JsonProperty("fileName") String fileName,

@@ -10,6 +10,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * PracticeAnswer 相关定义。
+ *
+ * @author DaYZ
+ * @since 2026-06-13
+ */
 @Getter
 @Setter
 @TableName("edu_practice_answer")

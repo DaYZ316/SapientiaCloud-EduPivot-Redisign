@@ -1,6 +1,6 @@
 <template>
   <div class="profile-page">
-    <button class="back-btn" type="button" @click="router.back()">
+    <button class="back-btn" type="button" @click="goBack">
       <ArrowLeft :size="18" stroke-width="1.8"/>
       {{ t('profile.userProfile.back') }}
     </button>
@@ -140,6 +140,14 @@ interface DetailItem {
 const route = useRoute()
 const router = useRouter()
 const {t} = useI18n()
+
+function goBack() {
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push({name: 'dashboard'})
+  }
+}
 
 const user = ref<UserProfile | null>(null)
 const loading = ref(true)

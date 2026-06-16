@@ -11,6 +11,11 @@ export default {
         message: 'Your session has expired. Please sign in again.',
         confirm: 'Sign in again',
     },
+    confirmDialog: {
+        title: 'Confirm Action',
+        confirm: 'Confirm',
+        cancel: 'Cancel',
+    },
     feedback: {
         success: 'Success',
         warn: 'Warning',
@@ -25,6 +30,7 @@ export default {
         courseManagement: 'Course Management',
         enrollmentManagement: 'Enrollment Management',
         invitations: 'Invitations',
+        recentCourses: 'Recent Courses',
     },
     menu: {
         profile: 'Profile',

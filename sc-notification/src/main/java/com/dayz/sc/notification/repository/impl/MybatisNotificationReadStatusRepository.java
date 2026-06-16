@@ -14,6 +14,12 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * 数据访问接口。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @Repository
 @RequiredArgsConstructor
 public class MybatisNotificationReadStatusRepository implements NotificationReadStatusRepository {

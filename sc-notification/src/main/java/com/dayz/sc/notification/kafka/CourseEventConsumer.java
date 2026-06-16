@@ -23,6 +23,12 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
+/**
+ * 事件消费者。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor

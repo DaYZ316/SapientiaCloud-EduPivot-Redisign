@@ -1,6 +1,6 @@
 <template>
   <div class="bank-detail-page">
-    <button class="back-link" type="button" @click="router.back()">
+    <button class="back-link" type="button" @click="goBack">
       <ArrowLeft :size="16"/>
       {{ t('questionBank.backToBank') }}
     </button>
@@ -340,12 +340,21 @@ import type {QuestionBank, Question} from '@/features/question-bank/types/questi
 import BaseNumberStepper from '@/shared/components/BaseNumberStepper.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import {useAuthStore} from '@/features/auth/stores/auth'
+import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
 const {t} = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+
+function goBack() {
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push({name: 'dashboard'})
+  }
+}
 
 type FilterKey = 'all' | 'single' | 'multiple' | 'judge' | 'blank' | 'short'
 type DraftOption = {
@@ -799,7 +808,7 @@ async function handlePublishQuestion() {
 async function handleDeleteQuestion() {
   const question = selectedQuestion.value
   if (!question || !canManageQuestion(question)) return
-  if (!confirm(t('questionBank.confirmDeleteQuestion'))) return
+  if (!(await confirmDialog({message: t('questionBank.confirmDeleteQuestion'), confirmVariant: 'danger'}))) return
   try {
     await deleteQuestion(question.id)
     notify.success(t('questionBank.successDeleted'))

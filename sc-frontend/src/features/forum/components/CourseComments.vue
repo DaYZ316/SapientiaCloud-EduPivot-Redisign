@@ -50,12 +50,13 @@
     <div v-else class="comment-list">
       <article v-for="comment in comments" :key="comment.id" class="comment-card">
         <UserAvatarLink
+          class="comment-author-avatar"
           :user-id="comment.sysUserId"
           :display-name="userMap[comment.sysUserId]?.displayName"
           :avatar-url="userMap[comment.sysUserId]?.avatarUrl"
           :role="userMap[comment.sysUserId]?.role"
           size="medium"
-          :show-name="true"
+          :show-name="false"
           :linkable="false"
         />
         <div class="comment-body">
@@ -135,7 +136,7 @@
               @submit.prevent="submitReply(comment.id)"
             >
               <div v-if="replyingTo" class="reply-target">
-                {{ t('forum.replyTo') }} {{ t('forum.courseMember') }}
+                {{ t('forum.replyTo') }} {{ replyTargetName }}
                 <button type="button" @click="cancelReply">x</button>
               </div>
               <BaseTextEditor
@@ -143,7 +144,7 @@
                 v-model:image-assets="replyImages"
                 :rows="2"
                 :min-rows="2"
-                :placeholder="t('forum.replyPlaceholder')"
+                :placeholder="replyPlaceholder"
                 :image-upload-options="imageUploadOptions"
                 :prepare-image-file="validateImageFile"
                 @image-upload-error="handleUploadError"
@@ -181,6 +182,7 @@ import {
 } from '@/features/forum/api/forum'
 import type {ForumPost, ForumReply} from '@/features/forum/types/forum'
 import type {FileAsset} from '@/features/storage/types/storage'
+import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import BaseTextEditor from '@/shared/components/BaseTextEditor.vue'
 import ForumContentPreview from '@/features/forum/components/ForumContentPreview.vue'
@@ -225,6 +227,17 @@ const imageUploadOptions = computed(() => ({
   accept: 'image/jpeg,image/png,image/webp',
   buttonLabel: t('forum.uploadImage'),
 }))
+
+const replyTargetName = computed(() => {
+  const userId = replyingTo.value?.sysUserId
+  if (!userId) return t('forum.courseMember')
+  return userMap[userId]?.displayName || t('forum.courseMember')
+})
+
+const replyPlaceholder = computed(() => {
+  if (!replyingTo.value) return t('forum.replyPlaceholder')
+  return `${t('forum.replyTo')} ${replyTargetName.value}...`
+})
 
 onMounted(loadComments)
 
@@ -293,10 +306,13 @@ async function loadReplies(commentId: string) {
   }
 }
 
-function startReply(commentId: string, reply: ForumReply | null) {
+async function startReply(commentId: string, reply: ForumReply | null) {
   repliesOpen[commentId] = true
   replyingCommentId.value = commentId
   replyingTo.value = reply
+  if (!repliesByComment[commentId]) {
+    await loadReplies(commentId)
+  }
 }
 
 function cancelReply() {
@@ -388,7 +404,7 @@ async function saveEditComment(comment: ForumPost) {
 }
 
 async function handleDeleteComment(comment: ForumPost) {
-  if (!confirm(t('forum.confirmDeleteComment'))) return
+  if (!(await confirmDialog({message: t('forum.confirmDeleteComment'), confirmVariant: 'danger'}))) return
   try {
     await deletePost(comment.id)
     comments.value = comments.value.filter(item => item.id !== comment.id)
@@ -569,12 +585,18 @@ function handleReplyDeleted(commentId: string) {
 
 .comment-card {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
+  grid-template-columns: 44px minmax(0, 1fr);
   gap: 12px;
   padding: 16px 0;
   background: transparent;
   border-bottom: 1px solid var(--color-outline-light);
   border-radius: 0;
+}
+
+.comment-author-avatar {
+  align-self: start;
+  width: 44px;
+  margin-top: 2px;
 }
 
 .comment-avatar {
@@ -783,8 +805,17 @@ function handleReplyDeleted(commentId: string) {
   }
 
   .comment-card {
-    grid-template-columns: 32px minmax(0, 1fr);
+    grid-template-columns: 38px minmax(0, 1fr);
     gap: 10px;
+  }
+
+  .comment-author-avatar {
+    width: 38px;
+  }
+
+  .comment-author-avatar :deep(.user-avatar-link__avatar) {
+    width: 38px;
+    height: 38px;
   }
 
   .comment-avatar {

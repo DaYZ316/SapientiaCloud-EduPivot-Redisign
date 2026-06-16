@@ -12,6 +12,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Feign 客户端接口。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @FeignClient(name = "sc-storage", path = "/api/storage/internal", fallback = StorageInternalClientFallback.class)
 public interface StorageInternalClient {
     @GetMapping("/files/{fileId}")

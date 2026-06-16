@@ -28,6 +28,12 @@ import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * 业务服务。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @Service
 public class StorageService {
 

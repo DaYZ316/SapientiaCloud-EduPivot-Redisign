@@ -8,6 +8,12 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Primary;
 import org.springframework.util.StringUtils;
 
+/**
+ * 配置类。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @Configuration
 @RequiredArgsConstructor
 public class MinioConfiguration {

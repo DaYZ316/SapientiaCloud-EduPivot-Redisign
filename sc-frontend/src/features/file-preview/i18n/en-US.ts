@@ -2,6 +2,7 @@ export default {
     title: 'File Preview',
     back: 'Back',
     download: 'Download',
+    downloading: 'Downloading...',
     loading: 'Loading file...',
     loadError: 'Failed to load file',
     unsupported: 'This file format does not support online preview, please download to view',

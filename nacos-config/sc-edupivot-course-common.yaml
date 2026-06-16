@@ -58,6 +58,11 @@ resilience4j:
         sliding-window-size: 10
 
 edupivot:
+  livekit:
+    url: ${LIVEKIT_URL:}
+    api-key: ${LIVEKIT_API_KEY:}
+    api-secret: ${LIVEKIT_API_SECRET:}
+    token-ttl: 2h
   security:
     trust-gateway-headers: true
     jwt:

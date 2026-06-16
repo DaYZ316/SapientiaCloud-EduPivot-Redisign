@@ -15,6 +15,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
+/**
+ * 类型处理器。
+ *
+ * @author DaYZ
+ * @since 2026-06-15
+ */
 @MappedTypes(List.class)
 @MappedJdbcTypes(JdbcType.OTHER)
 public class PostgresJsonbStringListTypeHandler extends BaseTypeHandler<List<String>> {

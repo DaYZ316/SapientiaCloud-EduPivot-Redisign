@@ -11,6 +11,11 @@ export default {
         message: '登录状态已失效，请重新登录。',
         confirm: '重新登录',
     },
+    confirmDialog: {
+        title: '确认操作',
+        confirm: '确定',
+        cancel: '取消',
+    },
     feedback: {
         success: '成功',
         warn: '提醒',
@@ -25,6 +30,7 @@ export default {
         courseManagement: '课程管理',
         enrollmentManagement: '选课管理',
         invitations: '助教邀请',
+        recentCourses: '近期课程',
     },
     menu: {
         profile: '个人资料',

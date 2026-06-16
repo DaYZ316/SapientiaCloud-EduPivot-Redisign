@@ -8,6 +8,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.UUID;
 
+/**
+ * Feign 客户端接口。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @FeignClient(name = "sc-course", path = "/internal/courses", fallback = CourseAccessClientFallback.class)
 public interface CourseAccessClient {
     @GetMapping("/{courseId}/access")

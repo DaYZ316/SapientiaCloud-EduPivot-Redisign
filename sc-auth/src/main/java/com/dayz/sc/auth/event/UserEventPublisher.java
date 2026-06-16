@@ -13,6 +13,12 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
+/**
+ * 用户事件发布者，负责发布用户注册和停用事件。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor

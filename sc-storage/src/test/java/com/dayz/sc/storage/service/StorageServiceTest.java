@@ -27,6 +27,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+/**
+ * StorageServiceTest 相关定义。
+ *
+ * @author DaYZ
+ * @since 2026-06-15
+ */
 @ExtendWith(MockitoExtension.class)
 class StorageServiceTest {
 

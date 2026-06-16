@@ -12,6 +12,12 @@ import org.springframework.util.StringUtils;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * 数据访问接口。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @Repository
 @RequiredArgsConstructor
 public class MybatisForumPostRepository implements ForumPostRepository {

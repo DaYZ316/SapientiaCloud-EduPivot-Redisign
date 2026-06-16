@@ -170,6 +170,7 @@ import {ChevronLeft, ChevronRight, KeyRound, Pencil, Search, Users, X} from 'luc
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import BaseSkeleton from '@/shared/components/BaseSkeleton.vue'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
+import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import {pageUsers, resetPassword, updateUser} from '@/features/user/api/user'
 import {useAuthStore} from '@/features/auth/stores/auth'
@@ -320,7 +321,7 @@ async function saveUser() {
 }
 
 async function resetUserPassword(user: UserProfile) {
-  if (!confirm(t('admin.userManagement.resetPasswordConfirm'))) return
+  if (!(await confirmDialog({message: t('admin.userManagement.resetPasswordConfirm')}))) return
   try {
     await resetPassword(user.id)
     notify.success(t('admin.userManagement.resetPasswordSuccess'))

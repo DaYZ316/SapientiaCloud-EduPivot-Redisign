@@ -19,6 +19,12 @@ import java.util.UUID;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * REST 控制器。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @RestController
 @RequestMapping("/api/storage")
 @RequiredArgsConstructor

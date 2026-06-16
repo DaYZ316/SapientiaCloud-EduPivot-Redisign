@@ -86,6 +86,7 @@ import {computed, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {ChevronLeft, ChevronRight, Trash2, Users} from 'lucide-vue-next'
 import {updateEnrollmentStatus} from '@/features/course/api/course'
+import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
@@ -160,7 +161,7 @@ async function handleStatusChange(student: Enrollment, newStatus: number) {
 }
 
 async function handleRemove(student: Enrollment) {
-  if (!confirm(t('courseDetail.confirmRemoveStudent'))) return
+  if (!(await confirmDialog({message: t('courseDetail.confirmRemoveStudent'), confirmVariant: 'danger'}))) return
   try {
     await updateEnrollmentStatus(student.id, 3)
     notify.success(t('courseDetail.studentRemoved'))

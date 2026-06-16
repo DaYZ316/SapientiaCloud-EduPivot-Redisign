@@ -1,3 +1,9 @@
+/**
+ * 解析器。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 package com.dayz.sc.common.security.support;
 
 import com.dayz.sc.common.error.BusinessException;

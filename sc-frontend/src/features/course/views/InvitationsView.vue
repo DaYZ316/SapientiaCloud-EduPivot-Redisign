@@ -99,33 +99,26 @@
       </button>
     </div>
 
-    <Teleport to="body">
-      <div v-if="showWithdrawModal" class="modal-overlay">
-        <div class="modal modal-sm">
-          <div class="modal-header">
-            <h2>{{ t('invitations.confirm.withdrawTitle') }}</h2>
-            <button class="btn-close" @click="showWithdrawModal = false">
-              <X :size="20"/>
-            </button>
-          </div>
-          <div class="modal-body">
-            <p>{{ t('invitations.confirm.withdrawMessage') }}</p>
-          </div>
-          <div class="modal-footer">
-            <button class="btn-secondary" @click="showWithdrawModal = false">{{ t('courses.deleteModal.cancel') }}</button>
-            <button class="btn-danger" @click="handleWithdraw">{{ t('invitations.actions.withdraw') }}</button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <BaseConfirmDialog
+      :visible="showWithdrawModal"
+      :title="t('invitations.confirm.withdrawTitle')"
+      :message="t('invitations.confirm.withdrawMessage')"
+      :cancel-text="t('courses.deleteModal.cancel')"
+      :confirm-text="t('invitations.actions.withdraw')"
+      :close-label="t('courses.deleteModal.cancel')"
+      confirm-variant="danger"
+      @cancel="showWithdrawModal = false"
+      @confirm="handleWithdraw"
+    />
   </div>
 </template>
 
 <script lang="ts" setup>
 import {computed, onMounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {BookOpen, Mail, X} from 'lucide-vue-next'
+import {BookOpen, Mail} from 'lucide-vue-next'
 
+import BaseConfirmDialog from '@/shared/components/BaseConfirmDialog.vue'
 import {
   getReceivedInvitations,
   getSentInvitations,

@@ -3,6 +3,12 @@ package com.dayz.sc.course.model.enums;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 
+/**
+ * 状态枚举。
+ *
+ * @author DaYZ
+ * @since 2026-06-13
+ */
 public enum InvitationStatus {
 
     PENDING(0, "待处理"),

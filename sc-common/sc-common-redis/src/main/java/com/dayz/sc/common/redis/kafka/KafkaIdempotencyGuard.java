@@ -7,6 +7,12 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import java.time.Duration;
 import java.util.UUID;
 
+/**
+ * 幂等守卫。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @Slf4j
 @RequiredArgsConstructor
 public class KafkaIdempotencyGuard {

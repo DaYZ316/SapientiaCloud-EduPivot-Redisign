@@ -31,6 +31,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * 业务服务。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @Service
 @RequiredArgsConstructor
 public class QuestionBankService {

@@ -129,6 +129,7 @@ import {Search} from 'lucide-vue-next'
 import {sendInvitation, getSentInvitations, withdrawInvitation} from '@/features/course/api/invitation'
 import {getCourse} from '@/features/course/api/course'
 import {listTeachers} from '@/features/user/api/user'
+import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 import type {CourseInvitation} from '@/features/course/types/invitation'
@@ -282,7 +283,7 @@ function handleWheel(e: WheelEvent) {
 
 // Admin: 直接添加
 async function handleDirectAdd(teacher: UserProfile) {
-    if (!confirm(t('courseDetail.confirmAddAssistant'))) return
+    if (!(await confirmDialog({message: t('courseDetail.confirmAddAssistant')}))) return
     actionLoadingId.value = teacher.id
     try {
         await sendInvitation({courseId: props.courseId, inviteeId: teacher.id})

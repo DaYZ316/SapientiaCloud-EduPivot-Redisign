@@ -270,6 +270,8 @@ import type {QuestionBank} from '@/features/question-bank/types/questionBank'
 
 import ChapterEditor from '@/features/course/components/ChapterEditor.vue'
 import CourseFormModal from '@/features/course/components/CourseFormModal.vue'
+import {confirmDialog} from '@/shared/composables/useConfirmDialog'
+import {recordCourseVisit} from '@/shared/composables/useRecentCourses'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 
 type TabKey = 'overview' | 'chapters' | 'forums' | 'banks' | 'files' | 'students' | 'assistants'
@@ -327,7 +329,10 @@ const isFull = computed(() => {
   return course.value.currentStudents >= course.value.maxStudents
 })
 const showEnrollButton = computed(() => isStudent.value && !course.value?.enrolled)
-const canAccessCourseContent = computed(() => canManageCourse.value || Boolean(course.value?.enrolled))
+const isPublicPublishedCourse = computed(() => course.value?.isPublic === 1 && isPublished.value)
+const canAccessCourseContent = computed(() => {
+  return canManageCourse.value || Boolean(course.value?.enrolled) || isPublicPublishedCourse.value
+})
 
 const assistantOnlyInfos = computed<TeacherInfo[]>(() => {
   if (!course.value?.teacherInfos) return []
@@ -374,12 +379,12 @@ const enrollLabel = computed(() => {
 })
 const primaryActionLabel = computed(() => {
   if (showEnrollButton.value) return enrollLabel.value
-  if (firstChapter.value && (course.value?.enrolled || canManageCourse.value)) return t('courseDetail.continueLearning')
+  if (firstChapter.value && canAccessCourseContent.value) return t('courseDetail.continueLearning')
   return emptyActionLabel.value
 })
 const primaryActionDisabled = computed(() => {
   if (showEnrollButton.value) return enrolling.value || isFull.value || !isPublished.value
-  return !(firstChapter.value && (course.value?.enrolled || canManageCourse.value))
+  return !(firstChapter.value && canAccessCourseContent.value)
 })
 const maxStudentsLabel = computed(() => {
   if (!course.value || course.value.maxStudents <= 0) return t('courseDetail.unlimited')
@@ -434,6 +439,12 @@ async function loadCourseDetail() {
     const courseData = await getCourse(courseId)
 
     course.value = courseData
+    recordCourseVisit({
+      id: courseData.id,
+      title: courseData.title,
+      coverUrl: courseData.coverUrl,
+      teacherName: courseData.teacherName,
+    })
     const [chapters, banks, files] = await Promise.allSettled([
       getChapterTree(courseId),
       getCourseQuestionBanks(courseId),
@@ -482,7 +493,7 @@ function handlePrimaryAction() {
     void handleEnroll()
     return
   }
-  if (firstChapter.value && (course.value?.enrolled || canManageCourse.value)) {
+  if (firstChapter.value && canAccessCourseContent.value) {
     handleChapterSelect(firstChapter.value)
   }
 }
@@ -520,7 +531,7 @@ function handleEditChapter(chapter: Chapter) {
 }
 
 async function handleDeleteChapter(chapter: Chapter) {
-  if (!confirm(t('chapter.confirmDelete'))) return
+  if (!(await confirmDialog({message: t('chapter.confirmDelete'), confirmVariant: 'danger'}))) return
   try {
     await deleteChapter(chapter.id)
     notify.success(t('courseDetail.alert.deleteChapterSuccess'))

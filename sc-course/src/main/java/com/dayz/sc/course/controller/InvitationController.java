@@ -16,6 +16,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+/**
+ * REST 控制器。
+ *
+ * @author DaYZ
+ * @since 2026-06-13
+ */
 @RestController
 @RequestMapping("/api/invitations")
 @RequiredArgsConstructor

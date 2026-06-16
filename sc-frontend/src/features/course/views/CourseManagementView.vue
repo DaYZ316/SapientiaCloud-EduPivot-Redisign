@@ -305,26 +305,17 @@
       </div>
     </Teleport>
 
-    <!-- Delete Course Modal -->
-    <Teleport to="body">
-      <div v-if="showDeleteModal" class="modal-overlay">
-        <div class="modal modal-sm">
-          <div class="modal-header">
-            <h2>{{ t('courses.deleteModal.title') }}</h2>
-            <button class="btn-close" @click="showDeleteModal = false">
-              <X :size="20"/>
-            </button>
-          </div>
-          <div class="modal-body">
-            <p>{{ t('courses.deleteModal.confirmMessage', {title: deleteTarget?.title}) }}</p>
-          </div>
-          <div class="modal-footer">
-            <button class="btn-secondary" @click="showDeleteModal = false">{{ t('courses.deleteModal.cancel') }}</button>
-            <button class="btn-danger" @click="handleDeleteCourse">{{ t('courses.deleteModal.confirm') }}</button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <BaseConfirmDialog
+      :visible="showDeleteModal"
+      :title="t('courses.deleteModal.title')"
+      :message="t('courses.deleteModal.confirmMessage', {title: deleteTarget?.title})"
+      :cancel-text="t('courses.deleteModal.cancel')"
+      :confirm-text="t('courses.deleteModal.confirm')"
+      :close-label="t('courses.deleteModal.cancel')"
+      confirm-variant="danger"
+      @cancel="showDeleteModal = false"
+      @confirm="handleDeleteCourse"
+    />
 
     <!-- Invite Assistant Modal -->
     <InviteAssistantModal
@@ -348,6 +339,7 @@ import {BookOpen, Plus, Search, X} from 'lucide-vue-next'
 
 import CourseFormModal from '@/features/course/components/CourseFormModal.vue'
 import CourseManagementTable from '@/features/course/components/CourseManagementTable.vue'
+import BaseConfirmDialog from '@/shared/components/BaseConfirmDialog.vue'
 import BaseDateRangeFilter from '@/shared/components/BaseDateRangeFilter.vue'
 import BaseImageUploader from '@/shared/components/BaseImageUploader.vue'
 import BaseNumberStepper from '@/shared/components/BaseNumberStepper.vue'

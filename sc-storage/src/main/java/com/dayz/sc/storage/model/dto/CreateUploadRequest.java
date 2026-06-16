@@ -10,6 +10,12 @@ import jakarta.validation.constraints.Size;
 
 import java.util.UUID;
 
+/**
+ * 请求 DTO。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 public record CreateUploadRequest(
         @NotNull StorageUsage usage,
         @NotNull StorageScopeType scopeType,

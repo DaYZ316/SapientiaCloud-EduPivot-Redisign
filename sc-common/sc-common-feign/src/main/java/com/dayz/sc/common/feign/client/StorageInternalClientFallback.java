@@ -10,6 +10,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Feign 客户端降级实现。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @Slf4j
 @Component
 public class StorageInternalClientFallback implements StorageInternalClient {

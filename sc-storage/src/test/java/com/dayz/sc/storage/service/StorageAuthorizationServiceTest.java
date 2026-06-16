@@ -20,6 +20,12 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
+/**
+ * StorageAuthorizationServiceTest 相关定义。
+ *
+ * @author DaYZ
+ * @since 2026-06-15
+ */
 @ExtendWith(MockitoExtension.class)
 class StorageAuthorizationServiceTest {
 

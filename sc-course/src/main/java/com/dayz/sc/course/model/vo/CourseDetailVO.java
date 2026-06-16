@@ -8,6 +8,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * 视图对象。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 public record CourseDetailVO(
         @JsonProperty UUID id,
         @JsonProperty String title,

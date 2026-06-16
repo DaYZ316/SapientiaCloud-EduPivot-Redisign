@@ -60,6 +60,7 @@ import {computed} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {FileDown, FolderOpen, Trash2} from 'lucide-vue-next'
 import {bindCourseFile, deleteCourseFile} from '@/features/course/api/course'
+import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import type {CourseFile} from '@/features/course/types/course'
 import type {FileAsset} from '@/features/storage/types/storage'
@@ -102,7 +103,7 @@ function handleUploadError() {
 }
 
 async function handleDelete(file: CourseFile) {
-  if (!confirm(t('courseDetail.confirmDeleteFile'))) return
+  if (!(await confirmDialog({message: t('courseDetail.confirmDeleteFile'), confirmVariant: 'danger'}))) return
   try {
     await deleteCourseFile(props.courseId, file.id)
     notify.success(t('courseDetail.fileRemoved'))

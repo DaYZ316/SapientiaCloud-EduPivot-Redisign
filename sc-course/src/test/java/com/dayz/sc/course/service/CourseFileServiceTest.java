@@ -28,6 +28,12 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * CourseFileServiceTest 相关定义。
+ *
+ * @author DaYZ
+ * @since 2026-06-15
+ */
 @ExtendWith(MockitoExtension.class)
 class CourseFileServiceTest {
 

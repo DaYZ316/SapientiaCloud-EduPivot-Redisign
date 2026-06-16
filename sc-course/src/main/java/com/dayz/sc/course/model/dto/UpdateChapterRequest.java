@@ -6,6 +6,12 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * 请求 DTO。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 public record UpdateChapterRequest(
         @Size(max = 200) String chapterName,
         UUID parentChapterId,

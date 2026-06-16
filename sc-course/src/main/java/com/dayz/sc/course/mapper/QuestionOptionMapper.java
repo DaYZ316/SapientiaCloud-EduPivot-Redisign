@@ -8,6 +8,12 @@ import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
+/**
+ * MyBatis-Plus Mapper 接口。
+ *
+ * @author DaYZ
+ * @since 2026-06-12
+ */
 @Mapper
 public interface QuestionOptionMapper extends BaseMapper<QuestionOption> {
 

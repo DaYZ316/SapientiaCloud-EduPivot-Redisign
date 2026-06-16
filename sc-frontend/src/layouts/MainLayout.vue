@@ -110,6 +110,28 @@
         </router-link>
       </nav>
 
+      <div v-if="recentCourses.length > 0" class="side-recent-section">
+        <div class="side-recent-header">
+          <Clock :size="14" stroke-width="1.8"/>
+          <span>{{ t('common.navigation.recentCourses') }}</span>
+        </div>
+        <nav class="side-recent-links">
+          <router-link
+            v-for="item in recentCourses"
+            :key="item.id"
+            :to="`/courses/${item.id}`"
+            class="side-recent-link"
+            :title="uiPreferences.sidebarCollapsed ? item.title : undefined"
+          >
+            <div v-if="item.coverUrl" class="recent-cover">
+              <img :src="item.coverUrl" alt=""/>
+            </div>
+            <BookOpen v-else :size="16" stroke-width="1.8"/>
+            <span class="recent-title">{{ item.title }}</span>
+          </router-link>
+        </nav>
+      </div>
+
       <div class="side-nav-footer">
         <button class="btn-icon" :class="{ active: isNotificationsPage }" @click="$router.push('/notifications')">
           <Bell :size="20" stroke-width="1.8"/>
@@ -175,6 +197,7 @@ import {
   BookOpen,
   ChevronDown,
   ClipboardList,
+  Clock,
   GraduationCap,
   LayoutDashboard,
   LogOut,
@@ -187,6 +210,7 @@ import {
 } from 'lucide-vue-next'
 
 import {useUnreadCount} from '@/shared/composables/useUnreadCount'
+import {useRecentCourses} from '@/shared/composables/useRecentCourses'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {useUiPreferencesStore} from '@/features/settings/stores/uiPreferences'
 
@@ -194,6 +218,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const uiPreferences = useUiPreferencesStore()
 const {t} = useI18n()
+const {recentCourses} = useRecentCourses()
 
 const showUserMenu = ref(false)
 const {unreadCount, start: startUnreadCount, stop: stopUnreadCount} = useUnreadCount()
@@ -537,6 +562,80 @@ async function handleLogout() {
   color: var(--color-on-primary);
 }
 
+/* ---- Recent Courses ---- */
+
+.side-recent-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-outline-light);
+}
+
+.side-recent-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  margin-bottom: 6px;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.side-recent-links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.side-recent-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--color-muted);
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.side-recent-link:hover {
+  background: var(--color-surface-canvas);
+  color: var(--color-on-surface);
+}
+
+.side-recent-link.router-link-active {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.recent-cover {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--color-surface-canvas);
+}
+
+.recent-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.recent-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .side-nav-footer {
   position: relative;
   display: flex;
@@ -607,6 +706,21 @@ async function handleLogout() {
 .layout-sidebar.sidebar-collapsed .side-user-menu .user-name,
 .layout-sidebar.sidebar-collapsed .side-user-menu > svg {
   display: none;
+}
+
+.layout-sidebar.sidebar-collapsed .side-recent-header span,
+.layout-sidebar.sidebar-collapsed .side-recent-link .recent-title {
+  display: none;
+}
+
+.layout-sidebar.sidebar-collapsed .side-recent-header {
+  justify-content: center;
+  padding: 0;
+}
+
+.layout-sidebar.sidebar-collapsed .side-recent-link {
+  justify-content: center;
+  padding: 8px;
 }
 
 .layout-sidebar.sidebar-collapsed .side-nav-link {
@@ -680,6 +794,10 @@ async function handleLogout() {
   }
 
   .layout-sidebar .side-nav-links {
+    display: none;
+  }
+
+  .layout-sidebar .side-recent-section {
     display: none;
   }
 
@@ -779,6 +897,10 @@ async function handleLogout() {
 
   .layout-sidebar:not(.sidebar-collapsed) .side-nav-links {
     display: flex;
+  }
+
+  .layout-sidebar:not(.sidebar-collapsed) .side-recent-section {
+    display: block;
   }
 
   .layout-sidebar:not(.sidebar-collapsed) .side-nav-footer {

@@ -29,6 +29,10 @@
               uri: lb://sc-course
               predicates:
                 - Path=/api/enrollments/**
+            - id: course-class-sessions-route
+              uri: lb://sc-course
+              predicates:
+                - Path=/api/class-sessions/**
             - id: course-chapters-route
               uri: lb://sc-course
               predicates:

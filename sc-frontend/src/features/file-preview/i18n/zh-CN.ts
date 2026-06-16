@@ -2,6 +2,7 @@ export default {
     title: '文件预览',
     back: '返回',
     download: '下载',
+    downloading: '下载中...',
     loading: '正在加载文件...',
     loadError: '文件加载失败',
     unsupported: '此文件格式暂不支持在线预览，请下载后查看',

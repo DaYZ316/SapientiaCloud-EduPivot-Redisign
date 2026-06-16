@@ -1,0 +1,17 @@
+package com.dayz.sc.course.model.vo;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import java.time.Instant;
+import java.util.UUID;
+
+/**
+ * Class barrage response.
+ */
+public record ClassBarrageVO(
+        @JsonProperty UUID id,
+        @JsonProperty UUID sessionId,
+        @JsonProperty UUID senderId,
+        @JsonProperty String content,
+        @JsonProperty Instant sentAt
+) {}

@@ -14,6 +14,12 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * CourseInvitation 相关定义。
+ *
+ * @author DaYZ
+ * @since 2026-06-13
+ */
 @Getter
 @Setter
 @NoArgsConstructor

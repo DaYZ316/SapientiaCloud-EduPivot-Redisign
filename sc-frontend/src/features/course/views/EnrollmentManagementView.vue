@@ -125,20 +125,21 @@
     </div>
   </div>
 
-  <div v-if="showConfirmDialog" class="confirm-overlay" @click.self="handleConfirmNo">
-    <div class="confirm-dialog">
-      <h3>{{ t('enrollmentManagement.confirmTitle') }}</h3>
-      <p>{{ t('enrollmentManagement.confirmMessage') }}</p>
-      <label class="suppress-label">
-        <input type="checkbox" v-model="suppressConfirm"/>
-        {{ t('enrollmentManagement.suppressConfirm') }}
-      </label>
-      <div class="confirm-actions">
-        <button class="btn-confirm-cancel" @click="handleConfirmNo">{{ t('enrollmentManagement.cancel') }}</button>
-        <button class="btn-confirm-ok" @click="handleConfirmYes">{{ t('enrollmentManagement.confirm') }}</button>
-      </div>
-    </div>
-  </div>
+  <BaseConfirmDialog
+    :visible="showConfirmDialog"
+    :title="t('enrollmentManagement.confirmTitle')"
+    :message="t('enrollmentManagement.confirmMessage')"
+    :cancel-text="t('enrollmentManagement.cancel')"
+    :confirm-text="t('enrollmentManagement.confirm')"
+    :close-label="t('enrollmentManagement.cancel')"
+    @cancel="handleConfirmNo"
+    @confirm="handleConfirmYes"
+  >
+    <label class="suppress-label">
+      <input type="checkbox" v-model="suppressConfirm"/>
+      {{ t('enrollmentManagement.suppressConfirm') }}
+    </label>
+  </BaseConfirmDialog>
 </template>
 
 <script lang="ts" setup>
@@ -146,6 +147,7 @@ import {computed, onMounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {BookOpen, Check, ClipboardList, GraduationCap} from 'lucide-vue-next'
 
+import BaseConfirmDialog from '@/shared/components/BaseConfirmDialog.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import {getCourseEnrollments, getTeacherCourses, updateEnrollmentStatus} from '@/features/course/api/course'
 import {EnrollmentStatus} from '@/features/course/types/course'
@@ -623,44 +625,6 @@ onMounted(async () => {
   }
 }
 
-.confirm-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--color-overlay);
-  display: grid;
-  place-items: center;
-  z-index: 1000;
-  padding: 24px;
-}
-
-.confirm-dialog {
-  width: 100%;
-  max-width: 420px;
-  background: var(--color-surface-card);
-  border: 1px solid var(--color-outline-light);
-  border-radius: 24px;
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.confirm-dialog h3 {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: 22px;
-  font-weight: 400;
-  color: var(--color-on-surface);
-}
-
-.confirm-dialog p {
-  margin: 0;
-  font-family: var(--font-body);
-  font-size: 14px;
-  color: var(--color-muted);
-  line-height: 1.6;
-}
-
 .suppress-label {
   display: inline-flex;
   align-items: center;
@@ -677,41 +641,4 @@ onMounted(async () => {
   height: 16px;
   accent-color: var(--color-primary);
   cursor: pointer;
-}
-
-.confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 8px;
-}
-
-.btn-confirm-cancel,
-.btn-confirm-ok {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 400;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.btn-confirm-cancel {
-  background: var(--color-surface-container);
-  color: var(--color-on-surface);
-}
-
-.btn-confirm-cancel:hover {
-  background: var(--color-surface-container-high);
-}
-
-.btn-confirm-ok {
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-}
-
-.btn-confirm-ok:hover {
-  background: var(--color-primary-soft);
 }</style>

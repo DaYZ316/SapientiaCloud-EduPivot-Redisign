@@ -11,10 +11,10 @@
                         <ArrowLeft :size="18" :stroke-width="1.5" />
                         <span>{{ t('filePreview.back') }}</span>
                     </button>
-                    <a v-if="fileUrl" :href="fileUrl" download class="btn-download">
+                    <button v-if="fileUrl" class="btn-download" @click="downloadFile" :disabled="downloading">
                         <Download :size="18" :stroke-width="1.5" />
-                        <span>{{ t('filePreview.download') }}</span>
-                    </a>
+                        <span>{{ downloading ? t('filePreview.downloading') : t('filePreview.download') }}</span>
+                    </button>
                 </div>
             </div>
         </header>
@@ -30,10 +30,10 @@
             <div v-else-if="error" class="preview-status">
                 <AlertCircle :size="48" :stroke-width="1" />
                 <p>{{ error }}</p>
-                <a v-if="fileUrl" :href="fileUrl" download class="btn-primary">
+                <button v-if="fileUrl" class="btn-primary" @click="downloadFile" :disabled="downloading">
                     <Download :size="16" :stroke-width="1.5" />
-                    {{ t('filePreview.download') }}
-                </a>
+                    {{ downloading ? t('filePreview.downloading') : t('filePreview.download') }}
+                </button>
             </div>
 
             <!-- PDF -->
@@ -100,10 +100,10 @@
             <div v-else class="preview-status">
                 <FileQuestion :size="48" :stroke-width="1" />
                 <p>{{ t('filePreview.unsupported') }}</p>
-                <a v-if="fileUrl" :href="fileUrl" download class="btn-primary">
+                <button v-if="fileUrl" class="btn-primary" @click="downloadFile" :disabled="downloading">
                     <Download :size="16" :stroke-width="1.5" />
-                    {{ t('filePreview.download') }}
-                </a>
+                    {{ downloading ? t('filePreview.downloading') : t('filePreview.download') }}
+                </button>
             </div>
         </main>
     </div>
@@ -136,6 +136,7 @@ const loading = ref(true)
 const error = ref('')
 const textContent = ref('')
 const markdownHtml = ref('')
+const downloading = ref(false)
 
 // File extension to category mapping
 const EXTENSION_CATEGORY: Record<string, FileCategory> = {
@@ -219,6 +220,29 @@ function goBack() {
         router.back()
     } else {
         router.push({name: 'dashboard'})
+    }
+}
+
+async function downloadFile() {
+    if (!fileUrl.value || downloading.value) return
+    downloading.value = true
+    try {
+        const resp = await fetch(fileUrl.value)
+        if (!resp.ok) throw new Error(resp.statusText)
+        const blob = await resp.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = fileName.value
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+    } catch {
+        // Fallback: open in new tab if fetch fails (e.g. CORS)
+        window.open(fileUrl.value, '_blank')
+    } finally {
+        downloading.value = false
     }
 }
 
@@ -382,11 +406,17 @@ onMounted(() => {
     padding: 6px 14px;
     background: var(--color-primary);
     color: var(--color-on-primary);
+    border: none;
     border-radius: var(--radius-pill);
     font-family: var(--font-label);
     font-size: 13px;
-    text-decoration: none;
+    cursor: pointer;
     transition: background 0.15s;
+}
+
+.btn-download:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .btn-download:hover {
@@ -400,16 +430,22 @@ onMounted(() => {
     padding: 8px 20px;
     background: var(--color-primary);
     color: var(--color-on-primary);
+    border: none;
     border-radius: var(--radius-pill);
     font-family: var(--font-label);
     font-size: 14px;
-    text-decoration: none;
+    cursor: pointer;
     transition: background 0.15s;
     margin-top: 16px;
 }
 
 .btn-primary:hover {
     background: var(--color-primary-soft);
+}
+
+.btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .preview-content {
