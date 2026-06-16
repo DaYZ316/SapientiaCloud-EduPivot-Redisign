@@ -1,7 +1,7 @@
 package com.dayz.sc.auth.model.enums;
 
 /**
- * 系统账号生命周期状态。
+ * 系统账号生命周期状态
  *
  * @author DaYZ
  * @since 2026-05-07

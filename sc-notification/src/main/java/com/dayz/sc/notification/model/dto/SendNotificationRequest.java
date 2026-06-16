@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 发送通知请求。
+ * 发送通知请求
  *
  * @author DaYZ
  * @since 2026-06-09

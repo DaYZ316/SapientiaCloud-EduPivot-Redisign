@@ -20,7 +20,7 @@ import org.springframework.security.web.SecurityFilterChain;
  * Gateway 安全配置。
  * <p>
  * 作为系统第一道防线，验证 JWT 并检查 Token 黑名单。
- * 从 sc-auth 的 JWKS 端点获取公钥进行 RS256 验证。
+ * 从 sc-auth 的 JWKS 端点获取公钥进行 RS256 验证
  *
  * @author DaYZ
  * @since 2026-06-09

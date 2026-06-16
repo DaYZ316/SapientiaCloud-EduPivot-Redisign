@@ -3,7 +3,7 @@ package com.dayz.sc.course.model.dto;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 请求 DTO。
+ * 请求 DTO
  *
  * @author DaYZ
  * @since 2026-06-13

@@ -1,7 +1,7 @@
 package com.dayz.sc.common.model;
 
 /**
- * 用户角色枚举。
+ * 用户角色枚举
  *
  * @author DaYZ
  * @since 2026-06-12

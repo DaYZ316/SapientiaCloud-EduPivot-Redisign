@@ -6,7 +6,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.UUID;
 
 /**
- * 教师专属信息。
+ * 教师专属信息
  *
  * @author DaYZ
  * @since 2026-06-10

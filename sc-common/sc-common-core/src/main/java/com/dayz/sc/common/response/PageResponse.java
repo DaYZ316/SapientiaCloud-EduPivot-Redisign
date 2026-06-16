@@ -5,7 +5,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 /**
- * 轻量分页响应数据。
+ * 轻量分页响应数据
  *
  * @author DaYZ
  * @since 2026-05-07

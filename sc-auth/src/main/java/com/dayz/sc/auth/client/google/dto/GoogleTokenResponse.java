@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.util.StringUtils;
 
 /**
- * Google OAuth2 token 接口返回的令牌响应。
+ * Google OAuth2 token 接口返回的令牌响应
  *
  * @author DaYZ
  * @since 2026-05-07

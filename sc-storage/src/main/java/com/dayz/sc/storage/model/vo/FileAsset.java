@@ -6,7 +6,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * FileAsset 相关定义。
+ * FileAsset 相关定义
  *
  * @author DaYZ
  * @since 2026-06-12

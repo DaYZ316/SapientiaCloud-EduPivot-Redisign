@@ -7,7 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * 课程文件持久化边界。
+ * 课程文件持久化边界
  *
  * @author DaYZ
  * @since 2026-06-12

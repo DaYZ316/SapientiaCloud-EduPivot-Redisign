@@ -5,7 +5,7 @@ import java.lang.annotation.*;
 /**
  * 接口限流注解。
  * <p>
- * 标注在 Controller 方法上，基于客户端 IP 进行滑动窗口限流。
+ * 标注在 Controller 方法上，基于客户端 IP 进行滑动窗口限流
  *
  * @author DaYZ
  * @since 2026-06-09

@@ -13,7 +13,7 @@ import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 
 /**
- * Gateway 后端转发 HTTP 客户端配置。
+ * Gateway 后端转发 HTTP 客户端配置
  *
  * @author DaYZ
  * @since 2026-06-13

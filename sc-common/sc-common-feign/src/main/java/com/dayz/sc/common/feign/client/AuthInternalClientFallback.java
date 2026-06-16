@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Auth 服务降级处理。
+ * Auth 服务降级处理
  *
  * @author DaYZ
  * @since 2026-06-11

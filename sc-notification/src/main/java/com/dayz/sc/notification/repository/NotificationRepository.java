@@ -7,7 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * 通知仓储接口。
+ * 通知仓储接口
  *
  * @author DaYZ
  * @since 2026-06-09

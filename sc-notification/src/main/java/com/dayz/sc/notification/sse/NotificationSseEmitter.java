@@ -15,7 +15,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 通知 SSE 连接管理器。
+ * 通知 SSE 连接管理器
  *
  * @author DaYZ
  * @since 2026-06-09

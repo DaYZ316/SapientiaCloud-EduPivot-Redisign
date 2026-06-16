@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 通知目标用户 Mapper。
+ * 通知目标用户 Mapper
  *
  * @author DaYZ
  * @since 2026-06-11

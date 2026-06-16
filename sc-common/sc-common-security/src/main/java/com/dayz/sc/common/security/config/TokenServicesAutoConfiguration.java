@@ -17,7 +17,7 @@ import org.springframework.data.redis.core.RedisTemplate;
  * Token 管理服务自动配置。
  * <p>
  * 注册 RefreshTokenService、TokenBlacklistService、RateLimiterService 等 Bean。
- * 这些 Bean 通过自动配置注册，而非 @Service，以确保在任何服务的组件扫描范围内都能被发现。
+ * 这些 Bean 通过自动配置注册，而非 @Service，以确保在任何服务的组件扫描范围内都能被发现
  *
  * @author DaYZ
  * @since 2026-06-09

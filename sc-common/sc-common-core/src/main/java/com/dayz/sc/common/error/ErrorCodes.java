@@ -3,7 +3,7 @@ package com.dayz.sc.common.error;
 import org.springframework.http.HttpStatus;
 
 /**
- * 系统统一错误码。
+ * 系统统一错误码
  *
  * @author DaYZ
  * @since 2026-05-07

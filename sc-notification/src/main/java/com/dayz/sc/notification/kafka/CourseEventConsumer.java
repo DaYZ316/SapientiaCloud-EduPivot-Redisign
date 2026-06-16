@@ -24,7 +24,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 /**
- * 事件消费者。
+ * 事件消费者
  *
  * @author DaYZ
  * @since 2026-06-12

@@ -6,7 +6,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.UUID;
 
 /**
- * 用户基本信息 DTO，用于服务间通信。
+ * 用户基本信息 DTO，用于服务间通信
  *
  * @author DaYZ
  * @since 2026-06-11

@@ -31,7 +31,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.LinkedHashMap;
 
 /**
- * 认证接口。
+ * 认证接口
  *
  * @author DaYZ
  * @since 2026-05-07

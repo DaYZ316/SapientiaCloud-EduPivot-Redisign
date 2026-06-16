@@ -7,7 +7,7 @@ import org.jspecify.annotations.Nullable;
 import java.time.Instant;
 
 /**
- * REST 接口统一响应体。
+ * REST 接口统一响应体
  *
  * @author DaYZ
  * @since 2026-05-07

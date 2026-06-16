@@ -7,7 +7,7 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import java.util.Collections;
 
 /**
- * 基于 Redis 滑动窗口的接口限流服务。
+ * 基于 Redis 滑动窗口的接口限流服务
  *
  * @author DaYZ
  * @since 2026-06-09

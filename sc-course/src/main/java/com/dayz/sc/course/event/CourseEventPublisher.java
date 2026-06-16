@@ -18,7 +18,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * 事件发布者。
+ * 事件发布者
  *
  * @author DaYZ
  * @since 2026-06-12

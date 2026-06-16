@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 
 /**
- * 用于读取 Google OpenID Connect 用户信息的 OpenFeign 客户端。
+ * 用于读取 Google OpenID Connect 用户信息的 OpenFeign 客户端
  *
  * @author DaYZ
  * @since 2026-05-07

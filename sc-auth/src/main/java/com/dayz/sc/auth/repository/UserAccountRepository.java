@@ -11,7 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * 系统用户与 OAuth 身份的持久化边界。
+ * 系统用户与 OAuth 身份的持久化边界
  *
  * @author DaYZ
  * @since 2026-05-07

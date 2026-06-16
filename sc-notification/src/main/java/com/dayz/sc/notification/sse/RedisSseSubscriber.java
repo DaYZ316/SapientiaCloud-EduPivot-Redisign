@@ -10,7 +10,7 @@ import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.stereotype.Component;
 
 /**
- * RedisSseSubscriber 相关定义。
+ * RedisSseSubscriber 相关定义
  *
  * @author DaYZ
  * @since 2026-06-12

@@ -13,7 +13,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
- * 启用智语·云枢基础包下的 OpenFeign 客户端。
+ * 启用智语·云枢基础包下的 OpenFeign 客户端
  *
  * @author DaYZ
  * @since 2026-05-07

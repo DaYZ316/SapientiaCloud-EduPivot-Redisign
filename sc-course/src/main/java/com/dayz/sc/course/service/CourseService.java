@@ -36,7 +36,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * 业务服务。
+ * 业务服务
  *
  * @author DaYZ
  * @since 2026-06-12

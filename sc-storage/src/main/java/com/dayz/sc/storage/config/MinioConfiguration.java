@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.util.StringUtils;
 
 /**
- * 配置类。
+ * 配置类
  *
  * @author DaYZ
  * @since 2026-06-12

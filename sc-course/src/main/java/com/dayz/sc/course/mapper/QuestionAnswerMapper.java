@@ -9,7 +9,7 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 /**
- * MyBatis-Plus Mapper 接口。
+ * MyBatis-Plus Mapper 接口
  *
  * @author DaYZ
  * @since 2026-06-12

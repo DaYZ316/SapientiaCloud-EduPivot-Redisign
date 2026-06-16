@@ -29,7 +29,7 @@ import org.springframework.util.StringUtils;
 import java.util.*;
 
 /**
- * 处理 GitHub OAuth 授权码登录并签发 JWT 访问令牌。
+ * 处理 GitHub OAuth 授权码登录并签发 JWT 访问令牌
  *
  * @author DaYZ
  * @since 2026-05-08

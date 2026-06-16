@@ -11,7 +11,7 @@ import java.util.UUID;
  * MinIO 对象路径构建工具。
  * <p>
  * 临时路径：{@code temp/{objectId}.{ext}} — 上传阶段使用，由 MinIO 生命周期规则自动过期。
- * 最终路径：{@code {usage}/{scopeId}/{year}/{objectId}.{ext}} — completeUpload 后永久存储。
+ * 最终路径：{@code {usage}/{scopeId}/{year}/{objectId}.{ext}} — completeUpload 后永久存储
  *
  * @author DaYZ
  * @since 2026-06-11

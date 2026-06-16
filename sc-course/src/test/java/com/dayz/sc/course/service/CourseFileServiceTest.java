@@ -29,7 +29,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * CourseFileServiceTest 相关定义。
+ * CourseFileServiceTest 相关定义
  *
  * @author DaYZ
  * @since 2026-06-15

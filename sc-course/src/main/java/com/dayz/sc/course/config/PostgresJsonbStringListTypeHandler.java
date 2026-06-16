@@ -16,7 +16,7 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * 类型处理器。
+ * 类型处理器
  *
  * @author DaYZ
  * @since 2026-06-15

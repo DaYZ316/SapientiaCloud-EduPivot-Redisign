@@ -18,7 +18,7 @@ import com.dayz.sc.common.util.UuidV7Generator;
 /**
  * 为已认证用户创建签名后的 JWT 访问令牌。
  * <p>
- * 自动根据密钥类型选择算法：有 privateKey 时使用 RS256，否则使用 HS256。
+ * 自动根据密钥类型选择算法：有 privateKey 时使用 RS256，否则使用 HS256
  *
  * @author DaYZ
  * @since 2026-05-07

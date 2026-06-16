@@ -1,7 +1,7 @@
 package com.dayz.sc.storage.model.enums;
 
 /**
- * 类型枚举。
+ * 类型枚举
  *
  * @author DaYZ
  * @since 2026-06-12

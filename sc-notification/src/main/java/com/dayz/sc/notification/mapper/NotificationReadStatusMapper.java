@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 通知已读状态 Mapper。
+ * 通知已读状态 Mapper
  *
  * @author DaYZ
  * @since 2026-06-09

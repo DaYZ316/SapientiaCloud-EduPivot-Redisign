@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * REST 控制器。
+ * REST 控制器
  *
  * @author DaYZ
  * @since 2026-06-13

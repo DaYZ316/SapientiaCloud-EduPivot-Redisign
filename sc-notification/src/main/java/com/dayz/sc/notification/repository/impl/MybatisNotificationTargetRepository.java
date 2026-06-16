@@ -14,7 +14,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * 通知目标用户仓储 MyBatis-Plus 实现。
+ * 通知目标用户仓储 MyBatis-Plus 实现
  *
  * @author DaYZ
  * @since 2026-06-11

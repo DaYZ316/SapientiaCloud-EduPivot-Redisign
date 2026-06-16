@@ -8,7 +8,7 @@ import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 
 /**
- * 配置类。
+ * 配置类
  *
  * @author DaYZ
  * @since 2026-06-12

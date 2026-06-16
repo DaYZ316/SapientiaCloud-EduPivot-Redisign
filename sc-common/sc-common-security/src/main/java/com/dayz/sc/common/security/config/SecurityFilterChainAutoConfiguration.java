@@ -25,7 +25,7 @@ import java.util.Set;
  *   <li>Gateway 信任模式：信任 Gateway 注入的 X-User-Id/X-User-Role 请求头，跳过 JWT 验证</li>
  * </ul>
  * <p>
- * 各服务可通过定义自己的 {@link SecurityFilterChain} Bean 来覆盖此默认配置。
+ * 各服务可通过定义自己的 {@link SecurityFilterChain} Bean 来覆盖此默认配置
  *
  * @author DaYZ
  * @since 2026-06-09

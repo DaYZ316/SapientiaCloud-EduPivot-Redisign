@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /**
- * 将常见 Web 异常转换为统一接口响应。
+ * 将常见 Web 异常转换为统一接口响应
  *
  * @author DaYZ
  * @since 2026-05-07

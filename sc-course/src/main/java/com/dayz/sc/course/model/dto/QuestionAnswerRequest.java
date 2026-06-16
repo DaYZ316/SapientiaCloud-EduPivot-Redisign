@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import java.math.BigDecimal;
 
 /**
- * 请求 DTO。
+ * 请求 DTO
  *
  * @author DaYZ
  * @since 2026-06-12

@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 
 /**
- * 事件消费者。
+ * 事件消费者
  *
  * @author DaYZ
  * @since 2026-06-12

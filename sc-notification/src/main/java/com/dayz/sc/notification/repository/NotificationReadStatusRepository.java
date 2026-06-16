@@ -8,7 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * 通知已读状态仓储接口。
+ * 通知已读状态仓储接口
  *
  * @author DaYZ
  * @since 2026-06-09

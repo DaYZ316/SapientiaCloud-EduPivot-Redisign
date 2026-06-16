@@ -16,7 +16,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 配置类。
+ * 配置类
  *
  * @author DaYZ
  * @since 2026-06-12

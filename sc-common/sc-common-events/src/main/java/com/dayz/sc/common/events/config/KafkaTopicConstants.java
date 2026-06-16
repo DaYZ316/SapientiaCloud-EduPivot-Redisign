@@ -1,5 +1,5 @@
 /**
- * KafkaTopicConstants 相关定义。
+ * KafkaTopicConstants 相关定义
  *
  * @author DaYZ
  * @since 2026-06-12

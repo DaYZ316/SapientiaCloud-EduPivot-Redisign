@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 系统用户分页查询与账号资料维护接口。
+ * 系统用户分页查询与账号资料维护接口
  *
  * @author DaYZ
  * @since 2026-05-08

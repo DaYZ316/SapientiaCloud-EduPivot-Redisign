@@ -1,7 +1,7 @@
 package com.dayz.sc.common.util;
 
 /**
- * 分页参数规范化工具类。
+ * 分页参数规范化工具类
  *
  * @author DaYZ
  * @since 2026-06-10

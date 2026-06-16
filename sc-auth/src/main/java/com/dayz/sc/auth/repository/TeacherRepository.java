@@ -7,7 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * 教师仓储接口。
+ * 教师仓储接口
  *
  * @author DaYZ
  * @since 2026-06-09

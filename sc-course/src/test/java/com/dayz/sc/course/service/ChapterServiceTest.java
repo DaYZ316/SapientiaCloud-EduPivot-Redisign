@@ -32,7 +32,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * ChapterServiceTest 相关定义。
+ * ChapterServiceTest 相关定义
  *
  * @author DaYZ
  * @since 2026-06-15

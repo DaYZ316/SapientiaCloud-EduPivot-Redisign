@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;
 
 /**
- * 注册 Servlet Web 层公共基础设施 Bean。
+ * 注册 Servlet Web 层公共基础设施 Bean
  *
  * @author DaYZ
  * @since 2026-05-07

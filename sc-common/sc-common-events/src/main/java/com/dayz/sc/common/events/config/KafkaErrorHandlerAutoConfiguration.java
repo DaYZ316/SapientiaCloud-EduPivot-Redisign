@@ -13,7 +13,7 @@ import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.util.backoff.FixedBackOff;
 
 /**
- * 配置类。
+ * 配置类
  *
  * @author DaYZ
  * @since 2026-06-12

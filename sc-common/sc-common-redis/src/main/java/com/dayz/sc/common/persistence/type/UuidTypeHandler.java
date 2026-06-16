@@ -11,7 +11,7 @@ import java.sql.Types;
 import java.util.UUID;
 
 /**
- * 将 Java UUID 映射到 PostgreSQL uuid 字段。
+ * 将 Java UUID 映射到 PostgreSQL uuid 字段
  *
  * @author DaYZ
  * @since 2026-06-12

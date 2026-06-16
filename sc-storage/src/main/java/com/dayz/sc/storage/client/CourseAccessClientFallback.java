@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import java.util.UUID;
 
 /**
- * Feign 客户端降级实现。
+ * Feign 客户端降级实现
  *
  * @author DaYZ
  * @since 2026-06-12

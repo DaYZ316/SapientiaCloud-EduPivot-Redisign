@@ -91,6 +91,11 @@ export const router = createRouter({
                             component: () => import('@/features/course/views/course-detail/CourseFiles.vue'),
                         },
                         {
+                            path: 'class-sessions',
+                            name: 'course-class-sessions',
+                            component: () => import('@/features/course/views/course-detail/CourseClassSessions.vue'),
+                        },
+                        {
                             path: 'students',
                             name: 'course-students',
                             component: () => import('@/features/course/views/course-detail/CourseStudents.vue'),
@@ -106,6 +111,11 @@ export const router = createRouter({
                     path: 'courses/:courseId/question-banks',
                     name: 'course-question-banks',
                     component: () => import('@/features/question-bank/views/QuestionBankListView.vue'),
+                },
+                {
+                    path: 'class-sessions/:sessionId',
+                    name: 'class-session-room',
+                    component: () => import('@/features/course/views/ClassSessionRoomView.vue'),
                 },
                 {
                     path: 'question-banks/:id',

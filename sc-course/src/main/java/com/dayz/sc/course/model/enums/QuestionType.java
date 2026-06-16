@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 类型枚举。
+ * 类型枚举
  *
  * @author DaYZ
  * @since 2026-06-12

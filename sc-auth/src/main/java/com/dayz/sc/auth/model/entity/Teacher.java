@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 教师信息扩展表。
+ * 教师信息扩展表
  *
  * @author DaYZ
  * @since 2026-06-09

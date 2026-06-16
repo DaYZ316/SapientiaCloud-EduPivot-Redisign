@@ -28,7 +28,7 @@ import com.dayz.sc.common.util.UuidV7Generator;
 import java.util.stream.Collectors;
 
 /**
- * 通知业务服务。
+ * 通知业务服务
  *
  * @author DaYZ
  * @since 2026-06-09

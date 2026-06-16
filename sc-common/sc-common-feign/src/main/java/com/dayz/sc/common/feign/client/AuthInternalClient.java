@@ -12,7 +12,7 @@ import java.util.UUID;
 /**
  * Auth 服务内部调用客户端。
  * <p>
- * 用于服务间通信，获取用户基本信息。
+ * 用于服务间通信，获取用户基本信息
  *
  * @author DaYZ
  * @since 2026-06-11

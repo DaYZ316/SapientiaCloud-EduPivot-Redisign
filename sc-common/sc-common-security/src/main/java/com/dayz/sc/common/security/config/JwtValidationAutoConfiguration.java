@@ -15,7 +15,7 @@ import javax.crypto.spec.SecretKeySpec;
  * JWT 验证自动配置。
  * <p>
  * 优先使用 JWKS URI 动态获取公钥（推荐），其次使用静态公钥。
- * 当两者都未配置时，尝试使用 HS256 共享密钥（向后兼容）。
+ * 当两者都未配置时，尝试使用 HS256 共享密钥（向后兼容）
  *
  * @author DaYZ
  * @since 2026-06-09

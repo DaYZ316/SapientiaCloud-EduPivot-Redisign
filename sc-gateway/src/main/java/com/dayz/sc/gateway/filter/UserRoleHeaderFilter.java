@@ -25,7 +25,7 @@ import java.util.*;
  * </ul>
  * <p>
  * 本过滤器依赖 Spring Security 的 {@code oauth2ResourceServer} 已完成 JWT 验签和黑名单检查，
- * 不再重复调用 {@code JwtDecoder.decode()}。
+ * 不再重复调用 {@code JwtDecoder.decode()}
  *
  * @author DaYZ
  * @since 2026-06-09

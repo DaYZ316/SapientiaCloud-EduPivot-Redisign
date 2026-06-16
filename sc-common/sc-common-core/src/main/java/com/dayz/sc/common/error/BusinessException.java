@@ -4,7 +4,7 @@ import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
 /**
- * 携带业务错误码的运行时异常。
+ * 携带业务错误码的运行时异常
  *
  * @author DaYZ
  * @since 2026-05-07

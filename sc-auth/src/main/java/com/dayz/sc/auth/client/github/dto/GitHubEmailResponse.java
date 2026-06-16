@@ -1,7 +1,7 @@
 package com.dayz.sc.auth.client.github.dto;
 
 /**
- * GitHub emails 接口返回的邮箱信息。
+ * GitHub emails 接口返回的邮箱信息
  *
  * @author DaYZ
  * @since 2026-05-08

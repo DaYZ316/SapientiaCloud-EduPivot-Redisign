@@ -6,7 +6,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 通知视图对象。
+ * 通知视图对象
  *
  * @author DaYZ
  * @since 2026-06-09

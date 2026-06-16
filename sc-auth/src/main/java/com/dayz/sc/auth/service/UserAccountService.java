@@ -22,7 +22,7 @@ import java.util.UUID;
 import com.dayz.sc.common.util.UuidV7Generator;
 
 /**
- * 协调内部系统用户与外部 OAuth 身份。
+ * 协调内部系统用户与外部 OAuth 身份
  *
  * @author DaYZ
  * @since 2026-05-07

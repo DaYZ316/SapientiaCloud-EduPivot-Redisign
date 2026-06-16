@@ -12,7 +12,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * 通知仓储 MyBatis-Plus 实现。
+ * 通知仓储 MyBatis-Plus 实现
  *
  * @author DaYZ
  * @since 2026-06-09

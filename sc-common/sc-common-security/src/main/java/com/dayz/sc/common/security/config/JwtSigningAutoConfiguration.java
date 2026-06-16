@@ -23,7 +23,7 @@ import java.security.spec.RSAPublicKeySpec;
  * JWT 签发自动配置。
  * <p>
  * 当配置了 {@code edupivot.security.jwt.private-key} 时使用 RS256 签发。
- * 同时提供 JwtDecoder，使 auth 服务也能验证自己签发的 token。
+ * 同时提供 JwtDecoder，使 auth 服务也能验证自己签发的 token
  *
  * @author DaYZ
  * @since 2026-06-09

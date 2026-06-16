@@ -38,7 +38,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * 处理系统用户分页查询、资料更新与关联登录来源聚合。
+ * 处理系统用户分页查询、资料更新与关联登录来源聚合
  *
  * @author DaYZ
  * @since 2026-05-08

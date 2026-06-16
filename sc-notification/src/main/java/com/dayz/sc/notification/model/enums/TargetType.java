@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 通知目标类型枚举。
+ * 通知目标类型枚举
  *
  * @author DaYZ
  * @since 2026-06-09

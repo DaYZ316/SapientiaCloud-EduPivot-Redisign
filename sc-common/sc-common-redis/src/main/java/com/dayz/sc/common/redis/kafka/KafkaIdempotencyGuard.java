@@ -8,7 +8,7 @@ import java.time.Duration;
 import java.util.UUID;
 
 /**
- * 幂等守卫。
+ * 幂等守卫
  *
  * @author DaYZ
  * @since 2026-06-12

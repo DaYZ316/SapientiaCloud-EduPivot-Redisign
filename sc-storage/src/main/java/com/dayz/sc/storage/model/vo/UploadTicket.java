@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * UploadTicket 相关定义。
+ * UploadTicket 相关定义
  *
  * @author DaYZ
  * @since 2026-06-12

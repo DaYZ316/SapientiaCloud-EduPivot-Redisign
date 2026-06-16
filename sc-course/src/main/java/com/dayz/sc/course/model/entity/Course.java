@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Course 相关定义。
+ * Course 相关定义
  *
  * @author DaYZ
  * @since 2026-06-12

@@ -3,7 +3,7 @@ package com.dayz.sc.storage.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * 属性配置类。
+ * 属性配置类
  *
  * @author DaYZ
  * @since 2026-06-12

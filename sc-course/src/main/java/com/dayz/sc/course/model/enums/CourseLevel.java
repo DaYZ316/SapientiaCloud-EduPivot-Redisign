@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 级别枚举。
+ * 级别枚举
  *
  * @author DaYZ
  * @since 2026-06-12

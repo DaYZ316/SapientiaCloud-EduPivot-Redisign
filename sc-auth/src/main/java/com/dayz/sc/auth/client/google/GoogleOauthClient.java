@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * 用于通过 Google OAuth2 授权码换取访问令牌的 OpenFeign 客户端。
+ * 用于通过 Google OAuth2 授权码换取访问令牌的 OpenFeign 客户端
  *
  * @author DaYZ
  * @since 2026-05-07

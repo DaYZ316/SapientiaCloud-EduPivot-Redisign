@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 请求 DTO。
+ * 请求 DTO
  *
  * @author DaYZ
  * @since 2026-06-12

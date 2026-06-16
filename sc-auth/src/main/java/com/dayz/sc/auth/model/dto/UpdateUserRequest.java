@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * 用户管理页面提交的账号资料更新参数。
+ * 用户管理页面提交的账号资料更新参数
  *
  * @author DaYZ
  * @since 2026-05-08

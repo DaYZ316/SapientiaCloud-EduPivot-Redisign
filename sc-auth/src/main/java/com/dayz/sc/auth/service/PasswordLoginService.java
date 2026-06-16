@@ -35,7 +35,7 @@ import com.dayz.sc.auth.event.UserEventPublisher;
 import com.dayz.sc.common.util.UuidV7Generator;
 
 /**
- * 账号密码登录与注册服务。
+ * 账号密码登录与注册服务
  *
  * @author DaYZ
  * @since 2026-06-09

@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * QuestionBank 相关定义。
+ * QuestionBank 相关定义
  *
  * @author DaYZ
  * @since 2026-06-12

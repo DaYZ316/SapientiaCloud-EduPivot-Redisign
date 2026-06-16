@@ -3,7 +3,7 @@ package com.dayz.sc.common.error;
 import org.springframework.http.HttpStatus;
 
 /**
- * 描述系统错误码及其默认 HTTP 状态映射。
+ * 描述系统错误码及其默认 HTTP 状态映射
  *
  * @author DaYZ
  * @since 2026-05-07

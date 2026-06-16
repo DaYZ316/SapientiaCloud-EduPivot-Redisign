@@ -21,7 +21,7 @@ import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import tools.jackson.databind.jsontype.PolymorphicTypeValidator;
 
 /**
- * 为公共模块配置 Redis 缓存和 JSON 序列化模板。
+ * 为公共模块配置 Redis 缓存和 JSON 序列化模板
  *
  * @author DaYZ
  * @since 2026-05-07

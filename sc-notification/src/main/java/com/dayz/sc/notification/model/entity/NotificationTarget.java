@@ -11,7 +11,7 @@ import lombok.Setter;
 import java.util.UUID;
 
 /**
- * 通知目标用户实体。
+ * 通知目标用户实体
  *
  * @author DaYZ
  * @since 2026-06-11

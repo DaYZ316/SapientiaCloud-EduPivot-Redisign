@@ -12,7 +12,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * 基于 MyBatis-Plus 的教师仓储实现。
+ * 基于 MyBatis-Plus 的教师仓储实现
  *
  * @author DaYZ
  * @since 2026-06-09

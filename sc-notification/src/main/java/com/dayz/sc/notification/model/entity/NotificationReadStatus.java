@@ -11,7 +11,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 通知已读状态实体。
+ * 通知已读状态实体
  *
  * @author DaYZ
  * @since 2026-06-09

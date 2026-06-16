@@ -3,7 +3,7 @@ package com.dayz.sc.common.security.support;
 import com.dayz.sc.common.model.UserRole;
 
 /**
- * 安全相关工具类。
+ * 安全相关工具类
  *
  * @author DaYZ
  * @since 2026-06-10

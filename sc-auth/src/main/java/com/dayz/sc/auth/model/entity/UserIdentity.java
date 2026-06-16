@@ -14,7 +14,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 绑定到智语·云枢系统用户的 OAuth 第三方身份。
+ * 绑定到智语·云枢系统用户的 OAuth 第三方身份
  *
  * @author DaYZ
  * @since 2026-05-07

@@ -1,0 +1,242 @@
+<template>
+  <Teleport to="body">
+    <div v-if="visible" class="modal-overlay" @click.self="emit('close')">
+      <div class="modal class-session-modal">
+        <div class="modal-header">
+          <h2>{{ session ? t('courseDetail.classSession.editTitle') : t('courseDetail.classSession.createTitle') }}</h2>
+          <button class="btn-close" type="button" @click="emit('close')">
+            <X :size="20" stroke-width="1.8"/>
+          </button>
+        </div>
+
+        <form class="modal-body class-session-form" @submit.prevent="handleSubmit">
+          <label class="form-group">
+            <span>{{ t('courseDetail.classSession.titleLabel') }}</span>
+            <input
+              v-model="form.title"
+              class="input-field"
+              type="text"
+              maxlength="200"
+              :placeholder="t('courseDetail.classSession.titlePlaceholder')"
+            />
+          </label>
+
+          <label class="form-group">
+            <span>{{ t('courseDetail.classSession.descriptionLabel') }}</span>
+            <textarea
+              v-model="form.description"
+              class="input-field"
+              rows="4"
+              maxlength="5000"
+              :placeholder="t('courseDetail.classSession.descriptionPlaceholder')"
+            ></textarea>
+          </label>
+
+          <div class="form-grid">
+            <label class="form-group">
+              <span>{{ t('courseDetail.classSession.startAtLabel') }}</span>
+              <input v-model="form.scheduledStartAt" class="input-field" type="datetime-local"/>
+            </label>
+            <label class="form-group">
+              <span>{{ t('courseDetail.classSession.endAtLabel') }}</span>
+              <input v-model="form.scheduledEndAt" class="input-field" type="datetime-local"/>
+            </label>
+          </div>
+
+          <label class="form-group">
+            <span>{{ t('courseDetail.classSession.roomSizeLabel') }}</span>
+            <BaseSelect v-model="form.roomSize" :options="roomSizeOptions" min-width="100%"/>
+          </label>
+
+          <p v-if="errorMessage" class="form-error">{{ errorMessage }}</p>
+
+          <div class="modal-footer class-session-footer">
+            <button type="button" class="btn-secondary" @click="emit('close')">
+              {{ t('courseDetail.cancel') }}
+            </button>
+            <button type="submit" class="btn-primary" :disabled="submitting">
+              {{ submitting ? t('courseDetail.saving') : t('courseDetail.save') }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </Teleport>
+</template>
+
+<script lang="ts" setup>
+import {computed, reactive, ref, watch} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {X} from 'lucide-vue-next'
+
+import BaseSelect from '@/shared/components/BaseSelect.vue'
+import {ClassRoomSize, ClassRoomSizeLabel} from '@/features/course/types/classSession'
+import type {ClassSession, ClassSessionFormPayload} from '@/features/course/types/classSession'
+
+const props = withDefaults(defineProps<{
+  visible: boolean
+  session?: ClassSession | null
+  submitting?: boolean
+}>(), {
+  session: null,
+  submitting: false,
+})
+
+const emit = defineEmits<{
+  close: []
+  submit: [payload: ClassSessionFormPayload]
+}>()
+
+const {t} = useI18n()
+const errorMessage = ref('')
+
+const form = reactive({
+  title: '',
+  description: '',
+  scheduledStartAt: '',
+  scheduledEndAt: '',
+  roomSize: ClassRoomSize.MEDIUM as number,
+})
+
+const roomSizeOptions = computed(() => [
+  {label: t('courseDetail.classSession.roomSmall'), value: ClassRoomSize.SMALL},
+  {label: t('courseDetail.classSession.roomMedium'), value: ClassRoomSize.MEDIUM},
+  {label: t('courseDetail.classSession.roomLarge'), value: ClassRoomSize.LARGE},
+  {label: t('courseDetail.classSession.roomXLarge'), value: ClassRoomSize.XLARGE},
+])
+
+watch(
+  () => [props.visible, props.session] as const,
+  () => resetForm(),
+  {immediate: true},
+)
+
+function resetForm() {
+  errorMessage.value = ''
+  if (!props.visible) return
+
+  form.title = props.session?.title || ''
+  form.description = props.session?.description || ''
+  form.scheduledStartAt = toDatetimeLocalValue(props.session?.scheduledStartAt)
+  form.scheduledEndAt = toDatetimeLocalValue(props.session?.scheduledEndAt)
+  form.roomSize = props.session?.roomSize ?? ClassRoomSize.MEDIUM
+}
+
+function handleSubmit() {
+  const title = form.title.trim()
+  if (!title) {
+    errorMessage.value = t('courseDetail.classSession.titleRequired')
+    return
+  }
+  if (!form.scheduledStartAt || !form.scheduledEndAt) {
+    errorMessage.value = t('courseDetail.classSession.timeRequired')
+    return
+  }
+
+  const startDate = new Date(form.scheduledStartAt)
+  const endDate = new Date(form.scheduledEndAt)
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    errorMessage.value = t('courseDetail.classSession.timeRequired')
+    return
+  }
+  if (endDate <= startDate) {
+    errorMessage.value = t('courseDetail.classSession.endAfterStart')
+    return
+  }
+
+  errorMessage.value = ''
+  emit('submit', {
+    title,
+    description: form.description.trim() || undefined,
+    scheduledStartAt: startDate.toISOString(),
+    scheduledEndAt: endDate.toISOString(),
+    roomSize: normalizedRoomSize(form.roomSize),
+  })
+}
+
+function toDatetimeLocalValue(value?: string | null) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return localDate.toISOString().slice(0, 16)
+}
+
+function normalizedRoomSize(value: number) {
+  return ClassRoomSizeLabel[value] == null ? ClassRoomSize.MEDIUM : value
+}
+</script>
+
+<style scoped>
+.class-session-modal {
+  width: min(100%, 640px);
+}
+
+.btn-close {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-muted);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-close:hover {
+  background: var(--color-surface-container);
+  border-color: var(--color-outline);
+  color: var(--color-on-surface);
+}
+
+.class-session-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+
+.form-group span {
+  color: var(--color-on-surface);
+  font-weight: 700;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.form-error {
+  margin: 0;
+  color: var(--color-error);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.class-session-footer {
+  padding: 8px 0 0;
+}
+
+textarea.input-field {
+  resize: vertical;
+}
+
+@media (max-width: 640px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

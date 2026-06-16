@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * 存储服务启动类。
+ * 存储服务启动类
  *
  * @author DaYZ
  * @since 2026-06-12

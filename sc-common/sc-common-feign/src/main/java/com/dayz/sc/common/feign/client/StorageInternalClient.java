@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Feign 客户端接口。
+ * Feign 客户端接口
  *
  * @author DaYZ
  * @since 2026-06-12

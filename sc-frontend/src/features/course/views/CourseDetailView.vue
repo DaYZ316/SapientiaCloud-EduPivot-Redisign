@@ -102,6 +102,7 @@
             :is-student="isStudent"
             :format-date="formatDate"
             :current-user-id="authStore.user?.id"
+            :create-request-key="classSessionCreateRequestKey"
             @open-chapter-editor="openChapterEditor"
             @select-chapter="handleChapterSelect"
             @edit-chapter="handleEditChapter"
@@ -191,6 +192,10 @@
                 <Database :size="18" stroke-width="1.8"/>
                 {{ t('courseDetail.manageBanks') }}
               </button>
+              <button class="secondary-action" type="button" @click="openClassSessionCreator">
+                <Presentation :size="18" stroke-width="1.8"/>
+                {{ t('courseDetail.classSession.createAction') }}
+              </button>
             </div>
 
             <div class="date-list">
@@ -247,6 +252,7 @@ import {
   MessageCircle,
   Pencil,
   Plus,
+  Presentation,
   School,
   User,
   UserCheck,
@@ -274,7 +280,7 @@ import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {recordCourseVisit} from '@/shared/composables/useRecentCourses'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 
-type TabKey = 'overview' | 'chapters' | 'forums' | 'banks' | 'files' | 'students' | 'assistants'
+type TabKey = 'overview' | 'chapters' | 'forums' | 'banks' | 'files' | 'class-sessions' | 'students' | 'assistants'
 type TeacherInfo = NonNullable<CourseDetail['teacherInfos']>[number]
 
 const {t, locale} = useI18n()
@@ -296,6 +302,7 @@ const showChapterEditor = ref(false)
 const showEditModal = ref(false)
 const editingChapter = ref<Chapter | null>(null)
 const parentChapterId = ref<string | null>(null)
+const classSessionCreateRequestKey = ref(0)
 
 const courseCoverFallbackUrl = '/assets/course-cover-default.png'
 
@@ -408,6 +415,7 @@ const tabs = computed(() => [
   {key: 'forums' as const, label: t('courseDetail.discussionTab'), icon: MessageCircle, roles: [0, 1, 2]},
   {key: 'banks' as const, label: t('courseDetail.practiceTab'), icon: Database, roles: [0, 1, 2]},
   {key: 'files' as const, label: t('courseDetail.filesTab'), icon: Database, roles: [0, 1, 2]},
+  {key: 'class-sessions' as const, label: t('courseDetail.classSessionsTab'), icon: Presentation, roles: [0, 1, 2]},
   {key: 'students' as const, label: t('courseDetail.studentsTab'), icon: Users, roles: [0, 2]},
   {key: 'assistants' as const, label: t('courseDetail.assistantsTab'), icon: UserCheck, roles: [0, 2]},
 ])
@@ -418,7 +426,7 @@ const visibleTabs = computed(() => {
 
 const activeTabKey = computed(() => {
   const path = route.path
-  const match = path.match(/\/courses\/[^/]+\/(\w+)/)
+  const match = path.match(/\/courses\/[^/]+\/([^/]+)/)
   if (match) {
     const key = match[1] as TabKey
     if (tabs.value.some(tab => tab.key === key)) return key
@@ -573,6 +581,13 @@ function goToCourseBanks() {
   router.push({name: 'course-question-banks', params: {courseId}})
 }
 
+async function openClassSessionCreator() {
+  if (activeTabKey.value !== 'class-sessions') {
+    await router.push({name: 'course-class-sessions', params: {id: courseId}})
+  }
+  classSessionCreateRequestKey.value += 1
+}
+
 async function reloadActiveTabData() {
   switch (activeTabKey.value) {
     case 'overview':
@@ -586,6 +601,8 @@ async function reloadActiveTabData() {
       break
     case 'files':
       await reloadFiles()
+      break
+    case 'class-sessions':
       break
     case 'students':
       await Promise.all([reloadStudents(), reloadCourse()])

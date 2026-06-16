@@ -16,7 +16,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * 智语·云枢内部系统用户账号。
+ * 智语·云枢内部系统用户账号
  *
  * @author DaYZ
  * @since 2026-05-07

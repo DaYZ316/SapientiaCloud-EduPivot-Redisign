@@ -13,7 +13,7 @@ import java.util.UUID;
  * 避免重复进行 RS256 签名验证和 JWKS 公钥获取。
  * <p>
  * 仅包含 Gateway 注入的两个声明：{@code sub}（userId）和 {@code role}，
- * 不包含原始 JWT 的其他声明（如 jti、iat 等）。
+ * 不包含原始 JWT 的其他声明（如 jti、iat 等）
  *
  * @author DaYZ
  * @since 2026-06-11

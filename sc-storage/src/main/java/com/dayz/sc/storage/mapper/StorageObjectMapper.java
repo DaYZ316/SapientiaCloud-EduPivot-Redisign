@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * MyBatis-Plus Mapper 接口。
+ * MyBatis-Plus Mapper 接口
  *
  * @author DaYZ
  * @since 2026-06-12

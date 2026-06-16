@@ -25,7 +25,7 @@ import java.util.UUID;
 /**
  * 通知接口。
  * <p>
- * 角色校验通过 Gateway 传递的 X-User-Role 请求头实现。
+ * 角色校验通过 Gateway 传递的 X-User-Role 请求头实现
  *
  * @author DaYZ
  * @since 2026-06-09

@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 通知目标用户仓储接口。
+ * 通知目标用户仓储接口
  *
  * @author DaYZ
  * @since 2026-06-11

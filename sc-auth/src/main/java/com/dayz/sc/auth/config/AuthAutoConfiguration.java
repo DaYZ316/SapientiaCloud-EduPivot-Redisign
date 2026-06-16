@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Bean;
 import java.util.UUID;
 
 /**
- * 注册认证模块配置属性。
+ * 注册认证模块配置属性
  *
  * @author DaYZ
  * @since 2026-05-07

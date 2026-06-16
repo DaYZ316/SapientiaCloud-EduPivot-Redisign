@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 返回给客户端的安全用户资料字段。
+ * 返回给客户端的安全用户资料字段
  *
  * @author DaYZ
  * @since 2026-05-07

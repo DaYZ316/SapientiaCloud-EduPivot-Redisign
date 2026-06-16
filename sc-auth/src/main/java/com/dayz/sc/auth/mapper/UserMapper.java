@@ -5,7 +5,7 @@ import com.dayz.sc.auth.model.entity.User;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * 系统用户 MyBatis-Plus Mapper。
+ * 系统用户 MyBatis-Plus Mapper
  *
  * @author DaYZ
  * @since 2026-05-07

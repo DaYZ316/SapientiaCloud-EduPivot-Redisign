@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * QuestionDifficulty 相关定义。
+ * QuestionDifficulty 相关定义
  *
  * @author DaYZ
  * @since 2026-06-12

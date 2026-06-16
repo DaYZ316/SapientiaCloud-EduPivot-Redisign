@@ -3,7 +3,7 @@ package com.dayz.sc.storage.model.vo;
 import java.util.UUID;
 
 /**
- * CourseAccess 相关定义。
+ * CourseAccess 相关定义
  *
  * @author DaYZ
  * @since 2026-06-12

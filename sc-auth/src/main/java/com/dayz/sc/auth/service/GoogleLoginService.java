@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 处理 Google OAuth2 授权码登录并签发 JWT 访问令牌。
+ * 处理 Google OAuth2 授权码登录并签发 JWT 访问令牌
  *
  * @author DaYZ
  * @since 2026-05-07

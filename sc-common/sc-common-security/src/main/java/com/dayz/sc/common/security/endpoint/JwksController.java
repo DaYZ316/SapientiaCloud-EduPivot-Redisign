@@ -18,7 +18,7 @@ import java.util.Map;
  * JWKS（JSON Web Key Set）端点。
  * <p>
  * 仅在配置了 {@code edupivot.security.jwt.private-key} 时激活。
- * 其他微服务通过此端点获取公钥以验证 JWT 签名。
+ * 其他微服务通过此端点获取公钥以验证 JWT 签名
  *
  * @author DaYZ
  * @since 2026-06-09

@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 信息 DTO。
+ * 信息 DTO
  *
  * @author DaYZ
  * @since 2026-06-12

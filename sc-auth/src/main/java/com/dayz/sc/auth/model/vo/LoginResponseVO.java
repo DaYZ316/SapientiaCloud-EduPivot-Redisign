@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 通用登录响应。
+ * 通用登录响应
  *
  * @author DaYZ
  * @since 2026-05-07

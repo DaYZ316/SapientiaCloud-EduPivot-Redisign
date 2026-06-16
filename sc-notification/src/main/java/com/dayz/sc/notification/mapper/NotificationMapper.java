@@ -5,7 +5,7 @@ import com.dayz.sc.notification.model.entity.Notification;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * 通知 Mapper。
+ * 通知 Mapper
  *
  * @author DaYZ
  * @since 2026-06-09

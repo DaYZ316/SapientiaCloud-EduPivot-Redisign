@@ -3,7 +3,7 @@ package com.dayz.sc.auth.client.github.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * GitHub 当前用户接口返回的用户资料。
+ * GitHub 当前用户接口返回的用户资料
  *
  * @author DaYZ
  * @since 2026-05-08

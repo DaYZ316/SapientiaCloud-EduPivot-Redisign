@@ -12,7 +12,7 @@ import java.util.UUID;
 /**
  * 通知服务 MyBatis 自动配置。
  * <p>
- * 注册 PostgreSQL UUID 类型处理器。
+ * 注册 PostgreSQL UUID 类型处理器
  *
  * @author DaYZ
  * @since 2026-06-09

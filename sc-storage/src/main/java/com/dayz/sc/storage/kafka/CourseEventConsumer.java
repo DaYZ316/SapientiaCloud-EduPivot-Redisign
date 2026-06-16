@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 事件消费者。
+ * 事件消费者
  *
  * @author DaYZ
  * @since 2026-06-12

@@ -19,7 +19,7 @@ import java.util.List;
  * 仅当请求来自可信 Gateway（内网）时启用此 Filter。它跳过 JWT 签名验证，
  * 直接将 Gateway 注入的用户信息构建为 {@link GatewayJwt} 并设置到 SecurityContext 中。
  * <p>
- * <b>安全前提：</b>下游服务仅通过内网访问，外部流量必须经过 Gateway。
+ * <b>安全前提：</b>下游服务仅通过内网访问，外部流量必须经过 Gateway
  *
  * @author DaYZ
  * @since 2026-06-11

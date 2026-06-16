@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 
 /**
- * 用于读取 GitHub 用户资料的 OpenFeign 客户端。
+ * 用于读取 GitHub 用户资料的 OpenFeign 客户端
  *
  * @author DaYZ
  * @since 2026-05-08

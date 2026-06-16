@@ -1,6 +1,6 @@
 @NullMarked
 /**
- * 包信息声明。
+ * 包信息声明
  *
  * @author DaYZ
  * @since 2026-06-12

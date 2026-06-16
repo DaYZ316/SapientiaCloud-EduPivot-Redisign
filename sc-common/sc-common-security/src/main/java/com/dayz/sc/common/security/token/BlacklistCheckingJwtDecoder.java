@@ -9,7 +9,7 @@ import org.springframework.security.oauth2.jwt.JwtException;
 /**
  * 装饰器：在 JWT 验证后额外检查 token 是否在黑名单中。
  * <p>
- * 用于 Gateway 层拦截已登出但尚未过期的 token。
+ * 用于 Gateway 层拦截已登出但尚未过期的 token
  *
  * @author DaYZ
  * @since 2026-06-09

@@ -5,7 +5,7 @@ import com.dayz.sc.auth.model.entity.Student;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * 学生 MyBatis Mapper。
+ * 学生 MyBatis Mapper
  *
  * @author DaYZ
  * @since 2026-06-09

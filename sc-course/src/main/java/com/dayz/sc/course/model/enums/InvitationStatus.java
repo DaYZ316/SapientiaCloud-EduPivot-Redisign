@@ -4,7 +4,7 @@ import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 
 /**
- * 状态枚举。
+ * 状态枚举
  *
  * @author DaYZ
  * @since 2026-06-13

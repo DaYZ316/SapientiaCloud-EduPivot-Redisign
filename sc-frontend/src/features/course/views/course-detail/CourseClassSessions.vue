@@ -1,0 +1,531 @@
+<template>
+  <section class="tab-panel class-session-panel">
+    <div class="panel-header">
+      <div>
+        <span>{{ t('courseDetail.classSession.tabKicker') }}</span>
+        <h2>{{ t('courseDetail.classSessionsTab') }}</h2>
+      </div>
+      <button v-if="canManageCourse" class="btn-add" type="button" @click="openCreate">
+        <Plus :size="14" stroke-width="2"/>
+        {{ t('courseDetail.classSession.createAction') }}
+      </button>
+    </div>
+
+    <div v-if="loading" class="session-state">
+      <LoaderCircle :size="24" stroke-width="1.7"/>
+      <p>{{ t('courseDetail.classSession.loading') }}</p>
+    </div>
+
+    <div v-else-if="loadFailed" class="session-state">
+      <CircleAlert :size="28" stroke-width="1.5"/>
+      <h3>{{ t('courseDetail.classSession.loadFailed') }}</h3>
+      <button class="btn-add" type="button" @click="loadSessions">
+        {{ t('courseDetail.classSession.retry') }}
+      </button>
+    </div>
+
+    <div v-else-if="sessions.length === 0" class="empty-tab">
+      <Presentation :size="28" stroke-width="1.4"/>
+      <h3>{{ t('courseDetail.classSession.emptyTitle') }}</h3>
+      <p>{{ canManageCourse ? t('courseDetail.classSession.emptyTeacher') : t('courseDetail.classSession.emptyStudent') }}</p>
+      <button v-if="canManageCourse" class="btn-add" type="button" @click="openCreate">
+        <Plus :size="14" stroke-width="2"/>
+        {{ t('courseDetail.classSession.createAction') }}
+      </button>
+    </div>
+
+    <div v-else class="session-list">
+      <article v-for="session in sessions" :key="session.id" class="session-item">
+        <div class="session-main">
+          <div class="session-heading">
+            <h3>{{ session.title }}</h3>
+            <span class="status-badge" :class="statusClass(session)">
+              {{ session.statusText || fallbackStatusText(session.status) }}
+            </span>
+          </div>
+          <p>{{ session.description || t('courseDetail.classSession.noDescription') }}</p>
+          <div class="session-meta">
+            <span>
+              <Clock :size="14" stroke-width="1.8"/>
+              {{ formatDateTime(session.scheduledStartAt) }} - {{ formatDateTime(session.scheduledEndAt) }}
+            </span>
+            <span>
+              <DoorOpen :size="14" stroke-width="1.8"/>
+              {{ roomSizeLabel(session.roomSize) }}
+            </span>
+          </div>
+        </div>
+
+        <div class="session-actions">
+          <button
+            v-if="canManageCourse && isDraft(session)"
+            class="btn-icon"
+            type="button"
+            :title="t('courseDetail.classSession.editAction')"
+            @click="startEdit(session)"
+          >
+            <Pencil :size="14" stroke-width="1.8"/>
+          </button>
+          <button
+            v-if="canManageCourse && isDraft(session)"
+            class="btn-action"
+            type="button"
+            :disabled="busySessionId === session.id"
+            @click="handlePublish(session)"
+          >
+            {{ t('courseDetail.classSession.publishAction') }}
+          </button>
+          <button
+            v-if="session.publishedAt"
+            class="btn-action"
+            type="button"
+            @click="enterSession(session)"
+          >
+            {{ t('courseDetail.classSession.enterAction') }}
+          </button>
+          <button
+            v-if="canManageCourse"
+            class="btn-icon danger"
+            type="button"
+            :title="t('courseDetail.classSession.deleteAction')"
+            :disabled="busySessionId === session.id"
+            @click="handleDelete(session)"
+          >
+            <Trash2 :size="14" stroke-width="1.8"/>
+          </button>
+        </div>
+      </article>
+    </div>
+
+    <ClassSessionFormModal
+      :visible="formVisible"
+      :session="editingSession"
+      :submitting="submitting"
+      @close="closeForm"
+      @submit="handleSubmit"
+    />
+  </section>
+</template>
+
+<script lang="ts" setup>
+import {onMounted, ref, watch} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {useRouter} from 'vue-router'
+import {
+  CircleAlert,
+  Clock,
+  DoorOpen,
+  LoaderCircle,
+  Pencil,
+  Plus,
+  Presentation,
+  Trash2,
+} from 'lucide-vue-next'
+
+import {
+  createClassSession,
+  deleteClassSession,
+  getCourseClassSessions,
+  publishClassSession,
+  updateClassSession,
+} from '@/features/course/api/classSession'
+import ClassSessionFormModal from '@/features/course/components/ClassSessionFormModal.vue'
+import {confirmDialog} from '@/shared/composables/useConfirmDialog'
+import {notify} from '@/shared/composables/useGlobalNotification'
+import {
+  ClassRoomSize,
+  ClassSessionStatus,
+  type ClassSession,
+  type ClassSessionFormPayload,
+} from '@/features/course/types/classSession'
+import type {CourseDetail} from '@/features/course/types/course'
+
+const props = withDefaults(defineProps<{
+  courseId: string
+  course: CourseDetail
+  canManageCourse: boolean
+  createRequestKey?: number
+}>(), {
+  createRequestKey: 0,
+})
+
+const {t, locale} = useI18n()
+const router = useRouter()
+
+const sessions = ref<ClassSession[]>([])
+const loading = ref(false)
+const loadFailed = ref(false)
+const formVisible = ref(false)
+const submitting = ref(false)
+const busySessionId = ref<string | null>(null)
+const editingSession = ref<ClassSession | null>(null)
+
+onMounted(loadSessions)
+
+watch(() => props.courseId, () => {
+  void loadSessions()
+})
+
+watch(() => props.createRequestKey, (next, previous) => {
+  if (next !== previous && props.canManageCourse) {
+    openCreate()
+  }
+})
+
+async function loadSessions() {
+  loading.value = true
+  loadFailed.value = false
+  try {
+    const response = await getCourseClassSessions(props.courseId, 1, 50)
+    sessions.value = response.records || []
+  } catch {
+    loadFailed.value = true
+  } finally {
+    loading.value = false
+  }
+}
+
+function openCreate() {
+  editingSession.value = null
+  formVisible.value = true
+}
+
+function startEdit(session: ClassSession) {
+  if (!isDraft(session)) return
+  editingSession.value = session
+  formVisible.value = true
+}
+
+function closeForm() {
+  formVisible.value = false
+  editingSession.value = null
+}
+
+async function handleSubmit(payload: ClassSessionFormPayload) {
+  submitting.value = true
+  try {
+    if (editingSession.value) {
+      await updateClassSession(editingSession.value.id, payload)
+      notify.success(t('courseDetail.classSession.updated'))
+    } else {
+      await createClassSession({...payload, courseId: props.courseId})
+      notify.success(t('courseDetail.classSession.created'))
+    }
+    closeForm()
+    await loadSessions()
+  } catch {
+    notify.error(t('courseDetail.classSession.saveFailed'))
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function handlePublish(session: ClassSession) {
+  if (!(await confirmDialog({message: t('courseDetail.classSession.confirmPublish')}))) return
+  busySessionId.value = session.id
+  try {
+    await publishClassSession(session.id)
+    notify.success(t('courseDetail.classSession.published'))
+    await loadSessions()
+  } catch {
+    notify.error(t('courseDetail.classSession.publishFailed'))
+  } finally {
+    busySessionId.value = null
+  }
+}
+
+async function handleDelete(session: ClassSession) {
+  if (!(await confirmDialog({message: t('courseDetail.classSession.confirmDelete'), confirmVariant: 'danger'}))) return
+  busySessionId.value = session.id
+  try {
+    await deleteClassSession(session.id)
+    notify.success(t('courseDetail.classSession.deleted'))
+    await loadSessions()
+  } catch {
+    notify.error(t('courseDetail.classSession.deleteFailed'))
+  } finally {
+    busySessionId.value = null
+  }
+}
+
+function enterSession(session: ClassSession) {
+  router.push({name: 'class-session-room', params: {sessionId: session.id}})
+}
+
+function isDraft(session: ClassSession) {
+  return !session.publishedAt
+}
+
+function statusClass(session: ClassSession) {
+  if (!session.publishedAt) return 'draft'
+  if (session.status === ClassSessionStatus.LIVE) return 'live'
+  if (session.status === ClassSessionStatus.FINISHED) return 'finished'
+  return 'upcoming'
+}
+
+function fallbackStatusText(status: number) {
+  const labels: Record<number, string> = {
+    [ClassSessionStatus.PREPARING]: t('courseDetail.classSession.statusPreparing'),
+    [ClassSessionStatus.UPCOMING]: t('courseDetail.classSession.statusUpcoming'),
+    [ClassSessionStatus.LIVE]: t('courseDetail.classSession.statusLive'),
+    [ClassSessionStatus.FINISHED]: t('courseDetail.classSession.statusFinished'),
+  }
+  return labels[status] || t('courseDetail.statusUnknown')
+}
+
+function roomSizeLabel(roomSize: number) {
+  const labels: Record<number, string> = {
+    [ClassRoomSize.SMALL]: t('courseDetail.classSession.roomSmall'),
+    [ClassRoomSize.MEDIUM]: t('courseDetail.classSession.roomMedium'),
+    [ClassRoomSize.LARGE]: t('courseDetail.classSession.roomLarge'),
+    [ClassRoomSize.XLARGE]: t('courseDetail.classSession.roomXLarge'),
+  }
+  return labels[roomSize] || t('courseDetail.unknown')
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return new Intl.DateTimeFormat(String(locale.value), {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+</script>
+
+<style scoped>
+.class-session-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-outline-light);
+}
+
+.panel-header span {
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.panel-header h2 {
+  margin: 6px 0 0;
+  color: var(--color-on-surface);
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.btn-add,
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 14px;
+  background: transparent;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-on-surface);
+  cursor: pointer;
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.btn-add:hover,
+.btn-action:hover {
+  background: var(--color-surface-container-high);
+  border-color: var(--color-outline);
+}
+
+.btn-add:disabled,
+.btn-action:disabled,
+.btn-icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.session-list {
+  display: grid;
+  gap: 10px;
+}
+
+.session-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 16px;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+}
+
+.session-main {
+  min-width: 0;
+}
+
+.session-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.session-heading h3 {
+  overflow: hidden;
+  margin: 0;
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-main p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 6px 0 10px;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.session-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+
+.session-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-badge {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.status-badge.live {
+  border-color: #22c55e;
+  color: #22c55e;
+}
+
+.status-badge.finished {
+  color: var(--color-outline);
+}
+
+.session-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-muted);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.btn-icon:hover {
+  background: var(--color-surface-container-high);
+  border-color: var(--color-outline);
+  color: var(--color-on-surface);
+}
+
+.btn-icon.danger:hover {
+  color: var(--color-error);
+}
+
+.empty-tab,
+.session-state {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  padding: 42px 24px;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.session-state h3,
+.empty-tab h3 {
+  margin: 0;
+  color: var(--color-on-surface);
+  font-family: var(--font-heading);
+  font-size: 24px;
+  font-weight: 400;
+}
+
+.session-state p,
+.empty-tab p {
+  max-width: 44ch;
+  margin: 0;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+@media (max-width: 760px) {
+  .panel-header,
+  .session-item {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .session-actions {
+    flex-wrap: wrap;
+  }
+}
+</style>

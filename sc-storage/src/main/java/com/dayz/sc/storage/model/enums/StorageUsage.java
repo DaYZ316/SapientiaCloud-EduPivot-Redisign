@@ -1,7 +1,7 @@
 package com.dayz.sc.storage.model.enums;
 
 /**
- * StorageUsage 相关定义。
+ * StorageUsage 相关定义
  *
  * @author DaYZ
  * @since 2026-06-12

@@ -20,7 +20,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * Key: notification:unread:{userId}
  * Fields: total, system, teaching
  * TTL: 5-10 分钟（随机抖动），过期后由 getOrInitFromDb 从 DB 重建。
- * 缓存击穿防护：单飞锁（Redis SET NX），同一 userId 同时只有一个请求回源 DB。
+ * 缓存击穿防护：单飞锁（Redis SET NX），同一 userId 同时只有一个请求回源 DB
  *
  * @author DaYZ
  * @since 2026-06-13
