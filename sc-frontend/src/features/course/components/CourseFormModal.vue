@@ -69,6 +69,10 @@
                   <label>{{ t('courses.modal.maxStudentsLabel') }}</label>
                   <BaseNumberStepper v-model="form.maxStudents" :min="0" />
                 </div>
+                <div class="form-group">
+                  <label>{{ t('courseDetail.totalClassHours') }}</label>
+                  <BaseNumberStepper v-model="form.totalClassHours" :min="0" />
+                </div>
               </div>
             </div>
           </section>
@@ -108,61 +112,6 @@
             </div>
           </section>
 
-          <section v-if="showTeacherSection" class="editor-section">
-            <div class="editor-section-heading">
-              <span>03</span>
-              <h3>{{ t('courses.modal.sections.teacherTeam') }}</h3>
-            </div>
-            <div v-if="mode === 'edit' && isAdmin" class="form-group">
-              <label>{{ t('courses.modal.primaryTeacherLabel') }}</label>
-              <BaseSelect
-                v-model="form.teacherId"
-                class="modal-select-control"
-                :options="teacherOptions"
-                :placeholder="teacherLoading ? t('courses.modal.loadingTeachers') : t('courses.modal.primaryTeacherPlaceholder')"
-                min-width="100%"
-                @change="handleMainTeacherChange"
-              />
-            </div>
-            <div class="assistant-panel">
-              <div class="assistant-panel-header">
-                <div>
-                  <label>{{ t('courses.modal.assistantsLabel') }}</label>
-                  <p>{{ t('courses.modal.assistantsSelected', {count: form.assistantIds.length}) }}</p>
-                </div>
-                <div class="assistant-actions">
-                  <button type="button" @click="selectAllAssistants">{{ t('courses.modal.selectAllAssistants') }}</button>
-                  <button type="button" @click="clearAssistants">{{ t('courses.modal.clearAssistants') }}</button>
-                </div>
-              </div>
-              <div class="assistant-search">
-                <Search :size="16" stroke-width="1.8"/>
-                <input v-model="assistantKeyword" type="text" :placeholder="t('courses.modal.searchAssistants')" @input="debouncedSearchTeachers(($event.target as HTMLInputElement).value)"/>
-              </div>
-              <div v-if="teacherLoading" class="assistant-empty">{{ t('courses.modal.loadingTeachers') }}</div>
-              <div v-else-if="filteredAssistantCandidates.length === 0" class="assistant-empty">{{ t('courses.modal.noAssistants') }}</div>
-              <div v-else class="assistant-list" @scroll="handleTeacherListScroll">
-                <label
-                  v-for="teacher in filteredAssistantCandidates"
-                  :key="teacher.id"
-                  class="assistant-option"
-                  :class="{ selected: isAssistantSelected(teacher.id) }"
-                >
-                  <input
-                    type="checkbox"
-                    :checked="isAssistantSelected(teacher.id)"
-                    @change="toggleAssistant(teacher.id)"
-                  />
-                  <span class="assistant-copy">
-                    <strong>{{ formatTeacherName(teacher) }}</strong>
-                    <small>{{ formatTeacherMeta(teacher) || teacher.id }}</small>
-                  </span>
-                  <span v-if="isAssistantSelected(teacher.id)" class="assistant-state">{{ t('courses.modal.selectedAssistant') }}</span>
-                </label>
-              </div>
-            </div>
-          </section>
-
           <div class="modal-footer editor-footer">
             <button type="button" class="btn-secondary" @click="emit('close')">{{ t('courses.modal.cancel') }}</button>
             <button type="submit" class="btn-primary" :disabled="isSubmitting">
@@ -178,9 +127,8 @@
 <script lang="ts" setup>
 import {computed, reactive, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {Search, X} from 'lucide-vue-next'
+import {X} from 'lucide-vue-next'
 
-import {listTeachers} from '@/features/user/api/user'
 import BaseImageUploader from '@/shared/components/BaseImageUploader.vue'
 import BaseNumberStepper from '@/shared/components/BaseNumberStepper.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
@@ -188,7 +136,6 @@ import {notify} from '@/shared/composables/useGlobalNotification'
 
 import type {Course, CreateCourseRequest, UpdateCourseRequest} from '@/features/course/types/course'
 import type {FileAsset} from '@/features/storage/types/storage'
-import type {UserProfile} from '@/features/user/types/user'
 
 type SelectOption = { label: string; value: string | number | undefined }
 
@@ -196,8 +143,6 @@ interface Props {
   visible: boolean
   mode?: 'create' | 'edit'
   course?: Course | null
-  showTeacherSection?: boolean
-  isAdmin?: boolean
   canEditCourseStatus?: boolean
   submitting?: boolean
 }
@@ -205,8 +150,6 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   mode: 'create',
   course: null,
-  showTeacherSection: false,
-  isAdmin: false,
   canEditCourseStatus: false,
   submitting: false,
 })
@@ -226,26 +169,14 @@ const form = reactive({
   level: 1,
   coverUrl: '',
   coverFileId: '',
-  teacherId: '',
-  assistantIds: [] as string[],
   semester: '',
   location: '',
   courseType: 0,
   isPublic: 0,
   maxStudents: 0,
+  totalClassHours: 0,
   status: 0,
 })
-
-const teachers = ref<UserProfile[]>([])
-const teacherLoading = ref(false)
-const assistantKeyword = ref('')
-let teacherSearchTimer: ReturnType<typeof setTimeout> | null = null
-let teacherPage = 1
-let teacherLoadingMore = false
-let teacherHasMore = true
-let teacherLoadMoreArmed = true
-const scrollLoadThreshold = 50
-const teacherListPageSize = 20
 
 const isSubmitting = computed(() => props.submitting || localSubmitting.value)
 const showStatusField = computed(() => props.mode === 'edit' && props.canEditCourseStatus)
@@ -276,146 +207,6 @@ const courseVisibilityOptions = computed<SelectOption[]>(() => [
   {label: t('courses.visibility.public'), value: 1},
 ])
 
-const teacherOptions = computed<SelectOption[]>(() => {
-  const options = teachers.value.map((teacher) => ({
-    label: formatTeacherName(teacher),
-    value: teacher.id,
-  }))
-
-  if (form.teacherId && !options.some((option) => option.value === form.teacherId)) {
-    options.unshift({
-      label: props.course?.teacherName || form.teacherId,
-      value: form.teacherId,
-    })
-  }
-
-  return options
-})
-
-const assistantCandidates = computed(() =>
-  teachers.value.filter((teacher) => teacher.id !== form.teacherId),
-)
-
-const filteredAssistantCandidates = computed(() => {
-  const keyword = assistantKeyword.value.trim().toLowerCase()
-  if (!keyword) {
-    return assistantCandidates.value
-  }
-
-  return assistantCandidates.value.filter((teacher) =>
-    [
-      formatTeacherName(teacher),
-      formatTeacherMeta(teacher),
-      teacher.email,
-      teacher.teacherInfo?.employeeNo,
-    ].filter(Boolean).join(' ').toLowerCase().includes(keyword),
-  )
-})
-
-function formatTeacherName(teacher: UserProfile): string {
-  return teacher.displayName || teacher.email || teacher.id
-}
-
-function formatTeacherMeta(teacher: UserProfile): string {
-  return [
-    teacher.teacherInfo?.department,
-    teacher.teacherInfo?.title,
-    teacher.email,
-  ].filter(Boolean).join(' / ')
-}
-
-function hasNextPage(response: {page: number; size: number; total: number}): boolean {
-  return response.page * response.size < response.total
-}
-
-function handleTeacherListScroll(event: Event) {
-  const element = event.target as HTMLElement | null
-  if (!element) return
-
-  const isNearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < scrollLoadThreshold
-  if (!isNearBottom) {
-    teacherLoadMoreArmed = true
-    return
-  }
-
-  if (!teacherLoadMoreArmed) return
-  teacherLoadMoreArmed = false
-  loadMoreTeachers()
-}
-
-async function loadMoreTeachers() {
-  if (teacherLoadingMore || !teacherHasMore) return
-  teacherLoadingMore = true
-  try {
-    const nextPage = teacherPage + 1
-    const response = await listTeachers({page: nextPage, size: teacherListPageSize, keyword: assistantKeyword.value.trim() || undefined})
-    if (!response.records?.length) {
-      teacherHasMore = false
-      return
-    }
-    teacherPage = nextPage
-    teacherHasMore = hasNextPage(response)
-    teachers.value = [...teachers.value, ...response.records]
-  } finally {
-    teacherLoadingMore = false
-  }
-}
-
-async function searchTeachers(keyword: string) {
-  teacherPage = 1
-  teacherHasMore = true
-  teacherLoadMoreArmed = true
-  teacherLoading.value = true
-  try {
-    const response = await listTeachers({page: 1, size: teacherListPageSize, keyword: keyword || undefined})
-    teachers.value = response.records
-    teacherHasMore = hasNextPage(response)
-  } catch {
-    teachers.value = []
-    teacherHasMore = false
-  } finally {
-    teacherLoading.value = false
-  }
-}
-
-function debouncedSearchTeachers(keyword: string) {
-  if (teacherSearchTimer) clearTimeout(teacherSearchTimer)
-  teacherSearchTimer = setTimeout(() => searchTeachers(keyword), 300)
-}
-
-function loadTeacherOptions() {
-  if (teachers.value.length === 0) debouncedSearchTeachers('')
-}
-
-function isAssistantSelected(teacherId: string): boolean {
-  return form.assistantIds.includes(teacherId)
-}
-
-function toggleAssistant(teacherId: string) {
-  if (teacherId === form.teacherId) return
-
-  if (isAssistantSelected(teacherId)) {
-    form.assistantIds = form.assistantIds.filter((id) => id !== teacherId)
-    return
-  }
-
-  form.assistantIds = [...form.assistantIds, teacherId]
-}
-
-function selectAllAssistants() {
-  const mergedIds = new Set(form.assistantIds)
-  filteredAssistantCandidates.value.forEach((teacher) => mergedIds.add(teacher.id))
-  form.assistantIds = Array.from(mergedIds)
-}
-
-function clearAssistants() {
-  form.assistantIds = []
-}
-
-function handleMainTeacherChange() {
-  form.assistantIds = form.assistantIds.filter((id) => id !== form.teacherId)
-}
-
 function handleCoverUploaded(asset: FileAsset) {
   form.coverFileId = asset.id
   form.coverUrl = asset.url || ''
@@ -432,15 +223,13 @@ function resetForm() {
   form.level = 1
   form.coverUrl = ''
   form.coverFileId = ''
-  form.teacherId = ''
-  form.assistantIds = []
   form.semester = ''
   form.location = ''
   form.courseType = 0
   form.isPublic = 0
   form.maxStudents = 0
+  form.totalClassHours = 0
   form.status = 0
-  assistantKeyword.value = ''
 }
 
 function syncFromCourse(course: Course) {
@@ -449,15 +238,13 @@ function syncFromCourse(course: Course) {
   form.level = course.level
   form.coverUrl = course.coverUrl || ''
   form.coverFileId = course.coverFileId || ''
-  form.teacherId = course.teacherId || ''
-  form.assistantIds = (course.teacherIds || []).filter((teacherId) => teacherId !== course.teacherId)
   form.semester = course.semester || ''
   form.location = course.location || ''
   form.courseType = course.courseType ?? 0
   form.isPublic = course.isPublic ?? 0
   form.maxStudents = course.maxStudents
+  form.totalClassHours = course.totalClassHours ?? 0
   form.status = course.status
-  assistantKeyword.value = ''
 }
 
 function handleSubmit() {
@@ -471,12 +258,12 @@ function handleSubmit() {
         level: form.level,
         coverUrl: form.coverFileId ? undefined : form.coverUrl || undefined,
         coverFileId: form.coverFileId || undefined,
-        assistantIds: form.assistantIds,
         semester: form.semester || undefined,
         location: form.location || undefined,
         courseType: form.courseType,
         isPublic: form.isPublic,
         maxStudents: form.maxStudents,
+        totalClassHours: form.totalClassHours || undefined,
       })
       return
     }
@@ -487,12 +274,11 @@ function handleSubmit() {
       level: form.level,
       coverUrl: form.coverFileId ? undefined : form.coverUrl || undefined,
       coverFileId: form.coverFileId || undefined,
-      teacherId: props.isAdmin ? form.teacherId || undefined : undefined,
-      assistantIds: props.isAdmin ? form.assistantIds : undefined,
       semester: form.semester || undefined,
       location: form.location || undefined,
       courseType: form.courseType,
       maxStudents: form.maxStudents,
+      totalClassHours: form.totalClassHours || undefined,
       status: props.canEditCourseStatus ? form.status : undefined,
     })
   } finally {
@@ -507,10 +293,6 @@ watch(() => props.visible, (isVisible) => {
     resetForm()
   } else if (props.course) {
     syncFromCourse(props.course)
-  }
-
-  if (props.showTeacherSection) {
-    loadTeacherOptions()
   }
 })
 
@@ -818,153 +600,6 @@ watch(() => props.course, (course) => {
 .form-group :deep(.modal-select-control .base-select-option:hover),
 .form-group :deep(.modal-select-control .base-select-option.selected) {
   background: var(--color-surface-container);
-}
-
-.assistant-panel {
-  margin-top: 18px;
-  padding: 18px;
-  background: var(--color-surface-canvas);
-  border: 1px solid var(--color-outline-light);
-  border-radius: 14px;
-}
-
-.assistant-panel-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 14px;
-}
-
-.assistant-panel-header label {
-  display: block;
-  margin-bottom: 4px;
-  font-family: var(--font-label);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--color-on-surface);
-}
-
-.assistant-panel-header p {
-  margin: 0;
-  font-family: var(--font-body);
-  font-size: 13px;
-  color: var(--color-muted);
-}
-
-.assistant-actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.assistant-actions button {
-  padding: 0;
-  background: transparent;
-  border: 0;
-  color: var(--color-muted);
-  font-family: var(--font-label);
-  font-size: 12px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.assistant-actions button:hover {
-  color: var(--color-on-surface);
-}
-
-.assistant-search {
-  min-height: 42px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  margin-bottom: 12px;
-  background: var(--color-surface-card);
-  border: 1px solid var(--color-outline-light);
-  border-radius: 10px;
-  color: var(--color-muted);
-}
-
-.assistant-search input {
-  width: 100%;
-  background: transparent;
-  border: 0;
-  color: var(--color-on-surface);
-  outline: 0;
-}
-
-.assistant-list {
-  max-height: 260px;
-  display: grid;
-  gap: 8px;
-  overflow-y: auto;
-}
-
-.assistant-option {
-  min-height: 58px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  background: var(--color-surface-card);
-  border: 1px solid var(--color-outline-light);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
-}
-
-.assistant-option:hover,
-.assistant-option.selected {
-  background: var(--color-surface-container);
-  border-color: var(--color-outline-variant);
-}
-
-.assistant-option input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--color-on-surface);
-}
-
-.assistant-copy {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.assistant-copy strong {
-  color: var(--color-on-surface);
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.assistant-copy small {
-  overflow: hidden;
-  color: var(--color-muted);
-  font-family: var(--font-body);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.assistant-state {
-  color: var(--color-muted);
-  font-family: var(--font-label);
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.assistant-empty {
-  padding: 18px 12px;
-  border: 1px dashed var(--color-outline-light);
-  border-radius: 10px;
-  color: var(--color-muted);
-  font-family: var(--font-body);
-  font-size: 14px;
-  text-align: center;
 }
 
 .modal-footer.editor-footer {

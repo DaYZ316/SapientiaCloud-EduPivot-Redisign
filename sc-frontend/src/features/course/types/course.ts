@@ -16,6 +16,7 @@
   courseType: number | null
   isPublic: number
   maxStudents: number
+  totalClassHours: number | null
   currentStudents: number
   status: number
   createdAt: string
@@ -34,12 +35,12 @@ export interface CreateCourseRequest {
   level: number
   coverUrl?: string
   coverFileId?: string
-  assistantIds?: string[]
   semester?: string
   location?: string
   courseType?: number
   isPublic: number
   maxStudents?: number
+  totalClassHours?: number
 }
 
 export interface UpdateCourseRequest {
@@ -48,13 +49,12 @@ export interface UpdateCourseRequest {
   level?: number
   coverUrl?: string
   coverFileId?: string
-  teacherId?: string
-  assistantIds?: string[]
   semester?: string
   location?: string
   courseType?: number
   isPublic?: number
   maxStudents?: number
+  totalClassHours?: number
   status?: number
 }
 

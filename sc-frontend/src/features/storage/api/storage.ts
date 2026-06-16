@@ -25,6 +25,13 @@ export function getDownloadUrl(fileId: string) {
   })
 }
 
+export function convertFile(fileId: string) {
+  return request<DownloadUrlResponse>({
+    method: 'POST',
+    url: `/api/storage/files/${fileId}/convert`,
+  })
+}
+
 export function deleteStorageFile(fileId: string) {
   return request<void>({
     method: 'DELETE',

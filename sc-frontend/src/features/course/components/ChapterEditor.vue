@@ -4,19 +4,24 @@
       <div class="editor-header">
         <h2>{{ isEditing ? t('chapter.editChapter') : t('chapter.addChapter') }}</h2>
         <button class="close-btn" @click="emit('close')">
-          <X :size="18"/>
+          <X :size="18" />
         </button>
       </div>
 
-      <div ref="editorBodyRef" class="editor-body">
+      <div class="editor-body">
         <div class="field">
           <label>{{ t('chapter.chapterName') }} *</label>
-          <input v-model="form.chapterName" type="text" class="input" :placeholder="t('chapter.chapterName')"/>
+          <input v-model="form.chapterName" type="text" class="input" :placeholder="t('chapter.chapterName')" />
         </div>
 
         <div class="field">
           <label>{{ t('chapter.description') }}</label>
-          <textarea v-model="form.description" class="textarea" rows="2" :placeholder="t('chapter.description')"></textarea>
+          <textarea
+            v-model="form.description"
+            class="textarea"
+            rows="2"
+            :placeholder="t('chapter.description')"
+          ></textarea>
         </div>
 
         <div class="field">
@@ -36,13 +41,11 @@
         <div class="field-row">
           <div class="field">
             <label>{{ t('chapter.status') }}</label>
-            <div ref="selectWrapRef" class="select-fixed-wrap">
-              <BaseSelect ref="selectRef" v-model="form.status" :options="statusOptions"/>
-            </div>
+            <BaseSelect v-model="form.status" :options="statusOptions" />
           </div>
           <div class="field">
             <label>{{ t('chapter.sortOrder') }}</label>
-            <BaseNumberStepper v-model="form.sortOrder" :min="0"/>
+            <BaseNumberStepper v-model="form.sortOrder" :min="0" />
           </div>
         </div>
       </div>
@@ -58,14 +61,14 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, nextTick, onUnmounted, reactive, ref, watch} from 'vue'
-import {useI18n} from 'vue-i18n'
-import {X} from 'lucide-vue-next'
+import { computed, reactive, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { X } from 'lucide-vue-next'
 import BaseNumberStepper from '@/shared/components/BaseNumberStepper.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import BaseTextEditor from '@/shared/components/BaseTextEditor.vue'
-import type {Chapter, CreateChapterRequest, UpdateChapterRequest} from '@/features/course/types/chapter'
-import {notify} from '@/shared/composables/useGlobalNotification'
+import type { Chapter, CreateChapterRequest, UpdateChapterRequest } from '@/features/course/types/chapter'
+import { notify } from '@/shared/composables/useGlobalNotification'
 
 const props = defineProps<{
   visible: boolean
@@ -79,7 +82,7 @@ const emit = defineEmits<{
   save: [data: CreateChapterRequest | UpdateChapterRequest]
 }>()
 
-const {t} = useI18n()
+const { t } = useI18n()
 
 const isEditing = !!props.chapter
 
@@ -95,8 +98,8 @@ const CHAPTER_IMAGE_MAX_SIZE_MB = 5
 const CHAPTER_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
 const statusOptions = computed(() => [
-  {label: t('chapter.draft'), value: 0},
-  {label: t('chapter.published'), value: 1},
+  { label: t('chapter.draft'), value: 0 },
+  { label: t('chapter.published'), value: 1 },
 ])
 const imageUploadOptions = computed(() => ({
   usage: 'FORUM_IMAGE' as const,
@@ -107,57 +110,24 @@ const imageUploadOptions = computed(() => ({
   maxSizeMb: CHAPTER_IMAGE_MAX_SIZE_MB,
 }))
 
-const editorBodyRef = ref<HTMLElement | null>(null)
-const selectWrapRef = ref<HTMLElement | null>(null)
-const selectRef = ref<InstanceType<typeof BaseSelect> | null>(null)
-
-function positionMenu() {
-  const wrap = selectWrapRef.value
-  const menu = wrap?.querySelector('.base-select-menu') as HTMLElement | undefined
-  if (!wrap || !menu) return
-  const rect = wrap.getBoundingClientRect()
-  menu.style.position = 'fixed'
-  menu.style.top = `${rect.bottom + 6}px`
-  menu.style.left = `${rect.left}px`
-  menu.style.right = 'auto'
-  menu.style.minWidth = `${rect.width}px`
-  menu.style.zIndex = '1100'
-}
-
-function onEditorScroll() {
-  const menu = selectWrapRef.value?.querySelector('.base-select-menu') as HTMLElement | undefined
-  if (menu) positionMenu()
-}
-
-watch(() => selectRef.value?.isOpen, async (open) => {
-  if (open) {
-    await nextTick()
-    positionMenu()
-    editorBodyRef.value?.addEventListener('scroll', onEditorScroll, {passive: true})
-  } else {
-    editorBodyRef.value?.removeEventListener('scroll', onEditorScroll)
-  }
-})
-
-onUnmounted(() => {
-  editorBodyRef.value?.removeEventListener('scroll', onEditorScroll)
-})
-
-watch(() => props.visible, (val) => {
-  if (val && props.chapter) {
-    form.chapterName = props.chapter.chapterName
-    form.description = props.chapter.description || ''
-    form.content = props.chapter.content || ''
-    form.status = props.chapter.status
-    form.sortOrder = props.chapter.sortOrder
-  } else if (val) {
-    form.chapterName = ''
-    form.description = ''
-    form.content = ''
-    form.status = 0
-    form.sortOrder = 0
-  }
-})
+watch(
+  () => props.visible,
+  (val) => {
+    if (val && props.chapter) {
+      form.chapterName = props.chapter.chapterName
+      form.description = props.chapter.description || ''
+      form.content = props.chapter.content || ''
+      form.status = props.chapter.status
+      form.sortOrder = props.chapter.sortOrder
+    } else if (val) {
+      form.chapterName = ''
+      form.description = ''
+      form.content = ''
+      form.status = 0
+      form.sortOrder = 0
+    }
+  },
+)
 
 function handleSave() {
   if (props.chapter) {
@@ -312,10 +282,6 @@ function handleUploadError() {
   border-radius: var(--radius-sm);
   background: var(--color-surface-container);
   font-family: var(--font-body);
-}
-
-.select-fixed-wrap {
-  position: relative;
 }
 
 .field-row :deep(.base-number-stepper) {

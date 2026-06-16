@@ -1,13 +1,13 @@
 package com.dayz.sc.course.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.mapper.CourseFileMapper;
 import com.dayz.sc.course.model.entity.CourseFile;
 import com.dayz.sc.course.repository.CourseFileRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,11 +40,11 @@ public class MybatisCourseFileRepository implements CourseFileRepository {
     }
 
     @Override
-    public List<CourseFile> findByCourseId(UUID courseId) {
+    public Page<CourseFile> findByCourseId(UUID courseId, int page, int size) {
         LambdaQueryWrapper<CourseFile> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(CourseFile::getCourseId, courseId)
                 .orderByAsc(CourseFile::getSortOrder)
                 .orderByDesc(CourseFile::getCreatedAt);
-        return courseFileMapper.selectList(wrapper);
+        return courseFileMapper.selectPage(new Page<>(page, size), wrapper);
     }
 }

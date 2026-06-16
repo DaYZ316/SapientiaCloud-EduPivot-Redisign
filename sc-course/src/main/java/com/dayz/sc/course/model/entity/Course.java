@@ -51,6 +51,9 @@ public class Course {
     @TableField("max_students")
     private Integer maxStudents;
 
+    @TableField("total_class_hours")
+    private Integer totalClassHours;
+
     @TableField("is_public")
     private Integer isPublic;
 

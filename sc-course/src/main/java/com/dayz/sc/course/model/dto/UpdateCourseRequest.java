@@ -26,5 +26,6 @@ public record UpdateCourseRequest(
         Integer courseType,
         @Min(0) @Max(1) Integer isPublic,
         @Min(0) Integer maxStudents,
+        @Min(0) Integer totalClassHours,
         Integer status
 ) {}

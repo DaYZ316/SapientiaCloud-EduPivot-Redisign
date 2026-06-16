@@ -84,8 +84,27 @@ export function bindCourseFile(courseId: string, data: BindCourseFileRequest) {
   return request<CourseFile>({method: 'POST', url: `/api/courses/${courseId}/files`, data})
 }
 
-export function listCourseFiles(courseId: string) {
-  return request<CourseFile[]>({method: 'GET', url: `/api/courses/${courseId}/files`})
+export async function listCourseFiles(courseId: string, page: number = 1, size: number = 10): Promise<PageResponse<CourseFile>> {
+  const params = new URLSearchParams()
+  params.append('page', page.toString())
+  params.append('size', size.toString())
+  const response = await request<PageResponse<CourseFile> | CourseFile[]>({method: 'GET', url: `/api/courses/${courseId}/files?${params.toString()}`})
+  if (Array.isArray(response)) {
+    const start = (page - 1) * size
+    return {
+      records: response.slice(start, start + size),
+      total: response.length,
+      page,
+      size,
+    }
+  }
+  const records = response.records || []
+  return {
+    records,
+    total: response.total ?? records.length,
+    page: response.page ?? page,
+    size: response.size ?? size,
+  }
 }
 
 export function deleteCourseFile(courseId: string, courseFileId: string) {

@@ -16,7 +16,9 @@ ENV TZ=Asia/Shanghai
 ENV JAVA_OPTS=""
 COPY --from=build /workspace/sc-storage/target/sc-storage-*.jar app.jar
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl libreoffice-writer \
+    && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 28085
 

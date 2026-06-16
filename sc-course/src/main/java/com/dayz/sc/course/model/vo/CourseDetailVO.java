@@ -31,6 +31,7 @@ public record CourseDetailVO(
         @JsonProperty @Nullable Integer courseType,
         @JsonProperty @Nullable Integer isPublic,
         @JsonProperty int maxStudents,
+        @JsonProperty @Nullable Integer totalClassHours,
         @JsonProperty int currentStudents,
         @JsonProperty int status,
         @JsonProperty boolean enrolled,

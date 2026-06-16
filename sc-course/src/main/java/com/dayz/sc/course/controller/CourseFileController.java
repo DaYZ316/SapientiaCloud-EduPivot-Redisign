@@ -1,6 +1,7 @@
 package com.dayz.sc.course.controller;
 
 import com.dayz.sc.common.response.ApiResponse;
+import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.ratelimit.RateLimited;
 import com.dayz.sc.common.security.support.JwtPrincipalResolver;
 import com.dayz.sc.course.model.dto.BindCourseFileRequest;
@@ -12,7 +13,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -39,11 +39,13 @@ public class CourseFileController {
     }
 
     @GetMapping
-    public ApiResponse<List<CourseFileVO>> listFiles(@PathVariable UUID courseId,
-                                                     @AuthenticationPrincipal Jwt jwt) {
+    public ApiResponse<PageResponse<CourseFileVO>> listFiles(@PathVariable UUID courseId,
+                                                             @RequestParam(defaultValue = "1") int page,
+                                                             @RequestParam(defaultValue = "10") int size,
+                                                             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
-        return ApiResponse.ok(courseFileService.listFiles(courseId, userId, role));
+        return ApiResponse.ok(courseFileService.listFiles(courseId, userId, role, page, size));
     }
 
     @DeleteMapping("/{courseFileId}")

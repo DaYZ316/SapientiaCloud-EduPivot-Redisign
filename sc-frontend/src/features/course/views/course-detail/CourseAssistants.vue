@@ -6,7 +6,7 @@
         <h2>{{ t('courseDetail.assistantsTab') }}</h2>
       </div>
       <div class="header-right">
-        <span class="count-badge">{{ assistants.length }}</span>
+        <span class="count-badge">{{ assistantCount }}</span>
         <button v-if="canManageAssistants" class="btn-add" type="button" @click="openDialog">
           <Plus :size="14" stroke-width="2"/>
           {{ isAdmin ? t('courseDetail.addAssistant') : t('courseDetail.inviteAssistant') }}
@@ -42,12 +42,12 @@
       </div>
     </div>
 
-    <div v-if="assistants.length === 0 && pendingInvitations.length === 0" class="empty-tab">
+    <div v-if="assistantCount === 0 && pendingInvitations.length === 0" class="empty-tab">
       <UserCheck :size="28" stroke-width="1.4"/>
       <h3>{{ t('courseDetail.noAssistantsTitle') }}</h3>
       <p>{{ t('courseDetail.noAssistants') }}</p>
     </div>
-    <div v-else-if="assistants.length > 0" class="member-list">
+    <div v-else-if="assistantCount > 0" class="member-list">
       <div v-for="assistant in paginatedAssistants" :key="assistant.id" class="member-item">
         <UserAvatarLink
           :user-id="assistant.id"
@@ -61,51 +61,20 @@
           <strong>{{ assistant.displayName || assistant.id }}</strong>
           <span>{{ t('courseDetail.assistantInstructor') }}</span>
         </div>
-        <button
-          v-if="canManageAssistants"
-          class="btn-icon danger"
-          type="button"
-          :title="t('courseDetail.removeAssistant')"
-          @click="handleRemove(assistant)"
-        >
-          <Trash2 :size="14" stroke-width="1.8"/>
-        </button>
       </div>
     </div>
 
     <!-- 邀�?添加助教对话�?-->
-    <nav v-if="assistants.length > 0 && totalPages > 1" class="pagination" :aria-label="t('courseDetail.pagination')">
-      <button
-        class="btn-page icon"
-        type="button"
-        :disabled="currentPage === 1"
-        :title="t('courseDetail.previousPage')"
-        @click="changePage(currentPage - 1)"
-      >
-        <ChevronLeft :size="15" stroke-width="1.8"/>
-      </button>
-      <div class="page-numbers">
-        <button
-          v-for="pageNumber in displayedPages"
-          :key="pageNumber"
-          class="btn-page"
-          type="button"
-          :class="{active: currentPage === pageNumber}"
-          @click="changePage(pageNumber)"
-        >
-          {{ pageNumber }}
-        </button>
-      </div>
-      <button
-        class="btn-page icon"
-        type="button"
-        :disabled="currentPage === totalPages"
-        :title="t('courseDetail.nextPage')"
-        @click="changePage(currentPage + 1)"
-      >
-        <ChevronRight :size="15" stroke-width="1.8"/>
-      </button>
-    </nav>
+    <BasePagination
+      v-if="assistantCount > MEMBER_PAGE_SIZE"
+      :page="currentPage"
+      :size="MEMBER_PAGE_SIZE"
+      :total="assistantCount"
+      :aria-label="t('courseDetail.pagination')"
+      :previous-title="t('courseDetail.previousPage')"
+      :next-title="t('courseDetail.nextPage')"
+      @change="currentPage = $event"
+    />
 
     <InviteAssistantModal
       v-model="showDialog"
@@ -121,11 +90,11 @@
 <script lang="ts" setup>
 import {computed, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {ChevronLeft, ChevronRight, Plus, Trash2, UserCheck, X} from 'lucide-vue-next'
+import {Plus, UserCheck, X} from 'lucide-vue-next'
 import {getSentInvitations, withdrawInvitation} from '@/features/course/api/invitation'
-import {updateCourse} from '@/features/course/api/course'
 import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
+import BasePagination from '@/shared/components/BasePagination.vue'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 import InviteAssistantModal from '@/features/course/components/InviteAssistantModal.vue'
 import type {CourseDetail} from '@/features/course/types/course'
@@ -155,36 +124,19 @@ const currentPage = ref(1)
 
 const pendingInvitations = ref<CourseInvitation[]>([])
 
-const totalPages = computed(() => Math.max(1, Math.ceil(props.assistants.length / MEMBER_PAGE_SIZE)))
-
-const displayedPages = computed(() => {
-  const pages: number[] = []
-  const maxDisplay = 5
-  let start = Math.max(1, currentPage.value - Math.floor(maxDisplay / 2))
-  let end = Math.min(totalPages.value, start + maxDisplay - 1)
-  if (end - start + 1 < maxDisplay) {
-    start = Math.max(1, end - maxDisplay + 1)
-  }
-  for (let page = start; page <= end; page++) {
-    pages.push(page)
-  }
-  return pages
-})
+const assistantCount = computed(() => props.assistants.length)
+const totalPages = computed(() => Math.max(1, Math.ceil(assistantCount.value / MEMBER_PAGE_SIZE)))
 
 const paginatedAssistants = computed(() => {
   const start = (currentPage.value - 1) * MEMBER_PAGE_SIZE
   return props.assistants.slice(start, start + MEMBER_PAGE_SIZE)
 })
 
-watch(() => props.assistants.length, () => {
+watch(assistantCount, () => {
   if (currentPage.value > totalPages.value) {
     currentPage.value = totalPages.value
   }
 })
-
-function changePage(page: number) {
-  currentPage.value = Math.min(Math.max(page, 1), totalPages.value)
-}
 
 onMounted(loadPendingInvitations)
 
@@ -218,20 +170,6 @@ async function handleWithdraw(inv: CourseInvitation) {
   }
 }
 
-// 移除助教
-async function handleRemove(assistant: TeacherInfo) {
-  if (!(await confirmDialog({message: t('courseDetail.confirmRemoveAssistant'), confirmVariant: 'danger'}))) return
-  try {
-    const remainingIds = props.assistants
-      .filter(a => a.id !== assistant.id)
-      .map(a => a.id)
-    await updateCourse(props.courseId, {assistantIds: remainingIds})
-    notify.success(t('courseDetail.assistantRemoved'))
-    emit('refresh')
-  } catch {
-    notify.error(t('courseDetail.saveChapterFailed'))
-  }
-}
 </script>
 
 <style scoped>
@@ -398,58 +336,6 @@ async function handleRemove(assistant: TeacherInfo) {
 
 .btn-icon.danger:hover {
   color: #ef4444;
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 4px;
-  flex-wrap: wrap;
-}
-
-.page-numbers {
-  display: flex;
-  gap: 4px;
-}
-
-.btn-page {
-  display: inline-grid;
-  min-width: 36px;
-  height: 36px;
-  place-items: center;
-  padding: 0 10px;
-  background: var(--color-surface-card);
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
-  color: var(--color-on-surface);
-  cursor: pointer;
-  font-family: var(--font-label);
-  font-size: 13px;
-  font-weight: 700;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-}
-
-.btn-page.icon {
-  padding: 0;
-}
-
-.btn-page:hover:not(:disabled) {
-  background: var(--color-surface-container-high);
-  border-color: var(--color-outline);
-}
-
-.btn-page.active,
-.btn-page.active:hover:not(:disabled) {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: var(--color-on-primary);
-}
-
-.btn-page:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
 }
 
 .empty-tab {

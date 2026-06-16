@@ -1,9 +1,12 @@
 package com.dayz.sc.course.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.response.ApiResponse;
+import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
+import com.dayz.sc.common.util.PageUtils;
 import com.dayz.sc.common.util.UuidV7Generator;
 import com.dayz.sc.common.feign.client.StorageInternalClient;
 import com.dayz.sc.course.repository.CourseFileRepository;
@@ -66,14 +69,22 @@ public class CourseFileService {
         return toVO(courseFile, Map.of(request.fileId(), internalUrl(request.fileId())), visibility);
     }
 
-    public List<CourseFileVO> listFiles(UUID courseId, UUID userId, Integer role) {
+    public PageResponse<CourseFileVO> listFiles(UUID courseId, UUID userId, Integer role, int page, int size) {
         Course course = requireCourse(courseId);
+        int currentPage = PageUtils.normalizePage(page);
+        int pageSize = PageUtils.normalizeSize(size);
         CourseFileVisibility visibility = courseFileVisibility(course);
         boolean canReadFiles = visibility == CourseFileVisibility.PUBLIC || canReadPrivate(course, userId, role);
 
-        List<CourseFile> files = canReadFiles ? courseFileRepository.findByCourseId(courseId) : List.of();
+        if (!canReadFiles) {
+            return PageResponse.empty(currentPage, pageSize);
+        }
+
+        Page<CourseFile> result = courseFileRepository.findByCourseId(courseId, currentPage, pageSize);
+        List<CourseFile> files = result.getRecords();
         Map<UUID, String> urls = internalUrls(files.stream().map(CourseFile::getStorageObjectId).distinct().toList());
-        return files.stream().map(file -> toVO(file, urls, visibility)).toList();
+        List<CourseFileVO> voList = files.stream().map(file -> toVO(file, urls, visibility)).toList();
+        return PageResponse.of(voList, result.getTotal(), currentPage, pageSize);
     }
 
     @Transactional(rollbackFor = Exception.class)

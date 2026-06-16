@@ -5,7 +5,7 @@
         <span>{{ t('courseDetail.membersTab') }}</span>
         <h2>{{ t('courseDetail.studentsTab') }}</h2>
       </div>
-      <span class="count-badge">{{ students.length }}</span>
+      <span class="count-badge">{{ total }}</span>
     </div>
     <div v-if="students.length === 0" class="empty-tab">
       <Users :size="28" stroke-width="1.4"/>
@@ -13,7 +13,7 @@
       <p>{{ t('courseDetail.noStudents') }}</p>
     </div>
     <div v-else class="member-list">
-      <div v-for="student in paginatedStudents" :key="student.id" class="member-item">
+      <div v-for="student in students" :key="student.id" class="member-item">
         <UserAvatarLink
           :user-id="student.studentId"
           :display-name="student.studentName"
@@ -46,65 +46,53 @@
         </div>
       </div>
     </div>
-    <nav v-if="students.length > 0 && totalPages > 1" class="pagination" :aria-label="t('courseDetail.pagination')">
-      <button
-        class="btn-page icon"
-        type="button"
-        :disabled="currentPage === 1"
-        :title="t('courseDetail.previousPage')"
-        @click="changePage(currentPage - 1)"
-      >
-        <ChevronLeft :size="15" stroke-width="1.8"/>
-      </button>
-      <div class="page-numbers">
-        <button
-          v-for="pageNumber in displayedPages"
-          :key="pageNumber"
-          class="btn-page"
-          type="button"
-          :class="{active: currentPage === pageNumber}"
-          @click="changePage(pageNumber)"
-        >
-          {{ pageNumber }}
-        </button>
-      </div>
-      <button
-        class="btn-page icon"
-        type="button"
-        :disabled="currentPage === totalPages"
-        :title="t('courseDetail.nextPage')"
-        @click="changePage(currentPage + 1)"
-      >
-        <ChevronRight :size="15" stroke-width="1.8"/>
-      </button>
-    </nav>
+    <BasePagination
+      v-if="total > 0"
+      :page="page"
+      :size="size"
+      :total="total"
+      :disabled="loading"
+      :aria-label="t('courseDetail.pagination')"
+      :previous-title="t('courseDetail.previousPage')"
+      :next-title="t('courseDetail.nextPage')"
+      @change="emit('page-change', $event)"
+    />
   </section>
 </template>
 
 <script lang="ts" setup>
-import {computed, ref, watch} from 'vue'
+import {computed} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {ChevronLeft, ChevronRight, Trash2, Users} from 'lucide-vue-next'
+import {Trash2, Users} from 'lucide-vue-next'
 import {updateEnrollmentStatus} from '@/features/course/api/course'
 import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
+import BasePagination from '@/shared/components/BasePagination.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 import type {Enrollment} from '@/features/course/types/course'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   students: Enrollment[]
+  page?: number
+  size?: number
+  total?: number
+  loading?: boolean
   formatDate: (dateStr?: string | null) => string
   canManageCourse?: boolean
-}>()
+}>(), {
+  page: 1,
+  size: 10,
+  total: 0,
+  loading: false,
+})
 
 const emit = defineEmits<{
   refresh: []
+  'page-change': [page: number]
 }>()
 
 const {t} = useI18n()
-const PAGE_SIZE = 10
-const currentPage = ref(1)
 
 const enrollmentStatusLabel = computed<Record<number, string>>(() => ({
   0: t('courseDetail.enrollmentStatus.pending'),
@@ -118,37 +106,6 @@ const statusOptions = computed(() => [
   {label: t('courseDetail.enrollmentStatus.active'), value: 1},
   {label: t('courseDetail.enrollmentStatus.completed'), value: 2},
 ])
-
-const totalPages = computed(() => Math.max(1, Math.ceil(props.students.length / PAGE_SIZE)))
-
-const displayedPages = computed(() => {
-  const pages: number[] = []
-  const maxDisplay = 5
-  let start = Math.max(1, currentPage.value - Math.floor(maxDisplay / 2))
-  let end = Math.min(totalPages.value, start + maxDisplay - 1)
-  if (end - start + 1 < maxDisplay) {
-    start = Math.max(1, end - maxDisplay + 1)
-  }
-  for (let page = start; page <= end; page++) {
-    pages.push(page)
-  }
-  return pages
-})
-
-const paginatedStudents = computed(() => {
-  const start = (currentPage.value - 1) * PAGE_SIZE
-  return props.students.slice(start, start + PAGE_SIZE)
-})
-
-watch(() => props.students.length, () => {
-  if (currentPage.value > totalPages.value) {
-    currentPage.value = totalPages.value
-  }
-})
-
-function changePage(page: number) {
-  currentPage.value = Math.min(Math.max(page, 1), totalPages.value)
-}
 
 async function handleStatusChange(student: Enrollment, newStatus: number) {
   try {
@@ -313,58 +270,6 @@ async function handleRemove(student: Enrollment) {
 
 .btn-icon.danger:hover {
   color: #ef4444;
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 4px;
-  flex-wrap: wrap;
-}
-
-.page-numbers {
-  display: flex;
-  gap: 4px;
-}
-
-.btn-page {
-  display: inline-grid;
-  min-width: 36px;
-  height: 36px;
-  place-items: center;
-  padding: 0 10px;
-  background: var(--color-surface-card);
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
-  color: var(--color-on-surface);
-  cursor: pointer;
-  font-family: var(--font-label);
-  font-size: 13px;
-  font-weight: 700;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-}
-
-.btn-page.icon {
-  padding: 0;
-}
-
-.btn-page:hover:not(:disabled) {
-  background: var(--color-surface-container-high);
-  border-color: var(--color-outline);
-}
-
-.btn-page.active,
-.btn-page.active:hover:not(:disabled) {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: var(--color-on-primary);
-}
-
-.btn-page:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
 }
 
 .empty-tab {

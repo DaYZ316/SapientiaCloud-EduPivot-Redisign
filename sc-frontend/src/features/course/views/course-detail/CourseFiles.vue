@@ -52,6 +52,17 @@
         </button>
       </div>
     </div>
+    <BasePagination
+      v-if="total > 0"
+      :page="page"
+      :size="size"
+      :total="total"
+      :disabled="loading"
+      :aria-label="t('courseDetail.pagination')"
+      :previous-title="t('courseDetail.previousPage')"
+      :next-title="t('courseDetail.nextPage')"
+      @change="emit('page-change', $event)"
+    />
   </section>
 </template>
 
@@ -62,20 +73,31 @@ import {FileDown, FolderOpen, Trash2} from 'lucide-vue-next'
 import {bindCourseFile, deleteCourseFile} from '@/features/course/api/course'
 import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
+import BasePagination from '@/shared/components/BasePagination.vue'
 import type {CourseFile} from '@/features/course/types/course'
 import type {FileAsset} from '@/features/storage/types/storage'
 import BaseFileUploader from '@/shared/components/BaseFileUploader.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   courseId: string
   course?: { isPublic?: number } | null
   files: CourseFile[]
+  page?: number
+  size?: number
+  total?: number
+  loading?: boolean
   canAccessCourseContent: boolean
   canManageCourse?: boolean
-}>()
+}>(), {
+  page: 1,
+  size: 10,
+  total: 0,
+  loading: false,
+})
 
 const emit = defineEmits<{
   refresh: []
+  'page-change': [page: number]
 }>()
 
 const {t} = useI18n()

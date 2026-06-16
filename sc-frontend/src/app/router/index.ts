@@ -58,6 +58,11 @@ export const router = createRouter({
                     component: () => import('@/features/course/views/ChapterView.vue'),
                 },
                 {
+                    path: 'courses/:id/class-sessions',
+                    name: 'course-class-sessions',
+                    component: () => import('@/features/course/views/CourseClassSessionsView.vue'),
+                },
+                {
                     path: 'courses/:id',
                     component: () => import('@/features/course/views/CourseDetailView.vue'),
                     children: [
@@ -89,11 +94,6 @@ export const router = createRouter({
                             path: 'files',
                             name: 'course-files',
                             component: () => import('@/features/course/views/course-detail/CourseFiles.vue'),
-                        },
-                        {
-                            path: 'class-sessions',
-                            name: 'course-class-sessions',
-                            component: () => import('@/features/course/views/course-detail/CourseClassSessions.vue'),
                         },
                         {
                             path: 'students',

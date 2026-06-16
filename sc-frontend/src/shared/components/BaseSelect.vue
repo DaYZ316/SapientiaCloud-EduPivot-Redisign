@@ -9,14 +9,14 @@
       @click="toggleOpen"
       @keydown.down.prevent="openMenu"
       @keydown.enter.prevent="toggleOpen"
-      @keydown.escape.stop="isOpen = false"
+      @keydown.escape.stop="closeMenu"
     >
       <span>{{ selectedOption?.label || placeholder }}</span>
-      <ChevronDown class="base-select-icon" :size="16" stroke-width="1.8"/>
+      <ChevronDown class="base-select-icon" :size="16" stroke-width="1.8" />
     </button>
 
     <Transition name="base-select-menu">
-      <div v-if="isOpen" class="base-select-menu" role="listbox">
+      <div v-if="isOpen" ref="menu" class="base-select-menu" role="listbox" :style="menuStyle">
         <button
           v-for="option in options"
           :key="optionKey(option)"
@@ -28,7 +28,7 @@
           @click="selectOption(option.value)"
         >
           <span>{{ option.label }}</span>
-          <Check v-if="isSelected(option.value)" :size="15" stroke-width="2"/>
+          <Check v-if="isSelected(option.value)" :size="15" stroke-width="2" />
         </button>
       </div>
     </Transition>
@@ -36,8 +36,8 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, onUnmounted, ref} from 'vue'
-import {Check, ChevronDown} from 'lucide-vue-next'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { Check, ChevronDown } from 'lucide-vue-next'
 
 type SelectValue = string | number | undefined
 
@@ -46,15 +46,18 @@ interface SelectOption {
   value: SelectValue
 }
 
-const props = withDefaults(defineProps<{
-  modelValue: SelectValue
-  options: SelectOption[]
-  placeholder?: string
-  minWidth?: string
-  disabled?: boolean
-}>(), {
-  disabled: false,
-})
+const props = withDefaults(
+  defineProps<{
+    modelValue: SelectValue
+    options: SelectOption[]
+    placeholder?: string
+    minWidth?: string
+    disabled?: boolean
+  }>(),
+  {
+    disabled: false,
+  },
+)
 
 const emit = defineEmits<{
   'update:modelValue': [value: SelectValue]
@@ -62,10 +65,12 @@ const emit = defineEmits<{
 }>()
 
 const root = ref<HTMLElement | null>(null)
+const menu = ref<HTMLElement | null>(null)
 const isOpen = ref(false)
+const menuStyle = ref<Record<string, string>>({})
 
 const selectedOption = computed(() => props.options.find((option) => option.value === props.modelValue))
-const selectStyle = computed(() => props.minWidth ? {minWidth: props.minWidth} : undefined)
+const selectStyle = computed(() => (props.minWidth ? { minWidth: props.minWidth } : undefined))
 
 function isSelected(value: SelectValue) {
   return value === props.modelValue
@@ -77,7 +82,11 @@ function optionKey(option: SelectOption) {
 
 function toggleOpen() {
   if (props.disabled) return
-  isOpen.value = !isOpen.value
+  if (isOpen.value) {
+    closeMenu()
+    return
+  }
+  openMenu()
 }
 
 function openMenu() {
@@ -85,20 +94,79 @@ function openMenu() {
   isOpen.value = true
 }
 
+function closeMenu() {
+  isOpen.value = false
+}
+
 function selectOption(value: SelectValue) {
   if (value !== props.modelValue) {
     emit('update:modelValue', value)
     emit('change')
   }
-  isOpen.value = false
+  closeMenu()
 }
 
 function handleClickOutside(event: MouseEvent) {
   const target = event.target
-  if (target instanceof Node && root.value && !root.value.contains(target)) {
-    isOpen.value = false
+  if (target instanceof Node && root.value && !root.value.contains(target) && !menu.value?.contains(target)) {
+    closeMenu()
   }
 }
+
+function updateMenuPosition() {
+  const rootElement = root.value
+  if (!rootElement) return
+
+  const rect = rootElement.getBoundingClientRect()
+  const viewportWidth = document.documentElement.clientWidth
+  const viewportHeight = document.documentElement.clientHeight
+  const viewportPadding = 16
+  const menuOffset = 8
+  const maxWidth = Math.max(0, viewportWidth - viewportPadding * 2)
+  const minWidth = Math.min(rect.width, maxWidth)
+  const menuWidth = Math.min(Math.max(menu.value?.offsetWidth ?? 0, minWidth), maxWidth)
+  const left = Math.min(Math.max(rect.left, viewportPadding), viewportWidth - viewportPadding - menuWidth)
+  const menuHeight = menu.value?.offsetHeight ?? 0
+  const spaceBelow = viewportHeight - rect.bottom - menuOffset - viewportPadding
+  const spaceAbove = rect.top - menuOffset - viewportPadding
+  const openAbove = menuHeight > spaceBelow && spaceAbove > spaceBelow
+  const availableHeight = Math.max(140, openAbove ? spaceAbove : spaceBelow)
+  const top = openAbove
+    ? Math.max(viewportPadding, rect.top - menuOffset - Math.min(menuHeight, availableHeight))
+    : rect.bottom + menuOffset
+
+  menuStyle.value = {
+    position: 'fixed',
+    top: `${top}px`,
+    left: `${left}px`,
+    right: 'auto',
+    minWidth: `${minWidth}px`,
+    maxWidth: `${maxWidth}px`,
+    maxHeight: `${availableHeight}px`,
+  }
+}
+
+function addPositionListeners() {
+  window.addEventListener('resize', updateMenuPosition)
+  window.addEventListener('scroll', updateMenuPosition, true)
+}
+
+function removePositionListeners() {
+  window.removeEventListener('resize', updateMenuPosition)
+  window.removeEventListener('scroll', updateMenuPosition, true)
+}
+
+watch(isOpen, async (open) => {
+  if (!open) {
+    removePositionListeners()
+    return
+  }
+
+  await nextTick()
+  if (!isOpen.value) return
+  updateMenuPosition()
+  addPositionListeners()
+})
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
@@ -106,9 +174,10 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  removePositionListeners()
 })
 
-defineExpose({isOpen})
+defineExpose({ isOpen })
 </script>
 
 <style scoped>
@@ -137,7 +206,10 @@ defineExpose({isOpen})
   font-weight: 400;
   color: var(--color-on-surface);
   cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    background 0.2s;
 }
 
 .base-select-trigger:hover {
@@ -199,7 +271,9 @@ defineExpose({isOpen})
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s;
 }
 
 .base-select-option:hover,
@@ -217,7 +291,9 @@ defineExpose({isOpen})
 
 .base-select-menu-enter-active,
 .base-select-menu-leave-active {
-  transition: opacity 0.16s, transform 0.16s;
+  transition:
+    opacity 0.16s,
+    transform 0.16s;
 }
 
 .base-select-menu-enter-from,

@@ -3,8 +3,10 @@ package com.dayz.sc.course.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.feign.client.AuthInternalClient;
 import com.dayz.sc.common.feign.client.StorageInternalClient;
 import com.dayz.sc.common.feign.dto.StorageObjectInfo;
+import com.dayz.sc.common.feign.dto.UserBasicInfo;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
@@ -60,6 +62,7 @@ public class ForumService {
     private final EnrollmentRepository enrollmentRepository;
     private final ForumPostRepository forumPostRepository;
     private final ForumReplyRepository forumReplyRepository;
+    private final AuthInternalClient authInternalClient;
     private final StorageInternalClient storageInternalClient;
 
     public PageResponse<ForumPostVO> listCourseComments(UUID courseId, Long pageValue, Long sizeValue) {
@@ -76,7 +79,11 @@ public class ForumService {
                 .flatMap(post -> parseImageIds(post.getImageUrls()).stream())
                 .distinct()
                 .toList());
-        List<ForumPostVO> voList = posts.stream().map(post -> toForumPostVO(post, imageUrls)).toList();
+        Map<UUID, UserBasicInfo> userInfoMap = loadUserInfoMap(posts.stream()
+                .map(ForumPost::getSysUserId)
+                .distinct()
+                .toList());
+        List<ForumPostVO> voList = posts.stream().map(post -> toForumPostVO(post, imageUrls, userInfoMap)).toList();
         return new PageResponse<>(voList, result.getTotal(), page, size);
     }
 
@@ -154,10 +161,14 @@ public class ForumService {
                 .flatMap(reply -> parseImageIds(reply.getImageUrls()).stream())
                 .distinct()
                 .toList());
+        Map<UUID, UserBasicInfo> userInfoMap = loadUserInfoMap(allReplies.stream()
+                .map(ForumReply::getSysUserId)
+                .distinct()
+                .toList());
 
         return allReplies.stream()
                 .filter(r -> r.getParentReplyId() == null)
-                .map(r -> toForumReplyVOWithChildren(r, childrenMap, imageUrls))
+                .map(r -> toForumReplyVOWithChildren(r, childrenMap, imageUrls, userInfoMap))
                 .toList();
     }
 
@@ -290,11 +301,14 @@ public class ForumService {
                 : normalized.substring(0, COMMENT_TITLE_MAX_LENGTH);
     }
 
-    private ForumPostVO toForumPostVO(ForumPost post, Map<UUID, String> imageUrlMap) {
+    private ForumPostVO toForumPostVO(ForumPost post,
+                                      Map<UUID, String> imageUrlMap,
+                                      Map<UUID, UserBasicInfo> userInfoMap) {
         return new ForumPostVO(
                 post.getId(),
                 post.getCourseId(),
                 post.getSysUserId(),
+                userInfoMap.get(post.getSysUserId()),
                 post.getTitle(),
                 post.getContent(),
                 post.getPostType(),
@@ -318,12 +332,15 @@ public class ForumService {
         );
     }
 
-    private ForumReplyVO toForumReplyVO(ForumReply reply, Map<UUID, String> imageUrlMap) {
+    private ForumReplyVO toForumReplyVO(ForumReply reply,
+                                        Map<UUID, String> imageUrlMap,
+                                        Map<UUID, UserBasicInfo> userInfoMap) {
         return new ForumReplyVO(
                 reply.getId(),
                 reply.getPostId(),
                 reply.getCourseId(),
                 reply.getSysUserId(),
+                userInfoMap.get(reply.getSysUserId()),
                 reply.getContent(),
                 reply.getParentReplyId(),
                 reply.getReplyToUserId(),
@@ -342,10 +359,11 @@ public class ForumService {
 
     private ForumReplyVO toForumReplyVOWithChildren(ForumReply reply,
                                                     Map<UUID, List<ForumReply>> childrenMap,
-                                                    Map<UUID, String> imageUrlMap) {
+                                                    Map<UUID, String> imageUrlMap,
+                                                    Map<UUID, UserBasicInfo> userInfoMap) {
         List<ForumReply> childReplies = childrenMap.getOrDefault(reply.getId(), List.of());
         List<ForumReplyVO> children = childReplies.stream()
-                .map(r -> toForumReplyVOWithChildren(r, childrenMap, imageUrlMap))
+                .map(r -> toForumReplyVOWithChildren(r, childrenMap, imageUrlMap, userInfoMap))
                 .toList();
 
         return new ForumReplyVO(
@@ -353,6 +371,7 @@ public class ForumService {
                 reply.getPostId(),
                 reply.getCourseId(),
                 reply.getSysUserId(),
+                userInfoMap.get(reply.getSysUserId()),
                 reply.getContent(),
                 reply.getParentReplyId(),
                 reply.getReplyToUserId(),
@@ -424,6 +443,22 @@ public class ForumService {
             return Map.of();
         }
         return response.data();
+    }
+
+    private Map<UUID, UserBasicInfo> loadUserInfoMap(List<UUID> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            ApiResponse<List<UserBasicInfo>> response = authInternalClient.getUsersBasicInfo(userIds);
+            if (response != null && response.code() == ErrorCodes.SUCCESS.code() && response.data() != null) {
+                return response.data().stream()
+                        .collect(Collectors.toMap(UserBasicInfo::id, info -> info, (a, b) -> a));
+            }
+        } catch (Exception ignored) {
+            return Map.of();
+        }
+        return Map.of();
     }
 
     private List<String> resolveImageUrls(List<String> values, Map<UUID, String> imageUrlMap) {

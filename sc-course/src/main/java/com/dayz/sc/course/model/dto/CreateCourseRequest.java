@@ -26,5 +26,6 @@ public record CreateCourseRequest(
         @Size(max = 100) String location,
         Integer courseType,
         @NotNull @Min(0) @Max(1) Integer isPublic,
-        @Min(0) int maxStudents
+        @Min(0) int maxStudents,
+        @Min(0) Integer totalClassHours
 ) {}

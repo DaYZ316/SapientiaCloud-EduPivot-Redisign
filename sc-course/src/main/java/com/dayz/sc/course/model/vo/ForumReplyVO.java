@@ -1,5 +1,6 @@
 package com.dayz.sc.course.model.vo;
 
+import com.dayz.sc.common.feign.dto.UserBasicInfo;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.jspecify.annotations.Nullable;
 
@@ -18,6 +19,7 @@ public record ForumReplyVO(
         @JsonProperty("postId") UUID postId,
         @JsonProperty("courseId") UUID courseId,
         @JsonProperty("sysUserId") UUID sysUserId,
+        @JsonProperty("userInfo") @Nullable UserBasicInfo userInfo,
         @JsonProperty("content") String content,
         @JsonProperty("parentReplyId") @Nullable UUID parentReplyId,
         @JsonProperty("replyToUserId") @Nullable UUID replyToUserId,

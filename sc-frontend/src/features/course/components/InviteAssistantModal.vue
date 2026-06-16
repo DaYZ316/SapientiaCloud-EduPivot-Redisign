@@ -126,8 +126,7 @@
 import {computed, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {Search} from 'lucide-vue-next'
-import {sendInvitation, getSentInvitations, withdrawInvitation} from '@/features/course/api/invitation'
-import {getCourse} from '@/features/course/api/course'
+import {sendInvitation, getSentInvitations} from '@/features/course/api/invitation'
 import {listTeachers} from '@/features/user/api/user'
 import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
@@ -166,35 +165,21 @@ const invitingTeacherId = ref<string | null>(null)
 const inviteMessage = ref('')
 
 const pendingInvitations = ref<CourseInvitation[]>([])
-const fetchedAssistants = ref<TeacherInfo[]>([])
 
-// 优先用 fetch 到的完整数据，回退到 props
 const assistantIdSet = computed(() => {
-    const source = fetchedAssistants.value.length > 0 ? fetchedAssistants.value : props.assistants
-    return new Set(source.map(a => a.id))
+    return new Set(props.assistants.map(a => a.id))
 })
 const pendingInviteeIds = computed(() => new Set(pendingInvitations.value.map(inv => inv.inviteeId)))
 
 // 打开时加载数据
 watch(() => props.modelValue, (open) => {
     if (open) {
-        void loadCourseAssistants()
         void loadPendingInvitations()
         if (teachers.value.length === 0) {
             void loadTeachers(true)
         }
     }
 })
-
-async function loadCourseAssistants() {
-    try {
-        const detail = await getCourse(props.courseId)
-        const teacherId = detail.teacherId
-        fetchedAssistants.value = (detail.teacherInfos || []).filter(info => info.id !== teacherId)
-    } catch {
-        fetchedAssistants.value = []
-    }
-}
 
 async function loadPendingInvitations() {
     if (props.isAdmin) return
@@ -333,7 +318,6 @@ function close() {
     emit('update:modelValue', false)
     searchKeyword.value = ''
     teachers.value = []
-    fetchedAssistants.value = []
     page.value = 1
     hasMore.value = true
     loadMoreArmed = true

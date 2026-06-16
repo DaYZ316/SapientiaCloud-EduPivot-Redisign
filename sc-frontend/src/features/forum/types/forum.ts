@@ -1,7 +1,10 @@
+import type {UserBasicInfo} from '@/features/user/types/user'
+
 export interface ForumPost {
   id: string
   courseId: string
   sysUserId: string
+  userInfo?: UserBasicInfo | null
   title: string
   content: string
   postType: number
@@ -29,6 +32,7 @@ export interface ForumReply {
   postId: string
   courseId: string
   sysUserId: string
+  userInfo?: UserBasicInfo | null
   content: string
   parentReplyId: string | null
   replyToUserId: string | null

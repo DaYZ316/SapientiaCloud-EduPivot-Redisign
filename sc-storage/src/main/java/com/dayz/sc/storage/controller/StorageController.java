@@ -8,6 +8,7 @@ import com.dayz.sc.storage.model.vo.DownloadUrlResponse;
 import com.dayz.sc.storage.model.vo.FileAsset;
 import com.dayz.sc.storage.model.vo.StorageObjectInfo;
 import com.dayz.sc.storage.model.vo.UploadTicket;
+import com.dayz.sc.storage.service.DocConversionService;
 import com.dayz.sc.storage.service.StorageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ import java.util.Map;
 public class StorageController {
 
     private final StorageService storageService;
+    private final DocConversionService docConversionService;
 
     @PostMapping("/uploads")
     @RateLimited(maxRequests = 10, windowSeconds = 60)
@@ -64,6 +66,17 @@ public class StorageController {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
         return ApiResponse.ok(storageService.createDownloadUrl(fileId, userId, role));
+    }
+
+    @PostMapping("/files/{fileId}/convert")
+    @RateLimited(maxRequests = 5, windowSeconds = 60)
+    public ApiResponse<DownloadUrlResponse> convertFile(@PathVariable UUID fileId,
+                                                        @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        // 先校验用户对该文件的读权限
+        storageService.getFile(fileId, userId, role);
+        return ApiResponse.ok(docConversionService.convertDocToDocx(fileId));
     }
 
     @DeleteMapping("/files/{fileId}")

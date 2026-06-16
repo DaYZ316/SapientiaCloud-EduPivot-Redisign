@@ -33,7 +33,7 @@
     </div>
 
     <div v-if="!loading" class="comment-summary">
-      <strong>{{ t('forum.commentCount', {count: comments.length}) }}</strong>
+      <strong>{{ t('forum.commentCount', {count: total}) }}</strong>
       <span>{{ canComment ? t('forum.commentsParticipationOpen') : t('forum.commentsReadonlyShort') }}</span>
     </div>
 
@@ -162,6 +162,17 @@
         </div>
       </article>
     </div>
+    <BasePagination
+      v-if="total > 0"
+      :page="currentPage"
+      :size="COMMENT_PAGE_SIZE"
+      :total="total"
+      :disabled="loading"
+      :aria-label="t('courseDetail.pagination')"
+      :previous-title="t('courseDetail.previousPage')"
+      :next-title="t('courseDetail.nextPage')"
+      @change="loadComments"
+    />
   </div>
 </template>
 
@@ -171,6 +182,7 @@ import {useI18n} from 'vue-i18n'
 import {MessageCircle, Pencil, Send, Trash2} from 'lucide-vue-next'
 import {getUsersBasicInfo} from '@/features/user/api/user'
 import type {UserBasicInfo} from '@/features/user/types/user'
+import BasePagination from '@/shared/components/BasePagination.vue'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 import {
   createCommentReply,
@@ -196,11 +208,14 @@ const props = defineProps<{
 }>()
 
 const {t} = useI18n()
+const COMMENT_PAGE_SIZE = 10
 
 const loading = ref(true)
 const submitting = ref(false)
 const submittingReply = ref(false)
 const comments = ref<ForumPost[]>([])
+const currentPage = ref(1)
+const total = ref(0)
 const commentContent = ref('')
 const replyContent = ref('')
 const commentImages = ref<FileAsset[]>([])
@@ -241,15 +256,36 @@ const replyPlaceholder = computed(() => {
 
 onMounted(loadComments)
 
-async function loadComments() {
+async function loadComments(page = currentPage.value) {
   loading.value = true
   try {
-    const data = await getCourseComments(props.courseId, {page: 1, size: 50})
+    let nextPage = page
+    let data = await getCourseComments(props.courseId, {page: nextPage, size: COMMENT_PAGE_SIZE})
+    while ((data.records || []).length === 0 && data.total > 0 && nextPage > 1) {
+      nextPage -= 1
+      data = await getCourseComments(props.courseId, {page: nextPage, size: COMMENT_PAGE_SIZE})
+    }
     comments.value = data.records || []
+    currentPage.value = data.page
+    total.value = data.total
+    cacheUsersFromItems(comments.value)
     await fetchUsersForItems(comments.value.map(c => c.sysUserId))
   } finally {
     loading.value = false
   }
+}
+
+function cacheUserInfo(userInfo?: UserBasicInfo | null) {
+  if (!userInfo?.id) return
+  userMap[userInfo.id] = userInfo
+}
+
+function cacheUsersFromItems(items: Array<{userInfo?: UserBasicInfo | null}>) {
+  items.forEach(item => cacheUserInfo(item.userInfo))
+}
+
+function flattenReplies(replies: ForumReply[]): ForumReply[] {
+  return replies.flatMap(reply => [reply, ...flattenReplies(reply.children || [])])
 }
 
 async function fetchUsersForItems(userIds: string[]) {
@@ -276,7 +312,7 @@ async function submitComment() {
     commentContent.value = ''
     commentImages.value = []
     notify.success(t('forum.commentSuccess'))
-    await loadComments()
+    await loadComments(1)
   } catch {
     notify.error(t('forum.commentFailed'))
   } finally {
@@ -296,11 +332,9 @@ async function loadReplies(commentId: string) {
   try {
     repliesByComment[commentId] = await getCommentReplies(commentId)
     const replies = repliesByComment[commentId] || []
-    const userIds = replies.flatMap(r => [
-      r.sysUserId,
-      ...(r.children?.map(c => c.sysUserId) || []),
-    ])
-    await fetchUsersForItems(userIds)
+    const flatReplies = flattenReplies(replies)
+    cacheUsersFromItems(flatReplies)
+    await fetchUsersForItems(flatReplies.map(reply => reply.sysUserId))
   } finally {
     replyLoading[commentId] = false
   }
@@ -407,7 +441,7 @@ async function handleDeleteComment(comment: ForumPost) {
   if (!(await confirmDialog({message: t('forum.confirmDeleteComment'), confirmVariant: 'danger'}))) return
   try {
     await deletePost(comment.id)
-    comments.value = comments.value.filter(item => item.id !== comment.id)
+    await loadComments()
     notify.success(t('forum.commentDeleted'))
   } catch {
     notify.error(t('forum.commentFailed'))

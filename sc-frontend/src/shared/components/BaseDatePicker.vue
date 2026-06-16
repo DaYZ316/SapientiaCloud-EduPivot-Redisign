@@ -9,10 +9,10 @@
       @keydown.escape="closePicker"
     >
       <span>{{ selectedDateDisplay || placeholderText }}</span>
-      <CalendarDays :size="18" stroke-width="1.8"/>
+      <CalendarDays :size="18" stroke-width="1.8" />
     </button>
 
-    <div v-if="pickerOpen" class="base-date-picker-popover">
+    <div v-if="pickerOpen" ref="popover" class="base-date-picker-popover" :style="popoverStyle">
       <div class="base-date-picker-toolbar">
         <div class="base-date-picker-selects">
           <button
@@ -23,7 +23,7 @@
             @click="togglePanel('year')"
           >
             <span>{{ pickerYear }}</span>
-            <ChevronDown :size="14" stroke-width="1.8"/>
+            <ChevronDown :size="14" stroke-width="1.8" />
           </button>
           <button
             class="base-date-picker-control"
@@ -33,15 +33,15 @@
             @click="togglePanel('month')"
           >
             <span>{{ currentMonthLabel }}</span>
-            <ChevronDown :size="14" stroke-width="1.8"/>
+            <ChevronDown :size="14" stroke-width="1.8" />
           </button>
         </div>
         <div v-if="activePanel === 'calendar'" class="base-date-picker-nav">
           <button type="button" :aria-label="t('settings.previousMonth')" @click="moveMonth(-1)">
-            <ChevronLeft :size="16" stroke-width="1.8"/>
+            <ChevronLeft :size="16" stroke-width="1.8" />
           </button>
           <button type="button" :aria-label="t('settings.nextMonth')" @click="moveMonth(1)">
-            <ChevronRight :size="16" stroke-width="1.8"/>
+            <ChevronRight :size="16" stroke-width="1.8" />
           </button>
         </div>
       </div>
@@ -54,7 +54,7 @@
             :disabled="!canMoveYearPageOlder"
             @click="moveYearPage(-1)"
           >
-            <ChevronLeft :size="15" stroke-width="1.8"/>
+            <ChevronLeft :size="15" stroke-width="1.8" />
           </button>
           <span>{{ yearPageRange }}</span>
           <button
@@ -63,7 +63,7 @@
             :disabled="!canMoveYearPageNewer"
             @click="moveYearPage(1)"
           >
-            <ChevronRight :size="15" stroke-width="1.8"/>
+            <ChevronRight :size="15" stroke-width="1.8" />
           </button>
         </div>
 
@@ -113,38 +113,67 @@
         </div>
       </template>
 
+      <div v-if="showTime" class="base-date-picker-time">
+        <Clock3 :size="16" stroke-width="1.8" />
+        <input type="time" :step="timeStep" :value="selectedTime" :aria-label="timeLabel" @input="updateTime" />
+      </div>
+
       <div class="base-date-picker-footer">
         <button type="button" @click="clearDate">{{ t('settings.clear') }}</button>
         <button type="button" @click="selectToday">{{ t('settings.today') }}</button>
+        <button
+          v-if="showTime"
+          class="base-date-picker-confirm"
+          type="button"
+          :aria-label="confirmLabel"
+          @click="closePicker"
+        >
+          <Check :size="15" stroke-width="2" />
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
-import {useI18n} from 'vue-i18n'
-import {CalendarDays, ChevronDown, ChevronLeft, ChevronRight} from 'lucide-vue-next'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3 } from 'lucide-vue-next'
 
 type DatePickerPanel = 'calendar' | 'year' | 'month'
 
-const props = withDefaults(defineProps<{
-  id?: string
-  modelValue?: string | null
-  placeholder?: string
-}>(), {
-  modelValue: '',
-  placeholder: '',
-})
+const props = withDefaults(
+  defineProps<{
+    id?: string
+    modelValue?: string | null
+    placeholder?: string
+    showTime?: boolean
+    timeStep?: number
+    defaultTime?: string
+    timeLabel?: string
+    confirmLabel?: string
+  }>(),
+  {
+    modelValue: '',
+    placeholder: '',
+    showTime: false,
+    timeStep: 300,
+    defaultTime: '09:00',
+    timeLabel: 'Time',
+    confirmLabel: 'Close date picker',
+  },
+)
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
 
-const {t, locale} = useI18n()
+const { t, locale } = useI18n()
 
 const root = ref<HTMLElement | null>(null)
+const popover = ref<HTMLElement | null>(null)
 const pickerOpen = ref(false)
+const popoverStyle = ref<Record<string, string>>({})
 const activePanel = ref<DatePickerPanel>('calendar')
 const pickerMonth = ref(startOfMonth(parseDateValue(props.modelValue) ?? new Date()))
 const yearPageStart = ref(getYearPageStart(pickerMonth.value.getFullYear()))
@@ -157,15 +186,26 @@ const selectedDateDisplay = computed(() => {
     return ''
   }
 
-  return new Intl.DateTimeFormat(String(locale.value), {
+  const dateText = new Intl.DateTimeFormat(String(locale.value), {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
   }).format(date)
+
+  const timeText = props.showTime ? parseTimeValue(props.modelValue) : ''
+
+  return timeText ? `${dateText} ${timeText}` : dateText
 })
 
-const visibleYears = computed(() => Array.from({length: 12}, (_, index) => yearPageStart.value - index)
-  .filter((year) => year >= 1900))
+const selectedTime = computed(() => parseTimeValue(props.modelValue) || normalizeTimeValue(props.defaultTime))
+const selectedDateValue = computed(() => {
+  const date = parseDateValue(props.modelValue)
+  return date ? toDateValue(date) : ''
+})
+
+const visibleYears = computed(() =>
+  Array.from({ length: 12 }, (_, index) => yearPageStart.value - index).filter((year) => year >= 1900),
+)
 
 const yearPageRange = computed(() => {
   const years = visibleYears.value
@@ -183,26 +223,26 @@ const canMoveYearPageOlder = computed(() => {
 const canMoveYearPageNewer = computed(() => yearPageStart.value < getMaxYear())
 
 const monthOptions = computed(() => {
-  const formatter = new Intl.DateTimeFormat(String(locale.value), {month: 'long'})
+  const formatter = new Intl.DateTimeFormat(String(locale.value), { month: 'long' })
 
-  return Array.from({length: 12}, (_, month) => ({
+  return Array.from({ length: 12 }, (_, month) => ({
     value: month,
     label: formatter.format(new Date(2026, month, 1)),
   }))
 })
 
-const currentMonthLabel = computed(() =>
-  monthOptions.value.find((month) => month.value === pickerMonth.value.getMonth())?.label ?? '',
+const currentMonthLabel = computed(
+  () => monthOptions.value.find((month) => month.value === pickerMonth.value.getMonth())?.label ?? '',
 )
 
 const pickerYear = computed(() => pickerMonth.value.getFullYear())
 const pickerMonthIndex = computed(() => pickerMonth.value.getMonth())
 
 const weekdayLabels = computed(() => {
-  const formatter = new Intl.DateTimeFormat(String(locale.value), {weekday: 'short'})
+  const formatter = new Intl.DateTimeFormat(String(locale.value), { weekday: 'short' })
   const sunday = new Date(2026, 5, 7)
 
-  return Array.from({length: 7}, (_, index) => {
+  return Array.from({ length: 7 }, (_, index) => {
     const date = new Date(sunday)
     date.setDate(sunday.getDate() + index)
     return formatter.format(date)
@@ -216,7 +256,7 @@ const calendarDays = computed(() => {
   gridStart.setDate(firstDay.getDate() - firstDay.getDay())
   const todayValue = toDateValue(new Date())
 
-  return Array.from({length: 42}, (_, index) => {
+  return Array.from({ length: 42 }, (_, index) => {
     const date = new Date(gridStart)
     date.setDate(gridStart.getDate() + index)
     const value = toDateValue(date)
@@ -225,24 +265,27 @@ const calendarDays = computed(() => {
       value,
       label: date.getDate(),
       inCurrentMonth: date.getMonth() === month.getMonth(),
-      selected: props.modelValue === value,
+      selected: selectedDateValue.value === value,
       today: todayValue === value,
     }
   })
 })
 
-watch(() => props.modelValue, () => {
-  if (!pickerOpen.value) {
-    syncPickerMonth()
-  }
-})
+watch(
+  () => props.modelValue,
+  () => {
+    if (!pickerOpen.value) {
+      syncPickerMonth()
+    }
+  },
+)
 
 function parseDateValue(value: string | null | undefined) {
   if (!value) {
     return null
   }
 
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2})?$/.exec(value)
   if (!match) {
     return null
   }
@@ -278,6 +321,34 @@ function toDateValue(date: Date) {
   return `${year}-${month}-${day}`
 }
 
+function parseTimeValue(value: string | null | undefined) {
+  if (!value) {
+    return ''
+  }
+
+  const match = /T(\d{2}):(\d{2})/.exec(value)
+  return match ? normalizeTimeValue(`${match[1]}:${match[2]}`) : ''
+}
+
+function normalizeTimeValue(value: string) {
+  const match = /^(\d{2}):(\d{2})$/.exec(value)
+  if (!match) {
+    return '09:00'
+  }
+
+  const hour = Number(match[1])
+  const minute = Number(match[2])
+  if (hour > 23 || minute > 59) {
+    return '09:00'
+  }
+
+  return `${match[1]}:${match[2]}`
+}
+
+function withTime(dateValue: string, timeValue = selectedTime.value) {
+  return `${dateValue}T${timeValue}`
+}
+
 function syncPickerMonth() {
   pickerMonth.value = startOfMonth(parseDateValue(props.modelValue) ?? new Date())
   yearPageStart.value = getYearPageStart(pickerMonth.value.getFullYear())
@@ -302,11 +373,7 @@ function togglePanel(panel: DatePickerPanel) {
 }
 
 function moveMonth(offset: number) {
-  pickerMonth.value = new Date(
-    pickerMonth.value.getFullYear(),
-    pickerMonth.value.getMonth() + offset,
-    1,
-  )
+  pickerMonth.value = new Date(pickerMonth.value.getFullYear(), pickerMonth.value.getMonth() + offset, 1)
   activePanel.value = 'calendar'
 }
 
@@ -327,8 +394,10 @@ function selectMonth(month: number) {
 }
 
 function selectDate(value: string) {
-  emit('update:modelValue', value)
-  closePicker()
+  emit('update:modelValue', props.showTime ? withTime(value) : value)
+  if (!props.showTime) {
+    closePicker()
+  }
 }
 
 function clearDate() {
@@ -338,9 +407,19 @@ function clearDate() {
 
 function selectToday() {
   const today = new Date()
-  emit('update:modelValue', toDateValue(today))
+  const todayValue = toDateValue(today)
+  emit('update:modelValue', props.showTime ? withTime(todayValue) : todayValue)
   pickerMonth.value = startOfMonth(today)
   closePicker()
+}
+
+function updateTime(event: Event) {
+  const input = event.target as HTMLInputElement
+  const dateValue = props.modelValue
+    ? toDateValue(parseDateValue(props.modelValue) ?? new Date())
+    : toDateValue(new Date())
+
+  emit('update:modelValue', withTime(dateValue, normalizeTimeValue(input.value)))
 }
 
 function handleOutsideClick(event: MouseEvent) {
@@ -356,6 +435,58 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handleOutsideClick)
+  removePositionListeners()
+})
+
+function updatePopoverPosition() {
+  const rootElement = root.value
+  if (!rootElement) return
+
+  const rect = rootElement.getBoundingClientRect()
+  const viewportWidth = document.documentElement.clientWidth
+  const viewportHeight = document.documentElement.clientHeight
+  const viewportPadding = 16
+  const popoverOffset = 8
+  const popoverWidth = Math.min(318, viewportWidth - viewportPadding * 2)
+  const left = Math.min(Math.max(rect.left, viewportPadding), viewportWidth - viewportPadding - popoverWidth)
+  const popoverHeight = popover.value?.offsetHeight ?? 0
+  const spaceBelow = viewportHeight - rect.bottom - popoverOffset - viewportPadding
+  const spaceAbove = rect.top - popoverOffset - viewportPadding
+  const openAbove = popoverHeight > spaceBelow && spaceAbove > spaceBelow
+  const availableHeight = Math.max(220, openAbove ? spaceAbove : spaceBelow)
+  const top = openAbove
+    ? Math.max(viewportPadding, rect.top - popoverOffset - Math.min(popoverHeight, availableHeight))
+    : rect.bottom + popoverOffset
+
+  popoverStyle.value = {
+    position: 'fixed',
+    top: `${top}px`,
+    left: `${left}px`,
+    width: `${popoverWidth}px`,
+    maxHeight: `${availableHeight}px`,
+  }
+}
+
+function addPositionListeners() {
+  window.addEventListener('resize', updatePopoverPosition)
+  window.addEventListener('scroll', updatePopoverPosition, true)
+}
+
+function removePositionListeners() {
+  window.removeEventListener('resize', updatePopoverPosition)
+  window.removeEventListener('scroll', updatePopoverPosition, true)
+}
+
+watch(pickerOpen, async (open) => {
+  if (!open) {
+    removePositionListeners()
+    return
+  }
+
+  await nextTick()
+  if (!pickerOpen.value) return
+  updatePopoverPosition()
+  addPositionListeners()
 })
 </script>
 
@@ -409,6 +540,7 @@ onUnmounted(() => {
   left: 0;
   z-index: 120;
   width: min(318px, calc(100vw - 48px));
+  overflow-y: auto;
   padding: 16px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
@@ -463,7 +595,7 @@ onUnmounted(() => {
   color: var(--color-muted);
 }
 
-.base-date-picker-control[aria-expanded="true"],
+.base-date-picker-control[aria-expanded='true'],
 .base-date-picker-control:focus {
   outline: none;
   border-color: var(--color-on-surface);
@@ -494,7 +626,9 @@ onUnmounted(() => {
   place-items: center;
   border-radius: 12px;
   color: var(--color-muted);
-  transition: background 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s;
 }
 
 .base-date-picker-nav button:hover,
@@ -534,7 +668,10 @@ onUnmounted(() => {
   place-items: center;
   border-radius: 10px;
   color: var(--color-muted);
-  transition: background 0.2s, color 0.2s, opacity 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    opacity 0.2s;
 }
 
 .base-date-picker-year-toolbar button:disabled {
@@ -559,7 +696,9 @@ onUnmounted(() => {
   border-radius: 12px;
   font-size: 13px;
   font-weight: 800;
-  transition: background 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s;
 }
 
 .base-date-picker-year.selected,
@@ -595,7 +734,10 @@ onUnmounted(() => {
   border-radius: 12px;
   font-size: 13px;
   font-weight: 700;
-  transition: background 0.2s, color 0.2s, opacity 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    opacity 0.2s;
 }
 
 .base-date-picker-day.outside {
@@ -613,6 +755,41 @@ onUnmounted(() => {
   border-top: 1px solid var(--color-outline-light);
 }
 
+.base-date-picker-time {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 0 12px;
+  background: var(--color-surface-canvas);
+  border: 1px solid var(--color-outline-light);
+  border-radius: 12px;
+  color: var(--color-muted);
+}
+
+.base-date-picker-time svg {
+  flex-shrink: 0;
+}
+
+.base-date-picker-time input {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  color: var(--color-on-surface);
+  font-family: var(--font-label);
+  font-size: 14px;
+  font-weight: 800;
+  outline: none;
+}
+
+.base-date-picker-time input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(1);
+  opacity: 0.72;
+}
+
 .base-date-picker-footer button {
   min-height: 32px;
   padding: 0 10px;
@@ -620,5 +797,12 @@ onUnmounted(() => {
   font-size: 12px;
   font-weight: 800;
   color: var(--color-primary);
+}
+
+.base-date-picker-confirm {
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  color: var(--color-on-surface);
 }
 </style>

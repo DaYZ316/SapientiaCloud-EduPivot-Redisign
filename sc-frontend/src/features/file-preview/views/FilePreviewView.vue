@@ -20,10 +20,10 @@
         </header>
 
         <main class="preview-content">
-            <!-- Loading -->
-            <div v-if="loading" class="preview-status">
+            <!-- Loading / Converting -->
+            <div v-if="loading || converting" class="preview-status">
                 <div class="spinner"></div>
-                <p>{{ t('filePreview.loading') }}</p>
+                <p>{{ converting ? t('filePreview.converting') : t('filePreview.loading') }}</p>
             </div>
 
             <!-- Error -->
@@ -120,7 +120,7 @@ import '@vue-office/docx/lib/index.css'
 import VueExcel from '@vue-office/excel'
 import '@vue-office/excel/lib/index.css'
 import VuePptx from '@vue-office/pptx'
-import {getDownloadUrl} from '@/features/storage/api/storage'
+import {getDownloadUrl, convertFile} from '@/features/storage/api/storage'
 import {marked} from 'marked'
 
 const route = useRoute()
@@ -137,10 +137,18 @@ const error = ref('')
 const textContent = ref('')
 const markdownHtml = ref('')
 const downloading = ref(false)
+const converting = ref(false)
+
+/** 是否为旧版 .doc 格式（需要服务端转换） */
+const isLegacyDoc = computed(() => {
+    const ext = getExtension(fileName.value)
+    return ext === '.doc'
+})
 
 // File extension to category mapping
 const EXTENSION_CATEGORY: Record<string, FileCategory> = {
     '.pdf': 'pdf',
+    '.doc': 'word',
     '.docx': 'word',
     '.xlsx': 'excel',
     '.xls': 'excel',
@@ -283,6 +291,7 @@ async function loadMarkdownFile() {
 
 async function initPreview() {
     loading.value = true
+    converting.value = false
     error.value = ''
     textContent.value = ''
     markdownHtml.value = ''
@@ -299,6 +308,21 @@ async function initPreview() {
         error.value = t('filePreview.fileNotFound')
         loading.value = false
         return
+    }
+
+    // .doc 文件需要服务端转换为 .docx
+    if (isLegacyDoc.value && fileId.value) {
+        converting.value = true
+        try {
+            const resp = await convertFile(fileId.value)
+            fileUrl.value = resp.url
+        } catch {
+            error.value = t('filePreview.convertFailed')
+            loading.value = false
+            converting.value = false
+            return
+        }
+        converting.value = false
     }
 
     // For text/code files, fetch content manually

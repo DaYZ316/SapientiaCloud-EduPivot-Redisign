@@ -34,15 +34,15 @@
 
             <dl class="metadata-grid">
               <div class="metadata-item">
-                <dt>Level</dt>
+                <dt>{{ t('courseDetail.level') }}</dt>
                 <dd><School :size="16" stroke-width="1.7"/> {{ levelLabel }}</dd>
               </div>
               <div class="metadata-item">
-                <dt>Status</dt>
-                <dd><CircleCheck :size="16" stroke-width="1.7"/> {{ statusLabel }}</dd>
+                <dt>{{ t('courseDetail.totalClassHours') }}</dt>
+                <dd><Clock :size="16" stroke-width="1.7"/> {{ totalClassHoursLabel }}</dd>
               </div>
               <div class="metadata-item">
-                <dt>Access</dt>
+                <dt>{{ t('courseDetail.access') }}</dt>
                 <dd>
                   <Globe v-if="course.isPublic === 1" :size="16" stroke-width="1.7"/>
                   <LockKeyhole v-else :size="16" stroke-width="1.7"/>
@@ -50,7 +50,7 @@
                 </dd>
               </div>
               <div class="metadata-item">
-                <dt>Format</dt>
+                <dt>{{ t('courseDetail.format') }}</dt>
                 <dd><DoorOpen :size="16" stroke-width="1.7"/> {{ courseTypeLabel || t('courseDetail.toBeArranged') }}</dd>
               </div>
               <div class="metadata-item">
@@ -94,6 +94,7 @@
             :files="courseFiles"
             :students="courseStudents"
             :assistants="assistantOnlyInfos"
+            v-bind="activeListPaginationProps"
             :can-manage-course="canManageCourse"
             :can-manage-assistants="canManageAssistants"
             :is-admin="isAdmin"
@@ -113,6 +114,7 @@
             @refresh-files="reloadFiles"
             @refresh-students="reloadStudents"
             @refresh-course="reloadCourse"
+            @page-change="handleListPageChange"
           />
         </section>
 
@@ -226,8 +228,6 @@
       :visible="showEditModal"
       mode="edit"
       :course="course"
-      :show-teacher-section="isAdmin"
-      :is-admin="isAdmin"
       :can-edit-course-status="canEditCourseStatus"
       @close="showEditModal = false"
       @updated="handleCourseUpdated"
@@ -243,7 +243,7 @@ import {
   ArrowLeft,
   BookOpen,
   CalendarDays,
-  CircleCheck,
+  Clock,
   Database,
   DoorOpen,
   Globe,
@@ -261,7 +261,7 @@ import {
 
 import {deleteChapter, getChapterTree, createChapter, updateChapter} from '@/features/course/api/chapter'
 import {enroll, getCourse, getCourseEnrollments, listCourseFiles, updateCourse} from '@/features/course/api/course'
-import {getCourseQuestionBanks} from '@/features/question-bank/api/questionBank'
+import {getQuestionBanks} from '@/features/question-bank/api/questionBank'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import {useAuthStore} from '@/features/auth/stores/auth'
 
@@ -280,8 +280,9 @@ import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {recordCourseVisit} from '@/shared/composables/useRecentCourses'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 
-type TabKey = 'overview' | 'chapters' | 'forums' | 'banks' | 'files' | 'class-sessions' | 'students' | 'assistants'
+type TabKey = 'overview' | 'chapters' | 'forums' | 'banks' | 'files' | 'students' | 'assistants'
 type TeacherInfo = NonNullable<CourseDetail['teacherInfos']>[number]
+const DETAIL_PAGE_SIZE = 10
 
 const {t, locale} = useI18n()
 const route = useRoute()
@@ -292,12 +293,25 @@ const courseId = route.params.id as string
 
 const loading = ref(true)
 const chaptersLoading = ref(false)
+const banksLoading = ref(false)
+const filesLoading = ref(false)
+const studentsLoading = ref(false)
 const enrolling = ref(false)
 const course = ref<CourseDetail | null>(null)
 const chapterTree = ref<Chapter[]>([])
 const courseBanks = ref<QuestionBank[]>([])
 const courseFiles = ref<CourseFile[]>([])
 const courseStudents = ref<Enrollment[]>([])
+const chaptersLoaded = ref(false)
+const banksLoaded = ref(false)
+const filesLoaded = ref(false)
+const studentsLoaded = ref(false)
+const banksPage = ref(1)
+const banksTotal = ref(0)
+const filesPage = ref(1)
+const filesTotal = ref(0)
+const studentsPage = ref(1)
+const studentsTotal = ref(0)
 const showChapterEditor = ref(false)
 const showEditModal = ref(false)
 const editingChapter = ref<Chapter | null>(null)
@@ -358,13 +372,10 @@ const levelLabel = computed(() => {
   }
   return labels[course.value?.level || 0] || t('courseDetail.levelUnknown')
 })
-const statusLabel = computed(() => {
-  const labels: Record<number, string> = {
-    0: t('courses.status.draft'),
-    1: t('courses.status.published'),
-    2: t('courses.status.archived'),
-  }
-  return labels[course.value?.status ?? -1] || t('courseDetail.statusUnknown')
+const totalClassHoursLabel = computed(() => {
+  const hours = course.value?.totalClassHours
+  if (hours == null || hours <= 0) return t('courseDetail.toBeArranged')
+  return `${hours} ${t('courseDetail.classHoursUnit')}`
 })
 const courseTypeLabel = computed(() => {
   if (course.value?.courseType === null || course.value?.courseType === undefined) return ''
@@ -386,12 +397,12 @@ const enrollLabel = computed(() => {
 })
 const primaryActionLabel = computed(() => {
   if (showEnrollButton.value) return enrollLabel.value
-  if (firstChapter.value && canAccessCourseContent.value) return t('courseDetail.continueLearning')
+  if (canAccessCourseContent.value) return t('courseDetail.continueLearning')
   return emptyActionLabel.value
 })
 const primaryActionDisabled = computed(() => {
   if (showEnrollButton.value) return enrolling.value || isFull.value || !isPublished.value
-  return !(firstChapter.value && canAccessCourseContent.value)
+  return !canAccessCourseContent.value
 })
 const maxStudentsLabel = computed(() => {
   if (!course.value || course.value.maxStudents <= 0) return t('courseDetail.unlimited')
@@ -415,7 +426,6 @@ const tabs = computed(() => [
   {key: 'forums' as const, label: t('courseDetail.discussionTab'), icon: MessageCircle, roles: [0, 1, 2]},
   {key: 'banks' as const, label: t('courseDetail.practiceTab'), icon: Database, roles: [0, 1, 2]},
   {key: 'files' as const, label: t('courseDetail.filesTab'), icon: Database, roles: [0, 1, 2]},
-  {key: 'class-sessions' as const, label: t('courseDetail.classSessionsTab'), icon: Presentation, roles: [0, 1, 2]},
   {key: 'students' as const, label: t('courseDetail.studentsTab'), icon: Users, roles: [0, 2]},
   {key: 'assistants' as const, label: t('courseDetail.assistantsTab'), icon: UserCheck, roles: [0, 2]},
 ])
@@ -434,11 +444,62 @@ const activeTabKey = computed(() => {
   return 'overview'
 })
 
+const activeListPage = computed(() => {
+  switch (activeTabKey.value) {
+    case 'banks':
+      return banksPage.value
+    case 'files':
+      return filesPage.value
+    case 'students':
+      return studentsPage.value
+    default:
+      return 1
+  }
+})
+
+const activeListTotal = computed(() => {
+  switch (activeTabKey.value) {
+    case 'banks':
+      return banksTotal.value
+    case 'files':
+      return filesTotal.value
+    case 'students':
+      return studentsTotal.value
+    default:
+      return 0
+  }
+})
+
+const activeListLoading = computed(() => {
+  switch (activeTabKey.value) {
+    case 'banks':
+      return banksLoading.value
+    case 'files':
+      return filesLoading.value
+    case 'students':
+      return studentsLoading.value
+    default:
+      return false
+  }
+})
+
+const activeListPaginationProps = computed(() => {
+  if (!['banks', 'files', 'students'].includes(activeTabKey.value)) {
+    return {}
+  }
+  return {
+    page: activeListPage.value,
+    size: DETAIL_PAGE_SIZE,
+    total: activeListTotal.value,
+    loading: activeListLoading.value,
+  }
+})
+
 onMounted(loadCourseDetail)
 
 watch(activeTabKey, () => {
   if (!course.value || loading.value) return
-  void reloadActiveTabData()
+  void ensureActiveTabData()
 })
 
 async function loadCourseDetail() {
@@ -453,28 +514,11 @@ async function loadCourseDetail() {
       coverUrl: courseData.coverUrl,
       teacherName: courseData.teacherName,
     })
-    const [chapters, banks, files] = await Promise.allSettled([
-      getChapterTree(courseId),
-      getCourseQuestionBanks(courseId),
-      listCourseFiles(courseId),
-    ])
-
-    chapterTree.value = chapters.status === 'fulfilled' ? chapters.value || [] : []
-    courseBanks.value = banks.status === 'fulfilled' ? banks.value || [] : []
-    courseFiles.value = files.status === 'fulfilled' ? files.value || [] : []
-    courseStudents.value = []
-
-    if (authStore.user?.role === 0 || authStore.user?.role === 2) {
-      try {
-        const studentsResp = await getCourseEnrollments(courseId, 1, 200)
-        courseStudents.value = studentsResp.records || []
-      } catch {
-        courseStudents.value = []
-      }
-    }
   } finally {
     loading.value = false
   }
+
+  await ensureActiveTabData()
 }
 
 async function handleEnroll() {
@@ -501,8 +545,8 @@ function handlePrimaryAction() {
     void handleEnroll()
     return
   }
-  if (firstChapter.value && canAccessCourseContent.value) {
-    handleChapterSelect(firstChapter.value)
+  if (canAccessCourseContent.value) {
+    router.push({name: 'course-class-sessions', params: {id: courseId}})
   }
 }
 
@@ -582,10 +626,27 @@ function goToCourseBanks() {
 }
 
 async function openClassSessionCreator() {
-  if (activeTabKey.value !== 'class-sessions') {
-    await router.push({name: 'course-class-sessions', params: {id: courseId}})
+  if (route.name !== 'course-class-sessions') {
+    await router.push({name: 'course-class-sessions', params: {id: courseId}, query: {create: '1'}})
   }
   classSessionCreateRequestKey.value += 1
+}
+
+async function ensureActiveTabData() {
+  switch (activeTabKey.value) {
+    case 'chapters':
+      if (!chaptersLoaded.value && !chaptersLoading.value) await reloadChapters()
+      break
+    case 'banks':
+      if (!banksLoaded.value && !banksLoading.value) await reloadBanks()
+      break
+    case 'files':
+      if (!filesLoaded.value && !filesLoading.value) await reloadFiles()
+      break
+    case 'students':
+      if (!studentsLoaded.value && !studentsLoading.value) await reloadStudents()
+      break
+  }
 }
 
 async function reloadActiveTabData() {
@@ -602,8 +663,6 @@ async function reloadActiveTabData() {
     case 'files':
       await reloadFiles()
       break
-    case 'class-sessions':
-      break
     case 'students':
       await Promise.all([reloadStudents(), reloadCourse()])
       break
@@ -613,33 +672,93 @@ async function reloadActiveTabData() {
   }
 }
 
+async function handleListPageChange(page: number) {
+  switch (activeTabKey.value) {
+    case 'banks':
+      await reloadBanks(page)
+      break
+    case 'files':
+      await reloadFiles(page)
+      break
+    case 'students':
+      await reloadStudents(page)
+      break
+  }
+}
+
 async function reloadChapters() {
   chaptersLoading.value = true
   try {
     chapterTree.value = await getChapterTree(courseId)
+    chaptersLoaded.value = true
   } finally {
     chaptersLoading.value = false
   }
 }
 
-async function reloadBanks() {
-  courseBanks.value = await getCourseQuestionBanks(courseId)
+async function reloadBanks(page = banksPage.value) {
+  if (banksLoading.value) return
+  banksLoading.value = true
+  try {
+    let nextPage = page
+    let resp = await getQuestionBanks({courseId, page: nextPage, size: DETAIL_PAGE_SIZE})
+    while ((resp.records || []).length === 0 && resp.total > 0 && nextPage > 1) {
+      nextPage -= 1
+      resp = await getQuestionBanks({courseId, page: nextPage, size: DETAIL_PAGE_SIZE})
+    }
+    courseBanks.value = resp.records || []
+    banksPage.value = resp.page
+    banksTotal.value = resp.total
+    banksLoaded.value = true
+  } finally {
+    banksLoading.value = false
+  }
 }
 
-async function reloadFiles() {
-  courseFiles.value = await listCourseFiles(courseId)
+async function reloadFiles(page = filesPage.value) {
+  if (filesLoading.value) return
+  filesLoading.value = true
+  try {
+    let nextPage = page
+    let resp = await listCourseFiles(courseId, nextPage, DETAIL_PAGE_SIZE)
+    while ((resp.records || []).length === 0 && resp.total > 0 && nextPage > 1) {
+      nextPage -= 1
+      resp = await listCourseFiles(courseId, nextPage, DETAIL_PAGE_SIZE)
+    }
+    courseFiles.value = resp.records || []
+    filesPage.value = resp.page
+    filesTotal.value = resp.total
+    filesLoaded.value = true
+  } finally {
+    filesLoading.value = false
+  }
 }
 
-async function reloadStudents() {
+async function reloadStudents(page = studentsPage.value) {
+  if (studentsLoading.value) return
   if (authStore.user?.role !== 0 && authStore.user?.role !== 2) {
     courseStudents.value = []
+    studentsTotal.value = 0
+    studentsLoaded.value = true
     return
   }
+  studentsLoading.value = true
   try {
-    const resp = await getCourseEnrollments(courseId, 1, 200)
+    let nextPage = page
+    let resp = await getCourseEnrollments(courseId, nextPage, DETAIL_PAGE_SIZE)
+    while ((resp.records || []).length === 0 && resp.total > 0 && nextPage > 1) {
+      nextPage -= 1
+      resp = await getCourseEnrollments(courseId, nextPage, DETAIL_PAGE_SIZE)
+    }
     courseStudents.value = resp.records || []
+    studentsPage.value = resp.page
+    studentsTotal.value = resp.total
+    studentsLoaded.value = true
   } catch {
     courseStudents.value = []
+    studentsTotal.value = 0
+  } finally {
+    studentsLoading.value = false
   }
 }
 

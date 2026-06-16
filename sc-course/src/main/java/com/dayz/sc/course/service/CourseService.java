@@ -56,6 +56,9 @@ public class CourseService {
     @CacheEvict(value = "courseDetail", allEntries = true)
     public UUID createCourse(CreateCourseRequest request, UUID teacherId) {
         CourseLevel.fromCode(request.level());
+        if (request.assistantIds() != null) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "助教只能通过邀请加入");
+        }
 
         Course course = new Course();
         course.setId(UuidV7Generator.generate());
@@ -69,12 +72,13 @@ public class CourseService {
         course.setCourseType(request.courseType());
         course.setIsPublic(request.isPublic());
         course.setMaxStudents(request.maxStudents());
+        course.setTotalClassHours(request.totalClassHours());
         course.setStatus(CourseStatus.DRAFT.getCode());
 
         courseRepository.save(course);
 
         // 保存教师关联：主讲教师 + 助教
-        saveTeacherAssociations(course.getId(), teacherId, request.assistantIds());
+        courseTeacherRepository.batchSave(course.getId(), List.of(teacherId));
 
         if (request.coverFileId() != null) {
             validateCourseCoverFile(request.coverFileId(), course.getId());
@@ -98,8 +102,12 @@ public class CourseService {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
 
-        UUID previousTeacherId = course.getTeacherId();
-        UUID effectiveTeacherId = previousTeacherId;
+        if (request.teacherId() != null) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "主讲教师不允许通过课程表单更新");
+        }
+        if (request.assistantIds() != null) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "助教只能通过邀请加入");
+        }
 
         if (request.title() != null) {
             course.setTitle(request.title());
@@ -119,13 +127,6 @@ public class CourseService {
             course.setCoverFileId(request.coverFileId());
             course.setCoverUrl(null);
         }
-        if (request.teacherId() != null) {
-            if (!SecurityUtils.isAdmin(role)) {
-                throw new BusinessException(ErrorCodes.FORBIDDEN);
-            }
-            effectiveTeacherId = request.teacherId();
-            course.setTeacherId(effectiveTeacherId);
-        }
         if (request.maxStudents() != null) {
             course.setMaxStudents(request.maxStudents());
         }
@@ -138,6 +139,9 @@ public class CourseService {
         if (request.courseType() != null) {
             course.setCourseType(request.courseType());
         }
+        if (request.totalClassHours() != null) {
+            course.setTotalClassHours(request.totalClassHours());
+        }
         // isPublic 在创建后不可修改，忽略请求中的值
         Integer previousStatus = course.getStatus();
         if (request.status() != null) {
@@ -149,11 +153,6 @@ public class CourseService {
             course.setStatus(request.status());
         }
 
-        // 只有主讲教师或管理员才能管理助教
-        if (request.assistantIds() != null && !course.getTeacherId().equals(userId) && !SecurityUtils.isAdmin(role)) {
-            throw new BusinessException(ErrorCodes.FORBIDDEN, "只有主讲教师才能管理助教");
-        }
-
         courseRepository.update(course);
 
         // 发布课程状态变更事件
@@ -163,18 +162,6 @@ public class CourseService {
                     course.getId(), course.getTitle(), course.getTeacherId(), action);
         }
 
-        // 同步助教关联
-        if (request.assistantIds() != null || !Objects.equals(previousTeacherId, effectiveTeacherId)) {
-            List<UUID> assistantIds = request.assistantIds();
-            if (assistantIds == null) {
-                UUID finalEffectiveTeacherId = effectiveTeacherId;
-                assistantIds = courseTeacherRepository.findTeacherIdsByCourseId(courseId).stream()
-                        .filter(id -> !Objects.equals(id, previousTeacherId))
-                        .filter(id -> !Objects.equals(id, finalEffectiveTeacherId))
-                        .toList();
-            }
-            syncTeacherAssociations(courseId, effectiveTeacherId, assistantIds);
-        }
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -247,12 +234,13 @@ public class CourseService {
                 coverUrl,
                 course.getCoverFileId(),
                 teacherIds,
-                teacherIds.stream().<UserBasicInfo>map(id -> assistantInfoMap.getOrDefault(id, new UserBasicInfo(id, null, null))).toList(),
+                teacherIds.stream().<UserBasicInfo>map(id -> assistantInfoMap.getOrDefault(id, new UserBasicInfo(id, null, null, null))).toList(),
                 course.getSemester(),
                 course.getLocation(),
                 course.getCourseType(),
                 course.getIsPublic(),
                 course.getMaxStudents(),
+                course.getTotalClassHours(),
                 (int) currentStudents,
                 course.getStatus(),
                 enrolled,
@@ -325,44 +313,6 @@ public class CourseService {
         return new PageResponse<>(voList, total, page, size);
     }
 
-    private void saveTeacherAssociations(UUID courseId, UUID mainTeacherId, List<UUID> assistantIds) {
-        Set<UUID> allTeacherIds = new LinkedHashSet<>();
-        allTeacherIds.add(mainTeacherId);
-        if (assistantIds != null) {
-            allTeacherIds.addAll(assistantIds);
-        }
-        courseTeacherRepository.batchSave(courseId, List.copyOf(allTeacherIds));
-    }
-
-    private void syncTeacherAssociations(UUID courseId, UUID mainTeacherId, List<UUID> newAssistantIds) {
-        List<UUID> existingTeacherIds = courseTeacherRepository.findTeacherIdsByCourseId(courseId);
-
-        Set<UUID> desiredIds = new LinkedHashSet<>();
-        desiredIds.add(mainTeacherId);
-        if (newAssistantIds != null) {
-            newAssistantIds.stream()
-                    .filter(Objects::nonNull)
-                    .filter(id -> !Objects.equals(id, mainTeacherId))
-                    .forEach(desiredIds::add);
-        }
-
-        // 需要删除的（排除主讲教师）
-        List<UUID> toRemove = existingTeacherIds.stream()
-                .filter(id -> !desiredIds.contains(id))
-                .toList();
-        if (!toRemove.isEmpty()) {
-            courseTeacherRepository.deleteByCourseIdAndTeacherIds(courseId, toRemove);
-        }
-
-        // 需要添加的
-        List<UUID> toAdd = desiredIds.stream()
-                .filter(id -> !existingTeacherIds.contains(id))
-                .toList();
-        if (!toAdd.isEmpty()) {
-            courseTeacherRepository.batchSave(courseId, toAdd);
-        }
-    }
-
     private CourseVO toCourseVO(Course course, long currentStudents, List<UUID> teacherIds,
                                 Map<UUID, String> coverUrls, Map<UUID, UserBasicInfo> teacherInfoMap) {
         String coverUrl = course.getCoverFileId() != null
@@ -389,6 +339,7 @@ public class CourseService {
                 course.getCourseType(),
                 course.getIsPublic(),
                 course.getMaxStudents(),
+                course.getTotalClassHours(),
                 (int) currentStudents,
                 course.getStatus(),
                 course.getCreatedAt(),

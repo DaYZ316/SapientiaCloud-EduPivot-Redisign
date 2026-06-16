@@ -1,8 +1,8 @@
 package com.dayz.sc.course.repository;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.model.entity.CourseFile;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -20,5 +20,5 @@ public interface CourseFileRepository {
 
     void deleteById(UUID id);
 
-    List<CourseFile> findByCourseId(UUID courseId);
+    Page<CourseFile> findByCourseId(UUID courseId, int page, int size);
 }

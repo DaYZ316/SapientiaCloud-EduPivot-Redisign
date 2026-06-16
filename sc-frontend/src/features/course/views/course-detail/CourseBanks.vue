@@ -61,6 +61,17 @@
         </div>
       </article>
     </div>
+    <BasePagination
+      v-if="total > 0"
+      :page="page"
+      :size="size"
+      :total="total"
+      :disabled="loading"
+      :aria-label="t('courseDetail.pagination')"
+      :previous-title="t('courseDetail.previousPage')"
+      :next-title="t('courseDetail.nextPage')"
+      @change="emit('page-change', $event)"
+    />
 
     <!-- 创建/编辑题库对话�?-->
     <Teleport to="body">
@@ -73,7 +84,7 @@
               <input v-model="form.bankName" type="text" required maxlength="200"/>
             </label>
             <label>
-              {{ t('questionBank.description') }}
+              {{ t('questionBank.bankDescription') }}
               <textarea v-model="form.description" rows="3" maxlength="2000"></textarea>
             </label>
             <label>
@@ -105,22 +116,33 @@ import {Database, Pencil, Plus, Trash2} from 'lucide-vue-next'
 import {createQuestionBank, updateQuestionBank, deleteQuestionBank} from '@/features/question-bank/api/questionBank'
 import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
+import BasePagination from '@/shared/components/BasePagination.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import type {CourseDetail} from '@/features/course/types/course'
 import type {QuestionBank} from '@/features/question-bank/types/questionBank'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   courseId: string
   course: CourseDetail
   banks: QuestionBank[]
+  page?: number
+  size?: number
+  total?: number
+  loading?: boolean
   canManageCourse: boolean
   canAccessCourseContent: boolean
   isStudent: boolean
   formatDate: (dateStr?: string | null) => string
-}>()
+}>(), {
+  page: 1,
+  size: 10,
+  total: 0,
+  loading: false,
+})
 
 const emit = defineEmits<{
   refresh: []
+  'page-change': [page: number]
 }>()
 
 const {t} = useI18n()

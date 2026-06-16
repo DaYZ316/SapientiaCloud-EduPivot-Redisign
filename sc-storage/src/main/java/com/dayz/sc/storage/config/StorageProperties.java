@@ -15,6 +15,7 @@ public class StorageProperties {
     private final Bucket bucket = new Bucket();
     private final Expiry expiry = new Expiry();
     private final Limits limits = new Limits();
+    private final Conversion conversion = new Conversion();
 
     public Minio getMinio() {
         return minio;
@@ -30,6 +31,10 @@ public class StorageProperties {
 
     public Limits getLimits() {
         return limits;
+    }
+
+    public Conversion getConversion() {
+        return conversion;
     }
 
     public static class Minio {
@@ -176,6 +181,36 @@ public class StorageProperties {
 
         public void setAiFileBytes(long aiFileBytes) {
             this.aiFileBytes = aiFileBytes;
+        }
+    }
+
+    public static class Conversion {
+        private String officeHome;
+        private int maxTasksPerProcess = 200;
+        private long taskTimeoutMs = 120000;
+
+        public String getOfficeHome() {
+            return officeHome;
+        }
+
+        public void setOfficeHome(String officeHome) {
+            this.officeHome = officeHome;
+        }
+
+        public int getMaxTasksPerProcess() {
+            return maxTasksPerProcess;
+        }
+
+        public void setMaxTasksPerProcess(int maxTasksPerProcess) {
+            this.maxTasksPerProcess = maxTasksPerProcess;
+        }
+
+        public long getTaskTimeoutMs() {
+            return taskTimeoutMs;
+        }
+
+        public void setTaskTimeoutMs(long taskTimeoutMs) {
+            this.taskTimeoutMs = taskTimeoutMs;
         }
     }
 }
