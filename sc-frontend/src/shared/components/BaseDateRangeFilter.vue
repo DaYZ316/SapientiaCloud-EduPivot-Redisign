@@ -3,17 +3,17 @@
     <label v-if="label" class="base-date-range-label">{{ label }}</label>
     <div class="base-date-range-fields">
       <BaseDatePicker
-        :id="startId"
-        :model-value="start"
-        :placeholder="startPlaceholder"
-        @update:model-value="updateStart"
+          :id="startId"
+          :model-value="start"
+          :placeholder="startPlaceholder"
+          @update:model-value="updateStart"
       />
-      <span class="base-date-range-separator" aria-hidden="true">—</span>
+      <span aria-hidden="true" class="base-date-range-separator">—</span>
       <BaseDatePicker
-        :id="endId"
-        :model-value="end"
-        :placeholder="endPlaceholder"
-        @update:model-value="updateEnd"
+          :id="endId"
+          :model-value="end"
+          :placeholder="endPlaceholder"
+          @update:model-value="updateEnd"
       />
     </div>
   </div>

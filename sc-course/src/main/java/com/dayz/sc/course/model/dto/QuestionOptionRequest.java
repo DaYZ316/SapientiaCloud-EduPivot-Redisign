@@ -18,4 +18,5 @@ public record QuestionOptionRequest(
         BigDecimal score,
         List<String> imageUrls,
         String explanation
-) {}
+) {
+}

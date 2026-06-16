@@ -1,8 +1,8 @@
 <template>
   <div class="profile-page">
     <section class="profile-hero">
-      <div class="profile-avatar" :class="{ 'profile-avatar--image': Boolean(user?.avatarUrl) }">
-        <img v-if="user?.avatarUrl" :src="user.avatarUrl" :alt="`${displayName} avatar`"/>
+      <div :class="{ 'profile-avatar--image': Boolean(user?.avatarUrl) }" class="profile-avatar">
+        <img v-if="user?.avatarUrl" :alt="`${displayName} avatar`" :src="user.avatarUrl"/>
         <span v-else>{{ initials }}</span>
       </div>
 
@@ -30,7 +30,7 @@
       </div>
 
       <div class="profile-actions">
-        <router-link to="/settings" class="btn-primary">
+        <router-link class="btn-primary" to="/settings">
           <Pencil :size="15" stroke-width="1.8"/>
           {{ t('profile.editProfile') }}
         </router-link>
@@ -56,10 +56,10 @@
 
           <div class="identity-grid">
             <div
-              v-for="item in identityDetails"
-              :key="item.label"
-              class="identity-item"
-              :class="{ 'identity-item--wide': item.wide }"
+                v-for="item in identityDetails"
+                :key="item.label"
+                :class="{ 'identity-item--wide': item.wide }"
+                class="identity-item"
             >
               <span>{{ item.label }}</span>
               <strong>{{ item.value }}</strong>
@@ -73,7 +73,10 @@
               <p class="panel-label">{{ t('profile.studentSection.workloadLabel') }}</p>
               <h2>{{ t('profile.studentSection.workloadTitle') }}</h2>
             </div>
-            <router-link to="/my-enrollments" class="btn-text">{{ t('profile.studentSection.viewEnrollments') }}</router-link>
+            <router-link class="btn-text" to="/my-enrollments">{{
+                t('profile.studentSection.viewEnrollments')
+              }}
+            </router-link>
           </div>
 
           <div v-if="studentLoading" class="state-list">
@@ -104,7 +107,7 @@
               <p class="panel-label">{{ t('profile.teacherSection.operationsLabel') }}</p>
               <h2>{{ t('profile.teacherSection.operationsTitle') }}</h2>
             </div>
-            <router-link to="/courses" class="btn-text">{{ t('common.navigation.courses') }}</router-link>
+            <router-link class="btn-text" to="/courses">{{ t('common.navigation.courses') }}</router-link>
           </div>
 
           <div v-if="teacherLoading" class="state-list">
@@ -120,7 +123,7 @@
                 <h3>{{ course.title }}</h3>
                 <p>{{ course.meta }}</p>
               </div>
-              <div class="course-progress" :aria-label="`${course.title} capacity`">
+              <div :aria-label="`${course.title} capacity`" class="course-progress">
                 <span :style="{ width: `${course.progress}%` }"></span>
               </div>
               <span class="status-token">{{ course.status }}</span>
@@ -138,7 +141,7 @@
               <p class="panel-label">{{ t('profile.userSection.readinessLabel') }}</p>
               <h2>{{ t('profile.userSection.readinessTitle') }}</h2>
             </div>
-            <router-link to="/settings" class="btn-text">{{ t('profile.userSection.updateProfile') }}</router-link>
+            <router-link class="btn-text" to="/settings">{{ t('profile.userSection.updateProfile') }}</router-link>
           </div>
 
           <div class="completion-block">
@@ -381,24 +384,24 @@ const identityDetails = computed<DetailItem[]>(() => {
 })
 
 const studentCourseRows = computed(() => (
-  enrollments.value.slice(0, 4).map((enrollment) => ({
-    id: enrollment.id,
-    title: enrollment.courseTitle || 'Untitled course',
-    meta: enrollment.completedAt
-      ? t('profile.format.completed', {date: formatDateTime(enrollment.completedAt)})
-      : t('profile.format.enrolled', {date: formatDateTime(enrollment.enrolledAt)}),
-    status: getEnrollmentStatus(enrollment.status),
-  }))
+    enrollments.value.slice(0, 4).map((enrollment) => ({
+      id: enrollment.id,
+      title: enrollment.courseTitle || 'Untitled course',
+      meta: enrollment.completedAt
+          ? t('profile.format.completed', {date: formatDateTime(enrollment.completedAt)})
+          : t('profile.format.enrolled', {date: formatDateTime(enrollment.enrolledAt)}),
+      status: getEnrollmentStatus(enrollment.status),
+    }))
 ))
 
 const teacherCourseRows = computed(() => (
-  teacherCourses.value.slice(0, 4).map((course) => ({
-    id: course.id,
-    title: course.title,
-    meta: t('profile.format.enrolledShort', {count: course.currentStudents}) + (course.maxStudents > 0 ? t('profile.format.ofMax', {max: course.maxStudents}) : ''),
-    status: getCourseStatus(course.status),
-    progress: getCourseCapacity(course),
-  }))
+    teacherCourses.value.slice(0, 4).map((course) => ({
+      id: course.id,
+      title: course.title,
+      meta: t('profile.format.enrolledShort', {count: course.currentStudents}) + (course.maxStudents > 0 ? t('profile.format.ofMax', {max: course.maxStudents}) : ''),
+      status: getCourseStatus(course.status),
+      progress: getCourseCapacity(course),
+    }))
 ))
 
 const metrics = computed<MetricItem[]>(() => {
@@ -407,9 +410,21 @@ const metrics = computed<MetricItem[]>(() => {
     const activeCount = enrollments.value.filter((enrollment) => enrollment.status === 1).length
 
     return [
-      {label: t('profile.metricsFields.enrolledCourses'), value: formatNumber(studentTotal.value), note: t('profile.metricsNotes.fromEnrollment')},
-      {label: t('profile.metricsFields.activeCourses'), value: formatNumber(activeCount), note: t('profile.metricsNotes.currentlyLearning')},
-      {label: t('profile.metricsFields.completed'), value: formatNumber(completedCount), note: t('profile.metricsNotes.loadedRecords')},
+      {
+        label: t('profile.metricsFields.enrolledCourses'),
+        value: formatNumber(studentTotal.value),
+        note: t('profile.metricsNotes.fromEnrollment')
+      },
+      {
+        label: t('profile.metricsFields.activeCourses'),
+        value: formatNumber(activeCount),
+        note: t('profile.metricsNotes.currentlyLearning')
+      },
+      {
+        label: t('profile.metricsFields.completed'),
+        value: formatNumber(completedCount),
+        note: t('profile.metricsNotes.loadedRecords')
+      },
       {label: t('profile.metricsFields.certificates'), value: '--', note: t('profile.metricsNotes.waitingCertificate')},
     ]
   }
@@ -419,17 +434,41 @@ const metrics = computed<MetricItem[]>(() => {
     const publishedCount = teacherCourses.value.filter((course) => course.status === 1).length
 
     return [
-      {label: t('profile.metricsFields.coursesTaught'), value: formatNumber(teacherCourseTotal.value), note: t('profile.metricsNotes.ownedRecords')},
-      {label: t('profile.metricsFields.visibleStudents'), value: formatNumber(activeStudents), note: t('profile.metricsNotes.fromLoadedCourses')},
-      {label: t('profile.metricsFields.published'), value: formatNumber(publishedCount), note: t('profile.metricsNotes.activeRecords')},
+      {
+        label: t('profile.metricsFields.coursesTaught'),
+        value: formatNumber(teacherCourseTotal.value),
+        note: t('profile.metricsNotes.ownedRecords')
+      },
+      {
+        label: t('profile.metricsFields.visibleStudents'),
+        value: formatNumber(activeStudents),
+        note: t('profile.metricsNotes.fromLoadedCourses')
+      },
+      {
+        label: t('profile.metricsFields.published'),
+        value: formatNumber(publishedCount),
+        note: t('profile.metricsNotes.activeRecords')
+      },
       {label: t('profile.metricsFields.pendingReviews'), value: '--', note: t('profile.metricsNotes.waitingReview')},
     ]
   }
 
   return [
-    {label: t('profile.metricsFields.completion'), value: `${profileCompletion.value}%`, note: t('profile.metricsNotes.profileFields')},
-    {label: t('profile.metricsFields.loginCount'), value: formatNumber(user.value?.loginCount), note: t('profile.metricsNotes.accountActivity')},
-    {label: t('profile.metricsFields.providers'), value: formatNumber(user.value?.linkedProviders?.length), note: t('profile.metricsNotes.linkedMethods')},
+    {
+      label: t('profile.metricsFields.completion'),
+      value: `${profileCompletion.value}%`,
+      note: t('profile.metricsNotes.profileFields')
+    },
+    {
+      label: t('profile.metricsFields.loginCount'),
+      value: formatNumber(user.value?.loginCount),
+      note: t('profile.metricsNotes.accountActivity')
+    },
+    {
+      label: t('profile.metricsFields.providers'),
+      value: formatNumber(user.value?.linkedProviders?.length),
+      note: t('profile.metricsNotes.linkedMethods')
+    },
     {label: t('profile.metricsFields.role'), value: roleLabel.value, note: t('profile.metricsNotes.currentScope')},
   ]
 })

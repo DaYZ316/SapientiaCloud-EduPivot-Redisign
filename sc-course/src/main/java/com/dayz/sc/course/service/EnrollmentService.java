@@ -1,16 +1,16 @@
 package com.dayz.sc.course.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.feign.client.AuthInternalClient;
+import com.dayz.sc.common.feign.client.StorageInternalClient;
 import com.dayz.sc.common.feign.dto.UserBasicInfo;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.common.util.PageUtils;
 import com.dayz.sc.common.util.UuidV7Generator;
-import com.dayz.sc.common.response.ApiResponse;
-import com.dayz.sc.common.feign.client.StorageInternalClient;
 import com.dayz.sc.course.event.CourseEventPublisher;
 import com.dayz.sc.course.model.dto.EnrollRequest;
 import com.dayz.sc.course.model.entity.Course;
@@ -18,6 +18,7 @@ import com.dayz.sc.course.model.entity.Enrollment;
 import com.dayz.sc.course.model.enums.CourseStatus;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
 import com.dayz.sc.course.model.vo.EnrollmentVO;
+import com.dayz.sc.course.repository.ClassSessionRepository;
 import com.dayz.sc.course.repository.CourseRepository;
 import com.dayz.sc.course.repository.CourseTeacherRepository;
 import com.dayz.sc.course.repository.EnrollmentRepository;
@@ -26,11 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -50,6 +47,7 @@ public class EnrollmentService {
     private final CourseEventPublisher courseEventPublisher;
     private final AuthInternalClient authInternalClient;
     private final CourseTeacherRepository courseTeacherRepository;
+    private final ClassSessionRepository classSessionRepository;
 
     @Transactional(rollbackFor = Exception.class)
     public UUID enroll(EnrollRequest request, UUID studentId) {
@@ -149,9 +147,15 @@ public class EnrollmentService {
         Map<UUID, Course> courses = loadCourses(enrollments);
         Map<UUID, String> coverUrls = loadCoverUrls(courses.values().stream().toList());
         Map<UUID, String> studentNames = loadStudentNames(enrollments);
+        Map<UUID, Long> publishedClassSessionCounts = classSessionRepository.countPublishedByCourseIds(
+                courses.keySet().stream().toList());
 
         List<EnrollmentVO> voList = enrollments.stream()
-                .map(enrollment -> toEnrollmentVO(enrollment, courses.get(enrollment.getCourseId()), coverUrls, studentNames))
+                .map(enrollment -> toEnrollmentVO(enrollment,
+                        courses.get(enrollment.getCourseId()),
+                        coverUrls,
+                        studentNames,
+                        publishedClassSessionCounts.getOrDefault(enrollment.getCourseId(), 0L)))
                 .toList();
 
         return new PageResponse<>(voList, result.getTotal(), currentPage, pageSize);
@@ -173,8 +177,10 @@ public class EnrollmentService {
 
         Map<UUID, String> coverUrls = loadCoverUrls(List.of(course));
         Map<UUID, String> studentNames = loadStudentNames(enrollments);
+        long publishedClassSessionCount = classSessionRepository.countPublishedByCourseIds(List.of(courseId))
+                .getOrDefault(courseId, 0L);
         List<EnrollmentVO> voList = enrollments.stream()
-                .map(enrollment -> toEnrollmentVO(enrollment, course, coverUrls, studentNames))
+                .map(enrollment -> toEnrollmentVO(enrollment, course, coverUrls, studentNames, publishedClassSessionCount))
                 .toList();
 
         return new PageResponse<>(voList, result.getTotal(), currentPage, pageSize);
@@ -197,10 +203,12 @@ public class EnrollmentService {
                 course.getTeacherId(), action);
     }
 
-    private EnrollmentVO toEnrollmentVO(Enrollment enrollment, Course course, Map<UUID, String> coverUrls, Map<UUID, String> studentNames) {
+    private EnrollmentVO toEnrollmentVO(Enrollment enrollment, Course course, Map<UUID, String> coverUrls,
+                                        Map<UUID, String> studentNames, long publishedClassSessionCount) {
         String coverUrl = course != null && course.getCoverFileId() != null
                 ? coverUrls.getOrDefault(course.getCoverFileId(), course.getCoverUrl())
                 : course != null ? course.getCoverUrl() : null;
+        Integer totalClassHours = course != null ? course.getTotalClassHours() : null;
         return new EnrollmentVO(
                 enrollment.getId(),
                 enrollment.getCourseId(),
@@ -210,7 +218,10 @@ public class EnrollmentService {
                 studentNames.getOrDefault(enrollment.getStudentId(), null),
                 enrollment.getStatus(),
                 enrollment.getEnrolledAt(),
-                enrollment.getCompletedAt()
+                enrollment.getCompletedAt(),
+                totalClassHours,
+                publishedClassSessionCount,
+                CourseProgressCalculator.calculate(totalClassHours, publishedClassSessionCount)
         );
     }
 

@@ -24,4 +24,5 @@ public record UpdateQuestionRequest(
         Integer allowPartialCredit,
         List<QuestionOptionRequest> options,
         List<QuestionAnswerRequest> answers
-) {}
+) {
+}

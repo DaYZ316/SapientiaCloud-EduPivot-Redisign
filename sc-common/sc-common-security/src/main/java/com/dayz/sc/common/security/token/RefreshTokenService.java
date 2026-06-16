@@ -1,18 +1,11 @@
 package com.dayz.sc.common.security.token;
 
 import com.dayz.sc.common.security.config.JwtProperties;
-import com.dayz.sc.common.security.service.JwtTokenService;
+import com.dayz.sc.common.util.UuidV7Generator;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.UUID;
-
-import com.dayz.sc.common.util.UuidV7Generator;
 
 /**
  * Refresh Token 管理服务。

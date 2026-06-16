@@ -17,16 +17,17 @@
       <div v-if="chapter.content" class="content-html" v-html="chapter.content"></div>
       <div v-else class="content-placeholder">{{ t('chapter.noContent') }}</div>
 
-      <section v-if="chapter.attachmentUrls && chapter.attachmentUrls.length" id="chapter-attachments" class="attachments-section">
+      <section v-if="chapter.attachmentUrls && chapter.attachmentUrls.length" id="chapter-attachments"
+               class="attachments-section">
         <h3>{{ t('chapter.attachments') }}</h3>
         <div class="attachment-list">
           <a
-            v-for="(url, index) in chapter.attachmentUrls"
-            :key="index"
-            :href="url"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="attachment-item"
+              v-for="(url, index) in chapter.attachmentUrls"
+              :key="index"
+              :href="url"
+              class="attachment-item"
+              rel="noopener noreferrer"
+              target="_blank"
           >
             <FileDown :size="16"/>
             <span>{{ t('chapter.download') }} {{ index + 1 }}</span>
@@ -37,12 +38,12 @@
       <div class="content-meta">
         <span class="meta-item"><Eye :size="14"/> {{ chapter.viewCount }} {{ t('chapter.viewCount') }}</span>
         <button
-          class="meta-item like-button"
-          type="button"
-          :class="{ liked: chapter.likedByMe }"
-          @click="$emit('likeToggle')"
+            :class="{ liked: chapter.likedByMe }"
+            class="meta-item like-button"
+            type="button"
+            @click="$emit('likeToggle')"
         >
-          <Heart :size="14" :fill="chapter.likedByMe ? 'currentColor' : 'none'"/>
+          <Heart :fill="chapter.likedByMe ? 'currentColor' : 'none'" :size="14"/>
           {{ chapter.likeCount }} {{ t('chapter.likeCount') }}
         </button>
       </div>
@@ -52,7 +53,7 @@
 
 <script lang="ts" setup>
 import {useI18n} from 'vue-i18n'
-import {FileText, FileDown, Eye, Heart} from 'lucide-vue-next'
+import {Eye, FileDown, FileText, Heart} from 'lucide-vue-next'
 import type {Chapter} from '@/features/course/types/chapter'
 
 defineProps<{

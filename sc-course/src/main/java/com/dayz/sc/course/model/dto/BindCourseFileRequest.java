@@ -15,4 +15,5 @@ public record BindCourseFileRequest(
         @NotNull UUID fileId,
         @Size(max = 255) String displayName,
         Integer sortOrder
-) {}
+) {
+}

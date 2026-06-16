@@ -8,6 +8,9 @@ import java.util.UUID;
 
 /**
  * Class session participant response.
+ *
+ * @author DaYZ
+ * @since 2026-06-14
  */
 public record ClassParticipantVO(
         @JsonProperty UUID id,
@@ -18,4 +21,5 @@ public record ClassParticipantVO(
         @JsonProperty BigDecimal y,
         @JsonProperty BigDecimal z,
         @JsonProperty Instant joinedAt
-) {}
+) {
+}

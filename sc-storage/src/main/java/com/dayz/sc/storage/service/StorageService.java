@@ -4,8 +4,6 @@ import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.util.UuidV7Generator;
 import com.dayz.sc.storage.config.StorageProperties;
-import com.dayz.sc.storage.repository.StorageObjectRepository;
-import com.dayz.sc.storage.repository.StorageUploadSessionRepository;
 import com.dayz.sc.storage.model.dto.CreateUploadRequest;
 import com.dayz.sc.storage.model.entity.StorageObject;
 import com.dayz.sc.storage.model.entity.StorageUploadSession;
@@ -14,6 +12,8 @@ import com.dayz.sc.storage.model.vo.DownloadUrlResponse;
 import com.dayz.sc.storage.model.vo.FileAsset;
 import com.dayz.sc.storage.model.vo.StorageObjectInfo;
 import com.dayz.sc.storage.model.vo.UploadTicket;
+import com.dayz.sc.storage.repository.StorageObjectRepository;
+import com.dayz.sc.storage.repository.StorageUploadSessionRepository;
 import com.dayz.sc.storage.util.StorageObjectKeyBuilder;
 import io.minio.*;
 import io.minio.errors.ErrorResponseException;
@@ -64,6 +64,8 @@ public class StorageService {
             "text/csv",
             "application/json"
     );
+    private static final String TRAILING_SLASH = "/";
+    private static final String MINIO_ERROR_NO_SUCH_KEY = "NoSuchKey";
 
     private final MinioClient minioClient;
     private final MinioClient presignMinioClient;
@@ -231,8 +233,9 @@ public class StorageService {
         if (objectIds == null || objectIds.isEmpty()) {
             return Map.of();
         }
-        Map<UUID, String> urls = new HashMap<>();
-        for (StorageObject object : storageObjectRepository.findByIdsAndStatus(objectIds, StorageObjectStatus.READY.name())) {
+        List<StorageObject> objects = storageObjectRepository.findByIdsAndStatus(objectIds, StorageObjectStatus.READY.name());
+        Map<UUID, String> urls = new HashMap<>(objects.size());
+        for (StorageObject object : objects) {
             urls.put(object.getId(), objectAccessUrl(object));
         }
         return urls;
@@ -426,7 +429,7 @@ public class StorageService {
         if (value == null) {
             return "";
         }
-        while (value.endsWith("/")) {
+        while (value.endsWith(TRAILING_SLASH)) {
             value = value.substring(0, value.length() - 1);
         }
         return value;
@@ -446,7 +449,7 @@ public class StorageService {
                     .object(object.getObjectKey())
                     .build());
         } catch (ErrorResponseException exception) {
-            if (!"NoSuchKey".equals(exception.errorResponse().code())) {
+            if (!MINIO_ERROR_NO_SUCH_KEY.equals(exception.errorResponse().code())) {
                 throw new BusinessException(ErrorCodes.SYSTEM_ERROR, "Failed to delete object");
             }
             // NoSuchKey: object already absent from MinIO, safe to ignore
@@ -460,5 +463,6 @@ public class StorageService {
             StorageVisibility visibility,
             long maxSizeBytes,
             Set<String> allowedTypes
-    ) {}
+    ) {
+    }
 }

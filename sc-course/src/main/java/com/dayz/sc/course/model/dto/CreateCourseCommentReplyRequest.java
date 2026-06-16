@@ -16,4 +16,5 @@ public record CreateCourseCommentReplyRequest(
         UUID parentReplyId,
         UUID replyToUserId,
         List<String> imageUrls
-) {}
+) {
+}

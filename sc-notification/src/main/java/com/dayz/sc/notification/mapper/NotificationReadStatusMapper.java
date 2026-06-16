@@ -2,12 +2,7 @@ package com.dayz.sc.notification.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.dayz.sc.notification.model.entity.NotificationReadStatus;
-import org.apache.ibatis.annotations.Insert;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Result;
-import org.apache.ibatis.annotations.Results;
-import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.*;
 
 import java.util.List;
 import java.util.Map;
@@ -22,6 +17,13 @@ import java.util.UUID;
 @Mapper
 public interface NotificationReadStatusMapper extends BaseMapper<NotificationReadStatus> {
 
+    /**
+     * 统计用户的未读通知数量。
+     *
+     * @param userId 用户ID
+     * @param type   通知类型
+     * @return 未读通知数量
+     */
     @Select("""
             <script>
             SELECT COUNT(*)
@@ -49,6 +51,9 @@ public interface NotificationReadStatusMapper extends BaseMapper<NotificationRea
      * 一次查询返回全部未读计数（total / system / teaching）。
      * 使用 UNION ALL 将广播通知与指定用户通知拆分为两段独立查询，
      * 避免 OR 条件阻碍索引选择。
+     *
+     * @param userId 用户ID
+     * @return 包含systemCount、teachingCount、totalCount的Map
      */
     @Select("""
             <script>
@@ -92,6 +97,13 @@ public interface NotificationReadStatusMapper extends BaseMapper<NotificationRea
     })
     Map<String, Long> countUnreadAll(@Param("userId") UUID userId);
 
+    /**
+     * 将用户的所有通知标记为已读。
+     *
+     * @param userId 用户ID
+     * @param type   通知类型
+     * @return 受影响的行数
+     */
     @Insert("""
             <script>
             INSERT INTO ntf_read_status (id, notification_id, user_id, read_at)
@@ -117,6 +129,12 @@ public interface NotificationReadStatusMapper extends BaseMapper<NotificationRea
             """)
     int markAllAsRead(@Param("userId") UUID userId, @Param("type") Integer type);
 
+    /**
+     * 批量保存已读状态。
+     *
+     * @param list 已读状态列表
+     * @return 受影响的行数
+     */
     @Insert("""
             <script>
             INSERT INTO ntf_read_status (id, notification_id, user_id, read_at)

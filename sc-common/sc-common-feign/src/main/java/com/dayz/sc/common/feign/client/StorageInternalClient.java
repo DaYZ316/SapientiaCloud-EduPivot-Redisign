@@ -20,9 +20,21 @@ import java.util.UUID;
  */
 @FeignClient(name = "sc-storage", path = "/api/storage/internal", fallback = StorageInternalClientFallback.class)
 public interface StorageInternalClient {
+    /**
+     * 获取文件元数据信息。
+     *
+     * @param fileId 文件ID
+     * @return 文件元数据信息
+     */
     @GetMapping("/files/{fileId}")
     ApiResponse<StorageObjectInfo> getFile(@PathVariable("fileId") UUID fileId);
 
+    /**
+     * 批量获取文件预签名访问URL。
+     *
+     * @param fileIds 文件ID列表
+     * @return 文件ID到预签名URL的映射
+     */
     @PostMapping("/files/urls")
     ApiResponse<Map<UUID, String>> getUrls(@RequestBody List<UUID> fileIds);
 }

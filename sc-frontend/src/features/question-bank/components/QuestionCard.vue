@@ -1,8 +1,8 @@
 <template>
-  <div class="question-card" :class="{published: question.status === 1}" @click="('click')">
+  <div :class="{published: question.status === 1}" class="question-card" @click="('click')">
     <div class="card-header">
-      <span class="type-badge" :class="typeClass">{{ typeName }}</span>
-      <span class="difficulty-badge" :class="difficultyClass">{{ difficultyName }}</span>
+      <span :class="typeClass" class="type-badge">{{ typeName }}</span>
+      <span :class="difficultyClass" class="difficulty-badge">{{ difficultyName }}</span>
       <span v-if="question.status === 1" class="status-badge published">{{ t('questionBank.published') }}</span>
       <span v-else class="status-badge draft">{{ t('questionBank.draft') }}</span>
     </div>
@@ -22,13 +22,13 @@ import {computed} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {Clock, Eye} from 'lucide-vue-next'
 import type {Question} from '@/features/question-bank/types/questionBank'
-import {QuestionType, QuestionDifficulty} from '@/features/question-bank/types/questionBank'
+import {QuestionDifficulty, QuestionType} from '@/features/question-bank/types/questionBank'
 
 const props = defineProps<{
   question: Question
 }>()
 
-defineEmits<{click: []}>()
+defineEmits<{ click: [] }>()
 
 const {t} = useI18n()
 
@@ -78,12 +78,30 @@ const difficultyClass = computed(() => 'diff-' + props.question.difficulty)
   color: var(--color-on-surface);
 }
 
-.difficulty-badge.diff-1 { color: #22c55e; background: rgba(34, 197, 94, 0.12); }
-.difficulty-badge.diff-2 { color: #eab308; background: rgba(234, 179, 8, 0.12); }
-.difficulty-badge.diff-3 { color: #ef4444; background: rgba(239, 68, 68, 0.12); }
+.difficulty-badge.diff-1 {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+}
 
-.status-badge.published { color: #22c55e; background: rgba(34, 197, 94, 0.12); }
-.status-badge.draft { color: var(--color-muted); background: var(--color-surface-container-high); }
+.difficulty-badge.diff-2 {
+  color: #eab308;
+  background: rgba(234, 179, 8, 0.12);
+}
+
+.difficulty-badge.diff-3 {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.status-badge.published {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.status-badge.draft {
+  color: var(--color-muted);
+  background: var(--color-surface-container-high);
+}
 
 .question-title {
   margin: 0;

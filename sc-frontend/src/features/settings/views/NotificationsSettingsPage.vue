@@ -7,7 +7,7 @@
           <button class="btn-secondary" type="button" @click="restoreNotificationDefaults">
             {{ t('settings.resetChanges') }}
           </button>
-          <button class="btn-primary" :disabled="savingNotifications" type="button" @click="saveNotificationSettings">
+          <button :disabled="savingNotifications" class="btn-primary" type="button" @click="saveNotificationSettings">
             {{ savingNotifications ? t('settings.saving') : t('settings.notifications.savePreferences') }}
           </button>
         </div>
@@ -21,7 +21,7 @@
               <p class="setting-desc">{{ item.description }}</p>
             </div>
             <label class="toggle">
-              <input type="checkbox" v-model="notificationSettings[item.key]"/>
+              <input v-model="notificationSettings[item.key]" type="checkbox"/>
               <span class="toggle-slider"></span>
             </label>
           </div>

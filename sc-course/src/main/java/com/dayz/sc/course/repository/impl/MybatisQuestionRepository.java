@@ -10,11 +10,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -59,8 +55,8 @@ public class MybatisQuestionRepository implements QuestionRepository {
 
     @Override
     public Page<Question> findAll(int page, int size, UUID questionBankId, UUID courseId,
-                                   Integer questionType, Integer difficulty, Integer status, String keyword,
-                                   UUID sysUserId) {
+                                  Integer questionType, Integer difficulty, Integer status, String keyword,
+                                  UUID sysUserId) {
         LambdaQueryWrapper<Question> wrapper = new LambdaQueryWrapper<>();
         if (questionBankId != null) {
             wrapper.eq(Question::getQuestionBankId, questionBankId);

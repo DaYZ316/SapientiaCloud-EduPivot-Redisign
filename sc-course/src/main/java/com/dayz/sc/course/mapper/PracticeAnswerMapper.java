@@ -11,4 +11,5 @@ import org.apache.ibatis.annotations.Mapper;
  * @since 2026-06-13
  */
 @Mapper
-public interface PracticeAnswerMapper extends BaseMapper<PracticeAnswer> {}
+public interface PracticeAnswerMapper extends BaseMapper<PracticeAnswer> {
+}

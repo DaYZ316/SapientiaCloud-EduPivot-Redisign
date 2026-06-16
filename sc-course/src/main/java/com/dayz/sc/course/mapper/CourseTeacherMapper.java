@@ -7,7 +7,6 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
-import java.util.UUID;
 
 /**
  * MyBatis-Plus Mapper 接口
@@ -18,6 +17,12 @@ import java.util.UUID;
 @Mapper
 public interface CourseTeacherMapper extends BaseMapper<CourseTeacher> {
 
+    /**
+     * 批量插入课程教师关联。
+     *
+     * @param list 课程教师关联列表
+     * @return 受影响的行数
+     */
     @Insert("""
             <script>
             INSERT INTO edu_course_teacher (id, course_id, teacher_id)

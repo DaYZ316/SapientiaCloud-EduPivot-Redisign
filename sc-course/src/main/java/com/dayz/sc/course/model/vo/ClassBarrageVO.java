@@ -7,6 +7,9 @@ import java.util.UUID;
 
 /**
  * Class barrage response.
+ *
+ * @author DaYZ
+ * @since 2026-06-14
  */
 public record ClassBarrageVO(
         @JsonProperty UUID id,
@@ -14,4 +17,5 @@ public record ClassBarrageVO(
         @JsonProperty UUID senderId,
         @JsonProperty String content,
         @JsonProperty Instant sentAt
-) {}
+) {
+}

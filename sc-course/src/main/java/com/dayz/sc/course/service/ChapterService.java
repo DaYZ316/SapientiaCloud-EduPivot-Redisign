@@ -10,8 +10,8 @@ import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.common.util.PageUtils;
 import com.dayz.sc.common.util.UuidV7Generator;
-import com.dayz.sc.course.model.dto.CreateChapterRequest;
 import com.dayz.sc.course.model.dto.ChapterPageRequest;
+import com.dayz.sc.course.model.dto.CreateChapterRequest;
 import com.dayz.sc.course.model.dto.UpdateChapterRequest;
 import com.dayz.sc.course.model.entity.Chapter;
 import com.dayz.sc.course.model.enums.ChapterStatus;
@@ -31,9 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * 业务服务
@@ -46,13 +46,6 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class ChapterService {
 
-    private final ChapterRepository chapterRepository;
-    private final ChapterLikeRepository chapterLikeRepository;
-    private final EnrollmentRepository enrollmentRepository;
-    private final CourseTeacherRepository courseTeacherRepository;
-    private final StringRedisTemplate stringRedisTemplate;
-    private final StorageInternalClient storageInternalClient;
-
     private static final Duration VIEW_DEDUPLICATE_TTL = Duration.ofMinutes(30);
     private static final String VIEW_KEY_PREFIX = "course:chapter:view:";
     private static final String STORAGE_FILE_SRC_PREFIX = "sc-storage-file:";
@@ -64,6 +57,12 @@ public class ChapterService {
     private static final Pattern STORAGE_FILE_SRC_PATTERN = Pattern.compile("src\\s*=\\s*([\"'])sc-storage-file:([0-9a-fA-F-]{36})\\1");
     private static final Pattern SRC_ATTR_PATTERN = Pattern.compile("src\\s*=\\s*([\"'])([^\"']*)\\1", Pattern.CASE_INSENSITIVE);
     private static final Pattern STORAGE_FILE_ID_PATTERN = Pattern.compile("data-storage-file-id\\s*=\\s*([\"'])([0-9a-fA-F-]{36})\\1");
+    private final ChapterRepository chapterRepository;
+    private final ChapterLikeRepository chapterLikeRepository;
+    private final EnrollmentRepository enrollmentRepository;
+    private final CourseTeacherRepository courseTeacherRepository;
+    private final StringRedisTemplate stringRedisTemplate;
+    private final StorageInternalClient storageInternalClient;
 
     @Transactional(rollbackFor = Exception.class)
     public UUID createChapter(CreateChapterRequest request, UUID teacherId) {

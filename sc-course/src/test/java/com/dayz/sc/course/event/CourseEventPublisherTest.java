@@ -1,11 +1,7 @@
 package com.dayz.sc.course.event;
 
 import com.dayz.sc.common.events.config.KafkaTopicConstants;
-import com.dayz.sc.common.events.course.CourseCreatedEvent;
-import com.dayz.sc.common.events.course.CourseDeletedEvent;
-import com.dayz.sc.common.events.course.CourseStatusChangedEvent;
-import com.dayz.sc.common.events.course.EnrollmentChangedEvent;
-import com.dayz.sc.common.events.course.InvitationChangedEvent;
+import com.dayz.sc.common.events.course.*;
 import com.dayz.sc.course.model.entity.Course;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

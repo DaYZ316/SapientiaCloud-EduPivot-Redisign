@@ -19,4 +19,5 @@ public record QuestionAnswerVO(
         @JsonProperty("explanation") @Nullable String explanation,
         @JsonProperty("score") @Nullable BigDecimal score,
         @JsonProperty("sortOrder") int sortOrder
-) {}
+) {
+}

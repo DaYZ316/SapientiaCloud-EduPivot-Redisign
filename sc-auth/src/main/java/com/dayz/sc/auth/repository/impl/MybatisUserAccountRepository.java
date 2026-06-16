@@ -174,6 +174,7 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
         return userMapper.selectList(wrapper);
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     public List<User> findUsersByIds(Collection<UUID> ids) {
         return userMapper.selectBatchIds(ids);

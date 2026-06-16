@@ -1,10 +1,10 @@
 <template>
   <Teleport to="body">
     <div v-if="visible" class="modal-overlay base-confirm-overlay" @click.self="handleBackdropClick">
-      <section class="modal base-confirm-dialog" role="dialog" aria-modal="true" :aria-labelledby="titleId">
+      <section :aria-labelledby="titleId" aria-modal="true" class="modal base-confirm-dialog" role="dialog">
         <div class="modal-header">
           <h2 :id="titleId">{{ title }}</h2>
-          <button v-if="showClose" class="btn-close" type="button" :aria-label="closeLabel" @click="emit('cancel')">
+          <button v-if="showClose" :aria-label="closeLabel" class="btn-close" type="button" @click="emit('cancel')">
             <X :size="20"/>
           </button>
         </div>
@@ -15,7 +15,8 @@
             <button class="btn-secondary" type="button" @click="emit('cancel')">
               {{ cancelText }}
             </button>
-            <button class="btn-primary" :class="{'btn-danger': confirmVariant === 'danger'}" type="button" @click="emit('confirm')">
+            <button :class="{'btn-danger': confirmVariant === 'danger'}" class="btn-primary" type="button"
+                    @click="emit('confirm')">
               {{ confirmText }}
             </button>
           </div>

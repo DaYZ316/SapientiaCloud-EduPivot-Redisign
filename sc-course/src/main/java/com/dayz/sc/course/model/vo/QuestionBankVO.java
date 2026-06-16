@@ -25,4 +25,5 @@ public record QuestionBankVO(
         @JsonProperty("questionCount") long questionCount,
         @JsonProperty("createdAt") Instant createdAt,
         @JsonProperty("updatedAt") Instant updatedAt
-) {}
+) {
+}

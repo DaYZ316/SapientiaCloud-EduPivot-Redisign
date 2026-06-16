@@ -1,14 +1,14 @@
 <template>
   <BaseConfirmDialog
-    :visible="state.visible"
-    :title="state.title"
-    :message="state.message"
-    :confirm-text="state.confirmText"
-    :cancel-text="state.cancelText"
-    :confirm-variant="state.confirmVariant"
-    :close-label="state.cancelText"
-    @confirm="confirm"
-    @cancel="cancel"
+      :cancel-text="state.cancelText"
+      :close-label="state.cancelText"
+      :confirm-text="state.confirmText"
+      :confirm-variant="state.confirmVariant"
+      :message="state.message"
+      :title="state.title"
+      :visible="state.visible"
+      @cancel="cancel"
+      @confirm="confirm"
   />
 </template>
 

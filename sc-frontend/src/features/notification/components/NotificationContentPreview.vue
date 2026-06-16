@@ -1,21 +1,21 @@
 <template>
-  <div class="notification-content-preview" :class="`variant-${variant}`">
+  <div :class="`variant-${variant}`" class="notification-content-preview">
     <template v-if="blocks.length > 0">
       <component
-        :is="block.tag"
-        v-for="(block, index) in blocks"
-        :key="`${block.tag}-${index}`"
-        class="notification-content-preview-block"
+          :is="block.tag"
+          v-for="(block, index) in blocks"
+          :key="`${block.tag}-${index}`"
+          class="notification-content-preview-block"
       >
         <template v-if="block.type === 'list'">
           <li v-for="(item, itemIndex) in block.items" :key="itemIndex">
-            <component v-for="(part, partIndex) in item" :key="partIndex" :is="part.tag">
+            <component :is="part.tag" v-for="(part, partIndex) in item" :key="partIndex">
               {{ part.text }}
             </component>
           </li>
         </template>
         <template v-else>
-          <component v-for="(part, partIndex) in block.parts" :key="partIndex" :is="part.tag">
+          <component :is="part.tag" v-for="(part, partIndex) in block.parts" :key="partIndex">
             {{ part.text }}
           </component>
         </template>
@@ -25,7 +25,7 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import {computed} from 'vue'
 
 type InlineTag = 'span' | 'strong' | 'em'

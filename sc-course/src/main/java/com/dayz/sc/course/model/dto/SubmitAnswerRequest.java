@@ -15,4 +15,5 @@ public record SubmitAnswerRequest(
         @NotNull UUID questionId,
         List<UUID> selectedOptionIds,
         String textAnswer
-) {}
+) {
+}

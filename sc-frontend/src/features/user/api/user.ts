@@ -1,5 +1,11 @@
 ﻿import {request} from '@/shared/api/request'
-import type {UpdateUserRequest, UserBasicInfo, UserPageQuery, UserPageResponse, UserProfile,} from '@/features/user/types/user'
+import type {
+    UpdateUserRequest,
+    UserBasicInfo,
+    UserPageQuery,
+    UserPageResponse,
+    UserProfile,
+} from '@/features/user/types/user'
 
 export function getCurrentUser() {
     return request<UserProfile>({
@@ -55,13 +61,15 @@ export function resetPassword(id: string) {
         silent: true,
     })
 }
-export function listTeachers(params: {page?: number; size?: number; keyword?: string} = {}) {
+
+export function listTeachers(params: { page?: number; size?: number; keyword?: string } = {}) {
     return request<UserPageResponse>({
         url: '/api/auth/users/teachers',
         method: 'GET',
         params,
     })
 }
+
 export function listAllUsers(params: UserPageQuery = {}) {
     return request<UserPageResponse>({
         url: '/api/auth/users/all',

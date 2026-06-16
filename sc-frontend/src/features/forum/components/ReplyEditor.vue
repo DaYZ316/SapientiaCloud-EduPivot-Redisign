@@ -8,17 +8,17 @@
     </div>
     <div class="editor-row">
       <textarea
-        v-model="content"
-        class="reply-textarea"
-        rows="3"
-        :placeholder="t('forum.replyPlaceholder')"
+          v-model="content"
+          :placeholder="t('forum.replyPlaceholder')"
+          class="reply-textarea"
+          rows="3"
       ></textarea>
     </div>
     <div class="editor-footer">
       <button
-        class="btn-submit"
-        :disabled="!content.trim()"
-        @click="handleSubmit"
+          :disabled="!content.trim()"
+          class="btn-submit"
+          @click="handleSubmit"
       >
         {{ t('forum.submitReply') }}
       </button>

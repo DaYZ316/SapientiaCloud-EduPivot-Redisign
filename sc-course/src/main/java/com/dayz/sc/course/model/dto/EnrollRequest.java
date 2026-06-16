@@ -12,4 +12,5 @@ import java.util.UUID;
  */
 public record EnrollRequest(
         @NotNull UUID courseId
-) {}
+) {
+}

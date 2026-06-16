@@ -7,10 +7,10 @@
       </div>
     </div>
     <CourseComments
-      :course-id="courseId"
-      :can-comment="canComment"
-      :can-manage-course="canManageCourse"
-      :current-user-id="currentUserId"
+        :can-comment="canComment"
+        :can-manage-course="canManageCourse"
+        :course-id="courseId"
+        :current-user-id="currentUserId"
     />
   </section>
 </template>

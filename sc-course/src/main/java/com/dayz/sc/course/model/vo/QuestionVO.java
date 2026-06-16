@@ -34,4 +34,5 @@ public record QuestionVO(
         @JsonProperty("answers") @Nullable List<QuestionAnswerVO> answers,
         @JsonProperty("createdAt") Instant createdAt,
         @JsonProperty("updatedAt") Instant updatedAt
-) {}
+) {
+}

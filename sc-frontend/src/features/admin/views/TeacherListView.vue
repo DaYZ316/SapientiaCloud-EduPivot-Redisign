@@ -10,24 +10,25 @@
     <section class="filter-section">
       <div class="search-input">
         <Search :size="20" stroke-width="1.8"/>
-        <input v-model="searchKeyword" :placeholder="t('admin.teacherList.searchPlaceholder')" @keyup.enter="submitSearch"/>
+        <input v-model="searchKeyword" :placeholder="t('admin.teacherList.searchPlaceholder')"
+               @keyup.enter="submitSearch"/>
       </div>
     </section>
 
     <!-- Loading Skeleton -->
-    <BaseSkeleton v-if="loading" variant="card" :count="6"/>
+    <BaseSkeleton v-if="loading" :count="6" variant="card"/>
 
     <!-- Teacher Grid -->
     <div v-else-if="teachers.length > 0" class="teacher-grid">
       <div v-for="teacher in teachers" :key="teacher.id" class="teacher-card">
         <div class="card-header">
           <UserAvatarLink
-            :user-id="teacher.id"
-            :display-name="teacher.displayName"
-            :avatar-url="teacher.avatarUrl"
-            :role="2"
-            size="large"
-            :show-name="false"
+              :avatar-url="teacher.avatarUrl"
+              :display-name="teacher.displayName"
+              :role="2"
+              :show-name="false"
+              :user-id="teacher.id"
+              size="large"
           />
           <span class="teacher-badge">{{ t('admin.teacherList.teacherBadge') }}</span>
         </div>
@@ -50,28 +51,28 @@
 
     <!-- Empty State -->
     <div v-else class="empty-state">
-      <Monitor :size="48" stroke-width="1.2" class="empty-icon"/>
+      <Monitor :size="48" class="empty-icon" stroke-width="1.2"/>
       <h3>{{ t('admin.teacherList.noTeachers') }}</h3>
       <p>{{ t('admin.teacherList.noTeachersDesc') }}</p>
     </div>
 
     <!-- Pagination -->
     <nav v-if="totalPages > 1" class="pagination">
-      <button class="page-btn" :disabled="currentPage === 1" @click="changePage(currentPage - 1)">
+      <button :disabled="currentPage === 1" class="page-btn" @click="changePage(currentPage - 1)">
         <ChevronLeft :size="18" stroke-width="2"/>
       </button>
       <div class="page-numbers">
         <button
-          v-for="page in displayedPages"
-          :key="page"
-          class="page-btn"
-          :class="{ active: currentPage === page }"
-          @click="changePage(page)"
+            v-for="page in displayedPages"
+            :key="page"
+            :class="{ active: currentPage === page }"
+            class="page-btn"
+            @click="changePage(page)"
         >
           {{ page }}
         </button>
       </div>
-      <button class="page-btn" :disabled="currentPage === totalPages" @click="changePage(currentPage + 1)">
+      <button :disabled="currentPage === totalPages" class="page-btn" @click="changePage(currentPage + 1)">
         <ChevronRight :size="18" stroke-width="2"/>
       </button>
     </nav>

@@ -1,16 +1,16 @@
 <template>
   <div
-    class="layout"
-    :class="[
+      :class="[
       `layout-${uiPreferences.layoutMode}`,
       { 'sidebar-collapsed': uiPreferences.isSidebarLayout && uiPreferences.sidebarCollapsed },
     ]"
+      class="layout"
   >
     <!-- Top Navigation Bar -->
     <header v-if="!uiPreferences.isSidebarLayout" class="top-nav">
       <div class="nav-container">
         <!-- Logo -->
-        <router-link to="/dashboard" class="nav-logo">
+        <router-link class="nav-logo" to="/dashboard">
           <img :src="brandLogoSrc" alt="" class="brand-mark"/>
           <span>SapientiaCloud</span>
         </router-link>
@@ -18,10 +18,10 @@
         <!-- Nav Links -->
         <nav class="nav-links">
           <router-link
-            v-for="item in navItems"
-            :key="item.path"
-            :to="item.path"
-            class="nav-link"
+              v-for="item in navItems"
+              :key="item.path"
+              :to="item.path"
+              class="nav-link"
           >
             <component :is="item.icon" :size="16" stroke-width="1.8"/>
             <span>{{ item.label }}</span>
@@ -30,7 +30,7 @@
 
         <!-- User Section -->
         <div class="nav-user">
-          <button class="btn-icon" :class="{ active: isNotificationsPage }" @click="$router.push('/notifications')">
+          <button :class="{ active: isNotificationsPage }" class="btn-icon" @click="$router.push('/notifications')">
             <Bell :size="20" stroke-width="1.8"/>
             <span v-if="unreadCount > 0" class="notification-badge"></span>
           </button>
@@ -45,25 +45,25 @@
 
           <!-- Dropdown Menu -->
           <div v-if="showUserMenu" class="dropdown-menu">
-            <router-link to="/profile" class="dropdown-item" @click="showUserMenu = false">
+            <router-link class="dropdown-item" to="/profile" @click="showUserMenu = false">
               <UserCircle :size="16"/>
               <span>{{ t('common.menu.profile') }}</span>
             </router-link>
-            <router-link to="/settings" class="dropdown-item" @click="showUserMenu = false">
+            <router-link class="dropdown-item" to="/settings" @click="showUserMenu = false">
               <Settings :size="16"/>
               <span>{{ t('common.menu.settings') }}</span>
             </router-link>
             <template v-if="isAdmin">
               <div class="dropdown-divider"></div>
-              <router-link to="/admin/users" class="dropdown-item" @click="showUserMenu = false">
+              <router-link class="dropdown-item" to="/admin/users" @click="showUserMenu = false">
                 <Users :size="16"/>
                 <span>{{ t('common.menu.users') }}</span>
               </router-link>
-              <router-link to="/admin/students" class="dropdown-item" @click="showUserMenu = false">
+              <router-link class="dropdown-item" to="/admin/students" @click="showUserMenu = false">
                 <GraduationCap :size="16"/>
                 <span>{{ t('common.menu.students') }}</span>
               </router-link>
-              <router-link to="/admin/teachers" class="dropdown-item" @click="showUserMenu = false">
+              <router-link class="dropdown-item" to="/admin/teachers" @click="showUserMenu = false">
                 <BookOpen :size="16"/>
                 <span>{{ t('common.menu.teachers') }}</span>
               </router-link>
@@ -79,17 +79,17 @@
     </header>
 
     <!-- Side Navigation Bar -->
-    <aside v-else class="side-nav" aria-label="Primary navigation">
+    <aside v-else aria-label="Primary navigation" class="side-nav">
       <div class="side-nav-header">
-        <router-link to="/dashboard" class="nav-logo side-logo">
+        <router-link class="nav-logo side-logo" to="/dashboard">
           <img :src="brandLogoSrc" alt="" class="brand-mark"/>
           <span>SapientiaCloud</span>
         </router-link>
         <button
-          type="button"
-          class="btn-icon sidebar-collapse-btn"
-          :aria-label="uiPreferences.sidebarCollapsed ? t('common.layout.expandSidebar') : t('common.layout.collapseSidebar')"
-          @click="uiPreferences.toggleSidebarCollapsed"
+            :aria-label="uiPreferences.sidebarCollapsed ? t('common.layout.expandSidebar') : t('common.layout.collapseSidebar')"
+            class="btn-icon sidebar-collapse-btn"
+            type="button"
+            @click="uiPreferences.toggleSidebarCollapsed"
         >
           <PanelLeftOpen v-if="uiPreferences.sidebarCollapsed" :size="19" stroke-width="1.8"/>
           <PanelLeftClose v-else :size="19" stroke-width="1.8"/>
@@ -98,12 +98,12 @@
 
       <nav class="side-nav-links">
         <router-link
-          v-for="item in navItems"
-          :key="item.path"
-          :to="item.path"
-          class="side-nav-link"
-          :aria-label="uiPreferences.sidebarCollapsed ? item.label : undefined"
-          :title="uiPreferences.sidebarCollapsed ? item.label : undefined"
+            v-for="item in navItems"
+            :key="item.path"
+            :aria-label="uiPreferences.sidebarCollapsed ? item.label : undefined"
+            :title="uiPreferences.sidebarCollapsed ? item.label : undefined"
+            :to="item.path"
+            class="side-nav-link"
         >
           <component :is="item.icon" :size="18" stroke-width="1.8"/>
           <span>{{ item.label }}</span>
@@ -117,11 +117,11 @@
         </div>
         <nav class="side-recent-links">
           <router-link
-            v-for="item in recentCourses"
-            :key="item.id"
-            :to="`/courses/${item.id}`"
-            class="side-recent-link"
-            :title="uiPreferences.sidebarCollapsed ? item.title : undefined"
+              v-for="item in recentCourses"
+              :key="item.id"
+              :title="uiPreferences.sidebarCollapsed ? item.title : undefined"
+              :to="`/courses/${item.id}`"
+              class="side-recent-link"
           >
             <div v-if="item.coverUrl" class="recent-cover">
               <img :src="item.coverUrl" alt=""/>
@@ -133,7 +133,7 @@
       </div>
 
       <div class="side-nav-footer">
-        <button class="btn-icon" :class="{ active: isNotificationsPage }" @click="$router.push('/notifications')">
+        <button :class="{ active: isNotificationsPage }" class="btn-icon" @click="$router.push('/notifications')">
           <Bell :size="20" stroke-width="1.8"/>
           <span v-if="unreadCount > 0" class="notification-badge"></span>
         </button>
@@ -147,25 +147,25 @@
         </div>
 
         <div v-if="showUserMenu" class="dropdown-menu side-dropdown">
-          <router-link to="/profile" class="dropdown-item" @click="showUserMenu = false">
+          <router-link class="dropdown-item" to="/profile" @click="showUserMenu = false">
             <UserCircle :size="16"/>
             <span>{{ t('common.menu.profile') }}</span>
           </router-link>
-          <router-link to="/settings" class="dropdown-item" @click="showUserMenu = false">
+          <router-link class="dropdown-item" to="/settings" @click="showUserMenu = false">
             <Settings :size="16"/>
             <span>{{ t('common.menu.settings') }}</span>
           </router-link>
           <template v-if="isAdmin">
             <div class="dropdown-divider"></div>
-            <router-link to="/admin/users" class="dropdown-item" @click="showUserMenu = false">
+            <router-link class="dropdown-item" to="/admin/users" @click="showUserMenu = false">
               <Users :size="16"/>
               <span>{{ t('common.menu.users') }}</span>
             </router-link>
-            <router-link to="/admin/students" class="dropdown-item" @click="showUserMenu = false">
+            <router-link class="dropdown-item" to="/admin/students" @click="showUserMenu = false">
               <GraduationCap :size="16"/>
               <span>{{ t('common.menu.students') }}</span>
             </router-link>
-            <router-link to="/admin/teachers" class="dropdown-item" @click="showUserMenu = false">
+            <router-link class="dropdown-item" to="/admin/teachers" @click="showUserMenu = false">
               <BookOpen :size="16"/>
               <span>{{ t('common.menu.teachers') }}</span>
             </router-link>
@@ -228,35 +228,38 @@ const isTeacher = computed(() => authStore.user?.role === 2)
 
 const defaultAvatarSrc = computed(() => {
   switch (authStore.user?.role) {
-    case 0: return '/assets/avatar-admin-default.png'
-    case 2: return '/assets/avatar-teacher-default.png'
-    default: return '/assets/avatar-student-default.png'
+    case 0:
+      return '/assets/avatar-admin-default.png'
+    case 2:
+      return '/assets/avatar-teacher-default.png'
+    default:
+      return '/assets/avatar-student-default.png'
   }
 })
 const brandLogoSrc = computed(() =>
-  uiPreferences.resolvedTheme === 'dark'
-    ? '/assets/project-logo-dark.png'
-    : '/assets/project-logo-light.png',
+    uiPreferences.resolvedTheme === 'dark'
+        ? '/assets/project-logo-dark.png'
+        : '/assets/project-logo-light.png',
 )
 
 const navItems = computed(() => [
   {path: '/dashboard', label: t('common.navigation.dashboard'), icon: LayoutDashboard},
   {path: '/courses', label: t('common.navigation.courses'), icon: BookOpen},
   ...(authStore.user?.role === 1
-    ? [{path: '/my-enrollments', label: t('common.navigation.myEnrollments'), icon: GraduationCap}]
-    : []),
+      ? [{path: '/my-enrollments', label: t('common.navigation.myEnrollments'), icon: GraduationCap}]
+      : []),
   ...(isTeacher.value
-    ? [
+      ? [
         {path: '/teacher/courses?role=primary', label: t('common.navigation.myEnrollments'), icon: GraduationCap},
         {path: '/enrollment-management', label: t('common.navigation.enrollmentManagement'), icon: ClipboardList},
       ]
-    : []),
+      : []),
   ...(isAdmin.value
-    ? [{path: '/course-management', label: t('common.navigation.courseManagement'), icon: BookOpen}]
-    : []),
+      ? [{path: '/course-management', label: t('common.navigation.courseManagement'), icon: BookOpen}]
+      : []),
   ...(isTeacher.value || isAdmin.value
-    ? [{path: '/invitations', label: t('common.navigation.invitations'), icon: Mail}]
-    : []),
+      ? [{path: '/invitations', label: t('common.navigation.invitations'), icon: Mail}]
+      : []),
 ])
 
 const isNotificationsPage = computed(() => router.currentRoute.value.path === '/notifications')

@@ -8,8 +8,8 @@ import com.dayz.sc.auth.model.enums.OauthProvider;
 import com.dayz.sc.auth.model.enums.UserStatus;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.Instant;
 import java.time.LocalDate;

@@ -10,26 +10,26 @@
       <div class="search-input">
         <Search :size="18"/>
         <input
-          v-model="searchKeyword"
-          :placeholder="t('courses.searchPlaceholder')"
-          @keyup.enter="resetAndLoad"
+            v-model="searchKeyword"
+            :placeholder="t('courses.searchPlaceholder')"
+            @keyup.enter="resetAndLoad"
         />
       </div>
       <BaseSelect
-        v-model="filterLevel"
-        :options="levelFilterOptions"
-        min-width="148px"
-        @change="resetAndLoad"
+          v-model="filterLevel"
+          :options="levelFilterOptions"
+          min-width="148px"
+          @change="resetAndLoad"
       />
     </div>
 
     <!-- Courses Grid -->
     <div v-if="courses.length > 0" class="courses-grid">
       <CourseRecommendationCard
-        v-for="course in courses"
-        :key="course.id"
-        :course="course"
-        @view="viewCourse"
+          v-for="course in courses"
+          :key="course.id"
+          :course="course"
+          @view="viewCourse"
       />
     </div>
 
@@ -156,12 +156,12 @@ function viewCourse(id: string) {
 function initObserver() {
   if (!sentinelRef.value) return
   observer = new IntersectionObserver(
-    (entries) => {
-      if (entries[0].isIntersecting) {
-        loadMore()
-      }
-    },
-    {rootMargin: '200px'},
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMore()
+        }
+      },
+      {rootMargin: '200px'},
   )
   observer.observe(sentinelRef.value)
 }
@@ -302,18 +302,22 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--color-surface-card) 40%,
-    var(--color-surface-card) 60%,
-    transparent 100%
+      90deg,
+      transparent 0%,
+      var(--color-surface-card) 40%,
+      var(--color-surface-card) 60%,
+      transparent 100%
   );
   animation: shimmer 1.4s ease-in-out infinite;
 }
 
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 /* Empty State */
@@ -358,7 +362,9 @@ onUnmounted(() => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .no-more-text {

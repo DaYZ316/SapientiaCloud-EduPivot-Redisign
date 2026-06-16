@@ -6,69 +6,69 @@
 
     <div class="filter-bar">
       <BaseSelect
-        v-model="selectedCourseId"
-        :options="courseFilterOptions"
-        min-width="240px"
-        @change="resetAndLoad"
+          v-model="selectedCourseId"
+          :options="courseFilterOptions"
+          min-width="240px"
+          @change="resetAndLoad"
       />
     </div>
 
     <div v-if="enrollments.length > 0" class="enrollment-table-container">
       <table class="enrollment-table">
         <thead>
-          <tr>
-            <th>{{ t('enrollmentManagement.student') }}</th>
-            <th>{{ t('enrollmentManagement.course') }}</th>
-            <th>{{ t('enrollmentManagement.status') }}</th>
-            <th>{{ t('enrollmentManagement.enrolledAt') }}</th>
-            <th>{{ t('enrollmentManagement.completedAt') }}</th>
-            <th>{{ t('enrollmentManagement.actions') }}</th>
-          </tr>
+        <tr>
+          <th>{{ t('enrollmentManagement.student') }}</th>
+          <th>{{ t('enrollmentManagement.course') }}</th>
+          <th>{{ t('enrollmentManagement.status') }}</th>
+          <th>{{ t('enrollmentManagement.enrolledAt') }}</th>
+          <th>{{ t('enrollmentManagement.completedAt') }}</th>
+          <th>{{ t('enrollmentManagement.actions') }}</th>
+        </tr>
         </thead>
         <tbody>
-          <tr v-for="enrollment in enrollments" :key="enrollment.id">
-            <td>
-              <div class="student-cell">
-                <strong>{{ enrollment.studentName || '--' }}</strong>
+        <tr v-for="enrollment in enrollments" :key="enrollment.id">
+          <td>
+            <div class="student-cell">
+              <strong>{{ enrollment.studentName || '--' }}</strong>
+            </div>
+          </td>
+          <td>
+            <div class="course-cell">
+              <div class="course-cover-sm">
+                <img v-if="enrollment.courseCoverUrl" :src="enrollment.courseCoverUrl" alt=""/>
+                <BookOpen v-else :size="16" stroke-width="1.5"/>
               </div>
-            </td>
-            <td>
-              <div class="course-cell">
-                <div class="course-cover-sm">
-                  <img v-if="enrollment.courseCoverUrl" :src="enrollment.courseCoverUrl" alt=""/>
-                  <BookOpen v-else :size="16" stroke-width="1.5"/>
-                </div>
-                <span>{{ enrollment.courseTitle || '--' }}</span>
-              </div>
-            </td>
-            <td>
-              <span class="status-badge" :class="getStatusClass(enrollment.status)">
+              <span>{{ enrollment.courseTitle || '--' }}</span>
+            </div>
+          </td>
+          <td>
+              <span :class="getStatusClass(enrollment.status)" class="status-badge">
                 {{ EnrollmentStatus[enrollment.status] }}
               </span>
-            </td>
-            <td>{{ formatDate(enrollment.enrolledAt) }}</td>
-            <td>{{ enrollment.completedAt ? formatDate(enrollment.completedAt) : '-' }}</td>
-            <td>
-              <div class="action-buttons">
-                <button
+          </td>
+          <td>{{ formatDate(enrollment.enrolledAt) }}</td>
+          <td>{{ enrollment.completedAt ? formatDate(enrollment.completedAt) : '-' }}</td>
+          <td>
+            <div class="action-buttons">
+              <button
                   v-if="enrollment.status === 0"
+                  :title="t('enrollmentManagement.statusUpdate')"
                   class="btn-icon approve"
-                  :title="t('enrollmentManagement.statusUpdate')"
                   @click="handleStatusUpdate(enrollment, 1)"
-                >
-                  <Check :size="15" stroke-width="1.8"/>
-                </button>
-                <button
+              >
+                <Check :size="15" stroke-width="1.8"/>
+              </button>
+              <button
                   v-if="enrollment.status === 1"
-                  class="btn-icon complete"
                   :title="t('enrollmentManagement.statusUpdate')"
+                  class="btn-icon complete"
                   @click="handleStatusUpdate(enrollment, 2)"
-                >
-                  <GraduationCap :size="15" stroke-width="1.8"/>
-                </button>
-              </div>
-            </td>
-          </tr>
+              >
+                <GraduationCap :size="15" stroke-width="1.8"/>
+              </button>
+            </div>
+          </td>
+        </tr>
         </tbody>
       </table>
     </div>
@@ -76,24 +76,36 @@
     <div v-else-if="loading" class="enrollment-table-container">
       <table class="enrollment-table">
         <thead>
-          <tr>
-            <th>{{ t('enrollmentManagement.student') }}</th>
-            <th>{{ t('enrollmentManagement.course') }}</th>
-            <th>{{ t('enrollmentManagement.status') }}</th>
-            <th>{{ t('enrollmentManagement.enrolledAt') }}</th>
-            <th>{{ t('enrollmentManagement.completedAt') }}</th>
-            <th>{{ t('enrollmentManagement.actions') }}</th>
-          </tr>
+        <tr>
+          <th>{{ t('enrollmentManagement.student') }}</th>
+          <th>{{ t('enrollmentManagement.course') }}</th>
+          <th>{{ t('enrollmentManagement.status') }}</th>
+          <th>{{ t('enrollmentManagement.enrolledAt') }}</th>
+          <th>{{ t('enrollmentManagement.completedAt') }}</th>
+          <th>{{ t('enrollmentManagement.actions') }}</th>
+        </tr>
         </thead>
         <tbody>
-          <tr v-for="n in 5" :key="n">
-            <td><div class="skeleton-line shimmer"></div></td>
-            <td><div class="skeleton-line wide shimmer"></div></td>
-            <td><div class="skeleton-pill shimmer"></div></td>
-            <td><div class="skeleton-line date shimmer"></div></td>
-            <td><div class="skeleton-line date shimmer"></div></td>
-            <td><div class="skeleton-actions shimmer"></div></td>
-          </tr>
+        <tr v-for="n in 5" :key="n">
+          <td>
+            <div class="skeleton-line shimmer"></div>
+          </td>
+          <td>
+            <div class="skeleton-line wide shimmer"></div>
+          </td>
+          <td>
+            <div class="skeleton-pill shimmer"></div>
+          </td>
+          <td>
+            <div class="skeleton-line date shimmer"></div>
+          </td>
+          <td>
+            <div class="skeleton-line date shimmer"></div>
+          </td>
+          <td>
+            <div class="skeleton-actions shimmer"></div>
+          </td>
+        </tr>
         </tbody>
       </table>
     </div>
@@ -105,38 +117,38 @@
     </div>
 
     <div v-if="totalPages > 1" class="pagination">
-      <button class="btn-page" :disabled="currentPage === 1" @click="changePage(currentPage - 1)">
+      <button :disabled="currentPage === 1" class="btn-page" @click="changePage(currentPage - 1)">
         {{ t('enrollmentManagement.previous') }}
       </button>
       <div class="page-numbers">
         <button
-          v-for="page in displayedPages"
-          :key="page"
-          class="btn-page"
-          :class="{active: currentPage === page}"
-          @click="changePage(page)"
+            v-for="page in displayedPages"
+            :key="page"
+            :class="{active: currentPage === page}"
+            class="btn-page"
+            @click="changePage(page)"
         >
           {{ page }}
         </button>
       </div>
-      <button class="btn-page" :disabled="currentPage === totalPages" @click="changePage(currentPage + 1)">
+      <button :disabled="currentPage === totalPages" class="btn-page" @click="changePage(currentPage + 1)">
         {{ t('enrollmentManagement.next') }}
       </button>
     </div>
   </div>
 
   <BaseConfirmDialog
-    :visible="showConfirmDialog"
-    :title="t('enrollmentManagement.confirmTitle')"
-    :message="t('enrollmentManagement.confirmMessage')"
-    :cancel-text="t('enrollmentManagement.cancel')"
-    :confirm-text="t('enrollmentManagement.confirm')"
-    :close-label="t('enrollmentManagement.cancel')"
-    @cancel="handleConfirmNo"
-    @confirm="handleConfirmYes"
+      :cancel-text="t('enrollmentManagement.cancel')"
+      :close-label="t('enrollmentManagement.cancel')"
+      :confirm-text="t('enrollmentManagement.confirm')"
+      :message="t('enrollmentManagement.confirmMessage')"
+      :title="t('enrollmentManagement.confirmTitle')"
+      :visible="showConfirmDialog"
+      @cancel="handleConfirmNo"
+      @confirm="handleConfirmYes"
   >
     <label class="suppress-label">
-      <input type="checkbox" v-model="suppressConfirm"/>
+      <input v-model="suppressConfirm" type="checkbox"/>
       {{ t('enrollmentManagement.suppressConfirm') }}
     </label>
   </BaseConfirmDialog>
@@ -150,8 +162,8 @@ import {BookOpen, Check, ClipboardList, GraduationCap} from 'lucide-vue-next'
 import BaseConfirmDialog from '@/shared/components/BaseConfirmDialog.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import {getCourseEnrollments, getTeacherCourses, updateEnrollmentStatus} from '@/features/course/api/course'
-import {EnrollmentStatus} from '@/features/course/types/course'
 import type {Course, Enrollment} from '@/features/course/types/course'
+import {EnrollmentStatus} from '@/features/course/types/course'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
 const {t, locale} = useI18n()
@@ -164,10 +176,10 @@ const enrollments = ref<Enrollment[]>([])
 const courses = ref<Course[]>([])
 const selectedCourseId = ref<string | undefined>(undefined)
 const showConfirmDialog = ref(false)
-const confirmPending = ref<{enrollment: Enrollment; newStatus: number} | null>(null)
+const confirmPending = ref<{ enrollment: Enrollment; newStatus: number } | null>(null)
 const suppressConfirm = ref(sessionStorage.getItem('enrollmentSuppressConfirm') === '1')
 
-type SelectOption = {label: string; value: string | undefined}
+type SelectOption = { label: string; value: string | undefined }
 
 const courseFilterOptions = computed<SelectOption[]>(() => {
   const options: SelectOption[] = [{label: t('enrollmentManagement.allCourses'), value: undefined}]
@@ -591,18 +603,22 @@ onMounted(async () => {
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--color-surface-card) 40%,
-    var(--color-surface-card) 60%,
-    transparent 100%
+      90deg,
+      transparent 0%,
+      var(--color-surface-card) 40%,
+      var(--color-surface-card) 60%,
+      transparent 100%
   );
   animation: shimmer 1.4s ease-in-out infinite;
 }
 
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 @media (max-width: 768px) {

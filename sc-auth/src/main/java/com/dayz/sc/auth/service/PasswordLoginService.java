@@ -1,5 +1,6 @@
 package com.dayz.sc.auth.service;
 
+import com.dayz.sc.auth.event.UserEventPublisher;
 import com.dayz.sc.auth.model.dto.PasswordLoginRequest;
 import com.dayz.sc.auth.model.dto.RegisterRequest;
 import com.dayz.sc.auth.model.entity.Student;
@@ -19,6 +20,7 @@ import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.model.UserRole;
 import com.dayz.sc.common.security.service.JwtTokenService;
 import com.dayz.sc.common.security.token.RefreshTokenService;
+import com.dayz.sc.common.util.UuidV7Generator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,9 +32,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import com.dayz.sc.auth.event.UserEventPublisher;
-import com.dayz.sc.common.util.UuidV7Generator;
 
 /**
  * 账号密码登录与注册服务

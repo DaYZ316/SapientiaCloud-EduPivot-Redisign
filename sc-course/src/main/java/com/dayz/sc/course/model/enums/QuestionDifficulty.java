@@ -15,8 +15,17 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum QuestionDifficulty {
 
+    /**
+     * 简单难度
+     */
     EASY(1, "简单"),
+    /**
+     * 中等难度
+     */
     MEDIUM(2, "中等"),
+    /**
+     * 困难难度
+     */
     HARD(3, "困难");
 
     private final int code;

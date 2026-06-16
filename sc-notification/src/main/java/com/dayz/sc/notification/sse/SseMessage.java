@@ -16,12 +16,14 @@ public record SseMessage(
         NotificationVO notification,
         long unreadCount
 ) {
-    public boolean isBroadcast() {
-        return targetUserId == null;
-    }
-
-    /** 兼容广播场景（count 未知） */
+    /**
+     * 兼容广播场景（count 未知）
+     */
     public SseMessage(UUID targetUserId, UUID excludeUserId, NotificationVO notification) {
         this(targetUserId, excludeUserId, notification, -1);
+    }
+
+    public boolean isBroadcast() {
+        return targetUserId == null;
     }
 }

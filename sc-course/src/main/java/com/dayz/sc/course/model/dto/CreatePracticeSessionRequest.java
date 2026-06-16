@@ -14,4 +14,5 @@ public record CreatePracticeSessionRequest(
         @NotNull UUID questionBankId,
         @NotNull UUID courseId,
         int sessionType
-) {}
+) {
+}

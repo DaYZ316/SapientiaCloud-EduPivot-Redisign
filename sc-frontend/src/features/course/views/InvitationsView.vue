@@ -6,16 +6,16 @@
 
     <div class="tabs">
       <button
-        class="tab-btn"
-        :class="{active: activeTab === 'received'}"
-        @click="activeTab = 'received'; currentPage = 1; loadData()"
+          :class="{active: activeTab === 'received'}"
+          class="tab-btn"
+          @click="activeTab = 'received'; currentPage = 1; loadData()"
       >
         {{ t('invitations.tabs.received') }}
       </button>
       <button
-        class="tab-btn"
-        :class="{active: activeTab === 'sent'}"
-        @click="activeTab = 'sent'; currentPage = 1; loadData()"
+          :class="{active: activeTab === 'sent'}"
+          class="tab-btn"
+          @click="activeTab = 'sent'; currentPage = 1; loadData()"
       >
         {{ t('invitations.tabs.sent') }}
       </button>
@@ -30,7 +30,7 @@
         <div class="invitation-info">
           <h3>{{ inv.courseTitle || '--' }}</h3>
           <div class="invitation-meta">
-            <span class="invitation-status-badge" :class="getStatusClass(inv.status)">
+            <span :class="getStatusClass(inv.status)" class="invitation-status-badge">
               {{ InvitationStatus[inv.status] }}
             </span>
             <span v-if="activeTab === 'received'" class="invitation-person">
@@ -80,35 +80,35 @@
     </div>
 
     <div v-if="totalPages > 1" class="pagination">
-      <button class="btn-page" :disabled="currentPage === 1" @click="changePage(currentPage - 1)">
+      <button :disabled="currentPage === 1" class="btn-page" @click="changePage(currentPage - 1)">
         {{ t('courses.previous') }}
       </button>
       <div class="page-numbers">
         <button
-          v-for="page in displayedPages"
-          :key="page"
-          class="btn-page"
-          :class="{active: currentPage === page}"
-          @click="changePage(page)"
+            v-for="page in displayedPages"
+            :key="page"
+            :class="{active: currentPage === page}"
+            class="btn-page"
+            @click="changePage(page)"
         >
           {{ page }}
         </button>
       </div>
-      <button class="btn-page" :disabled="currentPage === totalPages" @click="changePage(currentPage + 1)">
+      <button :disabled="currentPage === totalPages" class="btn-page" @click="changePage(currentPage + 1)">
         {{ t('courses.next') }}
       </button>
     </div>
 
     <BaseConfirmDialog
-      :visible="showWithdrawModal"
-      :title="t('invitations.confirm.withdrawTitle')"
-      :message="t('invitations.confirm.withdrawMessage')"
-      :cancel-text="t('courses.deleteModal.cancel')"
-      :confirm-text="t('invitations.actions.withdraw')"
-      :close-label="t('courses.deleteModal.cancel')"
-      confirm-variant="danger"
-      @cancel="showWithdrawModal = false"
-      @confirm="handleWithdraw"
+        :cancel-text="t('courses.deleteModal.cancel')"
+        :close-label="t('courses.deleteModal.cancel')"
+        :confirm-text="t('invitations.actions.withdraw')"
+        :message="t('invitations.confirm.withdrawMessage')"
+        :title="t('invitations.confirm.withdrawTitle')"
+        :visible="showWithdrawModal"
+        confirm-variant="danger"
+        @cancel="showWithdrawModal = false"
+        @confirm="handleWithdraw"
     />
   </div>
 </template>
@@ -120,14 +120,14 @@ import {BookOpen, Mail} from 'lucide-vue-next'
 
 import BaseConfirmDialog from '@/shared/components/BaseConfirmDialog.vue'
 import {
-  getReceivedInvitations,
-  getSentInvitations,
   acceptInvitation,
   declineInvitation,
+  getReceivedInvitations,
+  getSentInvitations,
   withdrawInvitation,
 } from '@/features/course/api/invitation'
-import {InvitationStatus} from '@/features/course/types/invitation'
 import type {CourseInvitation} from '@/features/course/types/invitation'
+import {InvitationStatus} from '@/features/course/types/invitation'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
 const {t} = useI18n()
@@ -169,8 +169,8 @@ async function loadData() {
   try {
     const query = {page: currentPage.value, size: pageSize.value}
     const response = activeTab.value === 'received'
-      ? await getReceivedInvitations(query)
-      : await getSentInvitations(query)
+        ? await getReceivedInvitations(query)
+        : await getSentInvitations(query)
     invitations.value = response.records
     totalPages.value = Math.ceil(response.total / pageSize.value)
   } catch (error) {
@@ -635,18 +635,22 @@ onMounted(() => {
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--color-surface-card) 40%,
-    var(--color-surface-card) 60%,
-    transparent 100%
+      90deg,
+      transparent 0%,
+      var(--color-surface-card) 40%,
+      var(--color-surface-card) 60%,
+      transparent 100%
   );
   animation: shimmer 1.4s ease-in-out infinite;
 }
 
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 @media (max-width: 768px) {

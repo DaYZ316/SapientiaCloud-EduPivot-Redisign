@@ -17,4 +17,5 @@ public record CourseDeletedEvent(
         String eventType,
         Instant timestamp,
         String source
-) {}
+) {
+}

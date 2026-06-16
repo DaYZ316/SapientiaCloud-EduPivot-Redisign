@@ -11,4 +11,5 @@ import org.apache.ibatis.annotations.Mapper;
  * @since 2026-06-13
  */
 @Mapper
-public interface PracticeSessionMapper extends BaseMapper<PracticeSession> {}
+public interface PracticeSessionMapper extends BaseMapper<PracticeSession> {
+}

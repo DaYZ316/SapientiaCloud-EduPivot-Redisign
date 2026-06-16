@@ -4,7 +4,6 @@ import com.dayz.sc.common.security.config.JwtProperties;
 import com.dayz.sc.common.security.token.BlacklistCheckingJwtDecoder;
 import com.dayz.sc.common.security.token.TokenBlacklistService;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;

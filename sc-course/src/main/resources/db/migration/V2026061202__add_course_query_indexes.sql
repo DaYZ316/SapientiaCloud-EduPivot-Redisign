@@ -17,17 +17,19 @@ CREATE INDEX IF NOT EXISTS idx_edu_enrollment_student_enrolled
     ON edu_enrollment(student_id, enrolled_at DESC);
 
 -- 论坛帖子：按论坛+置顶+时间排序（覆盖 findByForumId 分页）
-DO $$
+DO
+$$
 BEGIN
-    IF EXISTS (
+    IF
+EXISTS (
         SELECT 1
         FROM information_schema.columns
         WHERE table_name = 'edu_forum_post'
           AND column_name = 'forum_id'
     ) THEN
-        CREATE INDEX IF NOT EXISTS idx_edu_forum_post_forum_top_created
-            ON edu_forum_post(forum_id, is_top DESC, created_at DESC);
-    END IF;
+CREATE INDEX IF NOT EXISTS idx_edu_forum_post_forum_top_created
+    ON edu_forum_post(forum_id, is_top DESC, created_at DESC);
+END IF;
 END $$;
 
 -- 论坛帖子：按课程+状态+时间（覆盖 findByCourseId 分页）

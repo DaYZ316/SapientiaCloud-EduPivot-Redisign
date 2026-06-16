@@ -13,6 +13,9 @@ import java.util.UUID;
 
 /**
  * Class session participant.
+ *
+ * @author DaYZ
+ * @since 2026-06-14
  */
 @Getter
 @Setter

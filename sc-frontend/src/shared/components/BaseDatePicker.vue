@@ -1,47 +1,47 @@
 <template>
   <div ref="root" class="base-date-picker">
     <button
-      :id="id"
-      class="base-date-picker-trigger"
-      :class="{ placeholder: !modelValue }"
-      type="button"
-      @click="openPicker"
-      @keydown.escape="closePicker"
+        :id="id"
+        :class="{ placeholder: !modelValue }"
+        class="base-date-picker-trigger"
+        type="button"
+        @click="openPicker"
+        @keydown.escape="closePicker"
     >
       <span>{{ selectedDateDisplay || placeholderText }}</span>
-      <CalendarDays :size="18" stroke-width="1.8" />
+      <CalendarDays :size="18" stroke-width="1.8"/>
     </button>
 
-    <div v-if="pickerOpen" ref="popover" class="base-date-picker-popover" :style="popoverStyle">
+    <div v-if="pickerOpen" ref="popover" :style="popoverStyle" class="base-date-picker-popover">
       <div class="base-date-picker-toolbar">
         <div class="base-date-picker-selects">
           <button
-            class="base-date-picker-control base-date-picker-year-trigger"
-            type="button"
-            :aria-label="t('settings.selectYear')"
-            :aria-expanded="activePanel === 'year'"
-            @click="togglePanel('year')"
+              :aria-expanded="activePanel === 'year'"
+              :aria-label="t('settings.selectYear')"
+              class="base-date-picker-control base-date-picker-year-trigger"
+              type="button"
+              @click="togglePanel('year')"
           >
             <span>{{ pickerYear }}</span>
-            <ChevronDown :size="14" stroke-width="1.8" />
+            <ChevronDown :size="14" stroke-width="1.8"/>
           </button>
           <button
-            class="base-date-picker-control"
-            type="button"
-            :aria-label="t('settings.selectMonth')"
-            :aria-expanded="activePanel === 'month'"
-            @click="togglePanel('month')"
+              :aria-expanded="activePanel === 'month'"
+              :aria-label="t('settings.selectMonth')"
+              class="base-date-picker-control"
+              type="button"
+              @click="togglePanel('month')"
           >
             <span>{{ currentMonthLabel }}</span>
-            <ChevronDown :size="14" stroke-width="1.8" />
+            <ChevronDown :size="14" stroke-width="1.8"/>
           </button>
         </div>
         <div v-if="activePanel === 'calendar'" class="base-date-picker-nav">
-          <button type="button" :aria-label="t('settings.previousMonth')" @click="moveMonth(-1)">
-            <ChevronLeft :size="16" stroke-width="1.8" />
+          <button :aria-label="t('settings.previousMonth')" type="button" @click="moveMonth(-1)">
+            <ChevronLeft :size="16" stroke-width="1.8"/>
           </button>
-          <button type="button" :aria-label="t('settings.nextMonth')" @click="moveMonth(1)">
-            <ChevronRight :size="16" stroke-width="1.8" />
+          <button :aria-label="t('settings.nextMonth')" type="button" @click="moveMonth(1)">
+            <ChevronRight :size="16" stroke-width="1.8"/>
           </button>
         </div>
       </div>
@@ -49,32 +49,32 @@
       <div v-if="activePanel === 'year'" class="base-date-picker-year-panel">
         <div class="base-date-picker-year-toolbar">
           <button
-            type="button"
-            :aria-label="t('settings.previousYearGroup')"
-            :disabled="!canMoveYearPageOlder"
-            @click="moveYearPage(-1)"
+              :aria-label="t('settings.previousYearGroup')"
+              :disabled="!canMoveYearPageOlder"
+              type="button"
+              @click="moveYearPage(-1)"
           >
-            <ChevronLeft :size="15" stroke-width="1.8" />
+            <ChevronLeft :size="15" stroke-width="1.8"/>
           </button>
           <span>{{ yearPageRange }}</span>
           <button
-            type="button"
-            :aria-label="t('settings.nextYearGroup')"
-            :disabled="!canMoveYearPageNewer"
-            @click="moveYearPage(1)"
+              :aria-label="t('settings.nextYearGroup')"
+              :disabled="!canMoveYearPageNewer"
+              type="button"
+              @click="moveYearPage(1)"
           >
-            <ChevronRight :size="15" stroke-width="1.8" />
+            <ChevronRight :size="15" stroke-width="1.8"/>
           </button>
         </div>
 
         <div class="base-date-picker-year-grid">
           <button
-            v-for="year in visibleYears"
-            :key="year"
-            class="base-date-picker-year"
-            :class="{ selected: year === pickerYear }"
-            type="button"
-            @click="selectYear(year)"
+              v-for="year in visibleYears"
+              :key="year"
+              :class="{ selected: year === pickerYear }"
+              class="base-date-picker-year"
+              type="button"
+              @click="selectYear(year)"
           >
             {{ year }}
           </button>
@@ -83,12 +83,12 @@
 
       <div v-else-if="activePanel === 'month'" class="base-date-picker-month-grid">
         <button
-          v-for="month in monthOptions"
-          :key="month.value"
-          class="base-date-picker-month"
-          :class="{ selected: month.value === pickerMonthIndex }"
-          type="button"
-          @click="selectMonth(month.value)"
+            v-for="month in monthOptions"
+            :key="month.value"
+            :class="{ selected: month.value === pickerMonthIndex }"
+            class="base-date-picker-month"
+            type="button"
+            @click="selectMonth(month.value)"
         >
           {{ month.label }}
         </button>
@@ -101,12 +101,12 @@
 
         <div class="base-date-picker-grid">
           <button
-            v-for="day in calendarDays"
-            :key="day.value"
-            class="base-date-picker-day"
-            :class="{ outside: !day.inCurrentMonth, selected: day.selected, today: day.today }"
-            type="button"
-            @click="selectDate(day.value)"
+              v-for="day in calendarDays"
+              :key="day.value"
+              :class="{ outside: !day.inCurrentMonth, selected: day.selected, today: day.today }"
+              class="base-date-picker-day"
+              type="button"
+              @click="selectDate(day.value)"
           >
             {{ day.label }}
           </button>
@@ -114,21 +114,21 @@
       </template>
 
       <div v-if="showTime" class="base-date-picker-time">
-        <Clock3 :size="16" stroke-width="1.8" />
-        <input type="time" :step="timeStep" :value="selectedTime" :aria-label="timeLabel" @input="updateTime" />
+        <Clock3 :size="16" stroke-width="1.8"/>
+        <input :aria-label="timeLabel" :step="timeStep" :value="selectedTime" type="time" @input="updateTime"/>
       </div>
 
       <div class="base-date-picker-footer">
         <button type="button" @click="clearDate">{{ t('settings.clear') }}</button>
         <button type="button" @click="selectToday">{{ t('settings.today') }}</button>
         <button
-          v-if="showTime"
-          class="base-date-picker-confirm"
-          type="button"
-          :aria-label="confirmLabel"
-          @click="closePicker"
+            v-if="showTime"
+            :aria-label="confirmLabel"
+            class="base-date-picker-confirm"
+            type="button"
+            @click="closePicker"
         >
-          <Check :size="15" stroke-width="2" />
+          <Check :size="15" stroke-width="2"/>
         </button>
       </div>
     </div>
@@ -136,39 +136,39 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3 } from 'lucide-vue-next'
+import {computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3} from 'lucide-vue-next'
 
 type DatePickerPanel = 'calendar' | 'year' | 'month'
 
 const props = withDefaults(
-  defineProps<{
-    id?: string
-    modelValue?: string | null
-    placeholder?: string
-    showTime?: boolean
-    timeStep?: number
-    defaultTime?: string
-    timeLabel?: string
-    confirmLabel?: string
-  }>(),
-  {
-    modelValue: '',
-    placeholder: '',
-    showTime: false,
-    timeStep: 300,
-    defaultTime: '09:00',
-    timeLabel: 'Time',
-    confirmLabel: 'Close date picker',
-  },
+    defineProps<{
+      id?: string
+      modelValue?: string | null
+      placeholder?: string
+      showTime?: boolean
+      timeStep?: number
+      defaultTime?: string
+      timeLabel?: string
+      confirmLabel?: string
+    }>(),
+    {
+      modelValue: '',
+      placeholder: '',
+      showTime: false,
+      timeStep: 300,
+      defaultTime: '09:00',
+      timeLabel: 'Time',
+      confirmLabel: 'Close date picker',
+    },
 )
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
 
-const { t, locale } = useI18n()
+const {t, locale} = useI18n()
 
 const root = ref<HTMLElement | null>(null)
 const popover = ref<HTMLElement | null>(null)
@@ -204,7 +204,7 @@ const selectedDateValue = computed(() => {
 })
 
 const visibleYears = computed(() =>
-  Array.from({ length: 12 }, (_, index) => yearPageStart.value - index).filter((year) => year >= 1900),
+    Array.from({length: 12}, (_, index) => yearPageStart.value - index).filter((year) => year >= 1900),
 )
 
 const yearPageRange = computed(() => {
@@ -223,26 +223,26 @@ const canMoveYearPageOlder = computed(() => {
 const canMoveYearPageNewer = computed(() => yearPageStart.value < getMaxYear())
 
 const monthOptions = computed(() => {
-  const formatter = new Intl.DateTimeFormat(String(locale.value), { month: 'long' })
+  const formatter = new Intl.DateTimeFormat(String(locale.value), {month: 'long'})
 
-  return Array.from({ length: 12 }, (_, month) => ({
+  return Array.from({length: 12}, (_, month) => ({
     value: month,
     label: formatter.format(new Date(2026, month, 1)),
   }))
 })
 
 const currentMonthLabel = computed(
-  () => monthOptions.value.find((month) => month.value === pickerMonth.value.getMonth())?.label ?? '',
+    () => monthOptions.value.find((month) => month.value === pickerMonth.value.getMonth())?.label ?? '',
 )
 
 const pickerYear = computed(() => pickerMonth.value.getFullYear())
 const pickerMonthIndex = computed(() => pickerMonth.value.getMonth())
 
 const weekdayLabels = computed(() => {
-  const formatter = new Intl.DateTimeFormat(String(locale.value), { weekday: 'short' })
+  const formatter = new Intl.DateTimeFormat(String(locale.value), {weekday: 'short'})
   const sunday = new Date(2026, 5, 7)
 
-  return Array.from({ length: 7 }, (_, index) => {
+  return Array.from({length: 7}, (_, index) => {
     const date = new Date(sunday)
     date.setDate(sunday.getDate() + index)
     return formatter.format(date)
@@ -256,7 +256,7 @@ const calendarDays = computed(() => {
   gridStart.setDate(firstDay.getDate() - firstDay.getDay())
   const todayValue = toDateValue(new Date())
 
-  return Array.from({ length: 42 }, (_, index) => {
+  return Array.from({length: 42}, (_, index) => {
     const date = new Date(gridStart)
     date.setDate(gridStart.getDate() + index)
     const value = toDateValue(date)
@@ -272,12 +272,12 @@ const calendarDays = computed(() => {
 })
 
 watch(
-  () => props.modelValue,
-  () => {
-    if (!pickerOpen.value) {
-      syncPickerMonth()
-    }
-  },
+    () => props.modelValue,
+    () => {
+      if (!pickerOpen.value) {
+        syncPickerMonth()
+      }
+    },
 )
 
 function parseDateValue(value: string | null | undefined) {
@@ -416,8 +416,8 @@ function selectToday() {
 function updateTime(event: Event) {
   const input = event.target as HTMLInputElement
   const dateValue = props.modelValue
-    ? toDateValue(parseDateValue(props.modelValue) ?? new Date())
-    : toDateValue(new Date())
+      ? toDateValue(parseDateValue(props.modelValue) ?? new Date())
+      : toDateValue(new Date())
 
   emit('update:modelValue', withTime(dateValue, normalizeTimeValue(input.value)))
 }
@@ -455,8 +455,8 @@ function updatePopoverPosition() {
   const openAbove = popoverHeight > spaceBelow && spaceAbove > spaceBelow
   const availableHeight = Math.max(220, openAbove ? spaceAbove : spaceBelow)
   const top = openAbove
-    ? Math.max(viewportPadding, rect.top - popoverOffset - Math.min(popoverHeight, availableHeight))
-    : rect.bottom + popoverOffset
+      ? Math.max(viewportPadding, rect.top - popoverOffset - Math.min(popoverHeight, availableHeight))
+      : rect.bottom + popoverOffset
 
   popoverStyle.value = {
     position: 'fixed',
@@ -626,9 +626,8 @@ watch(pickerOpen, async (open) => {
   place-items: center;
   border-radius: 12px;
   color: var(--color-muted);
-  transition:
-    background 0.2s,
-    color 0.2s;
+  transition: background 0.2s,
+  color 0.2s;
 }
 
 .base-date-picker-nav button:hover,
@@ -668,10 +667,9 @@ watch(pickerOpen, async (open) => {
   place-items: center;
   border-radius: 10px;
   color: var(--color-muted);
-  transition:
-    background 0.2s,
-    color 0.2s,
-    opacity 0.2s;
+  transition: background 0.2s,
+  color 0.2s,
+  opacity 0.2s;
 }
 
 .base-date-picker-year-toolbar button:disabled {
@@ -696,9 +694,8 @@ watch(pickerOpen, async (open) => {
   border-radius: 12px;
   font-size: 13px;
   font-weight: 800;
-  transition:
-    background 0.2s,
-    color 0.2s;
+  transition: background 0.2s,
+  color 0.2s;
 }
 
 .base-date-picker-year.selected,
@@ -734,10 +731,9 @@ watch(pickerOpen, async (open) => {
   border-radius: 12px;
   font-size: 13px;
   font-weight: 700;
-  transition:
-    background 0.2s,
-    color 0.2s,
-    opacity 0.2s;
+  transition: background 0.2s,
+  color 0.2s,
+  opacity 0.2s;
 }
 
 .base-date-picker-day.outside {

@@ -15,5 +15,6 @@ public record CourseAccessVO(
         @JsonProperty("canManage") boolean canManage,
         @JsonProperty("canReadPublic") boolean canReadPublic,
         @JsonProperty("canReadPrivate") boolean canReadPrivate,
-        @JsonProperty("isPrimaryTeacher") boolean isPrimaryTeacher
-) {}
+        @JsonProperty("isPrimaryTeacher") boolean primaryTeacher
+) {
+}

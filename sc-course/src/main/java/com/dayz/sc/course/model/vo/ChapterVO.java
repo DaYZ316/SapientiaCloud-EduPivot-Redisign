@@ -30,4 +30,5 @@ public record ChapterVO(
         @JsonProperty("children") @Nullable List<ChapterVO> children,
         @JsonProperty("createdAt") Instant createdAt,
         @JsonProperty("updatedAt") Instant updatedAt
-) {}
+) {
+}

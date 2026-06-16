@@ -1,16 +1,16 @@
 <template>
   <Teleport to="body">
-    <div class="global-notification-region" role="region" aria-live="polite" aria-atomic="false">
-      <TransitionGroup name="global-notification" tag="div" class="global-notification-stack">
+    <div aria-atomic="false" aria-live="polite" class="global-notification-region" role="region">
+      <TransitionGroup class="global-notification-stack" name="global-notification" tag="div">
         <article
-          v-for="item in notifications"
-          :key="item.id"
-          class="global-notification-item"
-          :class="item.type"
-          :style="notificationStyle(item)"
-          role="status"
+            v-for="item in notifications"
+            :key="item.id"
+            :class="item.type"
+            :style="notificationStyle(item)"
+            class="global-notification-item"
+            role="status"
         >
-          <div class="global-notification-mark" aria-hidden="true">
+          <div aria-hidden="true" class="global-notification-mark">
             <component :is="iconMap[item.type]" :size="18" stroke-width="2"/>
           </div>
 

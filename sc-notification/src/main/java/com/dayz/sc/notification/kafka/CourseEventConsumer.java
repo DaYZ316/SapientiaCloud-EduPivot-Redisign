@@ -1,10 +1,6 @@
 package com.dayz.sc.notification.kafka;
 
-import com.dayz.sc.common.events.course.CourseCreatedEvent;
-import com.dayz.sc.common.events.course.CourseDeletedEvent;
-import com.dayz.sc.common.events.course.CourseStatusChangedEvent;
-import com.dayz.sc.common.events.course.EnrollmentChangedEvent;
-import com.dayz.sc.common.events.course.InvitationChangedEvent;
+import com.dayz.sc.common.events.course.*;
 import com.dayz.sc.common.redis.kafka.KafkaIdempotencyGuard;
 import com.dayz.sc.common.util.UuidV7Generator;
 import com.dayz.sc.notification.model.entity.Notification;
@@ -18,10 +14,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.UUID;
-import org.springframework.stereotype.Component;
 
 /**
  * 事件消费者
@@ -34,6 +30,9 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class CourseEventConsumer {
 
+    private static final String GROUP_ID = "sc-notification";
+    private static final String ACTION_ENROLLED = "ENROLLED";
+
     private final NotificationRepository notificationRepository;
     private final NotificationTargetRepository notificationTargetRepository;
     private final NotificationSseEmitter sseEmitter;
@@ -43,31 +42,31 @@ public class CourseEventConsumer {
     public void onCourseEvent(Object event, Acknowledgment ack) {
         try {
             if (event instanceof CourseCreatedEvent e) {
-                if (!idempotencyGuard.tryAcquire("sc-notification", e.eventId())) {
+                if (!idempotencyGuard.tryAcquire(GROUP_ID, e.eventId())) {
                     log.info("Duplicate CourseCreatedEvent skipped: {}", e.eventId());
                     return;
                 }
                 handleCourseCreated(e);
             } else if (event instanceof CourseDeletedEvent e) {
-                if (!idempotencyGuard.tryAcquire("sc-notification", e.eventId())) {
+                if (!idempotencyGuard.tryAcquire(GROUP_ID, e.eventId())) {
                     log.info("Duplicate CourseDeletedEvent skipped: {}", e.eventId());
                     return;
                 }
                 handleCourseDeleted(e);
             } else if (event instanceof CourseStatusChangedEvent e) {
-                if (!idempotencyGuard.tryAcquire("sc-notification", e.eventId())) {
+                if (!idempotencyGuard.tryAcquire(GROUP_ID, e.eventId())) {
                     log.info("Duplicate CourseStatusChangedEvent skipped: {}", e.eventId());
                     return;
                 }
                 handleCourseStatusChanged(e);
             } else if (event instanceof EnrollmentChangedEvent e) {
-                if (!idempotencyGuard.tryAcquire("sc-notification", e.eventId())) {
+                if (!idempotencyGuard.tryAcquire(GROUP_ID, e.eventId())) {
                     log.info("Duplicate EnrollmentChangedEvent skipped: {}", e.eventId());
                     return;
                 }
                 handleEnrollmentChanged(e);
             } else if (event instanceof InvitationChangedEvent e) {
-                if (!idempotencyGuard.tryAcquire("sc-notification", e.eventId())) {
+                if (!idempotencyGuard.tryAcquire(GROUP_ID, e.eventId())) {
                     log.info("Duplicate InvitationChangedEvent skipped: {}", e.eventId());
                     return;
                 }
@@ -151,7 +150,7 @@ public class CourseEventConsumer {
         log.info("Received EnrollmentChangedEvent for course: {} action: {}", event.courseId(), event.action());
         String title;
         String content;
-        if ("ENROLLED".equals(event.action())) {
+        if (ACTION_ENROLLED.equals(event.action())) {
             title = "学生选课通知";
             content = "学生「" + event.studentName() + "」已加入课程「" + event.courseTitle() + "」";
         } else {

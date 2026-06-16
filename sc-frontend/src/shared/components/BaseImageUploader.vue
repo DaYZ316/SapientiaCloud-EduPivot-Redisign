@@ -1,31 +1,32 @@
 <template>
-  <div class="base-image-uploader" :class="[`size-${size}`, `shape-${shape}`]">
+  <div :class="[`size-${size}`, `shape-${shape}`]" class="base-image-uploader">
     <BaseFileUploader
-      :usage="usage"
-      :scope-type="scopeType"
-      :scope-id="scopeId"
-      :accept="accept"
-      :button-label="currentButtonLabel"
-      :disabled="disabled"
-      :prepare-file="prepareImageFile"
-      @uploaded="handleUploaded"
-      @error="handleError"
+        :accept="accept"
+        :button-label="currentButtonLabel"
+        :disabled="disabled"
+        :prepare-file="prepareImageFile"
+        :scope-id="scopeId"
+        :scope-type="scopeType"
+        :usage="usage"
+        @error="handleError"
+        @uploaded="handleUploaded"
     >
       <template #trigger="{ disabled: pickerDisabled, openPicker, progress, uploading }">
         <div class="base-image-uploader-field">
           <button
-            class="base-image-uploader-preview"
-            type="button"
-            :disabled="pickerDisabled"
-            @click="openPicker"
+              :disabled="pickerDisabled"
+              class="base-image-uploader-preview"
+              type="button"
+              @click="openPicker"
           >
-            <img v-if="displayUrl" :src="displayUrl" :alt="alt" />
-            <span v-if="displayUrl && hasUploadedImage && currentPreviewLabel" class="base-image-uploader-preview-overlay">
-              <UploadCloud :size="18" stroke-width="1.8" />
+            <img v-if="displayUrl" :alt="alt" :src="displayUrl"/>
+            <span v-if="displayUrl && hasUploadedImage && currentPreviewLabel"
+                  class="base-image-uploader-preview-overlay">
+              <UploadCloud :size="18" stroke-width="1.8"/>
               <span>{{ currentPreviewLabel }}</span>
             </span>
             <span v-if="!displayUrl" class="base-image-uploader-placeholder">
-              <ImageIcon :size="24" stroke-width="1.7" />
+              <ImageIcon :size="24" stroke-width="1.7"/>
               <span>{{ currentButtonLabel }}</span>
             </span>
             <span v-if="uploading" class="base-image-uploader-badge">{{ progress }}%</span>
@@ -33,22 +34,22 @@
 
           <div class="base-image-uploader-actions">
             <button
-              class="base-image-uploader-action primary"
-              type="button"
-              :disabled="pickerDisabled"
-              @click="openPicker"
+                :disabled="pickerDisabled"
+                class="base-image-uploader-action primary"
+                type="button"
+                @click="openPicker"
             >
-              <UploadCloud :size="16" stroke-width="1.8" />
+              <UploadCloud :size="16" stroke-width="1.8"/>
               <span>{{ currentButtonLabel }}</span>
             </button>
             <button
-              v-if="canRemove"
-              class="base-image-uploader-action"
-              type="button"
-              :disabled="disabled || uploading"
-              @click="removeImage"
+                v-if="canRemove"
+                :disabled="disabled || uploading"
+                class="base-image-uploader-action"
+                type="button"
+                @click="removeImage"
             >
-              <Trash2 :size="16" stroke-width="1.8" />
+              <Trash2 :size="16" stroke-width="1.8"/>
               <span>Remove</span>
             </button>
             <p v-if="helpText" class="base-image-uploader-help">{{ helpText }}</p>
@@ -59,49 +60,49 @@
 
     <Teleport to="body">
       <div v-if="cropOpen" class="image-crop-overlay">
-        <section class="image-crop-dialog" role="dialog" aria-modal="true" aria-labelledby="image-crop-title">
+        <section aria-labelledby="image-crop-title" aria-modal="true" class="image-crop-dialog" role="dialog">
           <header class="image-crop-header">
             <div>
               <p class="image-crop-eyebrow">IMAGE FIELD</p>
               <h2 id="image-crop-title">Crop image</h2>
             </div>
             <button class="image-crop-icon-button" type="button" @click="cancelCrop">
-              <X :size="20" stroke-width="1.8" />
+              <X :size="20" stroke-width="1.8"/>
             </button>
           </header>
 
           <div class="image-crop-body">
-            <div class="image-crop-stage" :style="cropStageStyle">
+            <div :style="cropStageStyle" class="image-crop-stage">
               <canvas
-                ref="canvasRef"
-                class="image-crop-canvas"
-                @pointerdown="startDrag"
-                @pointermove="dragImage"
-                @pointerup="stopDrag"
-                @pointerleave="stopDrag"
+                  ref="canvasRef"
+                  class="image-crop-canvas"
+                  @pointerdown="startDrag"
+                  @pointerleave="stopDrag"
+                  @pointermove="dragImage"
+                  @pointerup="stopDrag"
               ></canvas>
-              <div class="image-crop-frame" :class="{ circle: shape === 'circle' }"></div>
+              <div :class="{ circle: shape === 'circle' }" class="image-crop-frame"></div>
             </div>
 
             <aside class="image-crop-controls">
               <div class="image-crop-control-row">
                 <button class="image-crop-tool" type="button" @click="rotateImage(-90)">
-                  <RotateCcw :size="17" stroke-width="1.8" />
+                  <RotateCcw :size="17" stroke-width="1.8"/>
                   <span>Left</span>
                 </button>
                 <button class="image-crop-tool" type="button" @click="rotateImage(90)">
-                  <RotateCw :size="17" stroke-width="1.8" />
+                  <RotateCw :size="17" stroke-width="1.8"/>
                   <span>Right</span>
                 </button>
                 <button class="image-crop-tool" type="button" @click="resetCrop">
-                  <RefreshCcw :size="17" stroke-width="1.8" />
+                  <RefreshCcw :size="17" stroke-width="1.8"/>
                   <span>Reset</span>
                 </button>
               </div>
 
               <label class="image-crop-slider">
                 <span>Zoom</span>
-                <input v-model.number="zoom" type="range" min="1" max="3" step="0.05" />
+                <input v-model.number="zoom" max="3" min="1" step="0.05" type="range"/>
               </label>
 
               <div class="image-crop-footer">
@@ -116,17 +117,9 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import {computed, nextTick, onBeforeUnmount, ref, watch} from 'vue'
-import {
-  Image as ImageIcon,
-  RefreshCcw,
-  RotateCcw,
-  RotateCw,
-  Trash2,
-  UploadCloud,
-  X,
-} from 'lucide-vue-next'
+import {Image as ImageIcon, RefreshCcw, RotateCcw, RotateCw, Trash2, UploadCloud, X,} from 'lucide-vue-next'
 
 import BaseFileUploader from '@/shared/components/BaseFileUploader.vue'
 import type {FileAsset, StorageScopeType, StorageUsage} from '@/features/storage/types/storage'
@@ -213,7 +206,7 @@ const currentButtonLabel = computed(() => {
 })
 const currentPreviewLabel = computed(() => props.uploadedPreviewLabel || props.uploadedButtonLabel || '')
 const canRemove = computed(() =>
-  props.allowRemove && props.uploadedBehavior === 'replace' && props.shape !== 'circle' && hasUploadedImage.value,
+    props.allowRemove && props.uploadedBehavior === 'replace' && props.shape !== 'circle' && hasUploadedImage.value,
 )
 const cropStageStyle = computed(() => ({
   '--image-crop-aspect': String(aspectRatio.value),
@@ -381,11 +374,11 @@ async function confirmCrop() {
 }
 
 function drawImageToContext(
-  context: CanvasRenderingContext2D,
-  image: HTMLImageElement,
-  width: number,
-  height: number,
-  offsetScale: number,
+    context: CanvasRenderingContext2D,
+    image: HTMLImageElement,
+    width: number,
+    height: number,
+    offsetScale: number,
 ) {
   const angle = rotation.value * Math.PI / 180
   const rotatedWidth = rotation.value % 180 === 0 ? image.naturalWidth : image.naturalHeight

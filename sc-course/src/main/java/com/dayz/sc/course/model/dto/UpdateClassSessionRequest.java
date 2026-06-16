@@ -5,7 +5,10 @@ import jakarta.validation.constraints.Size;
 import java.time.Instant;
 
 /**
- * Request to update a class session draft.
+ * 更新课堂会话草稿请求
+ *
+ * @author DaYZ
+ * @since 2026-06-14
  */
 public record UpdateClassSessionRequest(
         @Size(max = 200) String title,
@@ -13,4 +16,5 @@ public record UpdateClassSessionRequest(
         Instant scheduledStartAt,
         Instant scheduledEndAt,
         Integer roomSize
-) {}
+) {
+}

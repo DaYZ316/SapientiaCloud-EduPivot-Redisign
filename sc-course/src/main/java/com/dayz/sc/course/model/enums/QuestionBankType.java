@@ -15,8 +15,17 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum QuestionBankType {
 
+    /**
+     * 练习题库，用于日常练习
+     */
     PRACTICE(0, "练习"),
+    /**
+     * 考试题库，用于正式考试
+     */
     EXAM(1, "考试"),
+    /**
+     * 作业题库，用于课后作业
+     */
     HOMEWORK(2, "作业");
 
     private final int code;

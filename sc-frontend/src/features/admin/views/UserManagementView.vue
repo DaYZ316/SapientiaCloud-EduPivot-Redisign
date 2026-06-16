@@ -10,21 +10,22 @@
     <section class="filter-section">
       <div class="search-input">
         <Search :size="20" stroke-width="1.8"/>
-        <input v-model="searchKeyword" :placeholder="t('admin.userManagement.searchPlaceholder')" @keyup.enter="submitSearch"/>
+        <input v-model="searchKeyword" :placeholder="t('admin.userManagement.searchPlaceholder')"
+               @keyup.enter="submitSearch"/>
       </div>
       <BaseSelect
-        v-model="filterStatus"
-        class="filter-select-control"
-        :options="statusFilterOptions"
-        min-width="150px"
-        @change="handleFilterChange"
+          v-model="filterStatus"
+          :options="statusFilterOptions"
+          class="filter-select-control"
+          min-width="150px"
+          @change="handleFilterChange"
       />
       <BaseSelect
-        v-model="filterRole"
-        class="filter-select-control"
-        :options="roleFilterOptions"
-        min-width="150px"
-        @change="handleFilterChange"
+          v-model="filterRole"
+          :options="roleFilterOptions"
+          class="filter-select-control"
+          min-width="150px"
+          @change="handleFilterChange"
       />
       <button class="btn-reset-filter" type="button" @click="resetFilters">
         <X :size="16" stroke-width="1.8"/>
@@ -33,93 +34,93 @@
     </section>
 
     <!-- Loading Skeleton -->
-    <BaseSkeleton v-if="loading" variant="table" :count="8" :columns="7"/>
+    <BaseSkeleton v-if="loading" :columns="7" :count="8" variant="table"/>
 
     <!-- Users Table -->
     <div v-else class="table-container">
       <table class="data-table">
         <thead>
-          <tr>
-            <th>{{ t('admin.userManagement.table.name') }}</th>
-            <th>{{ t('admin.userManagement.table.email') }}</th>
-            <th>{{ t('admin.userManagement.table.role') }}</th>
-            <th>{{ t('admin.userManagement.table.status') }}</th>
-            <th>{{ t('admin.userManagement.table.provider') }}</th>
-            <th>{{ t('admin.userManagement.table.lastLogin') }}</th>
-            <th>{{ t('admin.userManagement.table.actions') }}</th>
-          </tr>
+        <tr>
+          <th>{{ t('admin.userManagement.table.name') }}</th>
+          <th>{{ t('admin.userManagement.table.email') }}</th>
+          <th>{{ t('admin.userManagement.table.role') }}</th>
+          <th>{{ t('admin.userManagement.table.status') }}</th>
+          <th>{{ t('admin.userManagement.table.provider') }}</th>
+          <th>{{ t('admin.userManagement.table.lastLogin') }}</th>
+          <th>{{ t('admin.userManagement.table.actions') }}</th>
+        </tr>
         </thead>
         <tbody>
-          <tr v-for="user in users" :key="user.id">
-            <td>
-              <div class="user-cell">
-                <UserAvatarLink
-                  :user-id="user.id"
-                  :display-name="user.displayName || '-'"
+        <tr v-for="user in users" :key="user.id">
+          <td>
+            <div class="user-cell">
+              <UserAvatarLink
                   :avatar-url="user.avatarUrl"
+                  :display-name="user.displayName || '-'"
                   :role="user.role"
-                  size="medium"
                   :show-name="true"
-                />
-              </div>
-            </td>
-            <td>{{ user.email || '-' }}</td>
-            <td>
-              <span class="role-badge" :class="getRoleClass(user.role)">
+                  :user-id="user.id"
+                  size="medium"
+              />
+            </div>
+          </td>
+          <td>{{ user.email || '-' }}</td>
+          <td>
+              <span :class="getRoleClass(user.role)" class="role-badge">
                 {{ getRoleName(user.role) }}
               </span>
-            </td>
-            <td>
-              <span class="status-badge" :class="user.status?.toLowerCase()">
+          </td>
+          <td>
+              <span :class="user.status?.toLowerCase()" class="status-badge">
                 {{ user.status }}
               </span>
-            </td>
-            <td>{{ user.createdProvider || '-' }}</td>
-            <td>{{ user.lastLoginProvider || '-' }}</td>
-            <td>
-              <div class="action-buttons">
-                <button class="btn-icon" @click="editUser(user)">
-                  <Pencil :size="16" stroke-width="1.8"/>
-                </button>
-                <button
+          </td>
+          <td>{{ user.createdProvider || '-' }}</td>
+          <td>{{ user.lastLoginProvider || '-' }}</td>
+          <td>
+            <div class="action-buttons">
+              <button class="btn-icon" @click="editUser(user)">
+                <Pencil :size="16" stroke-width="1.8"/>
+              </button>
+              <button
                   v-if="authStore.user?.role === 0 && authStore.user?.id !== user.id"
-                  class="btn-icon btn-reset"
                   :title="t('admin.userManagement.resetPassword')"
+                  class="btn-icon btn-reset"
                   @click="resetUserPassword(user)"
-                >
-                  <KeyRound :size="16" stroke-width="1.8"/>
-                </button>
-              </div>
-            </td>
-          </tr>
+              >
+                <KeyRound :size="16" stroke-width="1.8"/>
+              </button>
+            </div>
+          </td>
+        </tr>
         </tbody>
       </table>
     </div>
 
     <!-- Empty State -->
     <div v-if="users.length === 0 && !loading" class="empty-state">
-      <Users :size="48" stroke-width="1.2" class="empty-icon"/>
+      <Users :size="48" class="empty-icon" stroke-width="1.2"/>
       <h3>{{ t('admin.userManagement.noUsers') }}</h3>
       <p>{{ t('admin.userManagement.noUsersDesc') }}</p>
     </div>
 
     <!-- Pagination -->
     <nav v-if="totalPages > 1" class="pagination">
-      <button class="page-btn" :disabled="currentPage === 1" @click="changePage(currentPage - 1)">
+      <button :disabled="currentPage === 1" class="page-btn" @click="changePage(currentPage - 1)">
         <ChevronLeft :size="18" stroke-width="2"/>
       </button>
       <div class="page-numbers">
         <button
-          v-for="page in displayedPages"
-          :key="page"
-          class="page-btn"
-          :class="{ active: currentPage === page }"
-          @click="changePage(page)"
+            v-for="page in displayedPages"
+            :key="page"
+            :class="{ active: currentPage === page }"
+            class="page-btn"
+            @click="changePage(page)"
         >
           {{ page }}
         </button>
       </div>
-      <button class="page-btn" :disabled="currentPage === totalPages" @click="changePage(currentPage + 1)">
+      <button :disabled="currentPage === totalPages" class="page-btn" @click="changePage(currentPage + 1)">
         <ChevronRight :size="18" stroke-width="2"/>
       </button>
     </nav>
@@ -141,20 +142,22 @@
             </div>
             <div class="form-group">
               <label>{{ t('admin.userManagement.editModal.email') }}</label>
-              <input v-model="editForm.email" class="form-input" type="email" disabled/>
+              <input v-model="editForm.email" class="form-input" disabled type="email"/>
             </div>
             <div class="form-group">
               <label>{{ t('admin.userManagement.editModal.status') }}</label>
               <BaseSelect
-                v-model="editForm.status"
-                class="form-select-control"
-                :options="editStatusOptions"
-                min-width="100%"
+                  v-model="editForm.status"
+                  :options="editStatusOptions"
+                  class="form-select-control"
+                  min-width="100%"
               />
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn-secondary" @click="showEditModal = false">{{ t('admin.userManagement.editModal.cancel') }}</button>
-              <button type="submit" class="btn-primary">{{ t('admin.userManagement.editModal.save') }}</button>
+              <button class="btn-secondary" type="button" @click="showEditModal = false">
+                {{ t('admin.userManagement.editModal.cancel') }}
+              </button>
+              <button class="btn-primary" type="submit">{{ t('admin.userManagement.editModal.save') }}</button>
             </div>
           </form>
         </div>
@@ -234,19 +237,27 @@ const displayedPages = computed(() => {
 
 function getRoleName(role?: number | null): string {
   switch (role) {
-    case 0: return t('admin.userManagement.admin')
-    case 1: return t('admin.userManagement.student')
-    case 2: return t('admin.userManagement.teacher')
-    default: return '-'
+    case 0:
+      return t('admin.userManagement.admin')
+    case 1:
+      return t('admin.userManagement.student')
+    case 2:
+      return t('admin.userManagement.teacher')
+    default:
+      return '-'
   }
 }
 
 function getRoleClass(role?: number | null): string {
   switch (role) {
-    case 0: return 'admin'
-    case 1: return 'student'
-    case 2: return 'teacher'
-    default: return ''
+    case 0:
+      return 'admin'
+    case 1:
+      return 'student'
+    case 2:
+      return 'teacher'
+    default:
+      return ''
   }
 }
 

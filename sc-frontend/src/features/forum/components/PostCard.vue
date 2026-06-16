@@ -1,5 +1,5 @@
 <template>
-  <div class="post-card" :class="{pinned: post.isTop}" @click="('click')">
+  <div :class="{pinned: post.isTop}" class="post-card" @click="('click')">
     <div v-if="post.isTop" class="pinned-bar"></div>
 
     <div class="post-body">
@@ -36,7 +36,7 @@
 <script lang="ts" setup>
 import {computed} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {Pin, Star, Lock, User, Eye, Heart, MessageCircle} from 'lucide-vue-next'
+import {Eye, Heart, Lock, MessageCircle, Pin, Star, User} from 'lucide-vue-next'
 import type {ForumPost} from '@/features/forum/types/forum'
 
 const props = defineProps<{

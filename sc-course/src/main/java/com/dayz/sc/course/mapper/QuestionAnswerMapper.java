@@ -17,6 +17,12 @@ import java.util.List;
 @Mapper
 public interface QuestionAnswerMapper extends BaseMapper<QuestionAnswer> {
 
+    /**
+     * 批量插入题目参考答案。
+     *
+     * @param list 题目参考答案列表
+     * @return 受影响的行数
+     */
     @Insert("""
             <script>
             INSERT INTO edu_question_answer (id, question_id, course_id, answer_content, explanation, score, sort_order)

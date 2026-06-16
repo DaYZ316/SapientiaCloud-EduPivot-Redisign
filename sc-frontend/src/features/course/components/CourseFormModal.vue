@@ -18,60 +18,62 @@
               <div class="basic-fields">
                 <div class="form-group">
                   <label>{{ t('courses.modal.titleLabel') }}</label>
-                  <input v-model="form.title" class="input-field" type="text" :placeholder="t('courses.modal.titlePlaceholder')" required/>
+                  <input v-model="form.title" :placeholder="t('courses.modal.titlePlaceholder')" class="input-field"
+                         required type="text"/>
                 </div>
                 <div class="form-group">
                   <label>{{ t('courses.modal.descriptionLabel') }}</label>
-                  <textarea v-model="form.description" class="input-field" :placeholder="t('courses.modal.descriptionPlaceholder')" rows="4"></textarea>
+                  <textarea v-model="form.description" :placeholder="t('courses.modal.descriptionPlaceholder')"
+                            class="input-field" rows="4"></textarea>
                 </div>
               </div>
               <div class="form-group basic-cover-field">
                 <label>{{ t('courses.modal.coverUrlLabel') }}</label>
                 <BaseImageUploader
-                  v-model="form.coverFileId"
-                  usage="COURSE_COVER"
-                  scope-type="COURSE"
-                  :scope-id="course?.id"
-                  :preview-url="form.coverUrl"
-                  :button-label="t('courses.modal.uploadCover')"
-                  :uploaded-button-label="t('courses.modal.changeCover')"
-                  :uploaded-preview-label="t('courses.modal.changeCover')"
-                  uploaded-behavior="replace"
-                  :allow-remove="false"
-                  :help-text="t('courses.modal.coverUrlPlaceholder')"
-                  size="cover"
-                  @uploaded="handleCoverUploaded"
-                  @error="notify.error"
-                  @removed="clearCover"
+                    v-model="form.coverFileId"
+                    :allow-remove="false"
+                    :button-label="t('courses.modal.uploadCover')"
+                    :help-text="t('courses.modal.coverUrlPlaceholder')"
+                    :preview-url="form.coverUrl"
+                    :scope-id="course?.id"
+                    :uploaded-button-label="t('courses.modal.changeCover')"
+                    :uploaded-preview-label="t('courses.modal.changeCover')"
+                    scope-type="COURSE"
+                    size="cover"
+                    uploaded-behavior="replace"
+                    usage="COURSE_COVER"
+                    @error="notify.error"
+                    @removed="clearCover"
+                    @uploaded="handleCoverUploaded"
                 />
               </div>
               <div class="basic-field-row">
                 <div class="form-group">
                   <label>{{ t('courses.modal.levelLabel') }}</label>
                   <BaseSelect
-                    v-model="form.level"
-                    class="modal-select-control"
-                    :options="courseLevelOptions"
-                    min-width="100%"
+                      v-model="form.level"
+                      :options="courseLevelOptions"
+                      class="modal-select-control"
+                      min-width="100%"
                   />
                 </div>
                 <div class="form-group">
                   <label>{{ t('courses.modal.visibilityLabel') }} *</label>
                   <BaseSelect
-                    v-model="form.isPublic"
-                    class="modal-select-control"
-                    :options="courseVisibilityOptions"
-                    :disabled="mode === 'edit'"
-                    min-width="100%"
+                      v-model="form.isPublic"
+                      :disabled="mode === 'edit'"
+                      :options="courseVisibilityOptions"
+                      class="modal-select-control"
+                      min-width="100%"
                   />
                 </div>
                 <div class="form-group">
                   <label>{{ t('courses.modal.maxStudentsLabel') }}</label>
-                  <BaseNumberStepper v-model="form.maxStudents" :min="0" />
+                  <BaseNumberStepper v-model="form.maxStudents" :min="0"/>
                 </div>
                 <div class="form-group">
                   <label>{{ t('courseDetail.totalClassHours') }}</label>
-                  <BaseNumberStepper v-model="form.totalClassHours" :min="0" />
+                  <BaseNumberStepper v-model="form.totalClassHours" :min="0"/>
                 </div>
               </div>
             </div>
@@ -86,35 +88,37 @@
               <div v-if="showStatusField" class="form-group">
                 <label>{{ t('courses.modal.statusLabel') }}</label>
                 <BaseSelect
-                  v-model="form.status"
-                  class="modal-select-control"
-                  :options="courseStatusOptions"
-                  min-width="100%"
+                    v-model="form.status"
+                    :options="courseStatusOptions"
+                    class="modal-select-control"
+                    min-width="100%"
                 />
               </div>
               <div class="form-group">
                 <label>{{ t('courses.modal.courseTypeLabel') }}</label>
                 <BaseSelect
-                  v-model="form.courseType"
-                  class="modal-select-control"
-                  :options="courseTypeOptions"
-                  min-width="100%"
+                    v-model="form.courseType"
+                    :options="courseTypeOptions"
+                    class="modal-select-control"
+                    min-width="100%"
                 />
               </div>
               <div class="form-group">
                 <label>{{ t('courses.modal.semesterLabel') }}</label>
-                <input v-model="form.semester" class="input-field" type="text" :placeholder="t('courses.modal.semesterPlaceholder')"/>
+                <input v-model="form.semester" :placeholder="t('courses.modal.semesterPlaceholder')" class="input-field"
+                       type="text"/>
               </div>
               <div class="form-group editor-span-2">
                 <label>{{ t('courses.modal.locationLabel') }}</label>
-                <input v-model="form.location" class="input-field" type="text" :placeholder="t('courses.modal.locationPlaceholder')"/>
+                <input v-model="form.location" :placeholder="t('courses.modal.locationPlaceholder')" class="input-field"
+                       type="text"/>
               </div>
             </div>
           </section>
 
           <div class="modal-footer editor-footer">
-            <button type="button" class="btn-secondary" @click="emit('close')">{{ t('courses.modal.cancel') }}</button>
-            <button type="submit" class="btn-primary" :disabled="isSubmitting">
+            <button class="btn-secondary" type="button" @click="emit('close')">{{ t('courses.modal.cancel') }}</button>
+            <button :disabled="isSubmitting" class="btn-primary" type="submit">
               {{ submitLabel }}
             </button>
           </div>

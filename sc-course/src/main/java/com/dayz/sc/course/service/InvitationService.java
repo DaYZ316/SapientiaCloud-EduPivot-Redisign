@@ -217,7 +217,7 @@ public class InvitationService {
         List<CourseInvitation> invitations = invitationRepository.findByInviteeId(inviteeId, request.status(), page, size);
         long total = invitationRepository.countByInviteeId(inviteeId, request.status());
 
-        List<CourseInvitationVO> voList = toInvitationVOs(invitations);
+        List<CourseInvitationVO> voList = toInvitationVos(invitations);
 
         return new PageResponse<>(voList, total, page, size);
     }
@@ -229,7 +229,7 @@ public class InvitationService {
         List<CourseInvitation> invitations = invitationRepository.findByInviterId(inviterId, page, size);
         long total = invitationRepository.countByInviterId(inviterId);
 
-        List<CourseInvitationVO> voList = toInvitationVOs(invitations);
+        List<CourseInvitationVO> voList = toInvitationVos(invitations);
 
         return new PageResponse<>(voList, total, page, size);
     }
@@ -237,7 +237,7 @@ public class InvitationService {
     /**
      * 批量构建邀请 VO，避免 N+1 查询。
      */
-    private List<CourseInvitationVO> toInvitationVOs(List<CourseInvitation> invitations) {
+    private List<CourseInvitationVO> toInvitationVos(List<CourseInvitation> invitations) {
         if (invitations.isEmpty()) {
             return List.of();
         }

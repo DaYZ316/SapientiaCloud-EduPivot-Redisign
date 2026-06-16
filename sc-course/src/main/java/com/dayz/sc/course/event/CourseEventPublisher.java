@@ -1,21 +1,17 @@
 package com.dayz.sc.course.event;
 
 import com.dayz.sc.common.events.config.KafkaTopicConstants;
-import com.dayz.sc.common.events.course.CourseCreatedEvent;
-import com.dayz.sc.common.events.course.CourseDeletedEvent;
-import com.dayz.sc.common.events.course.CourseStatusChangedEvent;
-import com.dayz.sc.common.events.course.EnrollmentChangedEvent;
-import com.dayz.sc.common.events.course.InvitationChangedEvent;
+import com.dayz.sc.common.events.course.*;
+import com.dayz.sc.common.util.UuidV7Generator;
 import com.dayz.sc.course.model.entity.Course;
-
-import java.time.Instant;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import com.dayz.sc.common.util.UuidV7Generator;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+
+import java.time.Instant;
+import java.util.UUID;
 
 /**
  * 事件发布者

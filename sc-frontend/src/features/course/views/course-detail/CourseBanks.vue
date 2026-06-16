@@ -17,11 +17,11 @@
     </div>
     <div v-else class="bank-list">
       <article
-        v-for="bank in banks"
-        :key="bank.id"
-        class="bank-item"
-        :class="{'is-readonly': !canAccessCourseContent}"
-        @click="handleBankOpen(bank.id)"
+          v-for="bank in banks"
+          :key="bank.id"
+          :class="{'is-readonly': !canAccessCourseContent}"
+          class="bank-item"
+          @click="handleBankOpen(bank.id)"
       >
         <div class="bank-info">
           <h3>{{ bank.bankName }}</h3>
@@ -33,28 +33,28 @@
         </div>
         <div class="bank-actions" @click.stop>
           <button
-            v-if="isStudent && canAccessCourseContent"
-            class="btn-practice"
-            type="button"
-            @click="router.push('/question-banks/' + bank.id + '/practice')"
+              v-if="isStudent && canAccessCourseContent"
+              class="btn-practice"
+              type="button"
+              @click="router.push('/question-banks/' + bank.id + '/practice')"
           >
             {{ t('questionBank.practice') }}
           </button>
           <button
-            v-if="canManageCourse"
-            class="btn-icon"
-            type="button"
-            :title="t('courseDetail.editBank')"
-            @click="startEdit(bank)"
+              v-if="canManageCourse"
+              :title="t('courseDetail.editBank')"
+              class="btn-icon"
+              type="button"
+              @click="startEdit(bank)"
           >
             <Pencil :size="14" stroke-width="1.8"/>
           </button>
           <button
-            v-if="canManageCourse"
-            class="btn-icon danger"
-            type="button"
-            :title="t('courseDetail.deleteBank')"
-            @click="handleDelete(bank)"
+              v-if="canManageCourse"
+              :title="t('courseDetail.deleteBank')"
+              class="btn-icon danger"
+              type="button"
+              @click="handleDelete(bank)"
           >
             <Trash2 :size="14" stroke-width="1.8"/>
           </button>
@@ -62,15 +62,15 @@
       </article>
     </div>
     <BasePagination
-      v-if="total > 0"
-      :page="page"
-      :size="size"
-      :total="total"
-      :disabled="loading"
-      :aria-label="t('courseDetail.pagination')"
-      :previous-title="t('courseDetail.previousPage')"
-      :next-title="t('courseDetail.nextPage')"
-      @change="emit('page-change', $event)"
+        v-if="total > 0"
+        :aria-label="t('courseDetail.pagination')"
+        :disabled="loading"
+        :next-title="t('courseDetail.nextPage')"
+        :page="page"
+        :previous-title="t('courseDetail.previousPage')"
+        :size="size"
+        :total="total"
+        @change="emit('page-change', $event)"
     />
 
     <!-- 创建/编辑题库对话�?-->
@@ -81,11 +81,11 @@
           <form @submit.prevent="handleSubmit">
             <label>
               {{ t('questionBank.bankName') }} *
-              <input v-model="form.bankName" type="text" required maxlength="200"/>
+              <input v-model="form.bankName" maxlength="200" required type="text"/>
             </label>
             <label>
               {{ t('questionBank.bankDescription') }}
-              <textarea v-model="form.description" rows="3" maxlength="2000"></textarea>
+              <textarea v-model="form.description" maxlength="2000" rows="3"></textarea>
             </label>
             <label>
               {{ t('questionBank.bankType') }}
@@ -96,8 +96,8 @@
               <BaseSelect v-model="form.difficulty" :options="difficultyOptions"/>
             </label>
             <div class="modal-actions">
-              <button type="button" class="btn-cancel" @click="closeDialogs">{{ t('courseDetail.cancel') }}</button>
-              <button type="submit" class="btn-submit" :disabled="submitting || !form.bankName.trim()">
+              <button class="btn-cancel" type="button" @click="closeDialogs">{{ t('courseDetail.cancel') }}</button>
+              <button :disabled="submitting || !form.bankName.trim()" class="btn-submit" type="submit">
                 {{ t('courseDetail.save') }}
               </button>
             </div>
@@ -113,7 +113,7 @@ import {computed, reactive, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import {Database, Pencil, Plus, Trash2} from 'lucide-vue-next'
-import {createQuestionBank, updateQuestionBank, deleteQuestionBank} from '@/features/question-bank/api/questionBank'
+import {createQuestionBank, deleteQuestionBank, updateQuestionBank} from '@/features/question-bank/api/questionBank'
 import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import BasePagination from '@/shared/components/BasePagination.vue'

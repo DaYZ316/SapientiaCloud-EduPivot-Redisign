@@ -21,7 +21,7 @@
               <p class="setting-desc">{{ item.description }}</p>
             </div>
             <label class="toggle">
-              <input type="checkbox" v-model="privacySettings[item.key]"/>
+              <input v-model="privacySettings[item.key]" type="checkbox"/>
               <span class="toggle-slider"></span>
             </label>
           </div>

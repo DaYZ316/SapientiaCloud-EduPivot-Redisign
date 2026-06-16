@@ -9,11 +9,17 @@ import com.dayz.sc.course.repository.ClassSessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * MyBatis repository for class sessions.
+ * 课堂会话 MyBatis Repository 实现
+ *
+ * @author DaYZ
+ * @since 2026-06-14
  */
 @Repository
 @RequiredArgsConstructor
@@ -57,5 +63,29 @@ public class MybatisClassSessionRepository implements ClassSessionRepository {
         }
         wrapper.orderByDesc(ClassSession::getScheduledStartAt);
         return classSessionMapper.selectPage(new Page<>(page, size), wrapper);
+    }
+
+    @Override
+    public Map<UUID, Long> countPublishedByCourseIds(List<UUID> courseIds) {
+        if (courseIds.isEmpty()) {
+            return Map.of();
+        }
+
+        QueryWrapper<ClassSession> wrapper = new QueryWrapper<>();
+        wrapper.select("course_id", "COUNT(*) AS published_count")
+                .in("course_id", courseIds)
+                .isNotNull("published_at")
+                .eq("deleted", 0)
+                .groupBy("course_id");
+
+        Map<UUID, Long> counts = new HashMap<>(courseIds.size());
+        classSessionMapper.selectMaps(wrapper).forEach(row -> {
+            Object courseId = row.get("course_id");
+            Object count = row.get("published_count");
+            if (courseId != null && count instanceof Number number) {
+                counts.put(UUID.fromString(courseId.toString()), number.longValue());
+            }
+        });
+        return counts;
     }
 }

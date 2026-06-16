@@ -19,6 +19,12 @@ import java.util.UUID;
 @Mapper
 public interface QuestionMapper extends BaseMapper<Question> {
 
+    /**
+     * 按题库ID分组统计题目数量。
+     *
+     * @param bankIds 题库ID列表
+     * @return 包含question_bank_id和cnt字段的Map列表
+     */
     @Select("<script>" +
             "SELECT question_bank_id, COUNT(*) AS cnt FROM edu_question " +
             "WHERE question_bank_id IN " +

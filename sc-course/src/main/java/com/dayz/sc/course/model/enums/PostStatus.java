@@ -15,9 +15,21 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum PostStatus {
 
+    /**
+     * 正常状态，帖子可见
+     */
     NORMAL(0, "正常"),
+    /**
+     * 已删除状态，帖子已被删除
+     */
     DELETED(1, "已删除"),
+    /**
+     * 审核中状态，帖子正在审核
+     */
     UNDER_REVIEW(2, "审核中"),
+    /**
+     * 审核失败状态，帖子未通过审核
+     */
     REVIEW_FAILED(3, "审核失败");
 
     private final int code;

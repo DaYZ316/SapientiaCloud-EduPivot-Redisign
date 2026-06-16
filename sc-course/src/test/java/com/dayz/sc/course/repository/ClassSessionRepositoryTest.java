@@ -1,6 +1,7 @@
 package com.dayz.sc.course.repository;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.mapper.ClassBarrageMapper;
@@ -22,6 +23,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.UUID;
+import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -71,6 +74,25 @@ class ClassSessionRepositoryTest {
         ArgumentCaptor<LambdaQueryWrapper<ClassSession>> wrapperCaptor = ArgumentCaptor.captor();
         verify(classSessionMapper).selectPage(any(), wrapperCaptor.capture());
         assertThat(wrapperCaptor.getValue().getSqlSegment()).doesNotContain("published_at IS NOT NULL");
+    }
+
+    @Test
+    void countPublishedByCourseIds_shouldGroupByCourseAndFilterDrafts() {
+        MybatisClassSessionRepository repository = new MybatisClassSessionRepository(classSessionMapper);
+        UUID courseId = UUID.randomUUID();
+        when(classSessionMapper.selectMaps(any())).thenReturn(List.of(
+                Map.of("course_id", courseId, "published_count", 3L)
+        ));
+
+        Map<UUID, Long> result = repository.countPublishedByCourseIds(List.of(courseId));
+
+        ArgumentCaptor<QueryWrapper<ClassSession>> wrapperCaptor = ArgumentCaptor.captor();
+        verify(classSessionMapper).selectMaps(wrapperCaptor.capture());
+        assertThat(wrapperCaptor.getValue().getSqlSegment()).contains(
+                "published_at IS NOT NULL",
+                "deleted =",
+                "GROUP BY course_id");
+        assertThat(result).containsEntry(courseId, 3L);
     }
 
     @Test

@@ -23,4 +23,5 @@ public record StorageObjectInfo(
         @JsonProperty("status") String status,
         @JsonProperty("ownerUserId") UUID ownerUserId,
         @JsonProperty("uploadedAt") Instant uploadedAt
-) {}
+) {
+}

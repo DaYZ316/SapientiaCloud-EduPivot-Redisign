@@ -1,7 +1,7 @@
 package com.dayz.sc.auth.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.dayz.sc.common.feign.client.StorageInternalClient;
+import com.dayz.sc.auth.event.UserEventPublisher;
 import com.dayz.sc.auth.model.dto.UpdateUserRequest;
 import com.dayz.sc.auth.model.dto.UserBasicInfo;
 import com.dayz.sc.auth.model.dto.UserPageRequest;
@@ -14,17 +14,17 @@ import com.dayz.sc.auth.model.enums.UserStatus;
 import com.dayz.sc.auth.model.vo.StudentInfoVO;
 import com.dayz.sc.auth.model.vo.TeacherInfoVO;
 import com.dayz.sc.auth.model.vo.UserProfileVO;
-import com.dayz.sc.common.feign.dto.StorageObjectInfo;
 import com.dayz.sc.auth.repository.StudentRepository;
 import com.dayz.sc.auth.repository.TeacherRepository;
 import com.dayz.sc.auth.repository.UserAccountRepository;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.feign.client.StorageInternalClient;
+import com.dayz.sc.common.feign.dto.StorageObjectInfo;
 import com.dayz.sc.common.model.UserRole;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.util.PageUtils;
-import com.dayz.sc.auth.event.UserEventPublisher;
 import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -47,6 +47,9 @@ import java.util.stream.Collectors;
 public class UserManagementService {
 
     private static final String DEFAULT_PASSWORD = "SapientiaCloud123";
+    private static final String STATUS_READY = "READY";
+    private static final String USAGE_USER_AVATAR = "USER_AVATAR";
+    private static final String SCOPE_TYPE_USER = "USER";
 
     private final UserAccountRepository userAccountRepository;
     private final StudentRepository studentRepository;
@@ -332,12 +335,12 @@ public class UserManagementService {
     }
 
     private UserProfileVO toUserProfile(User user, List<OauthProvider> linkedProviders,
-                                       StudentInfoVO studentInfo, TeacherInfoVO teacherInfo) {
+                                        StudentInfoVO studentInfo, TeacherInfoVO teacherInfo) {
         return toUserProfile(user, linkedProviders, studentInfo, teacherInfo, resolveAvatarUrl(user));
     }
 
     private UserProfileVO toUserProfile(User user, List<OauthProvider> linkedProviders,
-                                       StudentInfoVO studentInfo, TeacherInfoVO teacherInfo, String avatarUrl) {
+                                        StudentInfoVO studentInfo, TeacherInfoVO teacherInfo, String avatarUrl) {
         return new UserProfileVO(
                 user.getId(),
                 user.getEmail(),
@@ -370,9 +373,9 @@ public class UserManagementService {
 
     private void validateAvatarFile(UUID fileId, UUID userId) {
         StorageObjectInfo file = internalFile(fileId);
-        if (!"READY".equals(file.status())
-                || !"USER_AVATAR".equals(file.usage())
-                || !"USER".equals(file.scopeType())
+        if (!STATUS_READY.equals(file.status())
+                || !USAGE_USER_AVATAR.equals(file.usage())
+                || !SCOPE_TYPE_USER.equals(file.scopeType())
                 || !userId.equals(file.scopeId())) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid avatar file");
         }

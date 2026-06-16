@@ -11,4 +11,5 @@ import org.apache.ibatis.annotations.Mapper;
  * @since 2026-06-12
  */
 @Mapper
-public interface ForumPostMapper extends BaseMapper<ForumPost> {}
+public interface ForumPostMapper extends BaseMapper<ForumPost> {
+}

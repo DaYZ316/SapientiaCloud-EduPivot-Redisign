@@ -15,7 +15,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum ChapterStatus {
 
+    /**
+     * 草稿状态，章节尚未发布
+     */
     DRAFT(0, "草稿"),
+    /**
+     * 已发布状态，章节对学生可见
+     */
     PUBLISHED(1, "已发布");
 
     private final int code;

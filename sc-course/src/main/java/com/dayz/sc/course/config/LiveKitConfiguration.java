@@ -5,6 +5,9 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * LiveKit configuration.
+ *
+ * @author DaYZ
+ * @since 2026-06-14
  */
 @Configuration
 @EnableConfigurationProperties(LiveKitProperties.class)

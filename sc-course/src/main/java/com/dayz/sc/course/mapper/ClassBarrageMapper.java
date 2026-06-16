@@ -6,6 +6,10 @@ import org.apache.ibatis.annotations.Mapper;
 
 /**
  * MyBatis-Plus mapper for class barrage messages.
+ *
+ * @author DaYZ
+ * @since 2026-06-14
  */
 @Mapper
-public interface ClassBarrageMapper extends BaseMapper<ClassBarrage> {}
+public interface ClassBarrageMapper extends BaseMapper<ClassBarrage> {
+}

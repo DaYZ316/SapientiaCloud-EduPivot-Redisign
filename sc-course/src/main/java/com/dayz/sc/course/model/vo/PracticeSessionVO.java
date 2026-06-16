@@ -29,4 +29,5 @@ public record PracticeSessionVO(
         @JsonProperty("completedAt") @Nullable Instant completedAt,
         @JsonProperty("status") int status,
         @JsonProperty("answers") @Nullable List<PracticeAnswerVO> answers
-) {}
+) {
+}

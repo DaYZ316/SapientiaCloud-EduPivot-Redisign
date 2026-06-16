@@ -17,4 +17,5 @@ public record QuestionPageRequest(
         Integer difficulty,
         Integer status,
         String keyword
-) {}
+) {
+}

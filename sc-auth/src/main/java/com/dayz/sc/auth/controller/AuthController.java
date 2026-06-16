@@ -1,11 +1,6 @@
 package com.dayz.sc.auth.controller;
 
-import com.dayz.sc.auth.model.dto.GitHubLoginRequest;
-import com.dayz.sc.auth.model.dto.GoogleLoginRequest;
-import com.dayz.sc.auth.model.dto.LogoutRequest;
-import com.dayz.sc.auth.model.dto.PasswordLoginRequest;
-import com.dayz.sc.auth.model.dto.RefreshTokenRequest;
-import com.dayz.sc.auth.model.dto.RegisterRequest;
+import com.dayz.sc.auth.model.dto.*;
 import com.dayz.sc.auth.model.vo.LoginResponseVO;
 import com.dayz.sc.auth.service.GitHubLoginService;
 import com.dayz.sc.auth.service.GoogleLoginService;
@@ -19,8 +14,6 @@ import com.dayz.sc.common.security.token.RefreshTokenService;
 import com.dayz.sc.common.security.token.TokenBlacklistService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -29,6 +22,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * 认证接口
@@ -40,6 +34,10 @@ import java.util.LinkedHashMap;
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
+
+    private static final String BEARER_PREFIX = "Bearer ";
+    private static final String UNKNOWN_IP = "unknown";
+
     private final GoogleLoginService googleLoginService;
     private final GitHubLoginService gitHubLoginService;
     private final PasswordLoginService passwordLoginService;
@@ -51,28 +49,28 @@ public class AuthController {
     @PostMapping("/google/login")
     @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<@NonNull LoginResponseVO> googleLogin(@Valid @RequestBody GoogleLoginRequest request,
-                                                           HttpServletRequest servletRequest) {
+                                                             HttpServletRequest servletRequest) {
         return ApiResponse.ok(googleLoginService.login(request, resolveClientIp(servletRequest)));
     }
 
     @PostMapping("/github/login")
     @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<@NonNull LoginResponseVO> githubLogin(@Valid @RequestBody GitHubLoginRequest request,
-                                                           HttpServletRequest servletRequest) {
+                                                             HttpServletRequest servletRequest) {
         return ApiResponse.ok(gitHubLoginService.login(request, resolveClientIp(servletRequest)));
     }
 
     @PostMapping("/register")
     @RateLimited(maxRequests = 5, windowSeconds = 300)
     public ApiResponse<@NonNull LoginResponseVO> register(@Valid @RequestBody RegisterRequest request,
-                                                        HttpServletRequest servletRequest) {
+                                                          HttpServletRequest servletRequest) {
         return ApiResponse.ok(passwordLoginService.register(request, resolveClientIp(servletRequest)));
     }
 
     @PostMapping("/password/login")
     @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<@NonNull LoginResponseVO> passwordLogin(@Valid @RequestBody PasswordLoginRequest request,
-                                                             HttpServletRequest servletRequest) {
+                                                               HttpServletRequest servletRequest) {
         return ApiResponse.ok(passwordLoginService.login(request, resolveClientIp(servletRequest)));
     }
 
@@ -126,8 +124,8 @@ public class AuthController {
     public ApiResponse<Void> logout(@RequestHeader(value = "Authorization", required = false) String authorization,
                                     @RequestBody(required = false) LogoutRequest request) {
         // 从 Authorization header 提取 token 并加入黑名单
-        if (StringUtils.hasText(authorization) && authorization.startsWith("Bearer ")) {
-            String accessToken = authorization.substring(7);
+        if (StringUtils.hasText(authorization) && authorization.startsWith(BEARER_PREFIX)) {
+            String accessToken = authorization.substring(BEARER_PREFIX.length());
             try {
                 Jwt jwt = jwtDecoder.decode(accessToken);
                 String jti = jwt.getId();
@@ -154,13 +152,13 @@ public class AuthController {
         String forwardedFor = request.getHeader("X-Forwarded-For");
         if (StringUtils.hasText(forwardedFor)) {
             String firstIp = forwardedFor.split(",", 2)[0].trim();
-            if (StringUtils.hasText(firstIp) && !"unknown".equalsIgnoreCase(firstIp)) {
+            if (StringUtils.hasText(firstIp) && !UNKNOWN_IP.equalsIgnoreCase(firstIp)) {
                 return firstIp;
             }
         }
 
         String realIp = request.getHeader("X-Real-IP");
-        if (StringUtils.hasText(realIp) && !"unknown".equalsIgnoreCase(realIp.trim())) {
+        if (StringUtils.hasText(realIp) && !UNKNOWN_IP.equalsIgnoreCase(realIp.trim())) {
             return realIp.trim();
         }
 

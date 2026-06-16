@@ -1,6 +1,6 @@
 <template>
-  <div class="notification-loading-layout" role="status" aria-live="polite" :aria-label="label">
-    <div class="notification-loading-list" aria-hidden="true">
+  <div :aria-label="label" aria-live="polite" class="notification-loading-layout" role="status">
+    <div aria-hidden="true" class="notification-loading-list">
       <div v-for="item in itemCount" :key="item" class="notification-loading-card">
         <div class="skeleton-block notification-loading-icon"></div>
         <div class="notification-loading-content">
@@ -112,10 +112,10 @@ withDefaults(defineProps<{
   inset: 0;
   transform: translateX(-100%);
   background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--color-on-surface) 8%, transparent),
-    transparent
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--color-on-surface) 8%, transparent),
+      transparent
   );
   animation: skeleton-shimmer 1.4s ease-in-out infinite;
 }

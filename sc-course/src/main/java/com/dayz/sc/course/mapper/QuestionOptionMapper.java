@@ -17,6 +17,12 @@ import java.util.List;
 @Mapper
 public interface QuestionOptionMapper extends BaseMapper<QuestionOption> {
 
+    /**
+     * 批量插入题目选项。
+     *
+     * @param list 题目选项列表
+     * @return 受影响的行数
+     */
     @Insert("""
             <script>
             INSERT INTO edu_question_option (id, question_id, course_id, option_content, option_label, is_correct, score, image_urls, explanation)

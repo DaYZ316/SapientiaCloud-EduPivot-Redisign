@@ -4,4 +4,5 @@ ALTER TABLE storage_object
 CREATE INDEX IF NOT EXISTS idx_storage_object_deleted
     ON storage_object(deleted);
 
-COMMENT ON COLUMN storage_object.deleted IS '逻辑删除: 0=正常, 1=已删除';
+COMMENT
+ON COLUMN storage_object.deleted IS '逻辑删除: 0=正常, 1=已删除';

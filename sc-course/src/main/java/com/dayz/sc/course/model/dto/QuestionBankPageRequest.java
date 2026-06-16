@@ -14,4 +14,5 @@ public record QuestionBankPageRequest(
         UUID courseId,
         Integer bankType,
         String keyword
-) {}
+) {
+}

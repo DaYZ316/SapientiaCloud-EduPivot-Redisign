@@ -15,8 +15,17 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum CourseStatus {
 
+    /**
+     * 草稿状态，课程尚未发布
+     */
     DRAFT(0, "草稿"),
+    /**
+     * 已发布状态，课程对学生可见
+     */
     PUBLISHED(1, "已发布"),
+    /**
+     * 已归档状态，课程不再接受新学生
+     */
     ARCHIVED(2, "已归档");
 
     private final int code;

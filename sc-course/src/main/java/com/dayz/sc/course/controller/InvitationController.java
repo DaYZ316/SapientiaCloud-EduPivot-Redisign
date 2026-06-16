@@ -1,8 +1,8 @@
 package com.dayz.sc.course.controller;
 
 import com.dayz.sc.common.response.ApiResponse;
-import com.dayz.sc.common.security.ratelimit.RateLimited;
 import com.dayz.sc.common.response.PageResponse;
+import com.dayz.sc.common.security.ratelimit.RateLimited;
 import com.dayz.sc.common.security.support.JwtPrincipalResolver;
 import com.dayz.sc.course.model.dto.InvitationPageRequest;
 import com.dayz.sc.course.model.dto.InviteAssistantRequest;

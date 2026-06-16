@@ -1,10 +1,6 @@
 package com.dayz.sc.course.model.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableLogic;
-import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.*;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -12,7 +8,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Class session barrage message.
+ * 课堂弹幕消息实体
+ *
+ * @author DaYZ
+ * @since 2026-06-14
  */
 @Getter
 @Setter

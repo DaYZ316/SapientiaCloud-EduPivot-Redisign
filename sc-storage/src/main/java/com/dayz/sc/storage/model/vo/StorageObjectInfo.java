@@ -21,4 +21,5 @@ public record StorageObjectInfo(
         String status,
         UUID ownerUserId,
         Instant uploadedAt
-) {}
+) {
+}

@@ -18,6 +18,13 @@ import java.util.UUID;
 @Mapper
 public interface StorageUploadSessionMapper extends BaseMapper<StorageUploadSession> {
 
+    /**
+     * 批量更新上传会话状态。
+     *
+     * @param ids    上传会话ID列表
+     * @param status 目标状态
+     * @return 受影响的行数
+     */
     @Update("<script>" +
             "UPDATE storage_upload_session SET status = #{status} " +
             "WHERE id IN " +

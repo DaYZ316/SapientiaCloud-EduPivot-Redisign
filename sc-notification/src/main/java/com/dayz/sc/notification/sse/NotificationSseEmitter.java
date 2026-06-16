@@ -1,8 +1,8 @@
 package com.dayz.sc.notification.sse;
 
 import com.dayz.sc.notification.model.vo.NotificationVO;
-import lombok.extern.slf4j.Slf4j;
 import jakarta.annotation.PreDestroy;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -10,8 +10,8 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -24,18 +24,16 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class NotificationSseEmitter {
 
-    /**
-     * SSE 推送的 payload 结构，包含通知详情和未读计数。
-     */
-    public record SsePayload(NotificationVO notification, long unreadCount) {}
-
     private static final long NO_TIMEOUT = 0L;
     private static final long HEARTBEAT_INTERVAL_SECONDS = 15L;
-
     private final Map<UUID, SseEmitter> emitters = new ConcurrentHashMap<>();
     private final RedisSsePublisher redisSsePublisher;
-    private final ScheduledExecutorService heartbeatExecutor = Executors.newSingleThreadScheduledExecutor();
-
+    private final ScheduledExecutorService heartbeatExecutor = new ScheduledThreadPoolExecutor(1,
+            r -> {
+                Thread t = new Thread(r, "sse-heartbeat");
+                t.setDaemon(true);
+                return t;
+            });
     public NotificationSseEmitter(RedisSsePublisher redisSsePublisher) {
         this.redisSsePublisher = redisSsePublisher;
         heartbeatExecutor.scheduleAtFixedRate(
@@ -177,5 +175,11 @@ public class NotificationSseEmitter {
                 emitters.remove(userId, emitter);
             }
         });
+    }
+
+    /**
+     * SSE 推送的 payload 结构，包含通知详情和未读计数。
+     */
+    public record SsePayload(NotificationVO notification, long unreadCount) {
     }
 }

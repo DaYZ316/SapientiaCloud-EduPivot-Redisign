@@ -14,8 +14,17 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum TargetType {
+    /**
+     * 全员通知，发送给所有用户
+     */
     ALL(0, "全员"),
+    /**
+     * 指定用户通知，发送给特定用户
+     */
     USER(1, "指定用户"),
+    /**
+     * 指定班级通知，发送给班级成员
+     */
     CLASS(2, "指定班级");
 
     private final int code;

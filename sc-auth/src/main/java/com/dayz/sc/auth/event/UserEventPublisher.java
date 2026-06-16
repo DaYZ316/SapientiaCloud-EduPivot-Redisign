@@ -4,14 +4,15 @@ import com.dayz.sc.auth.model.entity.User;
 import com.dayz.sc.common.events.config.KafkaTopicConstants;
 import com.dayz.sc.common.events.user.UserDeactivatedEvent;
 import com.dayz.sc.common.events.user.UserRegisteredEvent;
-import java.time.Instant;
+import com.dayz.sc.common.util.UuidV7Generator;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import com.dayz.sc.common.util.UuidV7Generator;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+
+import java.time.Instant;
 
 /**
  * 用户事件发布者，负责发布用户注册和停用事件

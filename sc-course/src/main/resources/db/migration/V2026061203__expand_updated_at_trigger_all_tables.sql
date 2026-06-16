@@ -6,72 +6,115 @@
 -- ============================================================
 
 -- 确保触发器函数存在（可能在 V2026061101 中已创建）
-CREATE OR REPLACE FUNCTION trg_set_updated_at()
+CREATE
+OR REPLACE FUNCTION trg_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
+    NEW.updated_at
+= CURRENT_TIMESTAMP;
+RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$
+LANGUAGE plpgsql;
 
 -- edu_enrollment
-UPDATE edu_enrollment SET updated_at = created_at WHERE updated_at IS NULL;
+UPDATE edu_enrollment
+SET updated_at = created_at
+WHERE updated_at IS NULL;
 DROP TRIGGER IF EXISTS set_updated_at ON edu_enrollment;
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON edu_enrollment
+CREATE TRIGGER set_updated_at
+    BEFORE UPDATE
+    ON edu_enrollment
     FOR EACH ROW EXECUTE FUNCTION trg_set_updated_at();
 
 -- edu_chapter
-UPDATE edu_chapter SET updated_at = created_at WHERE updated_at IS NULL;
+UPDATE edu_chapter
+SET updated_at = created_at
+WHERE updated_at IS NULL;
 DROP TRIGGER IF EXISTS set_updated_at ON edu_chapter;
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON edu_chapter
+CREATE TRIGGER set_updated_at
+    BEFORE UPDATE
+    ON edu_chapter
     FOR EACH ROW EXECUTE FUNCTION trg_set_updated_at();
 
 -- edu_forum
-UPDATE edu_forum SET updated_at = created_at WHERE updated_at IS NULL;
+UPDATE edu_forum
+SET updated_at = created_at
+WHERE updated_at IS NULL;
 DROP TRIGGER IF EXISTS set_updated_at ON edu_forum;
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON edu_forum
+CREATE TRIGGER set_updated_at
+    BEFORE UPDATE
+    ON edu_forum
     FOR EACH ROW EXECUTE FUNCTION trg_set_updated_at();
 
 -- edu_forum_post
-UPDATE edu_forum_post SET updated_at = created_at WHERE updated_at IS NULL;
+UPDATE edu_forum_post
+SET updated_at = created_at
+WHERE updated_at IS NULL;
 DROP TRIGGER IF EXISTS set_updated_at ON edu_forum_post;
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON edu_forum_post
+CREATE TRIGGER set_updated_at
+    BEFORE UPDATE
+    ON edu_forum_post
     FOR EACH ROW EXECUTE FUNCTION trg_set_updated_at();
 
 -- edu_forum_reply
-UPDATE edu_forum_reply SET updated_at = created_at WHERE updated_at IS NULL;
+UPDATE edu_forum_reply
+SET updated_at = created_at
+WHERE updated_at IS NULL;
 DROP TRIGGER IF EXISTS set_updated_at ON edu_forum_reply;
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON edu_forum_reply
+CREATE TRIGGER set_updated_at
+    BEFORE UPDATE
+    ON edu_forum_reply
     FOR EACH ROW EXECUTE FUNCTION trg_set_updated_at();
 
 -- edu_question_bank
-UPDATE edu_question_bank SET updated_at = created_at WHERE updated_at IS NULL;
+UPDATE edu_question_bank
+SET updated_at = created_at
+WHERE updated_at IS NULL;
 DROP TRIGGER IF EXISTS set_updated_at ON edu_question_bank;
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON edu_question_bank
+CREATE TRIGGER set_updated_at
+    BEFORE UPDATE
+    ON edu_question_bank
     FOR EACH ROW EXECUTE FUNCTION trg_set_updated_at();
 
 -- edu_question
-UPDATE edu_question SET updated_at = created_at WHERE updated_at IS NULL;
+UPDATE edu_question
+SET updated_at = created_at
+WHERE updated_at IS NULL;
 DROP TRIGGER IF EXISTS set_updated_at ON edu_question;
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON edu_question
+CREATE TRIGGER set_updated_at
+    BEFORE UPDATE
+    ON edu_question
     FOR EACH ROW EXECUTE FUNCTION trg_set_updated_at();
 
 -- edu_question_option
-UPDATE edu_question_option SET updated_at = created_at WHERE updated_at IS NULL;
+UPDATE edu_question_option
+SET updated_at = created_at
+WHERE updated_at IS NULL;
 DROP TRIGGER IF EXISTS set_updated_at ON edu_question_option;
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON edu_question_option
+CREATE TRIGGER set_updated_at
+    BEFORE UPDATE
+    ON edu_question_option
     FOR EACH ROW EXECUTE FUNCTION trg_set_updated_at();
 
 -- edu_question_answer
-UPDATE edu_question_answer SET updated_at = created_at WHERE updated_at IS NULL;
+UPDATE edu_question_answer
+SET updated_at = created_at
+WHERE updated_at IS NULL;
 DROP TRIGGER IF EXISTS set_updated_at ON edu_question_answer;
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON edu_question_answer
+CREATE TRIGGER set_updated_at
+    BEFORE UPDATE
+    ON edu_question_answer
     FOR EACH ROW EXECUTE FUNCTION trg_set_updated_at();
 
 -- edu_course_file
-UPDATE edu_course_file SET updated_at = created_at WHERE updated_at IS NULL;
+UPDATE edu_course_file
+SET updated_at = created_at
+WHERE updated_at IS NULL;
 DROP TRIGGER IF EXISTS set_updated_at ON edu_course_file;
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON edu_course_file
+CREATE TRIGGER set_updated_at
+    BEFORE UPDATE
+    ON edu_course_file
     FOR EACH ROW EXECUTE FUNCTION trg_set_updated_at();
 
 -- 将 TIMESTAMP 列转换为 TIMESTAMPTZ（PostgreSQL 会自动转换时区数据）

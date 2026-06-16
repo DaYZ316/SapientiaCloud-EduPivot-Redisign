@@ -11,7 +11,10 @@ import org.springframework.stereotype.Repository;
 import java.util.UUID;
 
 /**
- * MyBatis repository for class barrage messages.
+ * 课堂弹幕消息 MyBatis Repository 实现
+ *
+ * @author DaYZ
+ * @since 2026-06-14
  */
 @Repository
 @RequiredArgsConstructor

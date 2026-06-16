@@ -24,11 +24,7 @@ import com.dayz.sc.course.model.enums.EnrollmentStatus;
 import com.dayz.sc.course.model.enums.PostStatus;
 import com.dayz.sc.course.model.vo.ForumPostVO;
 import com.dayz.sc.course.model.vo.ForumReplyVO;
-import com.dayz.sc.course.repository.CourseRepository;
-import com.dayz.sc.course.repository.CourseTeacherRepository;
-import com.dayz.sc.course.repository.EnrollmentRepository;
-import com.dayz.sc.course.repository.ForumPostRepository;
-import com.dayz.sc.course.repository.ForumReplyRepository;
+import com.dayz.sc.course.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -168,7 +164,7 @@ public class ForumService {
 
         return allReplies.stream()
                 .filter(r -> r.getParentReplyId() == null)
-                .map(r -> toForumReplyVOWithChildren(r, childrenMap, imageUrls, userInfoMap))
+                .map(r -> toForumReplyVoWithChildren(r, childrenMap, imageUrls, userInfoMap))
                 .toList();
     }
 
@@ -357,13 +353,13 @@ public class ForumService {
         );
     }
 
-    private ForumReplyVO toForumReplyVOWithChildren(ForumReply reply,
+    private ForumReplyVO toForumReplyVoWithChildren(ForumReply reply,
                                                     Map<UUID, List<ForumReply>> childrenMap,
                                                     Map<UUID, String> imageUrlMap,
                                                     Map<UUID, UserBasicInfo> userInfoMap) {
         List<ForumReply> childReplies = childrenMap.getOrDefault(reply.getId(), List.of());
         List<ForumReplyVO> children = childReplies.stream()
-                .map(r -> toForumReplyVOWithChildren(r, childrenMap, imageUrlMap, userInfoMap))
+                .map(r -> toForumReplyVoWithChildren(r, childrenMap, imageUrlMap, userInfoMap))
                 .toList();
 
         return new ForumReplyVO(

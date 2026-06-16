@@ -8,8 +8,17 @@ package com.dayz.sc.common.model;
  */
 public enum UserRole {
 
+    /**
+     * 管理员角色，拥有系统管理权限
+     */
     ADMIN(0, "管理员"),
+    /**
+     * 学生角色，参与课程学习
+     */
     STUDENT(1, "学生"),
+    /**
+     * 教师角色，管理课程内容
+     */
     TEACHER(2, "教师");
 
     private final int code;

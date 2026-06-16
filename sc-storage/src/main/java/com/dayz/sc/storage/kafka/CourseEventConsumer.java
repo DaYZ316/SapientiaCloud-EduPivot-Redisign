@@ -29,6 +29,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CourseEventConsumer {
 
+    private static final String GROUP_ID = "sc-storage";
+
     private final StorageObjectMapper storageObjectMapper;
     private final MinioClient minioClient;
     private final KafkaIdempotencyGuard idempotencyGuard;
@@ -37,7 +39,7 @@ public class CourseEventConsumer {
     public void onCourseEvent(Object event, Acknowledgment ack) {
         try {
             if (event instanceof CourseDeletedEvent e) {
-                if (!idempotencyGuard.tryAcquire("sc-storage", e.eventId())) {
+                if (!idempotencyGuard.tryAcquire(GROUP_ID, e.eventId())) {
                     log.info("Duplicate CourseDeletedEvent skipped: {}", e.eventId());
                     return;
                 }

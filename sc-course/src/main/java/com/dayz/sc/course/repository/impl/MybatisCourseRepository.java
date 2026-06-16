@@ -25,6 +25,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class MybatisCourseRepository implements CourseRepository {
 
+    private static final String ROLE_PRIMARY = "primary";
+    private static final String ROLE_ASSISTANT = "assistant";
+
     private final CourseMapper courseMapper;
 
     @Override
@@ -121,11 +124,11 @@ public class MybatisCourseRepository implements CourseRepository {
 
     private LambdaQueryWrapper<Course> teacherCourseWrapper(UUID teacherId, String role) {
         LambdaQueryWrapper<Course> wrapper = new LambdaQueryWrapper<>();
-        if ("primary".equalsIgnoreCase(role)) {
+        if (ROLE_PRIMARY.equalsIgnoreCase(role)) {
             wrapper.eq(Course::getTeacherId, teacherId);
             return wrapper;
         }
-        if ("assistant".equalsIgnoreCase(role)) {
+        if (ROLE_ASSISTANT.equalsIgnoreCase(role)) {
             wrapper.ne(Course::getTeacherId, teacherId);
             wrapper.exists("SELECT 1 FROM edu_course_teacher ect WHERE ect.course_id = edu_course.id AND ect.teacher_id = {0}", teacherId);
             return wrapper;

@@ -43,7 +43,7 @@ public class UserManagementController {
     @PutMapping("/me")
     @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<@NonNull UserProfileVO> updateCurrentUser(@Valid @RequestBody UpdateUserRequest request,
-                                                               @AuthenticationPrincipal Jwt jwt) {
+                                                                 @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         return ApiResponse.ok(userManagementService.updateCurrentUser(userId, request));
     }
@@ -59,8 +59,8 @@ public class UserManagementController {
     @PutMapping("/{id}")
     @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<@NonNull UserProfileVO> updateUser(@PathVariable UUID id,
-                                                        @Valid @RequestBody UpdateUserRequest request,
-                                                        @AuthenticationPrincipal Jwt jwt) {
+                                                          @Valid @RequestBody UpdateUserRequest request,
+                                                          @AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
         return ApiResponse.ok(userManagementService.updateUser(id, request));
     }
@@ -129,6 +129,7 @@ public class UserManagementController {
         JwtPrincipalResolver.requireUserId(jwt);
         return ApiResponse.ok(userManagementService.pageUsers(request));
     }
+
     private void requireAdmin(Jwt jwt) {
         JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);

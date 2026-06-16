@@ -5,18 +5,25 @@
 -- ============================================================
 
 -- 创建触发器函数
-CREATE OR REPLACE FUNCTION trg_set_updated_at()
+CREATE
+OR REPLACE FUNCTION trg_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
+    NEW.updated_at
+= CURRENT_TIMESTAMP;
+RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$
+LANGUAGE plpgsql;
 
 -- ntf_notification
-UPDATE ntf_notification SET updated_at = created_at WHERE updated_at IS NULL;
+UPDATE ntf_notification
+SET updated_at = created_at
+WHERE updated_at IS NULL;
 DROP TRIGGER IF EXISTS set_updated_at ON ntf_notification;
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON ntf_notification
+CREATE TRIGGER set_updated_at
+    BEFORE UPDATE
+    ON ntf_notification
     FOR EACH ROW EXECUTE FUNCTION trg_set_updated_at();
 
 -- 将 TIMESTAMP 转换为 TIMESTAMPTZ

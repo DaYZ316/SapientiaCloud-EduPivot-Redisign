@@ -1,5 +1,5 @@
 <template>
-  <div class="skeleton-wrapper" :class="[variant]">
+  <div :class="[variant]" class="skeleton-wrapper">
     <!-- Card Skeleton -->
     <template v-if="variant === 'card'">
       <div v-for="n in count" :key="n" class="skeleton-card">

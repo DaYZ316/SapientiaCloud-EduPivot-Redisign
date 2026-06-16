@@ -21,12 +21,12 @@ const uiPreferences = useUiPreferencesStore()
 uiPreferences.initializeTheme()
 
 watch(
-  () => authStore.user ? authStore.user.theme ?? 'system' : null,
-  (theme) => {
-    if (theme) {
-      uiPreferences.setThemePreference(theme)
-    }
-  },
-  {immediate: true},
+    () => authStore.user ? authStore.user.theme ?? 'system' : null,
+    (theme) => {
+      if (theme) {
+        uiPreferences.setThemePreference(theme)
+      }
+    },
+    {immediate: true},
 )
 </script>

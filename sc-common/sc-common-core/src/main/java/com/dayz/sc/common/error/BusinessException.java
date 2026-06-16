@@ -36,10 +36,14 @@ public class BusinessException extends RuntimeException {
 
     private record LegacyErrorCode(int code, String message) implements ErrorCode {
         @Override
-        public int code() { return code; }
+        public int code() {
+            return code;
+        }
 
         @Override
-        public String message() { return message; }
+        public String message() {
+            return message;
+        }
 
         @Override
         public HttpStatus httpStatus() {

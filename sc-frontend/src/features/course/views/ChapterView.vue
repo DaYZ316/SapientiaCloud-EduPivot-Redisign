@@ -13,25 +13,25 @@
       </div>
 
       <div v-if="chapter" class="command-metrics">
-        <span class="status-chip" :class="{draft: chapter.status !== 1}">{{ statusLabel }}</span>
+        <span :class="{draft: chapter.status !== 1}" class="status-chip">{{ statusLabel }}</span>
         <span><Eye :size="14" stroke-width="1.8"/> {{ chapter.viewCount }} {{ t('chapter.viewCount') }}</span>
         <span><Heart :size="14" stroke-width="1.8"/> {{ chapter.likeCount }} {{ t('chapter.likeCount') }}</span>
       </div>
     </header>
 
     <div v-if="loading" class="loading-state">
-      <aside class="skeleton-panel sidebar-skeleton" aria-hidden="true">
+      <aside aria-hidden="true" class="skeleton-panel sidebar-skeleton">
         <span class="skeleton-line short shimmer"></span>
         <span v-for="n in 6" :key="n" class="skeleton-row shimmer"></span>
       </aside>
-      <main class="skeleton-panel article-skeleton" aria-hidden="true">
+      <main aria-hidden="true" class="skeleton-panel article-skeleton">
         <span class="skeleton-line short shimmer"></span>
         <span class="skeleton-title shimmer"></span>
         <span class="skeleton-line shimmer"></span>
         <span class="skeleton-line shimmer"></span>
         <span class="skeleton-block shimmer"></span>
       </main>
-      <aside class="skeleton-panel rail-skeleton" aria-hidden="true">
+      <aside aria-hidden="true" class="skeleton-panel rail-skeleton">
         <span class="skeleton-line short shimmer"></span>
         <span class="skeleton-row shimmer"></span>
         <span class="skeleton-row shimmer"></span>
@@ -40,26 +40,26 @@
     </div>
 
     <div v-else-if="chapter" class="chapter-layout">
-      <aside class="chapter-sidebar" :aria-label="t('chapter.directory')">
+      <aside :aria-label="t('chapter.directory')" class="chapter-sidebar">
         <div class="panel-heading">
           <span>{{ t('chapter.directory') }}</span>
           <strong>{{ flatChapters.length }}</strong>
         </div>
         <ChapterTree
-          :chapters="chapterTree"
-          :active-chapter-id="chapterId"
-          @select="handleSelectChapter"
+            :active-chapter-id="chapterId"
+            :chapters="chapterTree"
+            @select="handleSelectChapter"
         />
       </aside>
 
       <main class="chapter-main">
         <ChapterContent
-          :chapter="chapter"
-          @like-toggle="handleLikeToggle"
+            :chapter="chapter"
+            @like-toggle="handleLikeToggle"
         />
       </main>
 
-      <aside class="study-rail" :aria-label="t('chapter.studyTools')">
+      <aside :aria-label="t('chapter.studyTools')" class="study-rail">
         <div class="study-rail-sticky">
           <section class="rail-section">
             <span class="rail-kicker">{{ t('chapter.currentReading') }}</span>
@@ -93,12 +93,12 @@
               <MessageCircle :size="16" stroke-width="1.8"/>
               {{ t('chapter.discussionArea') }}
             </button>
-            <button type="button" :disabled="attachmentCount === 0" @click="scrollToAttachments">
+            <button :disabled="attachmentCount === 0" type="button" @click="scrollToAttachments">
               <Paperclip :size="16" stroke-width="1.8"/>
               {{ t('chapter.jumpToAttachments') }}
             </button>
             <button class="primary-rail-action" type="button" @click="handleLikeToggle">
-              <Heart :size="16" stroke-width="1.8" :fill="chapter.likedByMe ? 'currentColor' : 'none'"/>
+              <Heart :fill="chapter.likedByMe ? 'currentColor' : 'none'" :size="16" stroke-width="1.8"/>
               {{ chapter.likedByMe ? t('chapter.liked') : t('chapter.likeLesson') }}
             </button>
           </div>
@@ -153,14 +153,14 @@ const readingProgress = computed(() => {
 const updatedLabel = computed(() => formatDate(chapter.value?.updatedAt || chapter.value?.createdAt))
 
 watch(
-  () => [route.params.courseId, route.query.chapterId],
-  () => {
-    const nextCourseId = String(route.params.courseId || '')
-    if (!nextCourseId) return
-    courseId.value = nextCourseId
-    void loadChapterDetail(nextCourseId, normalizeQueryValue(route.query.chapterId))
-  },
-  {immediate: true}
+    () => [route.params.courseId, route.query.chapterId],
+    () => {
+      const nextCourseId = String(route.params.courseId || '')
+      if (!nextCourseId) return
+      courseId.value = nextCourseId
+      void loadChapterDetail(nextCourseId, normalizeQueryValue(route.query.chapterId))
+    },
+    {immediate: true}
 )
 
 async function loadChapterDetail(nextCourseId: string, requestedChapterId: string | null) {
@@ -193,15 +193,16 @@ function recordView(targetChapterId: string) {
       chapter.value.likeCount = interaction.likeCount
       chapter.value.likedByMe = interaction.likedByMe
     }
-  }).catch(() => {})
+  }).catch(() => {
+  })
 }
 
 async function handleLikeToggle() {
   if (!chapter.value) return
   try {
     const interaction = chapter.value.likedByMe
-      ? await unlikeChapter(chapter.value.id)
-      : await likeChapter(chapter.value.id)
+        ? await unlikeChapter(chapter.value.id)
+        : await likeChapter(chapter.value.id)
     chapter.value.likeCount = interaction.likeCount
     chapter.value.likedByMe = interaction.likedByMe
   } catch {

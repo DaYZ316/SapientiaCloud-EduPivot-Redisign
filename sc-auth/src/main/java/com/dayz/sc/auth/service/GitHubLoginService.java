@@ -42,6 +42,8 @@ public class GitHubLoginService {
     private static final String TOKEN_TYPE = "Bearer";
     private static final int EMAIL_PAGE_SIZE = 100;
     private static final int FIRST_PAGE = 1;
+    private static final int HTTP_FORBIDDEN = 403;
+    private static final int HTTP_NOT_FOUND = 404;
 
     private final GitHubOauthClient gitHubOauthClient;
     private final GitHubUserClient gitHubUserClient;
@@ -108,7 +110,7 @@ public class GitHubLoginService {
                     FIRST_PAGE
             );
         } catch (FeignException ex) {
-            if (ex.status() != 403 && ex.status() != 404) {
+            if (ex.status() != HTTP_FORBIDDEN && ex.status() != HTTP_NOT_FOUND) {
                 throw new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED, "GitHub 邮箱信息读取失败");
             }
         }

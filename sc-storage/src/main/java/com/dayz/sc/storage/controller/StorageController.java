@@ -16,9 +16,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.UUID;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * REST 控制器
@@ -46,7 +46,7 @@ public class StorageController {
     @PostMapping("/uploads/{objectId}/complete")
     @RateLimited(maxRequests = 10, windowSeconds = 60)
     public ApiResponse<FileAsset> completeUpload(@PathVariable UUID objectId,
-                                                @AuthenticationPrincipal Jwt jwt) {
+                                                 @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
         return ApiResponse.ok(storageService.completeUpload(objectId, userId, role));

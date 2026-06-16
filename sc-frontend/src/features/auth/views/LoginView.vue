@@ -3,17 +3,17 @@
     <!-- Left Panel: Video Background & Branding (Desktop Only) -->
     <div class="left-panel">
       <video
-        v-if="showLoginVideo"
-        :src="loginVideoSrc"
-        class="bg-video"
-        autoplay
-        loop
-        muted
-        playsinline
+          v-if="showLoginVideo"
+          :src="loginVideoSrc"
+          autoplay
+          class="bg-video"
+          loop
+          muted
+          playsinline
       ></video>
       <div v-if="uiPreferences.resolvedTheme === 'dark'" class="dark-video-overlay"></div>
       <div class="left-brand">
-        <img class="brand-logo-large" src="/assets/project-logo-dark.png" alt="SapientiaCloud EduPivot"/>
+        <img alt="SapientiaCloud EduPivot" class="brand-logo-large" src="/assets/project-logo-dark.png"/>
         <h1 class="brand-title">
           智语·云枢<br/>SapientiaCloud EduPivot
         </h1>
@@ -25,20 +25,20 @@
       <!-- Preferences Top Right -->
       <div class="login-preferences">
         <button
-          type="button"
-          class="preference-icon-button"
-          :aria-label="t('settings.theme')"
-          :title="t('settings.theme')"
-          @click="cycleThemePreference"
+            :aria-label="t('settings.theme')"
+            :title="t('settings.theme')"
+            class="preference-icon-button"
+            type="button"
+            @click="cycleThemePreference"
         >
           <component :is="themePreferenceIcon" :size="19" stroke-width="1.8"/>
         </button>
         <button
-          type="button"
-          class="preference-icon-button"
-          :aria-label="t('common.settings.language')"
-          :title="t('common.settings.language')"
-          @click="toggleLocale"
+            :aria-label="t('common.settings.language')"
+            :title="t('common.settings.language')"
+            class="preference-icon-button"
+            type="button"
+            @click="toggleLocale"
         >
           <span class="language-glyph">{{ languageGlyph }}</span>
         </button>
@@ -49,7 +49,8 @@
         <!-- Header -->
         <div class="form-header">
           <h2 class="form-title">
-            <template v-if="isRegister">{{ t('login.createAccountLine1') }}<br/>{{ t('login.createAccountLine2') }}</template>
+            <template v-if="isRegister">{{ t('login.createAccountLine1') }}<br/>{{ t('login.createAccountLine2') }}
+            </template>
             <template v-else>{{ t('login.welcomeBackLine1') }}<br/>{{ t('login.welcomeBackLine2') }}</template>
           </h2>
           <p class="form-subtitle">
@@ -58,33 +59,33 @@
         </div>
 
         <!-- Login Form -->
-        <form class="login-form" :class="{ 'is-register': isRegister }" @submit.prevent="handleSubmit">
+        <form :class="{ 'is-register': isRegister }" class="login-form" @submit.prevent="handleSubmit">
           <div v-if="isRegister" class="form-field">
             <input
-              v-model="formData.displayName"
-              class="input-underline"
-              :placeholder="t('login.placeholderDisplayName')"
-              type="text"
+                v-model="formData.displayName"
+                :placeholder="t('login.placeholderDisplayName')"
+                class="input-underline"
+                type="text"
             />
           </div>
 
           <div class="form-field">
             <input
-              v-model="formData.email"
-              class="input-underline"
-              :placeholder="t('login.placeholderEmail')"
-              type="email"
-              autocomplete="email"
+                v-model="formData.email"
+                :placeholder="t('login.placeholderEmail')"
+                autocomplete="email"
+                class="input-underline"
+                type="email"
             />
           </div>
 
           <div class="form-field">
             <input
-              v-model="formData.password"
-              class="input-underline"
-              :placeholder="t('login.placeholderPassword')"
-              type="password"
-              autocomplete="current-password"
+                v-model="formData.password"
+                :placeholder="t('login.placeholderPassword')"
+                autocomplete="current-password"
+                class="input-underline"
+                type="password"
             />
             <div v-if="!isRegister" class="forgot-link">
               <button type="button" @click="showForgotPasswordUnavailable">
@@ -95,10 +96,10 @@
 
           <div v-if="isRegister" class="form-field">
             <input
-              v-model="formData.confirmPassword"
-              class="input-underline"
-              :placeholder="t('login.placeholderConfirmPassword')"
-              type="password"
+                v-model="formData.confirmPassword"
+                :placeholder="t('login.placeholderConfirmPassword')"
+                class="input-underline"
+                type="password"
             />
           </div>
 
@@ -107,19 +108,19 @@
             <label class="role-label">{{ t('login.roleLabel') }}</label>
             <div class="role-cards">
               <button
-                type="button"
-                class="role-card"
-                :class="{ active: formData.role === 1 }"
-                @click="formData.role = 1"
+                  :class="{ active: formData.role === 1 }"
+                  class="role-card"
+                  type="button"
+                  @click="formData.role = 1"
               >
                 <GraduationCap :size="18" stroke-width="1.8"/>
                 <span class="role-name">{{ t('login.roleStudent') }}</span>
               </button>
               <button
-                type="button"
-                class="role-card"
-                :class="{ active: formData.role === 2 }"
-                @click="formData.role = 2"
+                  :class="{ active: formData.role === 2 }"
+                  class="role-card"
+                  type="button"
+                  @click="formData.role = 2"
               >
                 <BookOpen :size="18" stroke-width="1.8"/>
                 <span class="role-name">{{ t('login.roleTeacher') }}</span>
@@ -128,9 +129,9 @@
           </div>
 
           <button
-            :disabled="passwordLoading"
-            class="btn-submit"
-            type="submit"
+              :disabled="passwordLoading"
+              class="btn-submit"
+              type="submit"
           >
             {{ passwordLoading ? t('login.loading') : (isRegister ? t('login.createAccountBtn') : t('login.signIn')) }}
           </button>
@@ -151,46 +152,51 @@
         <!-- Social Login -->
         <div class="social-login">
           <button
-            :disabled="githubLoading"
-            class="btn-social"
-            @click="startGitHubLogin"
+              :disabled="githubLoading"
+              class="btn-social"
+              @click="startGitHubLogin"
           >
             <svg
-              aria-hidden="true"
-              class="social-icon"
-              fill="none"
-              focusable="false"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="1.5"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+                class="social-icon"
+                fill="none"
+                focusable="false"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
             >
-              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+              <path
+                  d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
             </svg>
             <span>{{ githubLoading ? t('login.loading') : 'GitHub' }}</span>
           </button>
           <button
-            class="btn-social"
-            disabled
+              class="btn-social"
+              disabled
           >
             <svg
-              aria-hidden="true"
-              class="social-icon"
-              fill="none"
-              focusable="false"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="1.5"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+                class="social-icon"
+                fill="none"
+                focusable="false"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
             >
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              <path
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+              <path
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
             <span>Google</span>
           </button>
@@ -229,9 +235,9 @@ const passwordLoading = ref(false)
 const isRegister = ref(false)
 const showLoginVideo = ref(false)
 const loginVideoSrc = computed(() =>
-  uiPreferences.resolvedTheme === 'dark'
-    ? '/assets/login-bg-dark.mp4'
-    : '/assets/login-bg-light.mp4',
+    uiPreferences.resolvedTheme === 'dark'
+        ? '/assets/login-bg-dark.mp4'
+        : '/assets/login-bg-light.mp4',
 )
 const themePreferenceIcon = computed(() => {
   if (uiPreferences.themePreference === 'light') {
@@ -368,7 +374,7 @@ async function finishGitHubLogin(code: string) {
     await router.replace(sessionStorage.getItem(OAUTH_REDIRECT_KEY) || '/dashboard')
   } catch (error) {
     const errorMessage =
-      error instanceof ApiError ? error.message : t('login.alertGithubLoginFailed')
+        error instanceof ApiError ? error.message : t('login.alertGithubLoginFailed')
     notify.error(errorMessage)
   } finally {
     sessionStorage.removeItem(OAUTH_STATE_KEY)

@@ -33,4 +33,5 @@ public record ForumReplyVO(
         @JsonProperty("children") @Nullable List<ForumReplyVO> children,
         @JsonProperty("createdAt") Instant createdAt,
         @JsonProperty("updatedAt") Instant updatedAt
-) {}
+) {
+}

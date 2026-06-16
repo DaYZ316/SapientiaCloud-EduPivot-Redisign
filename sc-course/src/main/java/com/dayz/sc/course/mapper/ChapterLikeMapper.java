@@ -11,4 +11,5 @@ import org.apache.ibatis.annotations.Mapper;
  * @since 2026-06-14
  */
 @Mapper
-public interface ChapterLikeMapper extends BaseMapper<ChapterLike> {}
+public interface ChapterLikeMapper extends BaseMapper<ChapterLike> {
+}

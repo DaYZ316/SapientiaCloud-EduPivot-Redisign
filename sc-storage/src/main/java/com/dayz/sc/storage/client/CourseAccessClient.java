@@ -16,6 +16,12 @@ import java.util.UUID;
  */
 @FeignClient(name = "sc-course", path = "/internal/courses", fallback = CourseAccessClientFallback.class)
 public interface CourseAccessClient {
+    /**
+     * 查询课程访问权限信息。
+     *
+     * @param courseId 课程ID
+     * @return 课程访问权限信息
+     */
     @GetMapping("/{courseId}/access")
     ApiResponse<CourseAccess> getAccess(@PathVariable("courseId") UUID courseId);
 }

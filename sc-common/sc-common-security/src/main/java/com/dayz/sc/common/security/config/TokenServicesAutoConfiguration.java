@@ -1,9 +1,8 @@
 package com.dayz.sc.common.security.config;
 
-import com.dayz.sc.common.security.ratelimit.RateLimiterService;
 import com.dayz.sc.common.security.ratelimit.RateLimitInterceptor;
 import com.dayz.sc.common.security.ratelimit.RateLimitWebMvcConfigurer;
-import com.dayz.sc.common.security.token.BlacklistCheckingJwtDecoder;
+import com.dayz.sc.common.security.ratelimit.RateLimiterService;
 import com.dayz.sc.common.security.token.RefreshTokenService;
 import com.dayz.sc.common.security.token.TokenBlacklistService;
 import org.springframework.boot.autoconfigure.AutoConfiguration;

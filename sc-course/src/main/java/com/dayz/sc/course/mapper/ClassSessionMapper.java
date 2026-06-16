@@ -6,6 +6,10 @@ import org.apache.ibatis.annotations.Mapper;
 
 /**
  * MyBatis-Plus mapper for class sessions.
+ *
+ * @author DaYZ
+ * @since 2026-06-14
  */
 @Mapper
-public interface ClassSessionMapper extends BaseMapper<ClassSession> {}
+public interface ClassSessionMapper extends BaseMapper<ClassSession> {
+}

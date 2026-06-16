@@ -7,18 +7,18 @@
     </div>
     <div v-else class="chapter-list">
       <ChapterTreeNode
-        v-for="chapter in chapters"
-        :key="chapter.id"
-        :chapter="chapter"
-        :active-chapter-id="activeChapterId"
-        :is-editable="isEditable"
-        :depth="0"
-        @select="$emit('select', $event)"
-        @edit="$emit('edit', $event)"
-        @delete="$emit('delete', $event)"
-        @add-child="$emit('add-child', $event)"
-        @move-up="$emit('move-up', $event)"
-        @move-down="$emit('move-down', $event)"
+          v-for="chapter in chapters"
+          :key="chapter.id"
+          :active-chapter-id="activeChapterId"
+          :chapter="chapter"
+          :depth="0"
+          :is-editable="isEditable"
+          @delete="$emit('delete', $event)"
+          @edit="$emit('edit', $event)"
+          @select="$emit('select', $event)"
+          @add-child="$emit('add-child', $event)"
+          @move-up="$emit('move-up', $event)"
+          @move-down="$emit('move-down', $event)"
       />
     </div>
   </div>

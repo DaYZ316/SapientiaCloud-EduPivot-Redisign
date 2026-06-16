@@ -18,7 +18,9 @@ import java.util.UUID;
 @TableName("storage_object")
 public class StorageObject {
 
-    /** 软删除标记：已删除 */
+    /**
+     * 软删除标记：已删除
+     */
     public static final int DELETED = 1;
 
     @TableId(type = IdType.INPUT)

@@ -23,4 +23,5 @@ public record PracticeAnswerVO(
         @JsonProperty("isCorrect") int isCorrect,
         @JsonProperty("earnedScore") BigDecimal earnedScore,
         @JsonProperty("answeredAt") Instant answeredAt
-) {}
+) {
+}

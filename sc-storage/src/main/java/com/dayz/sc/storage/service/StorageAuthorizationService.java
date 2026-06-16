@@ -31,9 +31,11 @@ public class StorageAuthorizationService {
     public void authorizeCreate(CreateUploadRequest request, UUID userId, Integer role) {
         switch (request.usage()) {
             case USER_AVATAR -> authorizeUserAvatar(request, userId, role);
-            case COURSE_COVER, COURSE_FILE, COURSE_PUBLIC_FILE, COURSE_PRIVATE_FILE -> requireCourseManager(request.scopeId());
+            case COURSE_COVER, COURSE_FILE, COURSE_PUBLIC_FILE, COURSE_PRIVATE_FILE ->
+                    requireCourseManager(request.scopeId());
             case FORUM_IMAGE -> requireCourseReader(request);
             case AI_FILE -> authorizeAiFile(request, userId, role);
+            default -> throw new BusinessException(ErrorCodes.BAD_REQUEST);
         }
     }
 
@@ -41,7 +43,8 @@ public class StorageAuthorizationService {
         StorageUsage usage = StorageUsage.valueOf(object.getUsage());
         if (isCourseScopedProtectedUsage(usage)) {
             CourseAccess access = courseAccess(object.getScopeId());
-            if (access != null && (access.canReadPublic() || access.canReadPrivate())) {
+            boolean canRead = access != null && (access.canReadPublic() || access.canReadPrivate());
+            if (canRead) {
                 return;
             }
             throw new BusinessException(ErrorCodes.STORAGE_UNAUTHORIZED);
@@ -54,9 +57,12 @@ public class StorageAuthorizationService {
         if (visibility == StorageVisibility.AUTHENTICATED) {
             return;
         }
-        if (visibility == StorageVisibility.OWNER_PRIVATE
-                && (object.getOwnerUserId().equals(userId) || SecurityUtils.isAdmin(role))) {
-            return;
+        if (visibility == StorageVisibility.OWNER_PRIVATE) {
+            boolean isOwner = object.getOwnerUserId().equals(userId);
+            boolean isAdmin = SecurityUtils.isAdmin(role);
+            if (isOwner || isAdmin) {
+                return;
+            }
         }
         if (visibility == StorageVisibility.COURSE_PRIVATE && canReadPrivateCourse(object.getScopeId())) {
             return;
@@ -69,15 +75,19 @@ public class StorageAuthorizationService {
         if (SecurityUtils.isAdmin(role)) {
             return;
         }
-        if ((usage == StorageUsage.USER_AVATAR || usage == StorageUsage.FORUM_IMAGE || usage == StorageUsage.AI_FILE)
-                && object.getOwnerUserId().equals(userId)) {
+
+        boolean isOwnerResource = usage == StorageUsage.USER_AVATAR
+                || usage == StorageUsage.FORUM_IMAGE
+                || usage == StorageUsage.AI_FILE;
+        if (isOwnerResource && object.getOwnerUserId().equals(userId)) {
             return;
         }
-        if ((usage == StorageUsage.COURSE_COVER
+
+        boolean isCourseResource = usage == StorageUsage.COURSE_COVER
                 || usage == StorageUsage.COURSE_FILE
                 || usage == StorageUsage.COURSE_PUBLIC_FILE
-                || usage == StorageUsage.COURSE_PRIVATE_FILE)
-                && canManageCourse(object.getScopeId())) {
+                || usage == StorageUsage.COURSE_PRIVATE_FILE;
+        if (isCourseResource && canManageCourse(object.getScopeId())) {
             return;
         }
         throw new BusinessException(ErrorCodes.STORAGE_UNAUTHORIZED);

@@ -4,12 +4,12 @@
       <h2>Instructor Biography</h2>
       <div class="instructor-row">
         <UserAvatarLink
-          :user-id="course.teacherId"
-          :display-name="course.teacherName || t('courseDetail.unknownTeacher')"
-          :avatar-url="course.teacherAvatar"
-          :role="2"
-          size="xl"
-          :show-name="false"
+            :avatar-url="course.teacherAvatar"
+            :display-name="course.teacherName || t('courseDetail.unknownTeacher')"
+            :role="2"
+            :show-name="false"
+            :user-id="course.teacherId"
+            size="xl"
         />
         <div class="biography-copy">
           <h3>{{ course.teacherName || t('courseDetail.unknownTeacher') }}</h3>

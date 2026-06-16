@@ -1,6 +1,6 @@
 <template>
   <div class="course-detail-page">
-    <div v-if="loading" class="loading-layout" :aria-label="t('courseDetail.loading')">
+    <div v-if="loading" :aria-label="t('courseDetail.loading')" class="loading-layout">
       <section class="loading-main">
         <div class="skeleton-line skeleton-kicker shimmer"></div>
         <div class="skeleton-title shimmer"></div>
@@ -35,11 +35,17 @@
             <dl class="metadata-grid">
               <div class="metadata-item">
                 <dt>{{ t('courseDetail.level') }}</dt>
-                <dd><School :size="16" stroke-width="1.7"/> {{ levelLabel }}</dd>
+                <dd>
+                  <School :size="16" stroke-width="1.7"/>
+                  {{ levelLabel }}
+                </dd>
               </div>
               <div class="metadata-item">
                 <dt>{{ t('courseDetail.totalClassHours') }}</dt>
-                <dd><Clock :size="16" stroke-width="1.7"/> {{ totalClassHoursLabel }}</dd>
+                <dd>
+                  <Clock :size="16" stroke-width="1.7"/>
+                  {{ totalClassHoursLabel }}
+                </dd>
               </div>
               <div class="metadata-item">
                 <dt>{{ t('courseDetail.access') }}</dt>
@@ -51,79 +57,88 @@
               </div>
               <div class="metadata-item">
                 <dt>{{ t('courseDetail.format') }}</dt>
-                <dd><DoorOpen :size="16" stroke-width="1.7"/> {{ courseTypeLabel || t('courseDetail.toBeArranged') }}</dd>
+                <dd>
+                  <DoorOpen :size="16" stroke-width="1.7"/>
+                  {{ courseTypeLabel || t('courseDetail.toBeArranged') }}
+                </dd>
               </div>
               <div class="metadata-item">
                 <dt>{{ t('courseDetail.semester') }}</dt>
-                <dd><CalendarDays :size="16" stroke-width="1.7"/> {{ course.semester || t('courseDetail.toBeArranged') }}</dd>
+                <dd>
+                  <CalendarDays :size="16" stroke-width="1.7"/>
+                  {{ course.semester || t('courseDetail.toBeArranged') }}
+                </dd>
               </div>
               <div class="metadata-item">
                 <dt>{{ t('courseDetail.location') }}</dt>
-                <dd><MapPin :size="16" stroke-width="1.7"/> {{ course.location || t('courseDetail.toBeArranged') }}</dd>
+                <dd>
+                  <MapPin :size="16" stroke-width="1.7"/>
+                  {{ course.location || t('courseDetail.toBeArranged') }}
+                </dd>
               </div>
             </dl>
 
             <button
-              class="primary-action hero-action"
-              type="button"
-              :disabled="primaryActionDisabled"
-              @click="handlePrimaryAction"
+                :disabled="primaryActionDisabled"
+                class="primary-action hero-action"
+                type="button"
+                @click="handlePrimaryAction"
             >
               {{ primaryActionLabel }}
             </button>
           </section>
 
-          <nav class="tab-nav" :aria-label="t('courseDetail.contentTabs')">
+          <nav :aria-label="t('courseDetail.contentTabs')" class="tab-nav">
             <router-link
-              v-for="tab in visibleTabs"
-              :key="tab.key"
-              class="tab-btn"
-              :class="{active: activeTabKey === tab.key}"
-              :to="'/courses/' + courseId + '/' + tab.key"
+                v-for="tab in visibleTabs"
+                :key="tab.key"
+                :class="{active: activeTabKey === tab.key}"
+                :to="'/courses/' + courseId + '/' + tab.key"
+                class="tab-btn"
             >
               {{ tab.label }}
             </router-link>
           </nav>
 
           <router-view
-            :course="course"
-            :course-id="courseId"
-            :chapter-tree="chapterTree"
-            :chapters-loading="chaptersLoading"
-            :banks="courseBanks"
-            :files="courseFiles"
-            :students="courseStudents"
-            :assistants="assistantOnlyInfos"
-            v-bind="activeListPaginationProps"
-            :can-manage-course="canManageCourse"
-            :can-manage-assistants="canManageAssistants"
-            :is-admin="isAdmin"
-            :can-access-course-content="canAccessCourseContent"
-            :can-comment="canComment"
-            :is-student="isStudent"
-            :format-date="formatDate"
-            :current-user-id="authStore.user?.id"
-            :create-request-key="classSessionCreateRequestKey"
-            @open-chapter-editor="openChapterEditor"
-            @select-chapter="handleChapterSelect"
-            @edit-chapter="handleEditChapter"
-            @delete-chapter="handleDeleteChapter"
-            @add-child-chapter="handleAddChildChapter"
-            @refresh="reloadActiveTabData"
-            @refresh-banks="reloadBanks"
-            @refresh-files="reloadFiles"
-            @refresh-students="reloadStudents"
-            @refresh-course="reloadCourse"
-            @page-change="handleListPageChange"
+              :assistants="assistantOnlyInfos"
+              :banks="courseBanks"
+              :can-access-course-content="canAccessCourseContent"
+              :can-comment="canComment"
+              :can-manage-assistants="canManageAssistants"
+              :can-manage-course="canManageCourse"
+              :chapter-tree="chapterTree"
+              :chapters-loading="chaptersLoading"
+              :course="course"
+              :course-id="courseId"
+              :create-request-key="classSessionCreateRequestKey"
+              :current-user-id="authStore.user?.id"
+              :files="courseFiles"
+              :format-date="formatDate"
+              :is-admin="isAdmin"
+              :is-student="isStudent"
+              :students="courseStudents"
+              v-bind="activeListPaginationProps"
+              @refresh="reloadActiveTabData"
+              @open-chapter-editor="openChapterEditor"
+              @select-chapter="handleChapterSelect"
+              @edit-chapter="handleEditChapter"
+              @delete-chapter="handleDeleteChapter"
+              @add-child-chapter="handleAddChildChapter"
+              @refresh-banks="reloadBanks"
+              @refresh-files="reloadFiles"
+              @refresh-students="reloadStudents"
+              @refresh-course="reloadCourse"
+              @page-change="handleListPageChange"
           />
         </section>
 
         <aside class="course-side-column">
           <div class="cover-frame">
             <img
-              :src="course.coverUrl || courseCoverFallbackUrl"
-              :alt="course.title"
-              @error="useFallbackImage($event, courseCoverFallbackUrl)"
+                :alt="course.title"
+                :src="course.coverUrl || courseCoverFallbackUrl"
+                @error="useFallbackImage($event, courseCoverFallbackUrl)"
             />
           </div>
 
@@ -131,12 +146,12 @@
             <div class="panel-kicker">{{ t('courseDetail.teachingTeam') }}</div>
             <div class="team-lead">
               <UserAvatarLink
-                :user-id="course.teacherId"
-                :display-name="course.teacherName || t('courseDetail.unknownTeacher')"
-                :avatar-url="course.teacherAvatar"
-                :role="2"
-                size="large"
-                :show-name="false"
+                  :avatar-url="course.teacherAvatar"
+                  :display-name="course.teacherName || t('courseDetail.unknownTeacher')"
+                  :role="2"
+                  :show-name="false"
+                  :user-id="course.teacherId"
+                  size="large"
               />
               <div class="team-copy">
                 <strong>{{ course.teacherName || t('courseDetail.unknownTeacher') }}</strong>
@@ -147,17 +162,17 @@
               <span>{{ t('courseDetail.assistantsTab') }} ({{ assistantOnlyInfos.length }})</span>
               <div class="assistant-stack">
                 <div
-                  v-for="assistant in assistantOnlyInfos.slice(0, 2)"
-                  :key="assistant.id"
-                  class="assistant-chip"
+                    v-for="assistant in assistantOnlyInfos.slice(0, 2)"
+                    :key="assistant.id"
+                    class="assistant-chip"
                 >
                   <UserAvatarLink
-                    :user-id="assistant.id"
-                    :display-name="assistant.displayName"
-                    :avatar-url="assistant.avatarUrl"
-                    :role="2"
-                    size="small"
-                    :show-name="false"
+                      :avatar-url="assistant.avatarUrl"
+                      :display-name="assistant.displayName"
+                      :role="2"
+                      :show-name="false"
+                      :user-id="assistant.id"
+                      size="small"
                   />
                 </div>
                 <div v-if="assistantOnlyInfos.length === 0" class="assistant-chip empty">
@@ -216,21 +231,21 @@
     </div>
 
     <ChapterEditor
-      :visible="showChapterEditor"
-      :course-id="courseId"
-      :chapter="editingChapter"
-      :parent-chapter-id="parentChapterId"
-      @close="closeChapterEditor"
-      @save="handleSaveChapter"
+        :chapter="editingChapter"
+        :course-id="courseId"
+        :parent-chapter-id="parentChapterId"
+        :visible="showChapterEditor"
+        @close="closeChapterEditor"
+        @save="handleSaveChapter"
     />
 
     <CourseFormModal
-      :visible="showEditModal"
-      mode="edit"
-      :course="course"
-      :can-edit-course-status="canEditCourseStatus"
-      @close="showEditModal = false"
-      @updated="handleCourseUpdated"
+        :can-edit-course-status="canEditCourseStatus"
+        :course="course"
+        :visible="showEditModal"
+        mode="edit"
+        @close="showEditModal = false"
+        @updated="handleCourseUpdated"
     />
   </div>
 </template>
@@ -259,19 +274,14 @@ import {
   Users,
 } from 'lucide-vue-next'
 
-import {deleteChapter, getChapterTree, createChapter, updateChapter} from '@/features/course/api/chapter'
+import {createChapter, deleteChapter, getChapterTree, updateChapter} from '@/features/course/api/chapter'
 import {enroll, getCourse, getCourseEnrollments, listCourseFiles, updateCourse} from '@/features/course/api/course'
 import {getQuestionBanks} from '@/features/question-bank/api/questionBank'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import {useAuthStore} from '@/features/auth/stores/auth'
 
 import type {Chapter, CreateChapterRequest, UpdateChapterRequest} from '@/features/course/types/chapter'
-import type {
-  CourseDetail,
-  CourseFile,
-  Enrollment,
-  UpdateCourseRequest,
-} from '@/features/course/types/course'
+import type {CourseDetail, CourseFile, Enrollment, UpdateCourseRequest,} from '@/features/course/types/course'
 import type {QuestionBank} from '@/features/question-bank/types/questionBank'
 
 import ChapterEditor from '@/features/course/components/ChapterEditor.vue'
@@ -341,9 +351,9 @@ const canComment = computed(() => {
   const userId = authStore.user?.id
   if (!userId || !course.value) return false
   return isAdmin.value
-    || course.value.teacherId === userId
-    || Boolean(course.value.enrolled)
-    || Boolean(course.value.teacherIds?.includes(userId))
+      || course.value.teacherId === userId
+      || Boolean(course.value.enrolled)
+      || Boolean(course.value.teacherIds?.includes(userId))
 })
 const isFull = computed(() => {
   if (!course.value || course.value.maxStudents <= 0) return false
@@ -1375,10 +1385,10 @@ function useFallbackImage(event: Event, fallback: string) {
 
 .shimmer {
   background: linear-gradient(
-    110deg,
-    var(--color-surface-container-high) 8%,
-    var(--color-surface-canvas) 18%,
-    var(--color-surface-container-high) 33%
+      110deg,
+      var(--color-surface-container-high) 8%,
+      var(--color-surface-canvas) 18%,
+      var(--color-surface-container-high) 33%
   );
   background-size: 200% 100%;
 }

@@ -6,6 +6,9 @@ import java.time.Duration;
 
 /**
  * LiveKit connection settings.
+ *
+ * @author DaYZ
+ * @since 2026-06-14
  */
 @ConfigurationProperties(prefix = "edupivot.livekit")
 public class LiveKitProperties {

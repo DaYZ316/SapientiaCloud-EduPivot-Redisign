@@ -2,104 +2,116 @@
   <div class="course-table-container">
     <table class="course-table">
       <thead>
-        <tr>
-          <th>{{ t('courses.table.course') }}</th>
-          <th>{{ t('courses.table.level') }}</th>
-          <th>{{ t('courses.table.status') }}</th>
-          <th>{{ t('courses.table.students') }}</th>
-          <th>{{ t('courses.table.createdAt') }}</th>
-          <th>{{ t('courses.table.updatedAt') }}</th>
-          <th>{{ t('courses.table.actions') }}</th>
-        </tr>
+      <tr>
+        <th>{{ t('courses.table.course') }}</th>
+        <th>{{ t('courses.table.level') }}</th>
+        <th>{{ t('courses.table.status') }}</th>
+        <th>{{ t('courses.table.students') }}</th>
+        <th>{{ t('courses.table.createdAt') }}</th>
+        <th>{{ t('courses.table.updatedAt') }}</th>
+        <th>{{ t('courses.table.actions') }}</th>
+      </tr>
       </thead>
       <tbody v-if="loading">
-        <tr v-for="row in 6" :key="row">
-          <td>
-            <div class="course-cell">
-              <div class="course-cover skeleton shimmer"></div>
-              <div class="course-summary">
-                <div class="skeleton-line title shimmer"></div>
-                <div class="skeleton-line text shimmer"></div>
-              </div>
+      <tr v-for="row in 6" :key="row">
+        <td>
+          <div class="course-cell">
+            <div class="course-cover skeleton shimmer"></div>
+            <div class="course-summary">
+              <div class="skeleton-line title shimmer"></div>
+              <div class="skeleton-line text shimmer"></div>
             </div>
-          </td>
-          <td><div class="skeleton-pill shimmer"></div></td>
-          <td><div class="skeleton-pill shimmer"></div></td>
-          <td><div class="skeleton-line short shimmer"></div></td>
-          <td><div class="skeleton-line date shimmer"></div></td>
-          <td><div class="skeleton-line date shimmer"></div></td>
-          <td><div class="skeleton-actions shimmer"></div></td>
-        </tr>
+          </div>
+        </td>
+        <td>
+          <div class="skeleton-pill shimmer"></div>
+        </td>
+        <td>
+          <div class="skeleton-pill shimmer"></div>
+        </td>
+        <td>
+          <div class="skeleton-line short shimmer"></div>
+        </td>
+        <td>
+          <div class="skeleton-line date shimmer"></div>
+        </td>
+        <td>
+          <div class="skeleton-line date shimmer"></div>
+        </td>
+        <td>
+          <div class="skeleton-actions shimmer"></div>
+        </td>
+      </tr>
       </tbody>
       <tbody v-else>
-        <tr v-for="course in courses" :key="course.id">
-          <td>
-            <div class="course-cell">
-              <div class="course-cover">
-                <img v-if="course.coverUrl" :src="course.coverUrl" alt=""/>
-                <BookOpen v-else :size="22" stroke-width="1.5"/>
-              </div>
-              <div class="course-summary">
-                <strong>{{ course.title }}</strong>
-                <span>{{ course.description || t('courses.noDescription') }}</span>
-              </div>
+      <tr v-for="course in courses" :key="course.id">
+        <td>
+          <div class="course-cell">
+            <div class="course-cover">
+              <img v-if="course.coverUrl" :src="course.coverUrl" alt=""/>
+              <BookOpen v-else :size="22" stroke-width="1.5"/>
             </div>
-          </td>
-          <td>
-            <span class="level-badge">{{ getLevelLabel(course.level) }}</span>
-          </td>
-          <td>
-            <span class="status-badge" :class="getCourseStatusClass(course.status)">
+            <div class="course-summary">
+              <strong>{{ course.title }}</strong>
+              <span>{{ course.description || t('courses.noDescription') }}</span>
+            </div>
+          </div>
+        </td>
+        <td>
+          <span class="level-badge">{{ getLevelLabel(course.level) }}</span>
+        </td>
+        <td>
+            <span :class="getCourseStatusClass(course.status)" class="status-badge">
               {{ getStatusLabel(course.status) }}
             </span>
-          </td>
-          <td>{{ formatStudents(course) }}</td>
-          <td>{{ formatDate(course.createdAt) }}</td>
-          <td>{{ course.updatedAt ? formatDate(course.updatedAt) : '-' }}</td>
-          <td>
-            <div class="action-buttons">
-              <button
-                class="btn-icon"
-                type="button"
+        </td>
+        <td>{{ formatStudents(course) }}</td>
+        <td>{{ formatDate(course.createdAt) }}</td>
+        <td>{{ course.updatedAt ? formatDate(course.updatedAt) : '-' }}</td>
+        <td>
+          <div class="action-buttons">
+            <button
                 :aria-label="t('courses.viewDetails')"
                 :title="t('courses.viewDetails')"
-                @click="$emit('view', course.id)"
-              >
-                <Eye :size="15" stroke-width="1.8"/>
-              </button>
-              <button
-                v-if="editable"
                 class="btn-icon"
                 type="button"
+                @click="$emit('view', course.id)"
+            >
+              <Eye :size="15" stroke-width="1.8"/>
+            </button>
+            <button
+                v-if="editable"
                 :aria-label="t('courses.edit')"
                 :title="t('courses.edit')"
-                @click="$emit('edit', course)"
-              >
-                <Pencil :size="15" stroke-width="1.8"/>
-              </button>
-              <button
-                v-if="editable"
                 class="btn-icon"
                 type="button"
+                @click="$emit('edit', course)"
+            >
+              <Pencil :size="15" stroke-width="1.8"/>
+            </button>
+            <button
+                v-if="editable"
                 :aria-label="t('enrollmentManagement.inviteAssistant')"
                 :title="t('enrollmentManagement.inviteAssistant')"
-                @click="$emit('invite', course)"
-              >
-                <UserPlus :size="15" stroke-width="1.8"/>
-              </button>
-              <button
-                v-if="editable"
-                class="btn-icon danger"
+                class="btn-icon"
                 type="button"
+                @click="$emit('invite', course)"
+            >
+              <UserPlus :size="15" stroke-width="1.8"/>
+            </button>
+            <button
+                v-if="editable"
                 :aria-label="t('courses.delete')"
                 :title="t('courses.delete')"
+                class="btn-icon danger"
+                type="button"
                 @click="$emit('delete', course)"
-              >
-                <Trash2 :size="15" stroke-width="1.8"/>
-              </button>
-            </div>
-          </td>
-        </tr>
+            >
+              <Trash2 :size="15" stroke-width="1.8"/>
+            </button>
+          </div>
+        </td>
+      </tr>
       </tbody>
     </table>
   </div>

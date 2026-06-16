@@ -1,39 +1,39 @@
 <template>
   <div class="base-file-uploader">
     <input
-      ref="inputRef"
-      class="base-file-uploader-input"
-      type="file"
-      :accept="accept"
-      :disabled="disabled || uploading"
-      @change="handleFileChange"
+        ref="inputRef"
+        :accept="accept"
+        :disabled="disabled || uploading"
+        class="base-file-uploader-input"
+        type="file"
+        @change="handleFileChange"
     />
 
     <slot
-      name="trigger"
-      :button-label="buttonLabel"
-      :disabled="uploadDisabled"
-      :open-picker="openPicker"
-      :progress="progress"
-      :uploading="uploading"
+        :button-label="buttonLabel"
+        :disabled="uploadDisabled"
+        :open-picker="openPicker"
+        :progress="progress"
+        :uploading="uploading"
+        name="trigger"
     >
-      <button class="base-file-uploader-button" type="button" :disabled="uploadDisabled" @click="openPicker">
+      <button :disabled="uploadDisabled" class="base-file-uploader-button" type="button" @click="openPicker">
         <UploadCloud :size="16" stroke-width="1.8"/>
         <span>{{ uploading ? `${progress}%` : buttonLabel }}</span>
       </button>
     </slot>
 
-    <div v-if="uploading" class="base-file-uploader-progress" aria-hidden="true">
+    <div v-if="uploading" aria-hidden="true" class="base-file-uploader-progress">
       <span :style="{width: `${progress}%`}"></span>
     </div>
 
-    <p v-if="message" class="base-file-uploader-message" :class="{error: hasError}">
+    <p v-if="message" :class="{error: hasError}" class="base-file-uploader-message">
       {{ message }}
     </p>
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import {computed, ref} from 'vue'
 import {UploadCloud} from 'lucide-vue-next'
 

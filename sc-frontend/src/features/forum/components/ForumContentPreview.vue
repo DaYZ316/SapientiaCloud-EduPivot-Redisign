@@ -1,19 +1,19 @@
 <template>
-  <div class="forum-content-preview" :class="{compact}">
+  <div :class="{compact}" class="forum-content-preview">
     <template v-if="blocks.length > 0">
       <component
-        :is="block.tag"
-        v-for="(block, index) in blocks"
-        :key="`${block.tag}-${index}`"
-        class="forum-content-block"
+          :is="block.tag"
+          v-for="(block, index) in blocks"
+          :key="`${block.tag}-${index}`"
+          class="forum-content-block"
       >
         <template v-if="block.type === 'list'">
           <li v-for="(item, itemIndex) in block.items" :key="itemIndex">
             <component
-              v-for="(part, partIndex) in item"
-              :key="partIndex"
-              :is="part.tag"
-              v-bind="part.attrs"
+                :is="part.tag"
+                v-for="(part, partIndex) in item"
+                :key="partIndex"
+                v-bind="part.attrs"
             >
               {{ part.text }}
             </component>
@@ -21,10 +21,10 @@
         </template>
         <template v-else>
           <component
-            v-for="(part, partIndex) in block.parts"
-            :key="partIndex"
-            :is="part.tag"
-            v-bind="part.attrs"
+              :is="part.tag"
+              v-for="(part, partIndex) in block.parts"
+              :key="partIndex"
+              v-bind="part.attrs"
           >
             {{ part.text }}
           </component>
@@ -34,20 +34,20 @@
 
     <div v-if="images.length > 0" class="forum-content-images">
       <a
-        v-for="(image, index) in images"
-        :key="`${image}-${index}`"
-        class="forum-content-image"
-        :href="image"
-        target="_blank"
-        rel="noreferrer"
+          v-for="(image, index) in images"
+          :key="`${image}-${index}`"
+          :href="image"
+          class="forum-content-image"
+          rel="noreferrer"
+          target="_blank"
       >
-        <img :src="image" :alt="imageAlt(index)" loading="lazy"/>
+        <img :alt="imageAlt(index)" :src="image" loading="lazy"/>
       </a>
     </div>
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import {computed} from 'vue'
 
 type InlineTag = 'span' | 'strong' | 'em' | 'a'

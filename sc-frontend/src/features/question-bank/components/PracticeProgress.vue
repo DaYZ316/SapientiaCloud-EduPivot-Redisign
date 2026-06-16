@@ -1,7 +1,7 @@
 <template>
   <div class="practice-progress">
     <div class="progress-bar">
-      <div class="progress-fill" :style="{'width': percent + '%'}"></div>
+      <div :style="{'width': percent + '%'}" class="progress-fill"></div>
     </div>
     <div class="progress-info">
       <span>{{ current }} / {{ total }}</span>

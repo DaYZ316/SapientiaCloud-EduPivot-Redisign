@@ -11,4 +11,5 @@ import org.apache.ibatis.annotations.Mapper;
  * @since 2026-06-12
  */
 @Mapper
-public interface EnrollmentMapper extends BaseMapper<Enrollment> {}
+public interface EnrollmentMapper extends BaseMapper<Enrollment> {
+}

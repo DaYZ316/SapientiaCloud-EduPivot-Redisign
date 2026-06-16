@@ -5,8 +5,6 @@ import com.dayz.sc.common.error.ErrorCodes;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -21,6 +19,8 @@ import org.springframework.web.servlet.HandlerInterceptor;
  */
 @RequiredArgsConstructor
 public class RateLimitInterceptor implements HandlerInterceptor {
+
+    private static final String UNKNOWN_IP = "unknown";
 
     private final RateLimiterService rateLimiterService;
 
@@ -49,12 +49,12 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         String forwardedFor = request.getHeader("X-Forwarded-For");
         if (StringUtils.hasText(forwardedFor)) {
             String firstIp = forwardedFor.split(",", 2)[0].trim();
-            if (StringUtils.hasText(firstIp) && !"unknown".equalsIgnoreCase(firstIp)) {
+            if (StringUtils.hasText(firstIp) && !UNKNOWN_IP.equalsIgnoreCase(firstIp)) {
                 return firstIp;
             }
         }
         String realIp = request.getHeader("X-Real-IP");
-        if (StringUtils.hasText(realIp) && !"unknown".equalsIgnoreCase(realIp.trim())) {
+        if (StringUtils.hasText(realIp) && !UNKNOWN_IP.equalsIgnoreCase(realIp.trim())) {
             return realIp.trim();
         }
         return request.getRemoteAddr();

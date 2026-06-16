@@ -15,11 +15,11 @@
     <div v-else class="member-list">
       <div v-for="student in students" :key="student.id" class="member-item">
         <UserAvatarLink
-          :user-id="student.studentId"
-          :display-name="student.studentName"
-          :role="1"
-          size="medium"
-          :show-name="false"
+            :display-name="student.studentName"
+            :role="1"
+            :show-name="false"
+            :user-id="student.studentId"
+            size="medium"
         />
         <div class="member-info">
           <strong>{{ student.studentName || student.studentId }}</strong>
@@ -27,19 +27,21 @@
         </div>
         <div class="member-actions">
           <BaseSelect
-            v-if="canManageCourse && student.status !== 3"
-            v-model="student.status"
-            :options="statusOptions"
-            class="status-select"
-            @change="handleStatusChange(student, student.status)"
+              v-if="canManageCourse && student.status !== 3"
+              v-model="student.status"
+              :options="statusOptions"
+              class="status-select"
+              @change="handleStatusChange(student, student.status)"
           />
-          <span v-else class="member-status">{{ enrollmentStatusLabel[student.status] || t('courseDetail.unknown') }}</span>
+          <span v-else class="member-status">{{
+              enrollmentStatusLabel[student.status] || t('courseDetail.unknown')
+            }}</span>
           <button
-            v-if="canManageCourse && student.status !== 3"
-            class="btn-icon danger"
-            type="button"
-            :title="t('courseDetail.removeStudent')"
-            @click="handleRemove(student)"
+              v-if="canManageCourse && student.status !== 3"
+              :title="t('courseDetail.removeStudent')"
+              class="btn-icon danger"
+              type="button"
+              @click="handleRemove(student)"
           >
             <Trash2 :size="14" stroke-width="1.8"/>
           </button>
@@ -47,15 +49,15 @@
       </div>
     </div>
     <BasePagination
-      v-if="total > 0"
-      :page="page"
-      :size="size"
-      :total="total"
-      :disabled="loading"
-      :aria-label="t('courseDetail.pagination')"
-      :previous-title="t('courseDetail.previousPage')"
-      :next-title="t('courseDetail.nextPage')"
-      @change="emit('page-change', $event)"
+        v-if="total > 0"
+        :aria-label="t('courseDetail.pagination')"
+        :disabled="loading"
+        :next-title="t('courseDetail.nextPage')"
+        :page="page"
+        :previous-title="t('courseDetail.previousPage')"
+        :size="size"
+        :total="total"
+        @change="emit('page-change', $event)"
     />
   </section>
 </template>

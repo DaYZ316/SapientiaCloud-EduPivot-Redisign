@@ -30,8 +30,6 @@ import java.util.concurrent.ThreadLocalRandom;
 @RequiredArgsConstructor
 public class UnreadCountService {
 
-    private final StringRedisTemplate redisTemplate;
-
     private static final String KEY_PREFIX = "notification:unread:";
     private static final String LOCK_PREFIX = "lock:notification:unread:";
     private static final Duration TTL = Duration.ofMinutes(5);
@@ -67,7 +65,11 @@ public class UnreadCountService {
             end
             return 0
             """, Long.class);
-    private static final int MAX_POLL_ROUNDS = 30; // 最多等 3s
+    /**
+     * 最多等 3s
+     */
+    private static final int MAX_POLL_ROUNDS = 30;
+    private final StringRedisTemplate redisTemplate;
 
     private String key(UUID userId) {
         return KEY_PREFIX + userId;
@@ -220,7 +222,9 @@ public class UnreadCountService {
     }
 
     private long parseLong(Object value) {
-        if (value == null) return 0;
+        if (value == null) {
+            return 0;
+        }
         try {
             return Long.parseLong(value.toString());
         } catch (NumberFormatException e) {

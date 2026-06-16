@@ -20,4 +20,5 @@ public record CreateQuestionBankRequest(
         int bankType,
         List<String> tags,
         int difficulty
-) {}
+) {
+}

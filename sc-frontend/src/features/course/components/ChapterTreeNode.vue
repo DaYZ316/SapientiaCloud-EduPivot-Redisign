@@ -1,17 +1,17 @@
 <template>
   <div class="tree-node">
     <div
-      class="node-row"
-      :class="{active: chapter.id === activeChapterId, published: chapter.status === 1}"
-      :style="{'--node-indent': depth * 18 + 'px'}"
-      @click="$emit('select', chapter)"
+        :class="{active: chapter.id === activeChapterId, published: chapter.status === 1}"
+        :style="{'--node-indent': depth * 18 + 'px'}"
+        class="node-row"
+        @click="$emit('select', chapter)"
     >
       <button
-        v-if="chapter.children && chapter.children.length"
-        class="toggle-btn"
-        @click.stop="expanded = !expanded"
+          v-if="chapter.children && chapter.children.length"
+          class="toggle-btn"
+          @click.stop="expanded = !expanded"
       >
-        <ChevronRight :size="16" :class="{rotated: expanded}"/>
+        <ChevronRight :class="{rotated: expanded}" :size="16"/>
       </button>
       <span v-else class="toggle-spacer"></span>
 
@@ -24,19 +24,19 @@
       <span v-else class="status-badge draft">{{ t('chapter.draft') }}</span>
 
       <div v-if="isEditable" class="node-actions" @click.stop>
-        <button class="action-btn" :title="t('chapter.moveUp')" @click="$emit('move-up', chapter)">
+        <button :title="t('chapter.moveUp')" class="action-btn" @click="$emit('move-up', chapter)">
           <ChevronUp :size="14"/>
         </button>
-        <button class="action-btn" :title="t('chapter.moveDown')" @click="$emit('move-down', chapter)">
+        <button :title="t('chapter.moveDown')" class="action-btn" @click="$emit('move-down', chapter)">
           <ChevronDown :size="14"/>
         </button>
-        <button class="action-btn" :title="t('chapter.addSubChapter')" @click="$emit('add-child', chapter)">
+        <button :title="t('chapter.addSubChapter')" class="action-btn" @click="$emit('add-child', chapter)">
           <Plus :size="14"/>
         </button>
-        <button class="action-btn" :title="t('chapter.editChapter')" @click="$emit('edit', chapter)">
+        <button :title="t('chapter.editChapter')" class="action-btn" @click="$emit('edit', chapter)">
           <Pencil :size="14"/>
         </button>
-        <button class="action-btn danger" :title="t('chapter.deleteChapter')" @click="$emit('delete', chapter)">
+        <button :title="t('chapter.deleteChapter')" class="action-btn danger" @click="$emit('delete', chapter)">
           <Trash2 :size="14"/>
         </button>
       </div>
@@ -44,18 +44,18 @@
 
     <div v-if="expanded && chapter.children" class="children">
       <ChapterTreeNode
-        v-for="child in chapter.children"
-        :key="child.id"
-        :chapter="child"
-        :active-chapter-id="activeChapterId"
-        :is-editable="isEditable"
-        :depth="depth + 1"
-        @select="$emit('select', $event)"
-        @edit="$emit('edit', $event)"
-        @delete="$emit('delete', $event)"
-        @add-child="$emit('add-child', $event)"
-        @move-up="$emit('move-up', $event)"
-        @move-down="$emit('move-down', $event)"
+          v-for="child in chapter.children"
+          :key="child.id"
+          :active-chapter-id="activeChapterId"
+          :chapter="child"
+          :depth="depth + 1"
+          :is-editable="isEditable"
+          @delete="$emit('delete', $event)"
+          @edit="$emit('edit', $event)"
+          @select="$emit('select', $event)"
+          @add-child="$emit('add-child', $event)"
+          @move-up="$emit('move-up', $event)"
+          @move-down="$emit('move-down', $event)"
       />
     </div>
   </div>
@@ -64,7 +64,7 @@
 <script lang="ts" setup>
 import {ref} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {ChevronRight, ChevronUp, ChevronDown, Plus, Pencil, Trash2} from 'lucide-vue-next'
+import {ChevronDown, ChevronRight, ChevronUp, Pencil, Plus, Trash2} from 'lucide-vue-next'
 import type {Chapter} from '@/features/course/types/chapter'
 
 defineProps<{

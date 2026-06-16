@@ -25,4 +25,5 @@ public record CreateUploadRequest(
         @Min(1) long sizeBytes,
         @Size(max = 128) String sha256,
         StorageBucketType bucketType
-) {}
+) {
+}

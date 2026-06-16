@@ -40,19 +40,19 @@
 
     <template v-else>
       <div class="question-workspace">
-        <section class="question-ledger" :aria-label="t('questionBank.questionList')">
+        <section :aria-label="t('questionBank.questionList')" class="question-ledger">
           <div class="ledger-toolbar">
             <div class="search-field">
               <Search :size="15" stroke-width="1.8"/>
-              <input v-model.trim="keyword" type="search" :placeholder="t('questionBank.searchPlaceholder')"/>
+              <input v-model.trim="keyword" :placeholder="t('questionBank.searchPlaceholder')" type="search"/>
             </div>
-            <div class="filter-tabs" :aria-label="t('questionBank.questionList')">
+            <div :aria-label="t('questionBank.questionList')" class="filter-tabs">
               <button
-                v-for="filter in filters"
-                :key="filter.key"
-                type="button"
-                :class="{active: activeFilter === filter.key}"
-                @click="activeFilter = filter.key"
+                  v-for="filter in filters"
+                  :key="filter.key"
+                  :class="{active: activeFilter === filter.key}"
+                  type="button"
+                  @click="activeFilter = filter.key"
               >
                 {{ filter.label }}
               </button>
@@ -66,19 +66,21 @@
 
           <div class="question-rows">
             <button
-              v-for="question in filteredQuestions"
-              :key="question.id"
-              class="question-row"
-              :class="{selected: question.id === selectedQuestionId}"
-              type="button"
-              @click="selectedQuestionId = question.id"
+                v-for="question in filteredQuestions"
+                :key="question.id"
+                :class="{selected: question.id === selectedQuestionId}"
+                class="question-row"
+                type="button"
+                @click="selectedQuestionId = question.id"
             >
-              <span class="active-line" aria-hidden="true"></span>
+              <span aria-hidden="true" class="active-line"></span>
               <span class="row-main">
                 <span class="row-title">
                   {{ question.questionTitle }}
-                  <span v-if="isTeacher && question.status === 0 && canManageQuestion(question)" class="status-badge draft">{{ t('questionBank.draft') }}</span>
-                  <span v-if="isTeacher && question.status === 1" class="status-badge published">{{ t('questionBank.published') }}</span>
+                  <span v-if="isTeacher && question.status === 0 && canManageQuestion(question)"
+                        class="status-badge draft">{{ t('questionBank.draft') }}</span>
+                  <span v-if="isTeacher && question.status === 1"
+                        class="status-badge published">{{ t('questionBank.published') }}</span>
                 </span>
                 <span class="row-tags">
                   <span>{{ questionTypeName(question.questionType) }}</span>
@@ -104,7 +106,7 @@
           </div>
         </section>
 
-        <aside class="question-preview" :aria-label="t('questionBank.questionPreview')">
+        <aside :aria-label="t('questionBank.questionPreview')" class="question-preview">
           <template v-if="selectedQuestion">
             <div class="preview-header">
               <div>
@@ -117,7 +119,9 @@
               <span>{{ questionTypeName(selectedQuestion.questionType) }}</span>
               <span>{{ difficultyName(selectedQuestion.difficulty) }}</span>
               <span>{{ selectedQuestion.score }} {{ t('questionBank.score') }}</span>
-              <span v-if="selectedQuestion.estimatedTime">{{ t('questionBank.estimatedMinutes', {n: selectedQuestion.estimatedTime}) }}</span>
+              <span v-if="selectedQuestion.estimatedTime">{{
+                  t('questionBank.estimatedMinutes', {n: selectedQuestion.estimatedTime})
+                }}</span>
               <span>{{ t('questionBank.viewCount', {n: selectedQuestion.viewCount}) }}</span>
             </div>
 
@@ -131,10 +135,10 @@
               <p v-if="selectedQuestionLoading" class="muted-text">{{ t('questionBank.loadingDetail') }}</p>
               <div v-else-if="selectedQuestion.options?.length" class="option-list">
                 <div
-                  v-for="option in selectedQuestion.options"
-                  :key="option.id"
-                  class="option-row"
-                  :class="{correct: option.isCorrect === 1}"
+                    v-for="option in selectedQuestion.options"
+                    :key="option.id"
+                    :class="{correct: option.isCorrect === 1}"
+                    class="option-row"
                 >
                   <span class="option-label">{{ option.optionLabel }}</span>
                   <span>{{ option.optionContent }}</span>
@@ -169,12 +173,21 @@
             <div class="preview-actions">
               <template v-if="canManageQuestion(selectedQuestion)">
                 <template v-if="selectedQuestion.status === 0">
-                  <button class="btn-outline" type="button" @click="openEditEditor">{{ t('questionBank.editQuestion') }}</button>
-                  <button class="btn-primary compact" type="button" @click="handlePublishQuestion">{{ t('questionBank.publish') }}</button>
-                  <button class="btn-outline danger" type="button" @click="handleDeleteQuestion">{{ t('questionBank.deleteQuestion') }}</button>
+                  <button class="btn-outline" type="button" @click="openEditEditor">{{
+                      t('questionBank.editQuestion')
+                    }}
+                  </button>
+                  <button class="btn-primary compact" type="button" @click="handlePublishQuestion">
+                    {{ t('questionBank.publish') }}
+                  </button>
+                  <button class="btn-outline danger" type="button" @click="handleDeleteQuestion">
+                    {{ t('questionBank.deleteQuestion') }}
+                  </button>
                 </template>
                 <template v-else-if="selectedQuestion.status === 1">
-                  <button class="btn-outline danger" type="button" @click="handleDeleteQuestion">{{ t('questionBank.deleteQuestion') }}</button>
+                  <button class="btn-outline danger" type="button" @click="handleDeleteQuestion">
+                    {{ t('questionBank.deleteQuestion') }}
+                  </button>
                 </template>
               </template>
               <button v-if="isStudent" class="btn-primary compact" type="button" @click="openPractice">
@@ -185,7 +198,7 @@
         </aside>
       </div>
 
-      <section class="bank-stats" :aria-label="t('questionBank.title')">
+      <section :aria-label="t('questionBank.title')" class="bank-stats">
         <div class="stat-item">
           <span>{{ t('questionBank.statJudgement') }}</span>
           <strong>{{ judgementCount }}</strong>
@@ -209,12 +222,14 @@
       <div class="editor-dialog">
         <div class="editor-header">
           <h2>{{ isEditing ? t('questionBank.editQuestionTitle') : t('questionBank.newQuestion') }}</h2>
-          <button class="close-btn" type="button" @click="showQuestionEditor = false"><X :size="18"/></button>
+          <button class="close-btn" type="button" @click="showQuestionEditor = false">
+            <X :size="18"/>
+          </button>
         </div>
         <div class="editor-body">
           <div class="field">
             <label>{{ t('questionBank.questionTitle') }} *</label>
-            <input v-model="newQuestion.questionTitle" type="text" class="input"/>
+            <input v-model="newQuestion.questionTitle" class="input" type="text"/>
           </div>
           <div class="field">
             <label>{{ t('questionBank.questionContent') }}</label>
@@ -251,36 +266,36 @@
             <div class="editor-option-list">
               <div v-for="(option, index) in newQuestion.options" :key="option.optionLabel" class="editor-option-row">
                 <button
-                  class="correct-toggle"
-                  :class="{active: option.isCorrect === 1}"
-                  type="button"
-                  :aria-label="t('questionBank.setCorrectAria', {label: option.optionLabel})"
-                  @click="toggleCorrectOption(index)"
+                    :aria-label="t('questionBank.setCorrectAria', {label: option.optionLabel})"
+                    :class="{active: option.isCorrect === 1}"
+                    class="correct-toggle"
+                    type="button"
+                    @click="toggleCorrectOption(index)"
                 >
                   <Check :size="15"/>
                 </button>
                 <span class="editor-option-label">{{ option.optionLabel }}</span>
                 <input
-                  v-model="option.optionContent"
-                  class="input"
-                  type="text"
-                  :disabled="!canEditOptions"
-                  :placeholder="t('questionBank.optionContentPlaceholder')"
+                    v-model="option.optionContent"
+                    :disabled="!canEditOptions"
+                    :placeholder="t('questionBank.optionContentPlaceholder')"
+                    class="input"
+                    type="text"
                 />
                 <button
-                  v-if="canEditOptions && newQuestion.options.length > 2"
-                  class="icon-button"
-                  type="button"
-                  :aria-label="t('questionBank.removeOption')"
-                  @click="removeOption(index)"
+                    v-if="canEditOptions && newQuestion.options.length > 2"
+                    :aria-label="t('questionBank.removeOption')"
+                    class="icon-button"
+                    type="button"
+                    @click="removeOption(index)"
                 >
                   <Trash2 :size="15"/>
                 </button>
                 <input
-                  v-model="option.explanation"
-                  class="input option-explanation"
-                  type="text"
-                  :placeholder="t('questionBank.optionExplanationPlaceholder')"
+                    v-model="option.explanation"
+                    :placeholder="t('questionBank.optionExplanationPlaceholder')"
+                    class="input option-explanation"
+                    type="text"
                 />
               </div>
             </div>
@@ -297,33 +312,38 @@
               <div v-for="(answer, index) in newQuestion.answers" :key="index" class="answer-editor-row">
                 <span class="answer-order">{{ index + 1 }}</span>
                 <textarea
-                  v-model="answer.answerContent"
-                  class="textarea answer-content"
-                  rows="2"
-                  :placeholder="t('questionBank.answerContentPlaceholder')"
+                    v-model="answer.answerContent"
+                    :placeholder="t('questionBank.answerContentPlaceholder')"
+                    class="textarea answer-content"
+                    rows="2"
                 ></textarea>
                 <button
-                  v-if="newQuestion.answers.length > 1"
-                  class="icon-button"
-                  type="button"
-                  :aria-label="t('questionBank.removeAnswer')"
-                  @click="removeAnswer(index)"
+                    v-if="newQuestion.answers.length > 1"
+                    :aria-label="t('questionBank.removeAnswer')"
+                    class="icon-button"
+                    type="button"
+                    @click="removeAnswer(index)"
                 >
                   <Trash2 :size="15"/>
                 </button>
                 <input
-                  v-model="answer.explanation"
-                  class="input answer-explanation"
-                  type="text"
-                  :placeholder="t('questionBank.answerExplanationPlaceholder')"
+                    v-model="answer.explanation"
+                    :placeholder="t('questionBank.answerExplanationPlaceholder')"
+                    class="input answer-explanation"
+                    type="text"
                 />
               </div>
             </div>
           </div>
         </div>
         <div class="editor-footer">
-          <button class="btn-cancel" type="button" @click="showQuestionEditor = false">{{ t('chapter.cancel') }}</button>
-          <button class="btn-save" type="button" :disabled="!newQuestion.questionTitle.trim()" @click="handleCreateQuestion">{{ isEditing ? t('questionBank.saveQuestion') : t('chapter.save') }}</button>
+          <button class="btn-cancel" type="button" @click="showQuestionEditor = false">{{
+              t('chapter.cancel')
+            }}
+          </button>
+          <button :disabled="!newQuestion.questionTitle.trim()" class="btn-save" type="button"
+                  @click="handleCreateQuestion">{{ isEditing ? t('questionBank.saveQuestion') : t('chapter.save') }}
+          </button>
         </div>
       </div>
     </div>
@@ -331,12 +351,20 @@
 </template>
 
 <script lang="ts" setup>
-import {onMounted, ref, computed, watch} from 'vue'
+import {computed, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
 import {ArrowLeft, Check, Clock, Eye, FileText, Plus, Search, Trash2, X} from 'lucide-vue-next'
-import {getQuestionBank, getQuestions, getQuestion, createQuestion, updateQuestion, deleteQuestion, publishQuestion} from '@/features/question-bank/api/questionBank'
-import type {QuestionBank, Question} from '@/features/question-bank/types/questionBank'
+import {
+  createQuestion,
+  deleteQuestion,
+  getQuestion,
+  getQuestionBank,
+  getQuestions,
+  publishQuestion,
+  updateQuestion
+} from '@/features/question-bank/api/questionBank'
+import type {Question, QuestionBank} from '@/features/question-bank/types/questionBank'
 import BaseNumberStepper from '@/shared/components/BaseNumberStepper.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import {useAuthStore} from '@/features/auth/stores/auth'
@@ -385,7 +413,7 @@ const isStudent = computed(() => authStore.user?.role === 1)
 const isEditing = computed(() => editingQuestionId.value !== null)
 const currentUserId = computed(() => authStore.user?.id)
 
-const filters = computed<Array<{key: FilterKey; label: string}>>(() => [
+const filters = computed<Array<{ key: FilterKey; label: string }>>(() => [
   {key: 'all', label: t('questionBank.filterAll')},
   {key: 'single', label: t('questionBank.filterSingle')},
   {key: 'multiple', label: t('questionBank.filterMultiple')},
@@ -430,8 +458,8 @@ const filteredQuestions = computed(() => {
   const query = keyword.value.toLowerCase()
   return questions.value.filter((question) => {
     const matchesKeyword = !query ||
-      question.questionTitle.toLowerCase().includes(query) ||
-      (question.tags || []).some((tag) => tag.toLowerCase().includes(query))
+        question.questionTitle.toLowerCase().includes(query) ||
+        (question.tags || []).some((tag) => tag.toLowerCase().includes(query))
     if (!matchesKeyword) return false
     if (activeFilter.value === 'single') return question.questionType === 0
     if (activeFilter.value === 'multiple') return question.questionType === 1
@@ -443,7 +471,7 @@ const filteredQuestions = computed(() => {
 })
 
 const selectedQuestion = computed(() =>
-  questions.value.find((question) => question.id === selectedQuestionId.value) || filteredQuestions.value[0] || null
+    questions.value.find((question) => question.id === selectedQuestionId.value) || filteredQuestions.value[0] || null
 )
 
 const selectedQuestionLoading = computed(() => detailLoadingQuestionId.value === selectedQuestionId.value)
@@ -455,11 +483,11 @@ const answerItems = computed(() => {
   const question = selectedQuestion.value
   if (!question) return []
   const textAnswers = (question.answers || [])
-    .map((answer) => answer.answerContent.trim())
-    .filter((answer) => answer.length > 0)
+      .map((answer) => answer.answerContent.trim())
+      .filter((answer) => answer.length > 0)
   const optionAnswers = (question.options || [])
-    .filter((option) => option.isCorrect === 1)
-    .map((option) => option.optionLabel ? option.optionLabel + '. ' + option.optionContent : option.optionContent)
+      .filter((option) => option.isCorrect === 1)
+      .map((option) => option.optionLabel ? option.optionLabel + '. ' + option.optionContent : option.optionContent)
   return textAnswers.length ? textAnswers : optionAnswers
 })
 
@@ -670,24 +698,24 @@ function removeAnswer(index: number) {
 function buildQuestionOptions() {
   if (!isOptionQuestion.value) return undefined
   return newQuestion.value.options
-    .filter((option) => option.optionContent.trim())
-    .map((option) => ({
-      optionLabel: option.optionLabel,
-      optionContent: option.optionContent.trim(),
-      isCorrect: option.isCorrect,
-      explanation: option.explanation.trim() || undefined,
-    }))
+      .filter((option) => option.optionContent.trim())
+      .map((option) => ({
+        optionLabel: option.optionLabel,
+        optionContent: option.optionContent.trim(),
+        isCorrect: option.isCorrect,
+        explanation: option.explanation.trim() || undefined,
+      }))
 }
 
 function buildQuestionAnswers() {
   if (!isAnswerQuestion.value) return undefined
   return newQuestion.value.answers
-    .map((answer, index) => ({
-      answerContent: answer.answerContent.trim(),
-      explanation: answer.explanation.trim() || undefined,
-      sortOrder: index + 1,
-    }))
-    .filter((answer) => answer.answerContent)
+      .map((answer, index) => ({
+        answerContent: answer.answerContent.trim(),
+        explanation: answer.explanation.trim() || undefined,
+        sortOrder: index + 1,
+      }))
+      .filter((answer) => answer.answerContent)
 }
 
 function validateQuestionForm() {

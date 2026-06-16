@@ -1,5 +1,7 @@
 package com.dayz.sc.storage.model.vo;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.UUID;
 
 /**
@@ -13,5 +15,6 @@ public record CourseAccess(
         boolean canManage,
         boolean canReadPublic,
         boolean canReadPrivate,
-        boolean isPrimaryTeacher
-) {}
+        @JsonProperty("isPrimaryTeacher") boolean primaryTeacher
+) {
+}

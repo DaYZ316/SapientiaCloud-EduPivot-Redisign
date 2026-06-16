@@ -11,7 +11,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * MyBatis repository for class participants.
+ * 课堂参与者 MyBatis Repository 实现
+ *
+ * @author DaYZ
+ * @since 2026-06-14
  */
 @Repository
 @RequiredArgsConstructor

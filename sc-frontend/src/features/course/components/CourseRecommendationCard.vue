@@ -2,21 +2,21 @@
   <article class="course-card">
     <figure class="course-cover">
       <img
-        :src="coverSrc"
-        :alt="course.title"
-        @error="useFallbackImage($event, COURSE_COVER_FALLBACK)"
+          :alt="course.title"
+          :src="coverSrc"
+          @error="useFallbackImage($event, COURSE_COVER_FALLBACK)"
       />
       <div class="cover-gradient"></div>
       <a
-        class="teacher-chip"
-        :href="`/profile/${course.teacherId}`"
-        @click.prevent="navigateToTeacher"
+          :href="`/profile/${course.teacherId}`"
+          class="teacher-chip"
+          @click.prevent="navigateToTeacher"
       >
         <img
-          class="teacher-avatar"
-          :src="teacherAvatar"
-          :alt="teacherName"
-          @error="useFallbackImage($event, TEACHER_AVATAR_FALLBACK)"
+            :alt="teacherName"
+            :src="teacherAvatar"
+            class="teacher-avatar"
+            @error="useFallbackImage($event, TEACHER_AVATAR_FALLBACK)"
         />
         <span>{{ teacherName }}</span>
       </a>
@@ -28,7 +28,7 @@
         <p>{{ course.description || t('courses.noDescription') }}</p>
       </div>
 
-      <div class="course-tags" aria-label="Course metadata">
+      <div aria-label="Course metadata" class="course-tags">
         <span v-for="tag in metadataTags" :key="tag" class="course-tag">{{ tag }}</span>
       </div>
 
@@ -52,7 +52,7 @@
       </dl>
 
       <div class="course-actions">
-        <button type="button" class="view-button" @click="$emit('view', course.id)">
+        <button class="view-button" type="button" @click="$emit('view', course.id)">
           <span>{{ t('courses.viewDetails') }}</span>
           <ArrowRight :size="14" stroke-width="2"/>
         </button>
@@ -191,21 +191,18 @@ function useFallbackImage(event: Event, fallback: string) {
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
   border-radius: var(--radius-md);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.04),
-    0 4px 16px rgba(0, 0, 0, 0.03);
-  transition:
-    box-shadow 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04),
+  0 4px 16px rgba(0, 0, 0, 0.03);
+  transition: box-shadow 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+  border-color 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .course-card:hover {
   border-color: var(--color-on-surface);
-  box-shadow:
-    inset 0 0 0 1px var(--color-on-surface),
-    0 0 0 3px color-mix(in srgb, var(--color-on-surface) 8%, transparent),
-    0 2px 4px rgba(0, 0, 0, 0.06),
-    0 12px 40px rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 0 0 1px var(--color-on-surface),
+  0 0 0 3px color-mix(in srgb, var(--color-on-surface) 8%, transparent),
+  0 2px 4px rgba(0, 0, 0, 0.06),
+  0 12px 40px rgba(0, 0, 0, 0.08);
 }
 
 /* cover */

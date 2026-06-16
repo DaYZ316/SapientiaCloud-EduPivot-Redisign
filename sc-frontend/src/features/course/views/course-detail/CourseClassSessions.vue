@@ -9,33 +9,52 @@
     </header>
 
     <div class="session-metrics">
-      <div v-for="metric in sessionMetrics" :key="metric.label" class="metric-item">
-        <span>{{ metric.label }}</span>
-        <strong>{{ metric.value }}</strong>
-      </div>
+      <template v-if="loading">
+        <div v-for="index in 4" :key="index" class="metric-item loading-metric">
+          <span class="skeleton-line short"></span>
+          <strong class="skeleton-line number"></strong>
+        </div>
+      </template>
+      <template v-else>
+        <div v-for="metric in sessionMetrics" :key="metric.label" class="metric-item">
+          <span>{{ metric.label }}</span>
+          <strong>{{ metric.value }}</strong>
+        </div>
+      </template>
     </div>
 
     <div class="session-workspace">
       <div class="session-list-column">
         <button
-          v-if="canManageCourse"
-          class="session-create-row"
-          type="button"
-          @click="openCreate"
+            v-if="canManageCourse"
+            class="session-create-row"
+            type="button"
+            @click="openCreate"
         >
           <span class="create-row-icon">
-            <Plus :size="15" stroke-width="2" />
+            <Plus :size="15" stroke-width="2"/>
           </span>
           <span>{{ t('courseDetail.classSession.createAction') }}</span>
         </button>
 
-        <div v-if="loading" class="session-state">
-          <LoaderCircle :size="24" stroke-width="1.7" />
-          <p>{{ t('courseDetail.classSession.loading') }}</p>
+        <div v-if="loading" aria-hidden="true" class="session-list-loading">
+          <article v-for="index in 3" :key="index" class="session-item skeleton-session-item">
+            <div class="session-main">
+              <div class="session-heading">
+                <span class="skeleton-line title"></span>
+                <span class="skeleton-badge"></span>
+              </div>
+              <span class="skeleton-line body"></span>
+              <div class="session-meta">
+                <span class="skeleton-line meta"></span>
+                <span class="skeleton-line meta small"></span>
+              </div>
+            </div>
+          </article>
         </div>
 
         <div v-else-if="loadFailed" class="session-state">
-          <CircleAlert :size="28" stroke-width="1.5" />
+          <CircleAlert :size="28" stroke-width="1.5"/>
           <h3>{{ t('courseDetail.classSession.loadFailed') }}</h3>
           <button class="btn-add" type="button" @click="loadSessions">
             {{ t('courseDetail.classSession.retry') }}
@@ -43,34 +62,36 @@
         </div>
 
         <div v-else-if="sessions.length === 0" class="empty-tab">
-          <Presentation :size="28" stroke-width="1.4" />
+          <Presentation :size="28" stroke-width="1.4"/>
           <h3>{{ t('courseDetail.classSession.emptyTitle') }}</h3>
-          <p>{{ canManageCourse ? t('courseDetail.classSession.emptyTeacher') : t('courseDetail.classSession.emptyStudent') }}</p>
+          <p>{{
+              canManageCourse ? t('courseDetail.classSession.emptyTeacher') : t('courseDetail.classSession.emptyStudent')
+            }}</p>
         </div>
 
         <div v-else class="session-list">
           <article
-            v-for="session in sessions"
-            :key="session.id"
-            class="session-item"
-            :class="{ selected: previewSession?.id === session.id || editingSession?.id === session.id }"
-            @click="selectSession(session)"
+              v-for="session in sessions"
+              :key="session.id"
+              :class="{ selected: previewSession?.id === session.id || editingSession?.id === session.id }"
+              class="session-item"
+              @click="selectSession(session)"
           >
             <div class="session-main">
               <div class="session-heading">
                 <h3>{{ session.title }}</h3>
-                <span class="status-badge" :class="statusClass(session)">
+                <span :class="statusClass(session)" class="status-badge">
                   {{ session.statusText || fallbackStatusText(session.status) }}
                 </span>
               </div>
               <p>{{ session.description || t('courseDetail.classSession.noDescription') }}</p>
               <div class="session-meta">
                 <span>
-                  <Clock :size="14" stroke-width="1.8" />
+                  <Clock :size="14" stroke-width="1.8"/>
                   {{ formatDateTime(session.scheduledStartAt) }} - {{ formatDateTime(session.scheduledEndAt) }}
                 </span>
                 <span>
-                  <DoorOpen :size="14" stroke-width="1.8" />
+                  <DoorOpen :size="14" stroke-width="1.8"/>
                   {{ roomSizeLabel(session.roomSize) }}
                 </span>
               </div>
@@ -78,42 +99,75 @@
 
             <div class="session-actions">
               <button
-                v-if="canManageCourse"
-                class="btn-icon danger"
-                type="button"
-                :title="t('courseDetail.classSession.deleteAction')"
-                :disabled="busySessionId === session.id"
-                @click.stop="handleDelete(session)"
+                  v-if="canManageCourse"
+                  :disabled="busySessionId === session.id"
+                  :title="t('courseDetail.classSession.deleteAction')"
+                  class="btn-icon danger"
+                  type="button"
+                  @click.stop="handleDelete(session)"
               >
-                <Trash2 :size="14" stroke-width="1.8" />
+                <Trash2 :size="14" stroke-width="1.8"/>
               </button>
             </div>
           </article>
         </div>
       </div>
 
-      <aside v-if="canManageCourse || previewSession" class="session-editor-panel">
+      <aside v-if="loading" aria-hidden="true" class="session-editor-panel loading-editor">
+        <div class="editor-heading">
+          <span class="skeleton-line index"></span>
+          <div>
+            <h3 class="skeleton-line heading"></h3>
+          </div>
+          <span class="skeleton-button"></span>
+        </div>
+        <div class="form-section">
+          <div class="section-title">
+            <span class="skeleton-line index"></span>
+            <h4 class="skeleton-line section-heading"></h4>
+          </div>
+          <span class="skeleton-line field"></span>
+          <div class="form-grid">
+            <span class="skeleton-line field"></span>
+            <span class="skeleton-line field"></span>
+          </div>
+          <span class="skeleton-line textarea"></span>
+        </div>
+        <div class="form-section">
+          <div class="section-title">
+            <span class="skeleton-line index"></span>
+            <h4 class="skeleton-line section-heading"></h4>
+          </div>
+          <div class="room-spec-grid">
+            <span v-for="index in 4" :key="index" class="skeleton-room-spec"></span>
+          </div>
+          <span class="skeleton-seat-preview"></span>
+        </div>
+      </aside>
+
+      <aside v-else-if="canManageCourse || previewSession" class="session-editor-panel">
         <form class="session-form" @submit.prevent="handleSubmit">
           <div class="editor-heading">
             <h3>{{ panelTitle }}</h3>
             <div class="form-actions">
-              <button v-if="!isPreviewing" type="submit" class="btn-add primary" :disabled="submitting">
+              <button v-if="!isPreviewing" :disabled="submitting" class="btn-add primary" type="submit">
                 {{ submitting ? t('courseDetail.saving') : t('courseDetail.save') }}
               </button>
               <button
-                v-if="editingSession"
-                type="button"
-                class="btn-secondary"
-                :disabled="busySessionId === editingSession.id"
-                @click="handlePublish(editingSession)"
+                  v-if="editingSession"
+                  :disabled="busySessionId === editingSession.id"
+                  class="btn-secondary"
+                  type="button"
+                  @click="handlePublish(editingSession)"
               >
                 {{ t('courseDetail.classSession.publishAction') }}
               </button>
               <button
-                v-if="previewSession?.publishedAt"
-                type="button"
-                class="btn-add primary"
-                @click="enterSession(previewSession)"
+                  v-if="previewSession?.publishedAt"
+                  :disabled="enteringSessionId === previewSession.id"
+                  class="btn-add primary"
+                  type="button"
+                  @click="enterSession(previewSession)"
               >
                 {{ t('courseDetail.classSession.enterAction') }}
               </button>
@@ -131,12 +185,12 @@
             <label class="form-group">
               <span>{{ t('courseDetail.classSession.titleLabel') }}</span>
               <input
-                v-model="form.title"
-                class="input-field"
-                type="text"
-                maxlength="200"
-                :disabled="isPreviewing"
-                :placeholder="t('courseDetail.classSession.titlePlaceholder')"
+                  v-model="form.title"
+                  :disabled="isPreviewing"
+                  :placeholder="t('courseDetail.classSession.titlePlaceholder')"
+                  class="input-field"
+                  maxlength="200"
+                  type="text"
               />
             </label>
 
@@ -144,37 +198,37 @@
               <label class="form-group">
                 <span>{{ t('courseDetail.classSession.startAtLabel') }}</span>
                 <BaseDatePicker
-                  v-if="!isPreviewing"
-                  v-model="form.scheduledStartAt"
-                  class="modal-date-control"
-                  show-time
-                  default-time="09:00"
-                  :placeholder="t('courseDetail.classSession.startAtLabel')"
+                    v-if="!isPreviewing"
+                    v-model="form.scheduledStartAt"
+                    :placeholder="t('courseDetail.classSession.startAtLabel')"
+                    class="modal-date-control"
+                    default-time="09:00"
+                    show-time
                 />
                 <input
-                  v-else
-                  class="input-field"
-                  type="text"
-                  :value="formatDateTime(previewSession?.scheduledStartAt)"
-                  disabled
+                    v-else
+                    :value="formatDateTime(previewSession?.scheduledStartAt)"
+                    class="input-field"
+                    disabled
+                    type="text"
                 />
               </label>
               <label class="form-group">
                 <span>{{ t('courseDetail.classSession.endAtLabel') }}</span>
                 <BaseDatePicker
-                  v-if="!isPreviewing"
-                  v-model="form.scheduledEndAt"
-                  class="modal-date-control"
-                  show-time
-                  default-time="10:00"
-                  :placeholder="t('courseDetail.classSession.endAtLabel')"
+                    v-if="!isPreviewing"
+                    v-model="form.scheduledEndAt"
+                    :placeholder="t('courseDetail.classSession.endAtLabel')"
+                    class="modal-date-control"
+                    default-time="10:00"
+                    show-time
                 />
                 <input
-                  v-else
-                  class="input-field"
-                  type="text"
-                  :value="formatDateTime(previewSession?.scheduledEndAt)"
-                  disabled
+                    v-else
+                    :value="formatDateTime(previewSession?.scheduledEndAt)"
+                    class="input-field"
+                    disabled
+                    type="text"
                 />
               </label>
             </div>
@@ -182,12 +236,12 @@
             <label class="form-group">
               <span>{{ t('courseDetail.classSession.descriptionLabel') }}</span>
               <textarea
-                v-model="form.description"
-                class="input-field"
-                rows="4"
-                maxlength="5000"
-                :disabled="isPreviewing"
-                :placeholder="t('courseDetail.classSession.descriptionPlaceholder')"
+                  v-model="form.description"
+                  :disabled="isPreviewing"
+                  :placeholder="t('courseDetail.classSession.descriptionPlaceholder')"
+                  class="input-field"
+                  maxlength="5000"
+                  rows="4"
               ></textarea>
             </label>
           </section>
@@ -200,16 +254,16 @@
 
             <div class="room-spec-grid">
               <button
-                v-for="spec in roomSpecs"
-                :key="spec.value"
-                class="room-spec"
-                :class="{ active: form.roomSize === spec.value }"
-                type="button"
-                :disabled="isPreviewing"
-                @click="form.roomSize = spec.value"
+                  v-for="spec in roomSpecs"
+                  :key="spec.value"
+                  :class="{ active: form.roomSize === spec.value }"
+                  :disabled="isPreviewing"
+                  class="room-spec"
+                  type="button"
+                  @click="form.roomSize = spec.value"
               >
                 <span class="spec-check">
-                  <Check v-if="form.roomSize === spec.value" :size="12" stroke-width="2.2" />
+                  <Check v-if="form.roomSize === spec.value" :size="12" stroke-width="2.2"/>
                 </span>
                 <strong>{{ spec.label }}</strong>
                 <small>{{ t('courseDetail.capacity') }} {{ spec.capacity }}</small>
@@ -224,16 +278,16 @@
 
               <div v-if="form.roomSize === ClassRoomSize.XLARGE" class="arc-preview">
                 <span
-                  v-for="dot in arcDots"
-                  :key="dot.id"
-                  class="seat-dot"
-                  :style="{ left: dot.x + '%', top: dot.y + '%' }"
+                    v-for="dot in arcDots"
+                    :key="dot.id"
+                    :style="{ left: dot.x + '%', top: dot.y + '%' }"
+                    class="seat-dot"
                 ></span>
               </div>
               <div
-                v-else
-                class="grid-preview"
-                :style="{ gridTemplateColumns: `repeat(${selectedRoomSpec.cols}, minmax(0, 1fr))` }"
+                  v-else
+                  :style="{ gridTemplateColumns: `repeat(${selectedRoomSpec.cols}, minmax(0, 1fr))` }"
+                  class="grid-preview"
               >
                 <span v-for="seat in selectedRoomSpec.seats" :key="seat" class="seat-dot"></span>
               </div>
@@ -256,31 +310,24 @@
             <strong>{{ selectedRoomSpec.capacity }}</strong>
           </div>
           <div
-            class="grid-preview"
-            :style="{ gridTemplateColumns: `repeat(${selectedRoomSpec.cols}, minmax(0, 1fr))` }"
+              :style="{ gridTemplateColumns: `repeat(${selectedRoomSpec.cols}, minmax(0, 1fr))` }"
+              class="grid-preview"
           >
             <span v-for="seat in selectedRoomSpec.seats" :key="seat" class="seat-dot"></span>
           </div>
         </div>
       </aside>
     </div>
+
+    <CourseEntryTransition v-if="enteringSessionId"/>
   </section>
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
-import {
-  Check,
-  CircleAlert,
-  Clock,
-  DoorOpen,
-  LoaderCircle,
-  Plus,
-  Presentation,
-  Trash2,
-} from 'lucide-vue-next'
+import {computed, onMounted, reactive, ref, watch} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {useRouter} from 'vue-router'
+import {Check, CircleAlert, Clock, DoorOpen, Plus, Presentation, Trash2,} from 'lucide-vue-next'
 
 import {
   createClassSession,
@@ -289,17 +336,18 @@ import {
   publishClassSession,
   updateClassSession,
 } from '@/features/course/api/classSession'
+import CourseEntryTransition from '@/features/course/components/CourseEntryTransition.vue'
 import BaseDatePicker from '@/shared/components/BaseDatePicker.vue'
-import { confirmDialog } from '@/shared/composables/useConfirmDialog'
-import { notify } from '@/shared/composables/useGlobalNotification'
+import {confirmDialog} from '@/shared/composables/useConfirmDialog'
+import {notify} from '@/shared/composables/useGlobalNotification'
 import {
   ClassRoomSize,
   ClassRoomSizeLabel,
-  ClassSessionStatus,
   type ClassSession,
   type ClassSessionFormPayload,
+  ClassSessionStatus,
 } from '@/features/course/types/classSession'
-import type { CourseDetail } from '@/features/course/types/course'
+import type {CourseDetail} from '@/features/course/types/course'
 
 const props = withDefaults(defineProps<{
   courseId: string
@@ -310,7 +358,7 @@ const props = withDefaults(defineProps<{
   createRequestKey: 0,
 })
 
-const { t, locale } = useI18n()
+const {t, locale} = useI18n()
 const router = useRouter()
 
 const sessions = ref<ClassSession[]>([])
@@ -318,6 +366,7 @@ const loading = ref(false)
 const loadFailed = ref(false)
 const submitting = ref(false)
 const busySessionId = ref<string | null>(null)
+const enteringSessionId = ref<string | null>(null)
 const editingSession = ref<ClassSession | null>(null)
 const previewSession = ref<ClassSession | null>(null)
 const errorMessage = ref('')
@@ -365,7 +414,7 @@ const selectedRoomSpec = computed(() => {
   const spec = roomSpecs.value.find(item => item.value === form.roomSize) || roomSpecs.value[1]
   return {
     ...spec,
-    seats: Array.from({ length: spec.rows * spec.cols }, (_, index) => index),
+    seats: Array.from({length: spec.rows * spec.cols}, (_, index) => index),
   }
 })
 
@@ -462,6 +511,9 @@ async function loadSessions() {
         fillFormFromSession(nextPreview)
       }
     }
+    if (!editingSession.value && !previewSession.value && sessions.value.length > 0 && !shouldKeepCreateMode()) {
+      selectSession(sessions.value[0])
+    }
   } catch {
     loadFailed.value = true
   } finally {
@@ -482,6 +534,10 @@ function openCreate() {
   previewSession.value = null
   editingSession.value = null
   resetForm()
+}
+
+function shouldKeepCreateMode() {
+  return props.createRequestKey > 0 && props.canManageCourse
 }
 
 function selectSession(session: ClassSession) {
@@ -547,7 +603,7 @@ async function handleSubmit() {
         selectSession(updatedSession)
       }
     } else {
-      await createClassSession({ ...payload, courseId: props.courseId })
+      await createClassSession({...payload, courseId: props.courseId})
       notify.success(t('courseDetail.classSession.created'))
       openCreate()
       await loadSessions()
@@ -560,7 +616,7 @@ async function handleSubmit() {
 }
 
 async function handlePublish(session: ClassSession) {
-  if (!(await confirmDialog({ message: t('courseDetail.classSession.confirmPublish') }))) return
+  if (!(await confirmDialog({message: t('courseDetail.classSession.confirmPublish')}))) return
   busySessionId.value = session.id
   try {
     await publishClassSession(session.id)
@@ -580,7 +636,7 @@ async function handlePublish(session: ClassSession) {
 }
 
 async function handleDelete(session: ClassSession) {
-  if (!(await confirmDialog({ message: t('courseDetail.classSession.confirmDelete'), confirmVariant: 'danger' }))) return
+  if (!(await confirmDialog({message: t('courseDetail.classSession.confirmDelete'), confirmVariant: 'danger'}))) return
   busySessionId.value = session.id
   try {
     await deleteClassSession(session.id)
@@ -596,8 +652,16 @@ async function handleDelete(session: ClassSession) {
   }
 }
 
-function enterSession(session: ClassSession) {
-  router.push({ name: 'class-session-room', params: { sessionId: session.id } })
+async function enterSession(session: ClassSession) {
+  if (enteringSessionId.value) return
+  enteringSessionId.value = session.id
+  try {
+    await new Promise(resolve => window.setTimeout(resolve, 3000))
+    await router.push({name: 'class-session-room', params: {sessionId: session.id}})
+  } catch (error) {
+    enteringSessionId.value = null
+    throw error
+  }
 }
 
 function isDraft(session: ClassSession) {
@@ -731,6 +795,34 @@ function normalizedRoomSize(value: number) {
   line-height: 1;
 }
 
+.skeleton-line,
+.skeleton-badge,
+.skeleton-button,
+.skeleton-room-spec,
+.skeleton-seat-preview {
+  display: block;
+  overflow: hidden;
+  background: linear-gradient(
+      90deg,
+      var(--color-surface-container) 0%,
+      var(--color-surface-container-highest) 42%,
+      var(--color-surface-container) 84%
+  );
+  background-size: 220% 100%;
+  border: 1px solid var(--color-outline-light);
+  animation: layout-loading 1.4s ease-in-out infinite;
+}
+
+.loading-metric .skeleton-line.short {
+  width: 86px;
+  height: 12px;
+}
+
+.loading-metric .skeleton-line.number {
+  width: 44px;
+  height: 30px;
+}
+
 .session-workspace {
   display: grid;
   grid-template-columns: minmax(0, 4fr) minmax(420px, 6fr);
@@ -746,6 +838,10 @@ function normalizedRoomSize(value: number) {
 }
 
 .session-list {
+  display: grid;
+}
+
+.session-list-loading {
   display: grid;
 }
 
@@ -765,10 +861,9 @@ function normalizedRoomSize(value: number) {
   font-size: 13px;
   font-weight: 800;
   text-align: left;
-  transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    transform 0.2s ease;
+  transition: background 0.2s ease,
+  color 0.2s ease,
+  transform 0.2s ease;
 }
 
 .session-create-row:hover {
@@ -797,9 +892,8 @@ function normalizedRoomSize(value: number) {
   padding: 18px;
   border-top: 1px solid var(--color-outline-light);
   cursor: pointer;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease;
+  transition: background 0.2s ease,
+  border-color 0.2s ease;
 }
 
 .session-item:first-child {
@@ -809,6 +903,11 @@ function normalizedRoomSize(value: number) {
 .session-item.selected,
 .session-item:hover {
   background: var(--color-surface-container);
+}
+
+.skeleton-session-item {
+  cursor: default;
+  pointer-events: none;
 }
 
 .session-main {
@@ -831,6 +930,17 @@ function normalizedRoomSize(value: number) {
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.session-heading .skeleton-line.title {
+  width: min(62%, 220px);
+  height: 18px;
+}
+
+.skeleton-badge {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 22px;
 }
 
 .session-main p {
@@ -858,6 +968,21 @@ function normalizedRoomSize(value: number) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.skeleton-line.body {
+  width: 88%;
+  height: 36px;
+  margin: 8px 0 12px;
+}
+
+.session-meta .skeleton-line.meta {
+  width: 150px;
+  height: 14px;
+}
+
+.session-meta .skeleton-line.meta.small {
+  width: 88px;
 }
 
 .status-badge {
@@ -908,11 +1033,10 @@ function normalizedRoomSize(value: number) {
   font-size: 12px;
   font-weight: 800;
   text-decoration: none;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease,
-    transform 0.2s ease;
+  transition: background 0.2s ease,
+  border-color 0.2s ease,
+  color 0.2s ease,
+  transform 0.2s ease;
 }
 
 .btn-add.primary {
@@ -956,11 +1080,10 @@ function normalizedRoomSize(value: number) {
   border: 1px solid var(--color-outline-light);
   color: var(--color-muted);
   cursor: pointer;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease,
-    transform 0.2s ease;
+  transition: background 0.2s ease,
+  border-color 0.2s ease,
+  color 0.2s ease,
+  transform 0.2s ease;
 }
 
 .btn-icon:hover {
@@ -998,6 +1121,25 @@ function normalizedRoomSize(value: number) {
   line-height: 1.15;
 }
 
+.loading-editor {
+  pointer-events: none;
+}
+
+.loading-editor .skeleton-line.index {
+  width: 22px;
+  height: 12px;
+}
+
+.loading-editor .skeleton-line.heading {
+  width: min(260px, 48vw);
+  height: 32px;
+}
+
+.skeleton-button {
+  width: 92px;
+  height: 38px;
+}
+
 .session-form,
 .form-section {
   display: grid;
@@ -1022,6 +1164,11 @@ function normalizedRoomSize(value: number) {
   font-size: 21px;
   font-weight: 400;
   line-height: 1.25;
+}
+
+.section-title .skeleton-line.section-heading {
+  width: 160px;
+  height: 21px;
 }
 
 .form-group {
@@ -1075,6 +1222,16 @@ function normalizedRoomSize(value: number) {
   cursor: default;
 }
 
+.skeleton-line.field {
+  width: 100%;
+  height: 46px;
+}
+
+.skeleton-line.textarea {
+  width: 100%;
+  height: 108px;
+}
+
 textarea.input-field {
   min-height: 108px;
   resize: vertical;
@@ -1100,9 +1257,8 @@ textarea.input-field:focus {
   font-size: 15px;
   font-weight: 500;
   line-height: 1;
-  transition:
-    border-color 0.2s,
-    color 0.2s;
+  transition: border-color 0.2s,
+  color 0.2s;
 }
 
 .form-group :deep(.modal-date-control .base-date-picker-trigger:hover),
@@ -1145,10 +1301,9 @@ textarea.input-field:focus {
   border: 1px solid var(--color-outline-light);
   color: var(--color-on-surface);
   cursor: pointer;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.2s ease;
+  transition: background 0.2s ease,
+  border-color 0.2s ease,
+  transform 0.2s ease;
 }
 
 .room-spec:hover,
@@ -1179,6 +1334,10 @@ textarea.input-field:focus {
   line-height: 1;
 }
 
+.skeleton-room-spec {
+  min-height: 84px;
+}
+
 .spec-check {
   position: absolute;
   top: 10px;
@@ -1202,6 +1361,10 @@ textarea.input-field:focus {
   padding: 14px;
   background: var(--color-surface-canvas);
   border: 1px solid var(--color-outline-light);
+}
+
+.skeleton-seat-preview {
+  height: 214px;
 }
 
 .preview-header {
@@ -1307,6 +1470,16 @@ textarea.input-field:focus {
   line-height: 1.55;
 }
 
+@keyframes layout-loading {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -120% 0;
+  }
+}
+
 @media (max-width: 1180px) {
   .session-workspace {
     grid-template-columns: 1fr;
@@ -1341,6 +1514,10 @@ textarea.input-field:focus {
   .form-actions {
     flex-wrap: wrap;
     justify-content: flex-start;
+  }
+
+  .loading-editor .editor-heading {
+    grid-template-columns: 1fr;
   }
 
 }

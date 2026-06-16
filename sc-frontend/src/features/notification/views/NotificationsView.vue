@@ -18,28 +18,28 @@
         </div>
         <div class="page-header-actions">
           <button
-            v-if="hasNotifications && activeFilter !== 'sent'"
-            class="btn-secondary btn-danger"
-            type="button"
-            @click="showDeleteAllConfirm = true"
+              v-if="hasNotifications && activeFilter !== 'sent'"
+              class="btn-secondary btn-danger"
+              type="button"
+              @click="showDeleteAllConfirm = true"
           >
             <Trash2 :size="16" stroke-width="1.8"/>
             {{ t('notifications.deleteAll') }}
           </button>
           <button
-            v-if="hasUnread"
-            class="btn-secondary"
-            type="button"
-            @click="handleMarkAllRead"
+              v-if="hasUnread"
+              class="btn-secondary"
+              type="button"
+              @click="handleMarkAllRead"
           >
             <CheckCheck :size="16" stroke-width="1.8"/>
             {{ t('notifications.markAllRead') }}
           </button>
           <button
-            v-if="canSendNotification"
-            class="btn-primary"
-            type="button"
-            @click="showSendModal = true"
+              v-if="canSendNotification"
+              class="btn-primary"
+              type="button"
+              @click="showSendModal = true"
           >
             <Send :size="16" stroke-width="1.8"/>
             {{ t('notifications.sendNotification') }}
@@ -51,11 +51,11 @@
     <!-- Filters Section -->
     <section class="filter-section">
       <button
-        v-for="tab in filterTabs"
-        :key="tab.id"
-        class="filter-btn"
-        :class="{ active: activeFilter === tab.id }"
-        @click="switchFilter(tab.id)"
+          v-for="tab in filterTabs"
+          :key="tab.id"
+          :class="{ active: activeFilter === tab.id }"
+          class="filter-btn"
+          @click="switchFilter(tab.id)"
       >
         {{ tab.label }}
         <span v-if="tab.count !== undefined && tab.count > 0" class="filter-count">
@@ -68,32 +68,32 @@
     <NotificationListSkeleton v-if="loading" :label="t('notifications.loading')"/>
 
     <!-- Master-Detail Body -->
-    <div v-else class="notifications-body" :class="{ 'detail-open': selectedNotification !== null }">
+    <div v-else :class="{ 'detail-open': selectedNotification !== null }" class="notifications-body">
 
       <!-- Left: List Panel -->
       <div class="list-panel">
         <!-- Empty State -->
         <div v-if="displayNotifications.length === 0" class="empty-state">
-          <BellOff :size="48" stroke-width="1.2" class="empty-icon"/>
+          <BellOff :size="48" class="empty-icon" stroke-width="1.2"/>
           <h3>{{ t('notifications.empty') }}</h3>
         </div>
 
         <!-- Notification List -->
         <div v-else class="notification-list">
           <div
-            v-for="notification in displayNotifications"
-            :key="notification.id"
-            class="notification-card"
-            :class="{
+              v-for="notification in displayNotifications"
+              :key="notification.id"
+              :class="{
               unread: !notification.isRead,
               read: notification.isRead,
               active: selectedNotification?.id === notification.id,
             }"
-            @click="handleNotificationClick(notification)"
+              class="notification-card"
+              @click="handleNotificationClick(notification)"
           >
             <!-- Icon -->
             <div class="card-icon-wrapper">
-              <component :is="getNotificationIcon(notification.type)" :size="24" stroke-width="1.8" class="card-icon"/>
+              <component :is="getNotificationIcon(notification.type)" :size="24" class="card-icon" stroke-width="1.8"/>
             </div>
 
             <!-- Content -->
@@ -106,7 +106,7 @@
                 </div>
               </div>
               <p class="card-description">{{ notification.content }}</p>
-              <span class="card-tag" :class="notification.type">
+              <span :class="notification.type" class="card-tag">
                 {{ getTypeName(notification.type) }}
               </span>
               <div class="card-meta-mobile">
@@ -119,11 +119,11 @@
 
             <!-- Recall button for own notifications or admin -->
             <button
-              v-if="isAdmin || notification.senderId === authStore.user?.id"
-              class="btn-card-recall"
-              type="button"
-              :aria-label="t('notifications.recall')"
-              @click.stop="handleRecallFromCard(notification)"
+                v-if="isAdmin || notification.senderId === authStore.user?.id"
+                :aria-label="t('notifications.recall')"
+                class="btn-card-recall"
+                type="button"
+                @click.stop="handleRecallFromCard(notification)"
             >
               <RotateCcw :size="14" stroke-width="1.8"/>
             </button>
@@ -132,21 +132,21 @@
 
         <!-- Pagination -->
         <nav v-if="displayNotifications.length > 0 && totalPages > 1" class="pagination">
-          <button class="page-btn nav-btn" :disabled="currentPage === 1" @click="changePage(currentPage - 1)">
+          <button :disabled="currentPage === 1" class="page-btn nav-btn" @click="changePage(currentPage - 1)">
             <ChevronLeft :size="18" stroke-width="2"/>
           </button>
           <div class="page-numbers">
             <button
-              v-for="page in displayedPages"
-              :key="page"
-              class="page-btn"
-              :class="{ active: currentPage === page }"
-              @click="changePage(page)"
+                v-for="page in displayedPages"
+                :key="page"
+                :class="{ active: currentPage === page }"
+                class="page-btn"
+                @click="changePage(page)"
             >
               {{ page }}
             </button>
           </div>
-          <button class="page-btn nav-btn" :disabled="currentPage === totalPages" @click="changePage(currentPage + 1)">
+          <button :disabled="currentPage === totalPages" class="page-btn nav-btn" @click="changePage(currentPage + 1)">
             <ChevronRight :size="18" stroke-width="2"/>
           </button>
         </nav>
@@ -155,41 +155,42 @@
       <!-- Right: Detail Panel -->
       <Transition name="detail-slide">
         <article
-          v-if="selectedNotification"
-          class="detail-panel"
-          role="region"
-          :aria-labelledby="`detail-title-${selectedNotification.id}`"
+            v-if="selectedNotification"
+            :aria-labelledby="`detail-title-${selectedNotification.id}`"
+            class="detail-panel"
+            role="region"
         >
           <div class="detail-scroll">
             <div class="detail-header">
-              <div class="detail-icon-wrapper" :class="selectedNotification.type">
+              <div :class="selectedNotification.type" class="detail-icon-wrapper">
                 <component :is="getNotificationIcon(selectedNotification.type)" :size="20" stroke-width="1.8"/>
               </div>
               <div class="detail-header-text">
-                <span class="card-tag" :class="selectedNotification.type">
+                <span :class="selectedNotification.type" class="card-tag">
                   {{ getTypeName(selectedNotification.type) }}
                 </span>
                 <span class="card-time">{{ selectedNotification.time }}</span>
               </div>
               <button
-                v-if="isAdmin || selectedNotification.senderId === authStore.user?.id"
-                class="btn-detail-recall"
-                type="button"
-                :aria-label="t('notifications.recall')"
-                @click="handleRecallNotification"
+                  v-if="isAdmin || selectedNotification.senderId === authStore.user?.id"
+                  :aria-label="t('notifications.recall')"
+                  class="btn-detail-recall"
+                  type="button"
+                  @click="handleRecallNotification"
               >
                 <RotateCcw :size="16" stroke-width="1.8"/>
               </button>
               <button
-                v-else
-                class="btn-detail-delete"
-                type="button"
-                :aria-label="t('notifications.delete')"
-                @click="handleDeleteNotification"
+                  v-else
+                  :aria-label="t('notifications.delete')"
+                  class="btn-detail-delete"
+                  type="button"
+                  @click="handleDeleteNotification"
               >
                 <Trash2 :size="16" stroke-width="1.8"/>
               </button>
-              <button class="btn-close" type="button" :aria-label="t('notifications.modal.cancel')" @click="closeDetail">
+              <button :aria-label="t('notifications.modal.cancel')" class="btn-close" type="button"
+                      @click="closeDetail">
                 <X :size="20"/>
               </button>
             </div>
@@ -206,50 +207,50 @@
     </div>
 
     <BaseConfirmDialog
-      :visible="showMarkAllReadConfirm"
-      :title="t('notifications.markAllReadConfirmTitle')"
-      :message="t('notifications.markAllReadConfirmMessage')"
-      :cancel-text="t('notifications.modal.cancel')"
-      :confirm-text="t('notifications.markAllRead')"
-      :close-label="t('notifications.modal.cancel')"
-      @cancel="closeMarkAllReadConfirm"
-      @confirm="confirmMarkAllRead"
+        :cancel-text="t('notifications.modal.cancel')"
+        :close-label="t('notifications.modal.cancel')"
+        :confirm-text="t('notifications.markAllRead')"
+        :message="t('notifications.markAllReadConfirmMessage')"
+        :title="t('notifications.markAllReadConfirmTitle')"
+        :visible="showMarkAllReadConfirm"
+        @cancel="closeMarkAllReadConfirm"
+        @confirm="confirmMarkAllRead"
     />
 
     <BaseConfirmDialog
-      :visible="showDeleteAllConfirm"
-      :title="t('notifications.deleteAllConfirmTitle')"
-      :message="t('notifications.deleteAllConfirmMessage')"
-      :cancel-text="t('notifications.modal.cancel')"
-      :confirm-text="t('notifications.deleteAll')"
-      :close-label="t('notifications.modal.cancel')"
-      confirm-variant="danger"
-      @cancel="closeDeleteAllConfirm"
-      @confirm="confirmDeleteAll"
+        :cancel-text="t('notifications.modal.cancel')"
+        :close-label="t('notifications.modal.cancel')"
+        :confirm-text="t('notifications.deleteAll')"
+        :message="t('notifications.deleteAllConfirmMessage')"
+        :title="t('notifications.deleteAllConfirmTitle')"
+        :visible="showDeleteAllConfirm"
+        confirm-variant="danger"
+        @cancel="closeDeleteAllConfirm"
+        @confirm="confirmDeleteAll"
     />
 
     <BaseConfirmDialog
-      :visible="showDeleteConfirm"
-      :title="t('notifications.deleteConfirmTitle')"
-      :message="t('notifications.deleteConfirmMessage')"
-      :cancel-text="t('notifications.modal.cancel')"
-      :confirm-text="t('notifications.delete')"
-      :close-label="t('notifications.modal.cancel')"
-      confirm-variant="danger"
-      @cancel="closeDeleteConfirm"
-      @confirm="confirmDeleteNotification"
+        :cancel-text="t('notifications.modal.cancel')"
+        :close-label="t('notifications.modal.cancel')"
+        :confirm-text="t('notifications.delete')"
+        :message="t('notifications.deleteConfirmMessage')"
+        :title="t('notifications.deleteConfirmTitle')"
+        :visible="showDeleteConfirm"
+        confirm-variant="danger"
+        @cancel="closeDeleteConfirm"
+        @confirm="confirmDeleteNotification"
     />
 
     <BaseConfirmDialog
-      :visible="showRecallConfirm"
-      :title="t('notifications.recallConfirmTitle')"
-      :message="t('notifications.recallConfirmMessage')"
-      :cancel-text="t('notifications.modal.cancel')"
-      :confirm-text="t('notifications.recall')"
-      :close-label="t('notifications.modal.cancel')"
-      confirm-variant="danger"
-      @cancel="closeRecallConfirm"
-      @confirm="confirmRecallNotification"
+        :cancel-text="t('notifications.modal.cancel')"
+        :close-label="t('notifications.modal.cancel')"
+        :confirm-text="t('notifications.recall')"
+        :message="t('notifications.recallConfirmMessage')"
+        :title="t('notifications.recallConfirmTitle')"
+        :visible="showRecallConfirm"
+        confirm-variant="danger"
+        @cancel="closeRecallConfirm"
+        @confirm="confirmRecallNotification"
     />
 
     <!-- Send Notification Modal -->
@@ -267,11 +268,11 @@
               <label>{{ t('notifications.modal.typeLabel') }}</label>
               <div class="radio-group">
                 <label class="radio-option">
-                  <input v-model="sendForm.type" type="radio" :value="1"/>
+                  <input v-model="sendForm.type" :value="1" type="radio"/>
                   <span>{{ t('notifications.filterSystem') }}</span>
                 </label>
                 <label class="radio-option">
-                  <input v-model="sendForm.type" type="radio" :value="2"/>
+                  <input v-model="sendForm.type" :value="2" type="radio"/>
                   <span>{{ t('notifications.filterTeaching') }}</span>
                 </label>
               </div>
@@ -280,11 +281,11 @@
               <label>{{ t('notifications.modal.targetTypeLabel') }}</label>
               <div class="radio-group">
                 <label class="radio-option">
-                  <input v-model="sendForm.targetType" type="radio" :value="0"/>
+                  <input v-model="sendForm.targetType" :value="0" type="radio"/>
                   <span>{{ t('notifications.modal.targetTypeAll') }}</span>
                 </label>
                 <label class="radio-option">
-                  <input v-model="sendForm.targetType" type="radio" :value="1" @change="loadUsers"/>
+                  <input v-model="sendForm.targetType" :value="1" type="radio" @change="loadUsers"/>
                   <span>{{ t('notifications.modal.targetTypeUser') }}</span>
                 </label>
               </div>
@@ -301,16 +302,16 @@
 
               <!-- Quick Actions -->
               <div class="quick-actions">
-                <button type="button" class="quick-btn" @click="selectAll">
+                <button class="quick-btn" type="button" @click="selectAll">
                   {{ t('notifications.modal.selectAll') }}
                 </button>
-                <button type="button" class="quick-btn" @click="selectAllStudents">
+                <button class="quick-btn" type="button" @click="selectAllStudents">
                   {{ t('notifications.modal.selectAllStudents') }}
                 </button>
-                <button type="button" class="quick-btn" @click="selectAllTeachers">
+                <button class="quick-btn" type="button" @click="selectAllTeachers">
                   {{ t('notifications.modal.selectAllTeachers') }}
                 </button>
-                <button v-if="selectedUserCount > 0" type="button" class="quick-btn clear" @click="clearSelection">
+                <button v-if="selectedUserCount > 0" class="quick-btn clear" type="button" @click="clearSelection">
                   {{ t('notifications.modal.cancel') }}
                 </button>
               </div>
@@ -318,10 +319,10 @@
               <!-- Search -->
               <div class="user-search">
                 <input
-                  v-model="userSearchQuery" @input="debouncedSearchUsers(($event.target as HTMLInputElement).value)"
-                  class="input-field"
-                  type="text"
-                  :placeholder="t('notifications.modal.searchUsers')"
+                    v-model="userSearchQuery" :placeholder="t('notifications.modal.searchUsers')"
+                    class="input-field"
+                    type="text"
+                    @input="debouncedSearchUsers(($event.target as HTMLInputElement).value)"
                 />
               </div>
 
@@ -334,19 +335,19 @@
                   {{ t('notifications.modal.noUsersFound') }}
                 </div>
                 <label
-                  v-for="user in filteredUsers"
-                  :key="user.id"
-                  class="user-item"
-                  :class="{selected: selectedUserIds.has(user.id)}"
+                    v-for="user in filteredUsers"
+                    :key="user.id"
+                    :class="{selected: selectedUserIds.has(user.id)}"
+                    class="user-item"
                 >
                   <input
-                    type="checkbox"
-                    :checked="selectedUserIds.has(user.id)"
-                    @change="toggleUser(user.id)"
+                      :checked="selectedUserIds.has(user.id)"
+                      type="checkbox"
+                      @change="toggleUser(user.id)"
                   />
                   <div class="user-info">
                     <span class="user-name">{{ user.displayName || user.email }}</span>
-                    <span class="user-role" :class="`role-${user.role}`">{{ getRoleName(user.role) }}</span>
+                    <span :class="`role-${user.role}`" class="user-role">{{ getRoleName(user.role) }}</span>
                   </div>
                 </label>
               </div>
@@ -354,11 +355,11 @@
             <div class="form-group">
               <label>{{ t('notifications.modal.titleLabel') }}</label>
               <input
-                v-model="sendForm.title"
-                class="input-field"
-                type="text"
-                :placeholder="t('notifications.modal.titlePlaceholder')"
-                required
+                  v-model="sendForm.title"
+                  :placeholder="t('notifications.modal.titlePlaceholder')"
+                  class="input-field"
+                  required
+                  type="text"
               />
             </div>
             <div class="form-group">
@@ -369,7 +370,7 @@
               <button class="btn-secondary" type="button" @click="closeSendModal">
                 {{ t('notifications.modal.cancel') }}
               </button>
-              <button class="btn-primary" type="submit" :disabled="sending">
+              <button :disabled="sending" class="btn-primary" type="submit">
                 {{ sending ? '...' : t('notifications.modal.submit') }}
               </button>
             </div>
@@ -384,9 +385,23 @@
 import {computed, onMounted, onUnmounted, reactive, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {
-  Bell, BellOff, CheckCheck, ChevronLeft, ChevronRight,
-  FileWarning, Megaphone, RotateCcw, Send, Trash2, X,
+  Bell,
+  BellOff,
+  CheckCheck,
+  ChevronLeft,
+  ChevronRight,
+  FileWarning,
+  Megaphone,
+  RotateCcw,
+  Send,
+  Trash2,
+  X,
 } from 'lucide-vue-next'
+import type {
+  Notification as ApiNotification,
+  NotificationSubscription,
+  SsePayload,
+} from '@/features/notification/api/notification'
 import {
   deleteAllNotifications as apiDeleteAllNotifications,
   deleteNotification as apiDeleteNotification,
@@ -396,11 +411,6 @@ import {
   recallNotification as apiRecallNotification,
   sendNotification as apiSendNotification,
   subscribeNotifications,
-} from '@/features/notification/api/notification'
-import type {
-  Notification as ApiNotification,
-  NotificationSubscription,
-  SsePayload,
 } from '@/features/notification/api/notification'
 import {listAllUsers} from '@/features/user/api/user'
 import type {UserProfile} from '@/features/user/types/user'
@@ -446,17 +456,23 @@ function getNotificationIcon(type: string) {
 
 function getNotificationType(type: number): string {
   switch (type) {
-    case 1: return 'system'
-    case 2: return 'teaching'
-    default: return 'system'
+    case 1:
+      return 'system'
+    case 2:
+      return 'teaching'
+    default:
+      return 'system'
   }
 }
 
 function getTypeName(type: string): string {
   switch (type) {
-    case 'system': return t('notifications.filterSystem')
-    case 'teaching': return t('notifications.filterTeaching')
-    default: return t('notifications.filterOther')
+    case 'system':
+      return t('notifications.filterSystem')
+    case 'teaching':
+      return t('notifications.filterTeaching')
+    default:
+      return t('notifications.filterOther')
   }
 }
 
@@ -761,7 +777,9 @@ async function searchUsers(keyword: string) {
     const response = await listAllUsers({page: 1, size: userListPageSize, keyword: keyword || undefined})
     availableUsers.value = response.records
     userHasMore = response.page * response.size < response.total
-  } catch { availableUsers.value = [] }
+  } catch {
+    availableUsers.value = []
+  }
 }
 
 function debouncedSearchUsers(keyword: string) {
@@ -774,7 +792,11 @@ async function loadMoreUsers() {
   userLoadingMore = true
   try {
     const nextPage = userPage + 1
-    const response = await listAllUsers({page: nextPage, size: userListPageSize, keyword: userSearchQuery.value.trim() || undefined})
+    const response = await listAllUsers({
+      page: nextPage,
+      size: userListPageSize,
+      keyword: userSearchQuery.value.trim() || undefined
+    })
     if (!response.records?.length) {
       userHasMore = false
       return
@@ -782,7 +804,9 @@ async function loadMoreUsers() {
     userPage = nextPage
     userHasMore = response.page * response.size < response.total
     availableUsers.value = [...availableUsers.value, ...response.records]
-  } finally { userLoadingMore = false }
+  } finally {
+    userLoadingMore = false
+  }
 }
 
 function handleUserListScroll(event: Event) {
@@ -803,13 +827,13 @@ function handleUserListScroll(event: Event) {
 const filteredUsers = computed(() => {
   // 排除当前用户（不能给自己发通知�?
   const candidates = authStore.user?.id
-    ? availableUsers.value.filter(user => user.id !== authStore.user!.id)
-    : availableUsers.value
+      ? availableUsers.value.filter(user => user.id !== authStore.user!.id)
+      : availableUsers.value
   if (!userSearchQuery.value.trim()) return candidates
   const query = userSearchQuery.value.toLowerCase()
   return candidates.filter(user =>
-    user.displayName?.toLowerCase().includes(query) ||
-    user.email?.toLowerCase().includes(query)
+      user.displayName?.toLowerCase().includes(query) ||
+      user.email?.toLowerCase().includes(query)
   )
 })
 
@@ -817,23 +841,20 @@ const selectedUserCount = computed(() => selectedUserIds.value.size)
 
 function getRoleName(role: number | null): string {
   switch (role) {
-    case 0: return t('notifications.modal.roleAdmin')
-    case 1: return t('notifications.modal.roleStudent')
-    case 2: return t('notifications.modal.roleTeacher')
-    default: return '-'
+    case 0:
+      return t('notifications.modal.roleAdmin')
+    case 1:
+      return t('notifications.modal.roleStudent')
+    case 2:
+      return t('notifications.modal.roleTeacher')
+    default:
+      return '-'
   }
 }
 
-function loadUsers() { searchUsers('') }
-
-
-
-
-
-
-
-
-
+function loadUsers() {
+  searchUsers('')
+}
 
 
 function toggleUser(userId: string) {
@@ -980,8 +1001,12 @@ async function handleSendNotification() {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 /* ---- Filter Section ---- */
@@ -1054,7 +1079,9 @@ async function handleSendNotification() {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ---- Master-Detail Layout ---- */
@@ -1714,7 +1741,9 @@ async function handleSendNotification() {
   color: var(--color-outline);
 }
 
-.user-list { max-height: 320px; overflow-y: auto;
+.user-list {
+  max-height: 320px;
+  overflow-y: auto;
   max-height: 280px;
   overflow-y: auto;
   display: flex;

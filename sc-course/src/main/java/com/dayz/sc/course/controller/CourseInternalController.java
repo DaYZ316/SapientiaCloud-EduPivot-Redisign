@@ -8,13 +8,16 @@ import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.course.model.entity.Course;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
 import com.dayz.sc.course.model.vo.CourseAccessVO;
-import com.dayz.sc.course.repository.CourseTeacherRepository;
 import com.dayz.sc.course.repository.CourseRepository;
+import com.dayz.sc.course.repository.CourseTeacherRepository;
 import com.dayz.sc.course.repository.EnrollmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
@@ -42,9 +45,9 @@ public class CourseInternalController {
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
 
         boolean admin = SecurityUtils.isAdmin(role);
-        boolean isPrimaryTeacher = course.getTeacherId().equals(userId);
+        boolean primaryTeacher = course.getTeacherId().equals(userId);
         boolean courseTeacher = courseTeacherRepository.existsByCourseIdAndTeacherId(courseId, userId);
-        boolean manager = admin || isPrimaryTeacher;
+        boolean manager = admin || primaryTeacher;
         boolean enrolled = enrollmentRepository.findByCourseIdAndStudentId(courseId, userId)
                 .map(enrollment -> enrollment.getStatus() == EnrollmentStatus.ACTIVE.getCode()
                         || enrollment.getStatus() == EnrollmentStatus.COMPLETED.getCode())
@@ -55,7 +58,7 @@ public class CourseInternalController {
                 manager,
                 Integer.valueOf(1).equals(course.getIsPublic()),
                 manager || courseTeacher || enrolled,
-                isPrimaryTeacher
+                primaryTeacher
         ));
     }
 }

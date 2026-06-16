@@ -1,14 +1,14 @@
 <template>
   <component
-    :is="linkable ? 'router-link' : 'div'"
-    v-bind="linkable ? { to: { name: 'user-profile', params: { userId } } } : {}"
-    class="user-avatar-link"
-    :class="[`user-avatar-link--${size}`]"
-    @click.stop
+      :is="linkable ? 'router-link' : 'div'"
+      :class="[`user-avatar-link--${size}`]"
+      class="user-avatar-link"
+      v-bind="linkable ? { to: { name: 'user-profile', params: { userId } } } : {}"
+      @click.stop
   >
     <div class="user-avatar-link__avatar">
-      <img v-if="avatarUrl" :src="avatarUrl" :alt="displayName || 'User'"/>
-      <img v-else :src="defaultAvatarSrc" :alt="displayName || 'User'"/>
+      <img v-if="avatarUrl" :alt="displayName || 'User'" :src="avatarUrl"/>
+      <img v-else :alt="displayName || 'User'" :src="defaultAvatarSrc"/>
     </div>
     <span v-if="showName" class="user-avatar-link__name">{{ displayName || 'User' }}</span>
   </component>

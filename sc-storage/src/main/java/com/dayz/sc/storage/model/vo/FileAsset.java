@@ -20,4 +20,5 @@ public record FileAsset(
         @JsonProperty("visibility") String visibility,
         @JsonProperty("url") String url,
         @JsonProperty("uploadedAt") Instant uploadedAt
-) {}
+) {
+}

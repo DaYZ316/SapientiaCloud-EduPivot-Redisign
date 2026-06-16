@@ -36,6 +36,9 @@ import java.util.concurrent.TimeUnit;
 public class DocConversionService {
 
     private static final String CONVERTED_PREFIX = "temp/converted/";
+    private static final String EXT_DOC = ".doc";
+    private static final String EXT_DOCX = ".docx";
+    private static final String MINIO_ERROR_NO_SUCH_KEY = "NoSuchKey";
 
     private final MinioClient minioClient;
     private final MinioClient presignMinioClient;
@@ -68,12 +71,12 @@ public class DocConversionService {
         }
 
         String filename = object.getOriginalFilename();
-        if (filename == null || !filename.toLowerCase().endsWith(".doc") || filename.toLowerCase().endsWith(".docx")) {
+        if (filename == null || !filename.toLowerCase().endsWith(EXT_DOC) || filename.toLowerCase().endsWith(EXT_DOCX)) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "仅支持 .doc 文件转换");
         }
 
         String bucket = object.getBucket();
-        String convertedKey = CONVERTED_PREFIX + fileId + ".docx";
+        String convertedKey = CONVERTED_PREFIX + fileId + EXT_DOCX;
 
         // 检查缓存：转换后的文件是否已存在
         if (objectExists(bucket, convertedKey)) {
@@ -146,7 +149,7 @@ public class DocConversionService {
                     .build());
             return true;
         } catch (ErrorResponseException e) {
-            if ("NoSuchKey".equals(e.errorResponse().code())) {
+            if (MINIO_ERROR_NO_SUCH_KEY.equals(e.errorResponse().code())) {
                 return false;
             }
             throw new BusinessException(ErrorCodes.SYSTEM_ERROR, "检查文件失败");

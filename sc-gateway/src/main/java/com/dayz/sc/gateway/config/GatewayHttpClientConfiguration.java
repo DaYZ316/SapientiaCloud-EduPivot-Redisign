@@ -27,6 +27,7 @@ public class GatewayHttpClientConfiguration {
     private static final Timeout CONNECT_TIMEOUT = Timeout.ofSeconds(3);
     private static final TimeValue IDLE_CONNECTION_TTL = TimeValue.ofSeconds(30);
 
+    @SuppressWarnings("deprecation")
     @Bean
     public ClientHttpRequestFactory gatewayClientHttpRequestFactory() {
         PoolingHttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()

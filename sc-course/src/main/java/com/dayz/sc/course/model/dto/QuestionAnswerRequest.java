@@ -15,4 +15,5 @@ public record QuestionAnswerRequest(
         String explanation,
         BigDecimal score,
         int sortOrder
-) {}
+) {
+}

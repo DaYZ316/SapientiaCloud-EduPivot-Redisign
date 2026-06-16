@@ -20,7 +20,7 @@ public record NotificationVO(
         @JsonProperty("targetType") Integer targetType,
         @JsonProperty("createdAt") Instant createdAt,
         @JsonProperty("updatedAt") Instant updatedAt,
-        @JsonProperty("isRead") Boolean isRead,
+        @JsonProperty("isRead") Boolean read,
         @JsonProperty("readAt") Instant readAt
 ) {
 }

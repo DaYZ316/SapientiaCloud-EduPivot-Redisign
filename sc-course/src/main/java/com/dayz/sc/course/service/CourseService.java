@@ -3,26 +3,26 @@ package com.dayz.sc.course.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.feign.client.AuthInternalClient;
+import com.dayz.sc.common.feign.client.StorageInternalClient;
+import com.dayz.sc.common.feign.dto.StorageObjectInfo;
+import com.dayz.sc.common.feign.dto.UserBasicInfo;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.common.util.PageUtils;
 import com.dayz.sc.common.util.UuidV7Generator;
-import com.dayz.sc.common.feign.client.AuthInternalClient;
-import com.dayz.sc.common.feign.client.StorageInternalClient;
-import com.dayz.sc.common.feign.dto.UserBasicInfo;
-import com.dayz.sc.course.model.dto.CreateCourseRequest;
+import com.dayz.sc.course.event.CourseEventPublisher;
 import com.dayz.sc.course.model.dto.CoursePageRequest;
+import com.dayz.sc.course.model.dto.CreateCourseRequest;
 import com.dayz.sc.course.model.dto.UpdateCourseRequest;
 import com.dayz.sc.course.model.entity.Course;
-import com.dayz.sc.course.model.entity.Enrollment;
 import com.dayz.sc.course.model.enums.CourseLevel;
 import com.dayz.sc.course.model.enums.CourseStatus;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
 import com.dayz.sc.course.model.vo.CourseDetailVO;
 import com.dayz.sc.course.model.vo.CourseVO;
-import com.dayz.sc.common.feign.dto.StorageObjectInfo;
-import com.dayz.sc.course.event.CourseEventPublisher;
+import com.dayz.sc.course.repository.ClassSessionRepository;
 import com.dayz.sc.course.repository.CourseRepository;
 import com.dayz.sc.course.repository.CourseTeacherRepository;
 import com.dayz.sc.course.repository.EnrollmentRepository;
@@ -32,7 +32,10 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -45,8 +48,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CourseService {
 
+    private static final String STATUS_READY = "READY";
+    private static final String USAGE_COURSE_COVER = "COURSE_COVER";
+    private static final String SCOPE_TYPE_COURSE = "COURSE";
+
     private final CourseRepository courseRepository;
     private final CourseTeacherRepository courseTeacherRepository;
+    private final ClassSessionRepository classSessionRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final StorageInternalClient storageInternalClient;
     private final AuthInternalClient authInternalClient;
@@ -188,12 +196,15 @@ public class CourseService {
 
         long currentStudents = enrollmentRepository.countActiveByCourseId(courseId);
         List<UUID> teacherIds = courseTeacherRepository.findTeacherIdsByCourseId(courseId);
+        long publishedClassSessionCount = classSessionRepository.countPublishedByCourseIds(List.of(courseId))
+                .getOrDefault(courseId, 0L);
 
         // 获取主讲教师信息
         Map<UUID, UserBasicInfo> teacherInfoMap = loadTeacherInfoMap(List.of(course.getTeacherId()));
 
 
-        return toCourseVO(course, currentStudents, teacherIds, loadCoverUrls(List.of(course)), teacherInfoMap);
+        return toCourseVO(course, currentStudents, publishedClassSessionCount,
+                teacherIds, loadCoverUrls(List.of(course)), teacherInfoMap);
     }
 
     public CourseDetailVO getCourseDetail(UUID courseId, UUID userId) {
@@ -292,6 +303,8 @@ public class CourseService {
     private PageResponse<CourseVO> enrichCourses(List<Course> courses, long total, int page, int size) {
         Map<UUID, Long> activeCounts = enrollmentRepository.countActiveByCourseIds(
                 courses.stream().map(Course::getId).toList());
+        Map<UUID, Long> publishedClassSessionCounts = classSessionRepository.countPublishedByCourseIds(
+                courses.stream().map(Course::getId).toList());
         Map<UUID, String> coverUrls = loadCoverUrls(courses);
         Map<UUID, List<UUID>> teacherIdsMap = courseTeacherRepository.findTeacherIdsByCourseIds(
                 courses.stream().map(Course::getId).toList());
@@ -305,6 +318,7 @@ public class CourseService {
         List<CourseVO> voList = courses.stream()
                 .map(course -> toCourseVO(course,
                         activeCounts.getOrDefault(course.getId(), 0L),
+                        publishedClassSessionCounts.getOrDefault(course.getId(), 0L),
                         teacherIdsMap.getOrDefault(course.getId(), List.of()),
                         coverUrls,
                         teacherInfoMap))
@@ -313,7 +327,7 @@ public class CourseService {
         return new PageResponse<>(voList, total, page, size);
     }
 
-    private CourseVO toCourseVO(Course course, long currentStudents, List<UUID> teacherIds,
+    private CourseVO toCourseVO(Course course, long currentStudents, long publishedClassSessionCount, List<UUID> teacherIds,
                                 Map<UUID, String> coverUrls, Map<UUID, UserBasicInfo> teacherInfoMap) {
         String coverUrl = course.getCoverFileId() != null
                 ? coverUrls.getOrDefault(course.getCoverFileId(), course.getCoverUrl())
@@ -343,16 +357,20 @@ public class CourseService {
                 (int) currentStudents,
                 course.getStatus(),
                 course.getCreatedAt(),
-                course.getUpdatedAt()
+                course.getUpdatedAt(),
+                publishedClassSessionCount,
+                CourseProgressCalculator.calculate(course.getTotalClassHours(), publishedClassSessionCount)
         );
     }
 
     private void validateCourseCoverFile(UUID fileId, UUID courseId) {
         StorageObjectInfo file = internalFile(fileId);
-        if (!"READY".equals(file.status())
-                || !"COURSE_COVER".equals(file.usage())
-                || !"COURSE".equals(file.scopeType())
-                || (file.scopeId() != null && !courseId.equals(file.scopeId()))) {
+        boolean isReady = STATUS_READY.equals(file.status());
+        boolean isCover = USAGE_COURSE_COVER.equals(file.usage());
+        boolean isCourseScope = SCOPE_TYPE_COURSE.equals(file.scopeType());
+        boolean scopeMatches = file.scopeId() == null || courseId.equals(file.scopeId());
+
+        if (!isReady || !isCover || !isCourseScope || !scopeMatches) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid course cover file");
         }
     }

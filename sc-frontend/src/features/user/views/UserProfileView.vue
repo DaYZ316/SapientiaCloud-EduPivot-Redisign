@@ -20,14 +20,14 @@
       <AlertCircle :size="48" stroke-width="1.2"/>
       <h2>{{ t('profile.userProfile.notFound') }}</h2>
       <p>{{ error }}</p>
-      <router-link to="/dashboard" class="btn-primary">{{ t('profile.userProfile.backToDashboard') }}</router-link>
+      <router-link class="btn-primary" to="/dashboard">{{ t('profile.userProfile.backToDashboard') }}</router-link>
     </section>
 
     <!-- Profile content -->
     <template v-else-if="user">
       <section class="profile-hero">
-        <div class="profile-avatar" :class="{ 'profile-avatar--image': Boolean(user.avatarUrl) }">
-          <img v-if="user.avatarUrl" :src="user.avatarUrl" :alt="`${displayName} avatar`"/>
+        <div :class="{ 'profile-avatar--image': Boolean(user.avatarUrl) }" class="profile-avatar">
+          <img v-if="user.avatarUrl" :alt="`${displayName} avatar`" :src="user.avatarUrl"/>
           <span v-else>{{ initials }}</span>
         </div>
 
@@ -63,10 +63,10 @@
 
             <div class="identity-grid">
               <div
-                v-for="item in identityDetails"
-                :key="item.label"
-                class="identity-item"
-                :class="{ 'identity-item--wide': item.wide }"
+                  v-for="item in identityDetails"
+                  :key="item.label"
+                  :class="{ 'identity-item--wide': item.wide }"
+                  class="identity-item"
               >
                 <span>{{ item.label }}</span>
                 <strong>{{ item.value }}</strong>
@@ -116,15 +116,7 @@
 import {computed, onMounted, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
-import {
-  AlertCircle,
-  ArrowLeft,
-  BriefcaseBusiness,
-  CalendarDays,
-  GraduationCap,
-  Info,
-  UserRound,
-} from 'lucide-vue-next'
+import {AlertCircle, ArrowLeft, BriefcaseBusiness, CalendarDays, GraduationCap, Info, UserRound,} from 'lucide-vue-next'
 
 import {getUserById} from '@/features/user/api/user'
 import type {UserProfile} from '@/features/user/types/user'
@@ -188,10 +180,14 @@ const displayName = computed(() => user.value?.displayName || 'User')
 
 const roleLabel = computed(() => {
   switch (user.value?.role) {
-    case 0: return 'ADMIN'
-    case 1: return 'STUDENT'
-    case 2: return 'TEACHER'
-    default: return 'USER'
+    case 0:
+      return 'ADMIN'
+    case 1:
+      return 'STUDENT'
+    case 2:
+      return 'TEACHER'
+    default:
+      return 'USER'
   }
 })
 
@@ -606,13 +602,25 @@ watch(() => route.params.userId, (newId) => {
   animation: shimmer 1.4s ease-in-out infinite;
 }
 
-.skeleton-line--short { width: 120px; }
-.skeleton-line--medium { width: 240px; }
-.skeleton-line--long { width: 360px; }
+.skeleton-line--short {
+  width: 120px;
+}
+
+.skeleton-line--medium {
+  width: 240px;
+}
+
+.skeleton-line--long {
+  width: 360px;
+}
 
 @keyframes shimmer {
-  0% { background-position: 120% 0; }
-  100% { background-position: -120% 0; }
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -120% 0;
+  }
 }
 
 @media (max-width: 1100px) {

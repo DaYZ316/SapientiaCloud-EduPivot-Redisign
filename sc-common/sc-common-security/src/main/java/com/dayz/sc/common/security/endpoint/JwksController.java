@@ -33,9 +33,10 @@ public class JwksController {
         try {
             RSAPrivateKey privateKey = RsaKeyLoader.loadPrivateKey(jwtProperties.getPrivateKey());
             // 从私钥的模数和公钥指数提取公钥
+            // RSA 标准公钥指数
             RSAPublicKeySpec publicKeySpec = new RSAPublicKeySpec(
                     privateKey.getModulus(),
-                    java.math.BigInteger.valueOf(65537) // RSA 标准公钥指数
+                    java.math.BigInteger.valueOf(65537)
             );
             RSAPublicKey publicKey = (RSAPublicKey) KeyFactory.getInstance("RSA").generatePublic(publicKeySpec);
             this.rsaJwk = new RSAKey.Builder(publicKey)

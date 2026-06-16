@@ -2,7 +2,7 @@
   <div class="dashboard">
     <!-- Welcome Section -->
     <div class="welcome-section">
-      <h1>{{ t('success.welcomeUser', {name: authStore.user?.displayName ?? t('profile.placeholder.user') }) }}</h1>
+      <h1>{{ t('success.welcomeUser', {name: authStore.user?.displayName ?? t('profile.placeholder.user')}) }}</h1>
     </div>
 
     <div class="dashboard-grid">
@@ -28,16 +28,16 @@
         <div class="section">
           <div class="section-header">
             <h2>{{ t('success.recentNotifications') }}</h2>
-            <router-link to="/notifications" class="btn-text">{{ t('success.viewAll') }}</router-link>
+            <router-link class="btn-text" to="/notifications">{{ t('success.viewAll') }}</router-link>
           </div>
           <div class="notification-list">
             <div
-              v-for="notification in recentNotifications"
-              :key="notification.id"
-              class="notification-item"
-              :class="{ unread: !notification.isRead }"
+                v-for="notification in recentNotifications"
+                :key="notification.id"
+                :class="{ unread: !notification.isRead }"
+                class="notification-item"
             >
-              <div class="notification-icon" :class="notification.type">
+              <div :class="notification.type" class="notification-icon">
                 <component :is="getNotificationIcon(notification.type)" :size="18" stroke-width="1.8"/>
               </div>
               <div class="notification-content">
@@ -61,22 +61,22 @@
           <h3 class="profile-name">{{ authStore.user?.displayName ?? 'User' }}</h3>
           <p class="profile-email">{{ authStore.user?.email ?? '-' }}</p>
           <span class="tag">{{ getRoleName(authStore.user?.role) }}</span>
-          <router-link to="/profile" class="btn-secondary">{{ t('success.editProfile') }}</router-link>
+          <router-link class="btn-secondary" to="/profile">{{ t('success.editProfile') }}</router-link>
         </div>
 
         <!-- Quick Actions -->
         <div class="card quick-actions">
           <h3 class="card-title">{{ t('success.quickActions') }}</h3>
           <div class="action-list">
-            <router-link to="/courses" class="action-item">
+            <router-link class="action-item" to="/courses">
               <span>{{ t('success.viewSchedule') }}</span>
               <ArrowRight :size="16"/>
             </router-link>
-            <router-link to="/courses" class="action-item">
+            <router-link class="action-item" to="/courses">
               <span>{{ t('success.submitAssignment') }}</span>
               <ArrowRight :size="16"/>
             </router-link>
-            <router-link to="/courses" class="action-item">
+            <router-link class="action-item" to="/courses">
               <span>{{ t('success.contactAdvisor') }}</span>
               <ArrowRight :size="16"/>
             </router-link>
@@ -99,28 +99,38 @@ const authStore = useAuthStore()
 
 const defaultAvatarSrc = computed(() => {
   switch (authStore.user?.role) {
-    case 0: return '/assets/avatar-admin-default.png'
-    case 2: return '/assets/avatar-teacher-default.png'
-    default: return '/assets/avatar-student-default.png'
+    case 0:
+      return '/assets/avatar-admin-default.png'
+    case 2:
+      return '/assets/avatar-teacher-default.png'
+    default:
+      return '/assets/avatar-student-default.png'
   }
 })
 
-const recentNotifications: {id: string; type: string; title: string; time: string; isRead: boolean}[] = []
+const recentNotifications: { id: string; type: string; title: string; time: string; isRead: boolean }[] = []
 
 function getRoleName(role?: number | null): string {
   switch (role) {
-    case 0: return t('success.roleAdmin')
-    case 1: return t('success.roleStudent')
-    case 2: return t('success.roleTeacher')
-    default: return t('success.roleUser')
+    case 0:
+      return t('success.roleAdmin')
+    case 1:
+      return t('success.roleStudent')
+    case 2:
+      return t('success.roleTeacher')
+    default:
+      return t('success.roleUser')
   }
 }
 
 function getNotificationIcon(type: string) {
   switch (type) {
-    case 'teaching': return BookOpen
-    case 'system': return Settings
-    default: return Settings
+    case 'teaching':
+      return BookOpen
+    case 'system':
+      return Settings
+    default:
+      return Settings
   }
 }
 </script>

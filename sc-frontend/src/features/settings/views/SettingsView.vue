@@ -7,14 +7,14 @@
     </header>
 
     <div class="settings-layout">
-      <nav class="settings-nav" :aria-label="t('common.menu.settings')">
+      <nav :aria-label="t('common.menu.settings')" class="settings-nav">
         <button
-          v-for="tab in tabs"
-          :key="tab.id"
-          class="nav-tab"
-          :class="{ active: activeTab === tab.id }"
-          type="button"
-          @click="activeTab = tab.id"
+            v-for="tab in tabs"
+            :key="tab.id"
+            :class="{ active: activeTab === tab.id }"
+            class="nav-tab"
+            type="button"
+            @click="activeTab = tab.id"
         >
           <component :is="tab.icon" :size="18" stroke-width="1.8"/>
           <span>{{ tab.label }}</span>
@@ -29,7 +29,7 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, ref, type Component} from 'vue'
+import {type Component, computed, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {Bell, LayoutDashboard, Shield, User} from 'lucide-vue-next'
 
@@ -78,7 +78,7 @@ const tabs = computed<SettingsTab[]>(() => [
 ])
 
 const activeTabConfig = computed<SettingsTab>(() =>
-  tabs.value.find((tab) => tab.id === activeTab.value) ?? tabs.value[0],
+    tabs.value.find((tab) => tab.id === activeTab.value) ?? tabs.value[0],
 )
 </script>
 

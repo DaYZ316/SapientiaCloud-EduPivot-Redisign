@@ -5,12 +5,7 @@
       {{ t('courseDetail.classSession.backToCourse') }}
     </button>
 
-    <section v-if="loading" class="page-state">
-      <LoaderCircle :size="24" stroke-width="1.7"/>
-      <p>{{ t('courseDetail.loading') }}</p>
-    </section>
-
-    <section v-else-if="!course" class="page-state">
+    <section v-if="!loading && !course" class="page-state">
       <BookOpen :size="32" stroke-width="1.4"/>
       <h1>{{ t('courseDetail.courseNotFound') }}</h1>
       <button class="secondary-button" type="button" @click="router.push('/courses')">
@@ -18,7 +13,7 @@
       </button>
     </section>
 
-    <template v-else>
+    <template v-else-if="course">
       <header class="page-header">
         <div>
           <span>{{ t('courseDetail.classSession.tabKicker') }}</span>
@@ -28,10 +23,10 @@
       </header>
 
       <CourseClassSessions
-        :course="course"
-        :course-id="courseId"
-        :can-manage-course="canManageCourse"
-        :create-request-key="classSessionCreateRequestKey"
+          :can-manage-course="canManageCourse"
+          :course="course"
+          :course-id="courseId"
+          :create-request-key="classSessionCreateRequestKey"
       />
     </template>
   </div>
@@ -41,7 +36,7 @@
 import {computed, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
-import {ArrowLeft, BookOpen, LoaderCircle} from 'lucide-vue-next'
+import {ArrowLeft, BookOpen} from 'lucide-vue-next'
 
 import {getCourse} from '@/features/course/api/course'
 import CourseClassSessions from '@/features/course/views/course-detail/CourseClassSessions.vue'

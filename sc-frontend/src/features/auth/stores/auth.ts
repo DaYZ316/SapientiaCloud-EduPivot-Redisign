@@ -1,7 +1,13 @@
 import {computed, ref} from 'vue'
 import {defineStore} from 'pinia'
 
-import {loginWithGitHub, loginWithGoogle, loginWithPassword, logout as logoutRequest, register} from '@/features/auth/api/auth'
+import {
+    loginWithGitHub,
+    loginWithGoogle,
+    loginWithPassword,
+    logout as logoutRequest,
+    register
+} from '@/features/auth/api/auth'
 import type {LoginResponse, PasswordLoginRequest, RegisterRequest} from '@/features/auth/types/auth'
 import {getCurrentUser} from '@/features/user/api/user'
 import type {UserProfile} from '@/features/user/types/user'

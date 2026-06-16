@@ -1,7 +1,8 @@
 <template>
   <Teleport to="body">
     <div v-if="visible" class="modal-overlay session-expired-overlay">
-      <section class="modal session-expired-modal" role="dialog" aria-modal="true" aria-labelledby="session-expired-title">
+      <section aria-labelledby="session-expired-title" aria-modal="true" class="modal session-expired-modal"
+               role="dialog">
         <div class="modal-header">
           <h2 id="session-expired-title">{{ t('common.sessionExpired.title') }}</h2>
         </div>
@@ -35,8 +36,8 @@ async function confirm() {
   await router.replace({
     name: 'login',
     query: router.currentRoute.value.name === 'login'
-      ? undefined
-      : {redirect: router.currentRoute.value.fullPath},
+        ? undefined
+        : {redirect: router.currentRoute.value.fullPath},
   })
 }
 </script>

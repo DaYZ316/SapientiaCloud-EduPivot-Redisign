@@ -11,11 +11,7 @@ import com.dayz.sc.course.model.dto.CreateClassBarrageRequest;
 import com.dayz.sc.course.model.dto.CreateClassSessionRequest;
 import com.dayz.sc.course.model.dto.JoinClassSessionRequest;
 import com.dayz.sc.course.model.dto.UpdateClassSessionRequest;
-import com.dayz.sc.course.model.entity.ClassBarrage;
-import com.dayz.sc.course.model.entity.ClassParticipant;
-import com.dayz.sc.course.model.entity.ClassSession;
-import com.dayz.sc.course.model.entity.Course;
-import com.dayz.sc.course.model.entity.Enrollment;
+import com.dayz.sc.course.model.entity.*;
 import com.dayz.sc.course.model.enums.ClassParticipantRole;
 import com.dayz.sc.course.model.enums.ClassRoomSize;
 import com.dayz.sc.course.model.enums.ClassSessionStatus;
@@ -24,12 +20,7 @@ import com.dayz.sc.course.model.vo.ClassBarrageVO;
 import com.dayz.sc.course.model.vo.ClassParticipantVO;
 import com.dayz.sc.course.model.vo.ClassSessionVO;
 import com.dayz.sc.course.model.vo.LiveKitTokenVO;
-import com.dayz.sc.course.repository.ClassBarrageRepository;
-import com.dayz.sc.course.repository.ClassParticipantRepository;
-import com.dayz.sc.course.repository.ClassSessionRepository;
-import com.dayz.sc.course.repository.CourseRepository;
-import com.dayz.sc.course.repository.CourseTeacherRepository;
-import com.dayz.sc.course.repository.EnrollmentRepository;
+import com.dayz.sc.course.repository.*;
 import com.dayz.sc.course.sse.ClassBarrageSseEmitter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -42,6 +33,9 @@ import java.util.UUID;
 
 /**
  * Business service for class sessions.
+ *
+ * @author DaYZ
+ * @since 2026-06-14
  */
 @Service
 @RequiredArgsConstructor

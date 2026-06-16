@@ -18,4 +18,5 @@ public record UserRegisteredEvent(
         String eventType,
         Instant timestamp,
         String source
-) {}
+) {
+}

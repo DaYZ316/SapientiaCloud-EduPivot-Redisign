@@ -18,4 +18,5 @@ public record UpdateForumPostRequest(
         List<String> imageUrls,
         List<String> tags,
         Integer status
-) {}
+) {
+}

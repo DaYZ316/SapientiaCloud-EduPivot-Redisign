@@ -22,4 +22,5 @@ public record CreateChapterRequest(
         String content,
         List<String> attachmentUrls,
         @Min(0) int sortOrder
-) {}
+) {
+}

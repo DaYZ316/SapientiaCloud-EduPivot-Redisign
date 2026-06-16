@@ -1,25 +1,15 @@
 package com.dayz.sc.course.service;
 
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.course.model.dto.CreateClassBarrageRequest;
 import com.dayz.sc.course.model.dto.CreateClassSessionRequest;
 import com.dayz.sc.course.model.dto.JoinClassSessionRequest;
 import com.dayz.sc.course.model.dto.UpdateClassSessionRequest;
-import com.dayz.sc.course.model.entity.ClassBarrage;
-import com.dayz.sc.course.model.entity.ClassParticipant;
-import com.dayz.sc.course.model.entity.ClassSession;
-import com.dayz.sc.course.model.entity.Course;
-import com.dayz.sc.course.model.entity.Enrollment;
+import com.dayz.sc.course.model.entity.*;
 import com.dayz.sc.course.model.enums.ClassSessionStatus;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
 import com.dayz.sc.course.model.vo.LiveKitTokenVO;
-import com.dayz.sc.course.repository.ClassBarrageRepository;
-import com.dayz.sc.course.repository.ClassParticipantRepository;
-import com.dayz.sc.course.repository.ClassSessionRepository;
-import com.dayz.sc.course.repository.CourseRepository;
-import com.dayz.sc.course.repository.CourseTeacherRepository;
-import com.dayz.sc.course.repository.EnrollmentRepository;
+import com.dayz.sc.course.repository.*;
 import com.dayz.sc.course.sse.ClassBarrageSseEmitter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,9 +27,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ClassSessionServiceTest {

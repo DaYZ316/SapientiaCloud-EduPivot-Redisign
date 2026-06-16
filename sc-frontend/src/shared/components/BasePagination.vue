@@ -1,33 +1,33 @@
 <template>
-  <nav v-if="totalPages > 1" class="base-pagination" :aria-label="ariaLabel">
+  <nav v-if="totalPages > 1" :aria-label="ariaLabel" class="base-pagination">
     <button
-      class="btn-page icon"
-      type="button"
-      :disabled="disabled || page <= 1"
-      :title="previousTitle"
-      @click="changePage(page - 1)"
+        :disabled="disabled || page <= 1"
+        :title="previousTitle"
+        class="btn-page icon"
+        type="button"
+        @click="changePage(page - 1)"
     >
       <ChevronLeft :size="15" stroke-width="1.8"/>
     </button>
     <div class="page-numbers">
       <button
-        v-for="pageNumber in displayedPages"
-        :key="pageNumber"
-        class="btn-page"
-        type="button"
-        :disabled="disabled"
-        :class="{active: page === pageNumber}"
-        @click="changePage(pageNumber)"
+          v-for="pageNumber in displayedPages"
+          :key="pageNumber"
+          :class="{active: page === pageNumber}"
+          :disabled="disabled"
+          class="btn-page"
+          type="button"
+          @click="changePage(pageNumber)"
       >
         {{ pageNumber }}
       </button>
     </div>
     <button
-      class="btn-page icon"
-      type="button"
-      :disabled="disabled || page >= totalPages"
-      :title="nextTitle"
-      @click="changePage(page + 1)"
+        :disabled="disabled || page >= totalPages"
+        :title="nextTitle"
+        class="btn-page icon"
+        type="button"
+        @click="changePage(page + 1)"
     >
       <ChevronRight :size="15" stroke-width="1.8"/>
     </button>

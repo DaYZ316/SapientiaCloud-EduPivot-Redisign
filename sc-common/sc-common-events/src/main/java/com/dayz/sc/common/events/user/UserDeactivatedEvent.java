@@ -16,4 +16,5 @@ public record UserDeactivatedEvent(
         String eventType,
         Instant timestamp,
         String source
-) {}
+) {
+}

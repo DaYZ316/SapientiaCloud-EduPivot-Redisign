@@ -2,14 +2,13 @@ package com.dayz.sc.course.controller;
 
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
-import com.dayz.sc.common.model.UserRole;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.ratelimit.RateLimited;
 import com.dayz.sc.common.security.support.JwtPrincipalResolver;
 import com.dayz.sc.common.security.support.SecurityUtils;
-import com.dayz.sc.course.model.dto.CreateCourseRequest;
 import com.dayz.sc.course.model.dto.CoursePageRequest;
+import com.dayz.sc.course.model.dto.CreateCourseRequest;
 import com.dayz.sc.course.model.dto.UpdateCourseRequest;
 import com.dayz.sc.course.model.vo.CourseDetailVO;
 import com.dayz.sc.course.model.vo.CourseVO;

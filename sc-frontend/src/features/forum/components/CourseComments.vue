@@ -9,18 +9,18 @@
         <span>{{ t('forum.composerHint') }}</span>
       </div>
       <BaseTextEditor
-        v-model="commentContent"
-        v-model:image-assets="commentImages"
-        :rows="3"
-        :min-rows="3"
-        :placeholder="t('forum.commentPlaceholder')"
-        :image-upload-options="imageUploadOptions"
-        :prepare-image-file="validateImageFile"
-        @image-upload-error="handleUploadError"
+          v-model="commentContent"
+          v-model:image-assets="commentImages"
+          :image-upload-options="imageUploadOptions"
+          :min-rows="3"
+          :placeholder="t('forum.commentPlaceholder')"
+          :prepare-image-file="validateImageFile"
+          :rows="3"
+          @image-upload-error="handleUploadError"
       />
       <div class="composer-footer">
         <div class="composer-actions">
-          <button class="btn-submit" type="submit" :disabled="submitting || !commentContent.trim()">
+          <button :disabled="submitting || !commentContent.trim()" class="btn-submit" type="submit">
             <Send :size="14" stroke-width="1.8"/>
             {{ t('forum.submitComment') }}
           </button>
@@ -50,14 +50,14 @@
     <div v-else class="comment-list">
       <article v-for="comment in comments" :key="comment.id" class="comment-card">
         <UserAvatarLink
-          class="comment-author-avatar"
-          :user-id="comment.sysUserId"
-          :display-name="userMap[comment.sysUserId]?.displayName"
-          :avatar-url="userMap[comment.sysUserId]?.avatarUrl"
-          :role="userMap[comment.sysUserId]?.role"
-          size="medium"
-          :show-name="false"
-          :linkable="false"
+            :avatar-url="userMap[comment.sysUserId]?.avatarUrl"
+            :display-name="userMap[comment.sysUserId]?.displayName"
+            :linkable="false"
+            :role="userMap[comment.sysUserId]?.role"
+            :show-name="false"
+            :user-id="comment.sysUserId"
+            class="comment-author-avatar"
+            size="medium"
         />
         <div class="comment-body">
           <div class="comment-meta">
@@ -71,18 +71,19 @@
           <!-- 编辑模式 -->
           <div v-if="editingCommentId === comment.id" class="edit-composer">
             <BaseTextEditor
-              v-model="editingContent"
-              v-model:image-assets="editingImages"
-              :rows="3"
-              :min-rows="3"
-              :image-upload-options="imageUploadOptions"
-              :prepare-image-file="validateImageFile"
-              @image-upload-error="handleUploadError"
+                v-model="editingContent"
+                v-model:image-assets="editingImages"
+                :image-upload-options="imageUploadOptions"
+                :min-rows="3"
+                :prepare-image-file="validateImageFile"
+                :rows="3"
+                @image-upload-error="handleUploadError"
             />
             <div class="composer-footer">
               <div class="composer-actions">
                 <button class="btn-cancel" type="button" @click="cancelEditComment">{{ t('forum.cancelEdit') }}</button>
-                <button class="btn-submit" :disabled="savingEdit || !editingContent.trim()" @click="saveEditComment(comment)">
+                <button :disabled="savingEdit || !editingContent.trim()" class="btn-submit"
+                        @click="saveEditComment(comment)">
                   {{ t('forum.saveEdit') }}
                 </button>
               </div>
@@ -92,9 +93,9 @@
           <!-- 展示模式 -->
           <template v-else>
             <ForumContentPreview
-              class="comment-content"
-              :content="comment.content"
-              :image-urls="comment.imageUrls"
+                :content="comment.content"
+                :image-urls="comment.imageUrls"
+                class="comment-content"
             />
             <div class="comment-actions">
               <button class="action-btn" type="button" @click="toggleReplies(comment.id)">
@@ -105,11 +106,13 @@
                 <MessageCircle :size="14"/>
                 {{ t('forum.reply') }}
               </button>
-              <button v-if="canEditComment(comment)" class="action-btn" type="button" @click="startEditComment(comment)">
+              <button v-if="canEditComment(comment)" class="action-btn" type="button"
+                      @click="startEditComment(comment)">
                 <Pencil :size="13"/>
                 {{ t('forum.editComment') }}
               </button>
-              <button v-if="canEditComment(comment)" class="action-btn danger" type="button" @click="handleDeleteComment(comment)">
+              <button v-if="canEditComment(comment)" class="action-btn danger" type="button"
+                      @click="handleDeleteComment(comment)">
                 <Trash2 :size="13"/>
                 {{ t('forum.deleteComment') }}
               </button>
@@ -119,39 +122,39 @@
           <div v-if="repliesOpen[comment.id]" class="replies-panel">
             <div v-if="replyLoading[comment.id]" class="reply-loading">{{ t('forum.loadingReplies') }}</div>
             <ReplyTree
-              v-else
-              :replies="repliesByComment[comment.id] || []"
-              :show-like="false"
-              :can-reply="canComment"
-              :current-user-id="currentUserId"
-              :can-manage="canManageCourse"
-              :user-map="userMap"
-              @reply="startReply(comment.id, $event)"
-              @deleted="handleReplyDeleted(comment.id)"
+                v-else
+                :can-manage="canManageCourse"
+                :can-reply="canComment"
+                :current-user-id="currentUserId"
+                :replies="repliesByComment[comment.id] || []"
+                :show-like="false"
+                :user-map="userMap"
+                @deleted="handleReplyDeleted(comment.id)"
+                @reply="startReply(comment.id, $event)"
             />
 
             <form
-              v-if="canComment && replyingCommentId === comment.id"
-              class="reply-composer"
-              @submit.prevent="submitReply(comment.id)"
+                v-if="canComment && replyingCommentId === comment.id"
+                class="reply-composer"
+                @submit.prevent="submitReply(comment.id)"
             >
               <div v-if="replyingTo" class="reply-target">
                 {{ t('forum.replyTo') }} {{ replyTargetName }}
                 <button type="button" @click="cancelReply">x</button>
               </div>
               <BaseTextEditor
-                v-model="replyContent"
-                v-model:image-assets="replyImages"
-                :rows="2"
-                :min-rows="2"
-                :placeholder="replyPlaceholder"
-                :image-upload-options="imageUploadOptions"
-                :prepare-image-file="validateImageFile"
-                @image-upload-error="handleUploadError"
+                  v-model="replyContent"
+                  v-model:image-assets="replyImages"
+                  :image-upload-options="imageUploadOptions"
+                  :min-rows="2"
+                  :placeholder="replyPlaceholder"
+                  :prepare-image-file="validateImageFile"
+                  :rows="2"
+                  @image-upload-error="handleUploadError"
               />
               <div class="composer-footer">
                 <div class="composer-actions">
-                  <button class="btn-submit" type="submit" :disabled="submittingReply || !replyContent.trim()">
+                  <button :disabled="submittingReply || !replyContent.trim()" class="btn-submit" type="submit">
                     <Send :size="14" stroke-width="1.8"/>
                     {{ t('forum.submitReply') }}
                   </button>
@@ -163,15 +166,15 @@
       </article>
     </div>
     <BasePagination
-      v-if="total > 0"
-      :page="currentPage"
-      :size="COMMENT_PAGE_SIZE"
-      :total="total"
-      :disabled="loading"
-      :aria-label="t('courseDetail.pagination')"
-      :previous-title="t('courseDetail.previousPage')"
-      :next-title="t('courseDetail.nextPage')"
-      @change="loadComments"
+        v-if="total > 0"
+        :aria-label="t('courseDetail.pagination')"
+        :disabled="loading"
+        :next-title="t('courseDetail.nextPage')"
+        :page="currentPage"
+        :previous-title="t('courseDetail.previousPage')"
+        :size="COMMENT_PAGE_SIZE"
+        :total="total"
+        @change="loadComments"
     />
   </div>
 </template>
@@ -280,7 +283,7 @@ function cacheUserInfo(userInfo?: UserBasicInfo | null) {
   userMap[userInfo.id] = userInfo
 }
 
-function cacheUsersFromItems(items: Array<{userInfo?: UserBasicInfo | null}>) {
+function cacheUsersFromItems(items: Array<{ userInfo?: UserBasicInfo | null }>) {
   items.forEach(item => cacheUserInfo(item.userInfo))
 }
 
@@ -419,14 +422,14 @@ async function saveEditComment(comment: ForumPost) {
   savingEdit.value = true
   try {
     const payload = editingImages.value.length > 0
-      ? {content: editingContent.value, imageUrls: editingImages.value.map(image => image.id)}
-      : {content: editingContent.value}
+        ? {content: editingContent.value, imageUrls: editingImages.value.map(image => image.id)}
+        : {content: editingContent.value}
     await updatePost(comment.id, payload)
     comment.content = editingContent.value
     if (editingImages.value.length > 0) {
       comment.imageUrls = editingImages.value
-        .map(image => image.url)
-        .filter((url): url is string => Boolean(url))
+          .map(image => image.url)
+          .filter((url): url is string => Boolean(url))
     }
     cancelEditComment()
     notify.success(t('forum.commentUpdated'))
@@ -822,7 +825,9 @@ function handleReplyDeleted(commentId: string) {
 }
 
 @keyframes shimmer {
-  to { background-position-x: -200%; }
+  to {
+    background-position-x: -200%;
+  }
 }
 
 @media (max-width: 640px) {

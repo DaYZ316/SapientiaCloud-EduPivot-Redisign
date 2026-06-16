@@ -20,4 +20,5 @@ public record UpdateChapterRequest(
         List<String> attachmentUrls,
         @Min(0) Integer sortOrder,
         Integer status
-) {}
+) {
+}

@@ -7,7 +7,7 @@
           <button class="btn-secondary" type="button" @click="resetProfileForm">
             {{ t('settings.resetChanges') }}
           </button>
-          <button class="btn-primary" :disabled="savingProfile" type="button" @click="saveProfile">
+          <button :disabled="savingProfile" class="btn-primary" type="button" @click="saveProfile">
             {{ savingProfile ? t('settings.saving') : t('settings.saveChanges') }}
           </button>
         </div>
@@ -22,20 +22,20 @@
           <div class="profile-card-shell">
             <div class="profile-avatar-pane">
               <BaseImageUploader
-                v-model="profileForm.avatarFileId"
-                usage="USER_AVATAR"
-                scope-type="USER"
-                :scope-id="authStore.user?.id"
-                :preview-url="avatarPreviewUrl"
-                :fallback-url="defaultAvatarSrc"
-                :alt="t('settings.profile')"
-                :button-label="t('settings.changeAvatar')"
-                :help-text="t('settings.avatarHelp')"
-                :disabled="!authStore.user?.id"
-                shape="circle"
-                size="avatar"
-                @uploaded="handleAvatarUploaded"
-                @error="profileMessage = $event"
+                  v-model="profileForm.avatarFileId"
+                  :alt="t('settings.profile')"
+                  :button-label="t('settings.changeAvatar')"
+                  :disabled="!authStore.user?.id"
+                  :fallback-url="defaultAvatarSrc"
+                  :help-text="t('settings.avatarHelp')"
+                  :preview-url="avatarPreviewUrl"
+                  :scope-id="authStore.user?.id"
+                  scope-type="USER"
+                  shape="circle"
+                  size="avatar"
+                  usage="USER_AVATAR"
+                  @error="profileMessage = $event"
+                  @uploaded="handleAvatarUploaded"
               />
             </div>
 
@@ -44,22 +44,22 @@
                 <div class="form-group">
                   <label for="settings-display-name">{{ t('settings.displayName') }}</label>
                   <input
-                    id="settings-display-name"
-                    v-model="profileForm.displayName"
-                    class="input-field"
-                    type="text"
-                    :placeholder="t('settings.displayNamePlaceholder')"
+                      id="settings-display-name"
+                      v-model="profileForm.displayName"
+                      :placeholder="t('settings.displayNamePlaceholder')"
+                      class="input-field"
+                      type="text"
                   />
                 </div>
                 <div class="form-group">
                   <label for="settings-email">{{ t('settings.email') }}</label>
                   <input
-                    id="settings-email"
-                    v-model="profileForm.email"
-                    class="input-field"
-                    type="email"
-                    :placeholder="t('settings.emailPlaceholder')"
-                    disabled
+                      id="settings-email"
+                      v-model="profileForm.email"
+                      :placeholder="t('settings.emailPlaceholder')"
+                      class="input-field"
+                      disabled
+                      type="email"
                   />
                 </div>
               </div>
@@ -68,19 +68,19 @@
                 <div class="form-group">
                   <label for="settings-phone">{{ t('settings.phone') }}</label>
                   <input
-                    id="settings-phone"
-                    v-model="profileForm.phone"
-                    class="input-field"
-                    type="tel"
-                    :placeholder="t('settings.phonePlaceholder')"
+                      id="settings-phone"
+                      v-model="profileForm.phone"
+                      :placeholder="t('settings.phonePlaceholder')"
+                      class="input-field"
+                      type="tel"
                   />
                 </div>
                 <div class="form-group">
                   <label for="settings-birthday">{{ t('settings.birthday') }}</label>
                   <BaseDatePicker
-                    id="settings-birthday"
-                    v-model="profileForm.birthday"
-                    :placeholder="t('settings.datePlaceholder')"
+                      id="settings-birthday"
+                      v-model="profileForm.birthday"
+                      :placeholder="t('settings.datePlaceholder')"
                   />
                 </div>
               </div>
@@ -88,11 +88,11 @@
               <div class="form-group">
                 <label for="settings-bio">{{ t('settings.bio') }}</label>
                 <textarea
-                  id="settings-bio"
-                  v-model="profileForm.bio"
-                  class="input-field"
-                  :placeholder="t('settings.bioPlaceholder')"
-                  rows="3"
+                    id="settings-bio"
+                    v-model="profileForm.bio"
+                    :placeholder="t('settings.bioPlaceholder')"
+                    class="input-field"
+                    rows="3"
                 ></textarea>
               </div>
 
@@ -111,31 +111,31 @@
             <div class="form-group">
               <label for="settings-current-password">{{ t('settings.currentPassword') }}</label>
               <input
-                id="settings-current-password"
-                v-model="passwordForm.current"
-                class="input-field"
-                type="password"
-                :placeholder="t('settings.currentPasswordPlaceholder')"
+                  id="settings-current-password"
+                  v-model="passwordForm.current"
+                  :placeholder="t('settings.currentPasswordPlaceholder')"
+                  class="input-field"
+                  type="password"
               />
             </div>
             <div class="form-group">
               <label for="settings-new-password">{{ t('settings.newPassword') }}</label>
               <input
-                id="settings-new-password"
-                v-model="passwordForm.newPassword"
-                class="input-field"
-                type="password"
-                :placeholder="t('settings.newPasswordPlaceholder')"
+                  id="settings-new-password"
+                  v-model="passwordForm.newPassword"
+                  :placeholder="t('settings.newPasswordPlaceholder')"
+                  class="input-field"
+                  type="password"
               />
             </div>
             <div class="form-group">
               <label for="settings-confirm-password">{{ t('settings.confirmPassword') }}</label>
               <input
-                id="settings-confirm-password"
-                v-model="passwordForm.confirm"
-                class="input-field"
-                type="password"
-                :placeholder="t('settings.confirmPasswordPlaceholder')"
+                  id="settings-confirm-password"
+                  v-model="passwordForm.confirm"
+                  :placeholder="t('settings.confirmPasswordPlaceholder')"
+                  class="input-field"
+                  type="password"
               />
             </div>
             <p v-if="passwordMessage" class="form-message">{{ passwordMessage }}</p>
@@ -209,9 +209,12 @@ const linkedProviders = computed(() => new Set(authStore.user?.linkedProviders ?
 
 const defaultAvatarSrc = computed(() => {
   switch (authStore.user?.role) {
-    case 0: return '/assets/avatar-admin-default.png'
-    case 2: return '/assets/avatar-teacher-default.png'
-    default: return '/assets/avatar-student-default.png'
+    case 0:
+      return '/assets/avatar-admin-default.png'
+    case 2:
+      return '/assets/avatar-teacher-default.png'
+    default:
+      return '/assets/avatar-student-default.png'
   }
 })
 const connectedAccounts = computed(() => [

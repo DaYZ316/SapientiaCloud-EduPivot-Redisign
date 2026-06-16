@@ -1,10 +1,6 @@
 package com.dayz.sc.gateway.filter;
 
-import jakarta.servlet.Filter;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.ServletResponse;
+import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import org.springframework.security.core.Authentication;
@@ -43,7 +39,7 @@ public class UserRoleHeaderFilter implements Filter {
             String userId = jwt.getSubject();
             Object role = jwt.getClaims().get("role");
 
-            Map<String, String> extraHeaders = new HashMap<>();
+            Map<String, String> extraHeaders = new HashMap<>(2);
             if (userId != null) {
                 extraHeaders.put("X-User-Id", userId);
             }

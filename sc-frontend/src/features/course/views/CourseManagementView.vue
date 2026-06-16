@@ -1,110 +1,327 @@
 <template>
-  <div class="enrollments-page">
-    <!-- Page Header -->
-    <div class="page-header">
-      <h1>{{ pageTitle }}</h1>
-      <button v-if="canCreateCourse" class="btn-primary" @click="openCreateModal">
-        <Plus :size="16" />
-        {{ t('courses.createCourse') }}
-      </button>
-    </div>
+  <div class="enrollments-page" :class="{ 'my-courses-page': isTeacherPage }">
+    <template v-if="isTeacherPage">
+      <section class="courses-command-bar" aria-labelledby="teacher-my-courses-title">
+        <div class="courses-title-block">
+          <p class="section-kicker">Teacher workspace</p>
+          <h1 id="teacher-my-courses-title">{{ t('myEnrollments.title') }}</h1>
+          <p>{{ teacherRoleDescription }}</p>
+        </div>
 
-    <div v-if="isTeacherPage" class="teacher-course-tabs">
-      <button
-        type="button"
-        class="teacher-course-tab"
-        :class="{ active: teacherCourseRole === 'primary' }"
-        @click="switchTeacherRole('primary')"
-      >
-        {{ t('courses.teacherTabs.primary') }}
-      </button>
-      <button
-        type="button"
-        class="teacher-course-tab"
-        :class="{ active: teacherCourseRole === 'assistant' }"
-        @click="switchTeacherRole('assistant')"
-      >
-        {{ t('courses.teacherTabs.assistant') }}
-      </button>
-    </div>
+        <div class="courses-tools" role="search">
+          <label class="search-field" for="teacher-course-search">
+            <Search :size="16" stroke-width="1.7" />
+            <input
+              id="teacher-course-search"
+              v-model.trim="searchKeyword"
+              type="search"
+              placeholder="搜索课程"
+            />
+          </label>
+          <div class="teacher-course-tabs">
+            <button
+              type="button"
+              class="teacher-course-tab"
+              :class="{ active: teacherCourseRole === 'primary' }"
+              @click="switchTeacherRole('primary')"
+            >
+              {{ t('courses.teacherTabs.primary') }}
+            </button>
+            <button
+              type="button"
+              class="teacher-course-tab"
+              :class="{ active: teacherCourseRole === 'assistant' }"
+              @click="switchTeacherRole('assistant')"
+            >
+              {{ t('courses.teacherTabs.assistant') }}
+            </button>
+          </div>
+          <button v-if="canCreateCourse" class="continue-button" type="button" @click="openCreateModal">
+            <Plus :size="16" stroke-width="1.8" />
+            <span>{{ t('courses.createCourse') }}</span>
+          </button>
+          <div class="student-chip">
+            <img :src="teacherAvatarSrc" alt="教师头像" />
+            <span>{{ authStore.user?.displayName || 'Teacher' }}</span>
+          </div>
+        </div>
+      </section>
 
-    <!-- Filter Bar -->
-    <div v-if="isAdmin" class="filter-bar">
-      <div class="search-input">
-        <Search :size="18" />
-        <input v-model="searchKeyword" :placeholder="t('courses.searchPlaceholder')" @keyup.enter="resetAndLoad" />
+      <section class="course-stats" aria-label="课程概览">
+        <article v-for="stat in teacherStats" :key="stat.label" class="stat-cell">
+          <span>{{ stat.label }}</span>
+          <strong>{{ stat.value }}</strong>
+          <small>{{ stat.note }}</small>
+        </article>
+      </section>
+
+      <section class="courses-workbench">
+        <div class="courses-primary">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">Teaching courses</p>
+              <h2>{{ teacherCourseRoleLabel }}</h2>
+            </div>
+            <span>{{ filteredTeacherCourses.length }} 门</span>
+          </div>
+
+          <div v-if="loading" class="course-list" aria-label="课程加载中">
+            <div v-for="n in 5" :key="n" class="course-row skeleton-row">
+              <div class="skeleton-block course-mark"></div>
+              <div class="skeleton-copy">
+                <div class="skeleton-line title"></div>
+                <div class="skeleton-line"></div>
+              </div>
+              <div class="skeleton-line action"></div>
+            </div>
+          </div>
+
+          <div v-else-if="filteredTeacherCourses.length > 0" class="course-list">
+            <article v-for="course in filteredTeacherCourses" :key="course.id" class="course-row">
+              <div class="course-mark">
+                <img v-if="course.coverUrl" :src="course.coverUrl" :alt="`${course.title} 封面`" />
+                <BookOpen v-else :size="22" stroke-width="1.5" />
+              </div>
+
+              <div class="course-main">
+                <div class="course-title-line">
+                  <h3>{{ course.title }}</h3>
+                  <span class="status-tag role-tag" :class="course.roleClass">{{ course.roleLabel }}</span>
+                  <span class="status-tag" :class="course.statusClass">{{ course.statusLabel }}</span>
+                </div>
+                <div class="course-meta">
+                  <span>{{ course.teacher }}</span>
+                  <span>{{ course.schedule }}</span>
+                  <span>{{ course.recentActivity }}</span>
+                </div>
+                <div class="progress-track" :aria-label="`${course.title} 课时进度 ${course.progress}%`">
+                  <span :style="{ width: `${course.progress}%` }"></span>
+                </div>
+              </div>
+
+              <div class="course-progress">
+                <strong>{{ course.progress }}%</strong>
+                <small>课时进度</small>
+              </div>
+
+              <div class="course-actions">
+                <button class="continue-button" type="button" @click="viewCourse(course.courseId)">
+                  查看课程
+                </button>
+                <button
+                  v-if="course.canManage"
+                  class="drop-button"
+                  type="button"
+                  :title="t('courses.edit')"
+                  :aria-label="t('courses.edit')"
+                  @click="editCourse(course.source)"
+                >
+                  <Pencil :size="14" stroke-width="1.8" />
+                </button>
+                <button
+                  v-if="course.canManage"
+                  class="drop-button"
+                  type="button"
+                  :title="t('enrollmentManagement.inviteAssistant')"
+                  :aria-label="t('enrollmentManagement.inviteAssistant')"
+                  @click="openInviteModal(course.source)"
+                >
+                  <UserPlus :size="14" stroke-width="1.8" />
+                </button>
+                <button
+                  v-if="course.canManage"
+                  class="drop-button danger"
+                  type="button"
+                  :title="t('courses.delete')"
+                  :aria-label="t('courses.delete')"
+                  @click="confirmDeleteCourse(course.source)"
+                >
+                  <Trash2 :size="14" stroke-width="1.8" />
+                </button>
+              </div>
+            </article>
+          </div>
+
+          <div v-else class="empty-state">
+            <GraduationCap :size="46" stroke-width="1.2" />
+            <h3>{{ teacherEmptyTitle }}</h3>
+            <p>{{ teacherEmptyDescription }}</p>
+            <button v-if="canCreateCourse" class="continue-button" type="button" @click="openCreateModal">
+              {{ t('courses.createCourse') }}
+            </button>
+          </div>
+
+          <div v-if="!loading && totalPages > 1" class="pagination">
+            <button class="page-button" :disabled="currentPage === 1" type="button" @click="changePage(currentPage - 1)">
+              {{ t('myEnrollments.previous') }}
+            </button>
+            <button
+              v-for="page in displayedPages"
+              :key="page"
+              class="page-button"
+              :class="{ active: currentPage === page }"
+              type="button"
+              @click="changePage(page)"
+            >
+              {{ page }}
+            </button>
+            <button class="page-button" :disabled="currentPage === totalPages" type="button" @click="changePage(currentPage + 1)">
+              {{ t('myEnrollments.next') }}
+            </button>
+          </div>
+        </div>
+
+        <aside class="courses-sidebar" aria-label="课程协作信息">
+          <section class="side-panel">
+            <div class="panel-heading compact">
+              <h2>角色说明</h2>
+              <CalendarDays :size="18" stroke-width="1.6" />
+            </div>
+            <div class="task-list">
+              <div v-for="item in teacherRoleNotes" :key="item.title" class="task-item">
+                <span class="task-time">{{ item.label }}</span>
+                <div>
+                  <strong>{{ item.title }}</strong>
+                  <small>{{ item.note }}</small>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="side-panel">
+            <div class="panel-heading compact">
+              <h2>课程状态</h2>
+              <Activity :size="18" stroke-width="1.6" />
+            </div>
+            <div class="deadline-list">
+              <div v-for="summary in teacherStatusSummaries" :key="summary.title" class="deadline-item">
+                <div>
+                  <strong>{{ summary.title }}</strong>
+                  <small>{{ summary.note }}</small>
+                </div>
+                <span :class="summary.tone">{{ summary.count }}</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="side-panel">
+            <div class="panel-heading compact">
+              <h2>课时概览</h2>
+              <BookOpen :size="18" stroke-width="1.6" />
+            </div>
+            <div class="rhythm-bars" aria-label="课程课时进度">
+              <span
+                v-for="(value, index) in progressBars"
+                :key="index"
+                :style="{ height: `${value}%` }"
+              ></span>
+            </div>
+            <p class="rhythm-note">{{ progressNote }}</p>
+          </section>
+        </aside>
+      </section>
+
+      <section class="resume-panel">
+        <div>
+          <p class="section-kicker">Open course</p>
+          <h2>最近课程</h2>
+          <p>{{ teacherResumeCourse.title }} · {{ teacherResumeCourse.recentActivity }}</p>
+        </div>
+        <button class="outline-button" type="button" @click="viewCourse(teacherResumeCourse.courseId)">
+          <Timer :size="16" stroke-width="1.7" />
+          <span>打开课程</span>
+        </button>
+      </section>
+    </template>
+
+    <template v-else>
+      <!-- Page Header -->
+      <div class="page-header">
+        <h1>{{ pageTitle }}</h1>
+        <button v-if="canCreateCourse" class="btn-primary" @click="openCreateModal">
+          <Plus :size="16" />
+          {{ t('courses.createCourse') }}
+        </button>
       </div>
-      <BaseSelect v-model="filterLevel" :options="levelFilterOptions" min-width="148px" @change="resetAndLoad" />
-      <BaseSelect v-model="filterStatus" :options="statusFilterOptions" min-width="148px" @change="resetAndLoad" />
-    </div>
 
-    <!-- Date Range Filters -->
-    <div v-if="isAdmin" class="date-filter-bar">
-      <BaseDateRangeFilter
-        v-model:start="createdAtStart"
-        v-model:end="createdAtEnd"
-        id-prefix="course-created-at"
-        :label="t('courses.createdAt')"
+      <!-- Filter Bar -->
+      <div v-if="isAdmin" class="filter-bar">
+        <div class="search-input">
+          <Search :size="18" />
+          <input v-model="searchKeyword" :placeholder="t('courses.searchPlaceholder')" @keyup.enter="resetAndLoad" />
+        </div>
+        <BaseSelect v-model="filterLevel" :options="levelFilterOptions" min-width="148px" @change="resetAndLoad" />
+        <BaseSelect v-model="filterStatus" :options="statusFilterOptions" min-width="148px" @change="resetAndLoad" />
+      </div>
+
+      <!-- Date Range Filters -->
+      <div v-if="isAdmin" class="date-filter-bar">
+        <BaseDateRangeFilter
+          v-model:start="createdAtStart"
+          v-model:end="createdAtEnd"
+          id-prefix="course-created-at"
+          :label="t('courses.createdAt')"
+        />
+        <BaseDateRangeFilter
+          v-model:start="updatedAtStart"
+          v-model:end="updatedAtEnd"
+          id-prefix="course-updated-at"
+          :label="t('courses.updatedAt')"
+        />
+        <div class="date-filter-actions">
+          <button
+            class="btn-date-filter btn-date-filter-secondary"
+            type="button"
+            :disabled="!hasDateFilters"
+            @click="clearDateFilters"
+          >
+            <X :size="15" stroke-width="2" />
+            {{ t('courses.clearFilters') }}
+          </button>
+          <button class="btn-date-filter btn-date-filter-primary" type="button" @click="resetAndLoad">
+            <Search :size="15" stroke-width="2" />
+            {{ t('courses.search') }}
+          </button>
+        </div>
+      </div>
+
+      <CourseManagementTable
+        v-if="courses.length > 0 || loading"
+        :courses="courses"
+        :loading="loading"
+        :editable="canManageCourses"
+        @view="viewCourse"
+        @edit="editCourse"
+        @delete="confirmDeleteCourse"
+        @invite="openInviteModal"
       />
-      <BaseDateRangeFilter
-        v-model:start="updatedAtStart"
-        v-model:end="updatedAtEnd"
-        id-prefix="course-updated-at"
-        :label="t('courses.updatedAt')"
-      />
-      <div class="date-filter-actions">
-        <button
-          class="btn-date-filter btn-date-filter-secondary"
-          type="button"
-          :disabled="!hasDateFilters"
-          @click="clearDateFilters"
-        >
-          <X :size="15" stroke-width="2" />
-          {{ t('courses.clearFilters') }}
+
+      <div v-else class="empty-state">
+        <BookOpen :size="48" stroke-width="1.2" />
+        <h3>{{ t('myEnrollments.noCourses') }}</h3>
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="totalPages > 1" class="pagination">
+        <button class="btn-page" :disabled="currentPage === 1" @click="changePage(currentPage - 1)">
+          {{ t('myEnrollments.previous') }}
         </button>
-        <button class="btn-date-filter btn-date-filter-primary" type="button" @click="resetAndLoad">
-          <Search :size="15" stroke-width="2" />
-          {{ t('courses.search') }}
+        <div class="page-numbers">
+          <button
+            v-for="page in displayedPages"
+            :key="page"
+            class="btn-page"
+            :class="{ active: currentPage === page }"
+            @click="changePage(page)"
+          >
+            {{ page }}
+          </button>
+        </div>
+        <button class="btn-page" :disabled="currentPage === totalPages" @click="changePage(currentPage + 1)">
+          {{ t('myEnrollments.next') }}
         </button>
       </div>
-    </div>
-
-    <CourseManagementTable
-      v-if="courses.length > 0 || loading"
-      :courses="courses"
-      :loading="loading"
-      :editable="canManageCourses"
-      @view="viewCourse"
-      @edit="editCourse"
-      @delete="confirmDeleteCourse"
-      @invite="openInviteModal"
-    />
-
-    <div v-else class="empty-state">
-      <BookOpen :size="48" stroke-width="1.2" />
-      <h3>{{ t('myEnrollments.noCourses') }}</h3>
-    </div>
-
-    <!-- Pagination -->
-    <div v-if="totalPages > 1" class="pagination">
-      <button class="btn-page" :disabled="currentPage === 1" @click="changePage(currentPage - 1)">
-        {{ t('myEnrollments.previous') }}
-      </button>
-      <div class="page-numbers">
-        <button
-          v-for="page in displayedPages"
-          :key="page"
-          class="btn-page"
-          :class="{ active: currentPage === page }"
-          @click="changePage(page)"
-        >
-          {{ page }}
-        </button>
-      </div>
-      <button class="btn-page" :disabled="currentPage === totalPages" @click="changePage(currentPage + 1)">
-        {{ t('myEnrollments.next') }}
-      </button>
-    </div>
+    </template>
 
     <CourseFormModal
       :visible="showCreateModal"
@@ -286,7 +503,19 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { BookOpen, Plus, Search, X } from 'lucide-vue-next'
+import {
+  Activity,
+  BookOpen,
+  CalendarDays,
+  GraduationCap,
+  Pencil,
+  Plus,
+  Search,
+  Timer,
+  Trash2,
+  UserPlus,
+  X,
+} from 'lucide-vue-next'
 
 import CourseFormModal from '@/features/course/components/CourseFormModal.vue'
 import CourseManagementTable from '@/features/course/components/CourseManagementTable.vue'
@@ -341,6 +570,23 @@ const updatedAtStart = ref('')
 const updatedAtEnd = ref('')
 
 type SelectOption = { label: string; value: string | number | undefined }
+
+interface TeacherCourseWorkspaceItem {
+  id: string
+  courseId: string
+  title: string
+  teacher: string
+  coverUrl: string | null
+  schedule: string
+  recentActivity: string
+  progress: number
+  statusLabel: string
+  statusClass: string
+  roleLabel: string
+  roleClass: string
+  canManage: boolean
+  source: Course
+}
 
 const levelFilterOptions = computed<SelectOption[]>(() => [
   { label: t('courses.allLevels'), value: undefined },
@@ -426,6 +672,148 @@ const displayedPages = computed(() => {
   }
   return pages
 })
+
+const teacherCourseRoleLabel = computed(() =>
+  teacherCourseRole.value === 'assistant' ? t('courses.teacherTabs.assistant') : t('courses.teacherTabs.primary'),
+)
+
+const teacherRoleDescription = computed(() =>
+  teacherCourseRole.value === 'assistant'
+    ? '查看您参与协作的助教课程，快速进入课程空间。'
+    : '管理您主讲的课程，维护内容、学生与助教协作。',
+)
+
+const teacherAvatarSrc = computed(() => authStore.user?.avatarUrl || '/assets/avatar-teacher-default.png')
+
+const teacherCourseItems = computed<TeacherCourseWorkspaceItem[]>(() =>
+  courses.value.map((course) => {
+    const statusLabel = getStatusLabel(course.status)
+    const roleLabel = teacherCourseRole.value === 'assistant' ? t('courses.teacherTabs.assistant') : t('courses.teacherTabs.primary')
+
+    return {
+      id: course.id,
+      courseId: course.id,
+      title: course.title,
+      teacher: teacherCourseRole.value === 'assistant'
+        ? `主讲：${course.teacherName || '待定'}`
+        : `${course.teacherName || authStore.user?.displayName || '主讲教师'} 教师`,
+      coverUrl: course.coverUrl,
+      schedule: course.semester || course.location || t('courses.card.unset'),
+      recentActivity: formatCourseHours(course),
+      progress: course.courseProgress ?? 0,
+      statusLabel,
+      statusClass: getCourseStatusClass(course.status),
+      roleLabel,
+      roleClass: teacherCourseRole.value,
+      canManage: canManageCourses.value,
+      source: course,
+    }
+  }),
+)
+
+const filteredTeacherCourses = computed(() => {
+  const value = searchKeyword.value.trim().toLowerCase()
+  if (!value) return teacherCourseItems.value
+
+  return teacherCourseItems.value.filter((course) =>
+    [course.title, course.teacher, course.schedule, course.statusLabel].some((field) =>
+      field.toLowerCase().includes(value),
+    ),
+  )
+})
+
+const publishedCourseCount = computed(() => courses.value.filter((course) => course.status === 1).length)
+const draftCourseCount = computed(() => courses.value.filter((course) => course.status === 0).length)
+const archivedCourseCount = computed(() => courses.value.filter((course) => course.status === 2).length)
+const averageCourseProgress = computed(() => {
+  if (courses.value.length === 0) return 0
+  const total = courses.value.reduce((sum, course) => sum + (course.courseProgress ?? 0), 0)
+  return Math.round(total / courses.value.length)
+})
+
+const teacherStats = computed(() => [
+  { label: '课程角色', value: teacherCourseRoleLabel.value, note: teacherCourseRole.value === 'assistant' ? '助教协作' : '主讲管理' },
+  { label: '课程数量', value: courses.value.length, note: '当前列表' },
+  { label: '平均进度', value: `${averageCourseProgress.value}%`, note: '按课时计算' },
+  { label: '已发布', value: publishedCourseCount.value, note: '可见课程' },
+])
+
+const teacherRoleNotes = computed(() =>
+  teacherCourseRole.value === 'assistant'
+    ? [
+        { label: '角色', title: '助教课程', note: '以协作身份参与课程' },
+        { label: '范围', title: '查看课程', note: '进入课程空间跟进内容' },
+        { label: '区分', title: '不显示管理操作', note: '编辑与邀请保留给主讲教师' },
+      ]
+    : [
+        { label: '角色', title: '主讲课程', note: '您是课程负责人' },
+        { label: '范围', title: '课程维护', note: '创建、编辑、删除课程' },
+        { label: '协作', title: '助教管理', note: '可邀请教师成为助教' },
+      ],
+)
+
+const teacherStatusSummaries = computed(() => [
+  { title: t('courses.status.published'), note: '正在展示的课程', count: publishedCourseCount.value, tone: 'normal' },
+  { title: t('courses.status.draft'), note: '尚未发布的课程', count: draftCourseCount.value, tone: 'muted' },
+  { title: t('courses.status.archived'), note: '已归档课程', count: archivedCourseCount.value, tone: 'muted' },
+])
+
+const progressBars = computed(() => {
+  const bars = teacherCourseItems.value.slice(0, 7).map((course) => Math.max(12, course.progress))
+  while (bars.length < 7) {
+    bars.push(12)
+  }
+  return bars
+})
+
+const progressNote = computed(() =>
+  courses.value.length > 0
+    ? `已加载课程平均进度 ${averageCourseProgress.value}%。`
+    : '暂无课程课时数据。',
+)
+
+const teacherEmptyTitle = computed(() => {
+  if (searchKeyword.value.trim()) return '没有匹配的课程'
+  return teacherCourseRole.value === 'assistant' ? '暂无助教课程' : t('myEnrollments.noCourses')
+})
+
+const teacherEmptyDescription = computed(() => {
+  if (searchKeyword.value.trim()) return '换一个关键词，或清空搜索查看全部课程。'
+  return teacherCourseRole.value === 'assistant'
+    ? '接受助教邀请后，协作课程会显示在这里。'
+    : '创建第一门课程后，主讲课程会显示在这里。'
+})
+
+const teacherResumeCourse = computed(() => filteredTeacherCourses.value[0] ?? teacherCourseItems.value[0] ?? {
+  courseId: '',
+  title: '暂无课程',
+  recentActivity: '切换主讲或助教课程查看列表',
+})
+
+function getStatusLabel(status: number): string {
+  const map: Record<number, string> = {
+    0: t('courses.status.draft'),
+    1: t('courses.status.published'),
+    2: t('courses.status.archived'),
+  }
+
+  return map[status] ?? '-'
+}
+
+function getCourseStatusClass(status: number): string {
+  const map: Record<number, string> = { 0: 'draft', 1: 'active', 2: 'completed' }
+
+  return map[status] ?? 'draft'
+}
+
+function formatCourseHours(course: Course): string {
+  const publishedCount = course.publishedClassSessionCount ?? 0
+  const totalClassHours = course.totalClassHours ?? 0
+  if (totalClassHours <= 0) {
+    return `已开 ${publishedCount} 课时 · 总课时未设置`
+  }
+  return `已开 ${publishedCount} / ${totalClassHours} 课时`
+}
 
 // ���� Data Loading ����
 
@@ -638,6 +1026,617 @@ onMounted(() => {
 <style scoped>
 .enrollments-page {
   max-width: 100%;
+}
+
+.my-courses-page {
+  --course-border: var(--color-outline-light);
+  --course-surface: var(--color-surface-card);
+  --course-surface-raised: var(--color-surface-container);
+
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  color: var(--color-on-surface);
+}
+
+.my-courses-page .courses-command-bar,
+.my-courses-page .resume-panel {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--course-border);
+}
+
+.my-courses-page .courses-title-block {
+  max-width: 620px;
+}
+
+.my-courses-page .section-kicker {
+  margin: 0 0 10px;
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--color-muted);
+  text-transform: uppercase;
+}
+
+.my-courses-page .courses-title-block h1,
+.my-courses-page .panel-heading h2,
+.my-courses-page .resume-panel h2,
+.my-courses-page .empty-state h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 500;
+  color: var(--color-on-surface);
+  text-wrap: balance;
+}
+
+.my-courses-page .courses-title-block h1 {
+  font-size: clamp(36px, 5vw, 56px);
+  line-height: 1.05;
+}
+
+.my-courses-page .courses-title-block p,
+.my-courses-page .resume-panel p,
+.my-courses-page .rhythm-note {
+  margin: 12px 0 0;
+  max-width: 62ch;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--color-muted);
+}
+
+.my-courses-page .courses-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 360px;
+}
+
+.my-courses-page .search-field,
+.my-courses-page .student-chip,
+.my-courses-page .outline-button,
+.my-courses-page .continue-button,
+.my-courses-page .drop-button,
+.my-courses-page .page-button {
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0;
+  font-family: var(--font-body);
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s;
+}
+
+.my-courses-page .search-field {
+  width: min(280px, 100%);
+  gap: 10px;
+  padding: 0 14px;
+  background: var(--color-surface-canvas);
+  border: 1px solid var(--course-border);
+  color: var(--color-muted);
+}
+
+.my-courses-page .search-field:focus-within {
+  border-color: var(--color-on-surface);
+}
+
+.my-courses-page .search-field input {
+  min-width: 0;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: var(--color-on-surface);
+}
+
+.my-courses-page .search-field input::placeholder {
+  color: var(--color-muted);
+}
+
+.my-courses-page .outline-button,
+.my-courses-page .page-button {
+  gap: 8px;
+  padding: 0 16px;
+  background: transparent;
+  border: 1px solid var(--course-border);
+  color: var(--color-on-surface);
+  cursor: pointer;
+}
+
+.my-courses-page .outline-button:hover,
+.my-courses-page .page-button:hover:not(:disabled) {
+  background: var(--course-surface-raised);
+  border-color: var(--color-on-surface);
+}
+
+.my-courses-page .outline-button:active,
+.my-courses-page .continue-button:active,
+.my-courses-page .drop-button:active,
+.my-courses-page .page-button:active {
+  transform: translateY(1px);
+}
+
+.my-courses-page .student-chip {
+  gap: 10px;
+  padding: 0 12px 0 6px;
+  background: var(--course-surface);
+  border: 1px solid var(--course-border);
+  color: var(--color-on-surface);
+}
+
+.my-courses-page .student-chip img {
+  width: 30px;
+  height: 30px;
+  object-fit: cover;
+}
+
+.my-courses-page .teacher-course-tabs {
+  display: inline-flex;
+  gap: 0;
+  height: 44px;
+  padding: 0;
+  margin-bottom: 0;
+  background: var(--course-surface);
+  border: 1px solid var(--course-border);
+  border-radius: 0;
+}
+
+.my-courses-page .teacher-course-tab {
+  min-height: 42px;
+  padding: 0 14px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.my-courses-page .teacher-course-tab + .teacher-course-tab {
+  border-left: 1px solid var(--course-border);
+}
+
+.my-courses-page .teacher-course-tab:hover,
+.my-courses-page .teacher-course-tab.active {
+  background: var(--color-on-surface);
+  color: var(--color-on-primary);
+}
+
+.my-courses-page .course-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--course-border);
+  background: var(--course-surface);
+}
+
+.my-courses-page .stat-cell {
+  min-width: 0;
+  padding: 22px 24px;
+  border-right: 1px solid var(--course-border);
+}
+
+.my-courses-page .stat-cell:last-child {
+  border-right: 0;
+}
+
+.my-courses-page .stat-cell span,
+.my-courses-page .stat-cell small,
+.my-courses-page .course-meta,
+.my-courses-page .course-progress small,
+.my-courses-page .task-item small,
+.my-courses-page .deadline-item small {
+  color: var(--color-muted);
+}
+
+.my-courses-page .stat-cell span,
+.my-courses-page .stat-cell small,
+.my-courses-page .course-progress small,
+.my-courses-page .task-time,
+.my-courses-page .deadline-item > span {
+  display: block;
+  font-size: 12px;
+}
+
+.my-courses-page .stat-cell strong {
+  display: block;
+  margin: 8px 0 4px;
+  overflow: hidden;
+  font-size: 32px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-on-surface);
+  text-overflow: ellipsis;
+}
+
+.my-courses-page .courses-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 0.95fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.my-courses-page .courses-primary,
+.my-courses-page .side-panel,
+.my-courses-page .resume-panel {
+  background: var(--course-surface);
+  border: 1px solid var(--course-border);
+}
+
+.my-courses-page .courses-primary {
+  min-width: 0;
+}
+
+.my-courses-page .panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--course-border);
+}
+
+.my-courses-page .panel-heading h2 {
+  font-size: 26px;
+  line-height: 1.2;
+}
+
+.my-courses-page .panel-heading > span {
+  flex-shrink: 0;
+  color: var(--color-muted);
+}
+
+.my-courses-page .panel-heading.compact {
+  padding: 18px 20px;
+}
+
+.my-courses-page .panel-heading.compact h2 {
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.my-courses-page .course-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.my-courses-page .course-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 86px auto;
+  gap: 18px;
+  align-items: center;
+  min-height: 116px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--course-border);
+}
+
+.my-courses-page .course-row:last-child {
+  border-bottom: 0;
+}
+
+.my-courses-page .course-row:hover {
+  background: var(--course-surface-raised);
+}
+
+.my-courses-page .course-mark {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  background: var(--color-surface-canvas);
+  border: 1px solid var(--course-border);
+  color: var(--color-on-surface);
+  overflow: hidden;
+}
+
+.my-courses-page .course-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.my-courses-page .course-main {
+  min-width: 0;
+}
+
+.my-courses-page .course-title-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.my-courses-page .course-title-line h3 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-on-surface);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-courses-page .status-tag {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--course-border);
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+.my-courses-page .status-tag.active,
+.my-courses-page .status-tag.primary {
+  border-color: var(--color-on-surface);
+  color: var(--color-on-surface);
+}
+
+.my-courses-page .status-tag.completed {
+  background: var(--color-on-surface);
+  color: var(--color-on-primary);
+}
+
+.my-courses-page .status-tag.assistant {
+  background: var(--color-surface-canvas);
+  color: var(--color-muted);
+}
+
+.my-courses-page .status-tag.danger,
+.my-courses-page .status-tag.dropped {
+  color: var(--color-error);
+}
+
+.my-courses-page .course-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.my-courses-page .progress-track {
+  height: 6px;
+  margin-top: 14px;
+  background: var(--color-surface-canvas);
+  border: 1px solid var(--course-border);
+}
+
+.my-courses-page .progress-track span {
+  display: block;
+  height: 100%;
+  background: var(--color-on-surface);
+}
+
+.my-courses-page .course-progress {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.my-courses-page .course-progress strong {
+  display: block;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.my-courses-page .course-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.my-courses-page .continue-button {
+  justify-content: center;
+  gap: 8px;
+  padding: 0 18px;
+  background: var(--color-on-surface);
+  border: 1px solid var(--color-on-surface);
+  color: var(--color-on-primary);
+  cursor: pointer;
+}
+
+.my-courses-page .continue-button:hover {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-soft);
+}
+
+.my-courses-page .drop-button {
+  width: 36px;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--course-border);
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.my-courses-page .drop-button:hover {
+  border-color: var(--color-on-surface);
+  color: var(--color-on-surface);
+}
+
+.my-courses-page .drop-button.danger:hover {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.my-courses-page .empty-state {
+  display: grid;
+  place-items: center;
+  padding: 96px 24px;
+  text-align: center;
+  color: var(--color-muted);
+}
+
+.my-courses-page .empty-state h3 {
+  margin-top: 18px;
+  font-size: 28px;
+}
+
+.my-courses-page .empty-state p {
+  margin: 10px 0 24px;
+  color: var(--color-muted);
+}
+
+.my-courses-page .pagination {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px 24px;
+  border-top: 1px solid var(--course-border);
+}
+
+.my-courses-page .page-button {
+  min-width: 44px;
+  justify-content: center;
+}
+
+.my-courses-page .page-button.active {
+  background: var(--color-on-surface);
+  border-color: var(--color-on-surface);
+  color: var(--color-on-primary);
+}
+
+.my-courses-page .page-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.my-courses-page .courses-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.my-courses-page .task-list,
+.my-courses-page .deadline-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.my-courses-page .task-item,
+.my-courses-page .deadline-item {
+  display: flex;
+  gap: 14px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--course-border);
+}
+
+.my-courses-page .task-item:last-child,
+.my-courses-page .deadline-item:last-child {
+  border-bottom: 0;
+}
+
+.my-courses-page .task-time {
+  width: 44px;
+  flex-shrink: 0;
+  color: var(--color-on-surface);
+  font-variant-numeric: tabular-nums;
+}
+
+.my-courses-page .task-item strong,
+.my-courses-page .deadline-item strong {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-on-surface);
+}
+
+.my-courses-page .deadline-item {
+  justify-content: space-between;
+}
+
+.my-courses-page .deadline-item > span {
+  flex-shrink: 0;
+  align-self: flex-start;
+  padding: 5px 8px;
+  border: 1px solid var(--course-border);
+  color: var(--color-muted);
+}
+
+.my-courses-page .deadline-item > span.normal {
+  border-color: var(--color-on-surface);
+  color: var(--color-on-surface);
+}
+
+.my-courses-page .deadline-item > span.muted {
+  background: var(--color-surface-canvas);
+}
+
+.my-courses-page .rhythm-bars {
+  height: 126px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  align-items: end;
+  gap: 8px;
+  padding: 20px 20px 0;
+}
+
+.my-courses-page .rhythm-bars span {
+  min-height: 18px;
+  background: var(--color-on-surface);
+}
+
+.my-courses-page .rhythm-note {
+  padding: 0 20px 20px;
+  font-size: 13px;
+}
+
+.my-courses-page .resume-panel {
+  padding: 22px 24px;
+}
+
+.my-courses-page .resume-panel h2 {
+  font-size: 26px;
+  line-height: 1.2;
+}
+
+.my-courses-page .skeleton-row {
+  pointer-events: none;
+}
+
+.my-courses-page .skeleton-block,
+.my-courses-page .skeleton-line {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-surface-canvas);
+}
+
+.my-courses-page .skeleton-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.my-courses-page .skeleton-line {
+  height: 14px;
+  width: 66%;
+}
+
+.my-courses-page .skeleton-line.title {
+  height: 18px;
+  width: 44%;
+}
+
+.my-courses-page .skeleton-line.action {
+  width: 110px;
+  height: 44px;
+}
+
+.my-courses-page .skeleton-block::after,
+.my-courses-page .skeleton-line::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(245, 245, 245, 0.08), transparent);
+  animation: shimmer 1.3s ease-in-out infinite;
 }
 
 /* Page Header */
@@ -1490,6 +2489,114 @@ onMounted(() => {
 .btn-danger:hover:not(:disabled) {
   background: var(--color-on-surface);
   color: var(--color-on-primary);
+}
+
+@media (max-width: 1180px) {
+  .my-courses-page .courses-command-bar,
+  .my-courses-page .resume-panel {
+    flex-direction: column;
+  }
+
+  .my-courses-page .courses-tools {
+    width: 100%;
+    min-width: 0;
+    justify-content: flex-start;
+  }
+
+  .my-courses-page .courses-workbench {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .my-courses-page .course-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .my-courses-page .stat-cell:nth-child(2) {
+    border-right: 0;
+  }
+
+  .my-courses-page .stat-cell:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--course-border);
+  }
+
+  .my-courses-page .course-row {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .my-courses-page .course-mark {
+    width: 56px;
+    height: 56px;
+  }
+
+  .my-courses-page .course-progress,
+  .my-courses-page .course-actions {
+    grid-column: 2;
+  }
+
+  .my-courses-page .course-progress {
+    text-align: left;
+  }
+}
+
+@media (max-width: 640px) {
+  .my-courses-page .courses-tools,
+  .my-courses-page .course-actions,
+  .my-courses-page .pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .my-courses-page .search-field,
+  .my-courses-page .teacher-course-tabs,
+  .my-courses-page .student-chip,
+  .my-courses-page .continue-button,
+  .my-courses-page .outline-button,
+  .my-courses-page .page-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .my-courses-page .teacher-course-tab {
+    flex: 1;
+  }
+
+  .my-courses-page .course-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .my-courses-page .stat-cell,
+  .my-courses-page .stat-cell:nth-child(2) {
+    border-right: 0;
+    border-bottom: 1px solid var(--course-border);
+  }
+
+  .my-courses-page .stat-cell:last-child {
+    border-bottom: 0;
+  }
+
+  .my-courses-page .panel-heading,
+  .my-courses-page .course-row,
+  .my-courses-page .resume-panel {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .my-courses-page .course-title-line {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .my-courses-page .course-title-line h3 {
+    white-space: normal;
+  }
+
+  .my-courses-page .task-item,
+  .my-courses-page .deadline-item {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
 }
 
 /* Responsive */

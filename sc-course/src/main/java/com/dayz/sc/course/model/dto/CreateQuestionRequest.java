@@ -28,4 +28,5 @@ public record CreateQuestionRequest(
         int allowPartialCredit,
         List<QuestionOptionRequest> options,
         List<QuestionAnswerRequest> answers
-) {}
+) {
+}

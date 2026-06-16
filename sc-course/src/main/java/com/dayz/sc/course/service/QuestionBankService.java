@@ -1,8 +1,8 @@
 package com.dayz.sc.course.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.common.util.PageUtils;
@@ -223,6 +223,18 @@ public class QuestionBankService {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "只能编辑草稿题目");
         }
 
+        updateQuestionFields(question, request);
+        questionRepository.update(question);
+
+        if (request.options() != null) {
+            updateQuestionOptions(questionId, question.getCourseId(), request.options());
+        }
+        if (request.answers() != null) {
+            updateQuestionAnswers(questionId, question.getCourseId(), request.answers());
+        }
+    }
+
+    private void updateQuestionFields(Question question, UpdateQuestionRequest request) {
         if (request.questionTitle() != null) {
             question.setQuestionTitle(request.questionTitle());
         }
@@ -252,48 +264,44 @@ public class QuestionBankService {
         if (request.allowPartialCredit() != null) {
             question.setAllowPartialCredit(request.allowPartialCredit());
         }
+    }
 
-        questionRepository.update(question);
+    private void updateQuestionOptions(UUID questionId, UUID courseId, List<?> options) {
+        questionOptionRepository.deleteByQuestionId(questionId);
+        List<QuestionOption> optionEntities = options.stream()
+                .map(opt -> {
+                    QuestionOption option = new QuestionOption();
+                    option.setId(UuidV7Generator.generate());
+                    option.setQuestionId(questionId);
+                    option.setCourseId(courseId);
+                    option.setOptionContent(opt.optionContent());
+                    option.setOptionLabel(opt.optionLabel());
+                    option.setIsCorrect(opt.isCorrect());
+                    option.setScore(opt.score());
+                    option.setImageUrls(opt.imageUrls());
+                    option.setExplanation(opt.explanation());
+                    return option;
+                })
+                .toList();
+        questionOptionRepository.saveBatch(optionEntities);
+    }
 
-        // 更新选项
-        if (request.options() != null) {
-            questionOptionRepository.deleteByQuestionId(questionId);
-            List<QuestionOption> options = request.options().stream()
-                    .map(opt -> {
-                        QuestionOption option = new QuestionOption();
-                        option.setId(UuidV7Generator.generate());
-                        option.setQuestionId(questionId);
-                        option.setCourseId(question.getCourseId());
-                        option.setOptionContent(opt.optionContent());
-                        option.setOptionLabel(opt.optionLabel());
-                        option.setIsCorrect(opt.isCorrect());
-                        option.setScore(opt.score());
-                        option.setImageUrls(opt.imageUrls());
-                        option.setExplanation(opt.explanation());
-                        return option;
-                    })
-                    .toList();
-            questionOptionRepository.saveBatch(options);
-        }
-
-        // 更新答案
-        if (request.answers() != null) {
-            questionAnswerRepository.deleteByQuestionId(questionId);
-            List<QuestionAnswer> answers = request.answers().stream()
-                    .map(ans -> {
-                        QuestionAnswer answer = new QuestionAnswer();
-                        answer.setId(UuidV7Generator.generate());
-                        answer.setQuestionId(questionId);
-                        answer.setCourseId(question.getCourseId());
-                        answer.setAnswerContent(ans.answerContent());
-                        answer.setExplanation(ans.explanation());
-                        answer.setScore(ans.score());
-                        answer.setSortOrder(ans.sortOrder());
-                        return answer;
-                    })
-                    .toList();
-            questionAnswerRepository.saveBatch(answers);
-        }
+    private void updateQuestionAnswers(UUID questionId, UUID courseId, List<?> answers) {
+        questionAnswerRepository.deleteByQuestionId(questionId);
+        List<QuestionAnswer> answerEntities = answers.stream()
+                .map(ans -> {
+                    QuestionAnswer answer = new QuestionAnswer();
+                    answer.setId(UuidV7Generator.generate());
+                    answer.setQuestionId(questionId);
+                    answer.setCourseId(courseId);
+                    answer.setAnswerContent(ans.answerContent());
+                    answer.setExplanation(ans.explanation());
+                    answer.setScore(ans.score());
+                    answer.setSortOrder(ans.sortOrder());
+                    return answer;
+                })
+                .toList();
+        questionAnswerRepository.saveBatch(answerEntities);
     }
 
     @Transactional(rollbackFor = Exception.class)

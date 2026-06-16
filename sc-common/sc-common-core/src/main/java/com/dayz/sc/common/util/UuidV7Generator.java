@@ -42,15 +42,19 @@ public final class UuidV7Generator {
     public static UUID generate() {
         long millis = System.currentTimeMillis();
 
-        long randA = RANDOM.nextInt() & 0x0FFFL;  // 12 bits
-        long randB = RANDOM.nextLong() & 0x3FFFFFFFFFFFFFFFL;  // 62 bits
+        // 12 bits random
+        long randA = RANDOM.nextInt() & 0x0FFFL;
+        // 62 bits random
+        long randB = RANDOM.nextLong() & 0x3FFFFFFFFFFFFFFFL;
 
-        long msb = (millis << 16)  // 48 bits timestamp
-                | (0x7L << 12)     // version 7
-                | randA;           // 12 bits random
+        // 48 bits timestamp + version 7 + 12 bits random
+        long msb = (millis << 16)
+                | (0x7L << 12)
+                | randA;
 
-        long lsb = (0x2L << 62)    // variant 10
-                | randB;           // 62 bits random
+        // variant 10 + 62 bits random
+        long lsb = (0x2L << 62)
+                | randB;
 
         return new UUID(msb, lsb);
     }

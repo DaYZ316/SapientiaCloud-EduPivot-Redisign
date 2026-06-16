@@ -6,6 +6,10 @@ import org.apache.ibatis.annotations.Mapper;
 
 /**
  * MyBatis-Plus mapper for class participants.
+ *
+ * @author DaYZ
+ * @since 2026-06-14
  */
 @Mapper
-public interface ClassParticipantMapper extends BaseMapper<ClassParticipant> {}
+public interface ClassParticipantMapper extends BaseMapper<ClassParticipant> {
+}

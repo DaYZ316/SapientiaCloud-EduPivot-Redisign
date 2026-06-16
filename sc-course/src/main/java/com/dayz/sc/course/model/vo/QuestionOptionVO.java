@@ -22,4 +22,5 @@ public record QuestionOptionVO(
         @JsonProperty("score") @Nullable BigDecimal score,
         @JsonProperty("imageUrls") @Nullable List<String> imageUrls,
         @JsonProperty("explanation") @Nullable String explanation
-) {}
+) {
+}

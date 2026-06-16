@@ -4,55 +4,55 @@
       <div class="editor-header">
         <h2>{{ isEditing ? t('chapter.editChapter') : t('chapter.addChapter') }}</h2>
         <button class="close-btn" @click="emit('close')">
-          <X :size="18" />
+          <X :size="18"/>
         </button>
       </div>
 
       <div class="editor-body">
         <div class="field">
           <label>{{ t('chapter.chapterName') }} *</label>
-          <input v-model="form.chapterName" type="text" class="input" :placeholder="t('chapter.chapterName')" />
+          <input v-model="form.chapterName" :placeholder="t('chapter.chapterName')" class="input" type="text"/>
         </div>
 
         <div class="field">
           <label>{{ t('chapter.description') }}</label>
           <textarea
-            v-model="form.description"
-            class="textarea"
-            rows="2"
-            :placeholder="t('chapter.description')"
+              v-model="form.description"
+              :placeholder="t('chapter.description')"
+              class="textarea"
+              rows="2"
           ></textarea>
         </div>
 
         <div class="field">
           <label>{{ t('chapter.content') }}</label>
           <BaseTextEditor
-            v-model="form.content"
-            :placeholder="t('chapter.content')"
-            :rows="8"
-            content-format="html"
-            :image-upload-options="imageUploadOptions"
-            :prepare-image-file="validateImageFile"
-            aria-label="Chapter content"
-            @image-upload-error="handleUploadError"
+              v-model="form.content"
+              :image-upload-options="imageUploadOptions"
+              :placeholder="t('chapter.content')"
+              :prepare-image-file="validateImageFile"
+              :rows="8"
+              aria-label="Chapter content"
+              content-format="html"
+              @image-upload-error="handleUploadError"
           />
         </div>
 
         <div class="field-row">
           <div class="field">
             <label>{{ t('chapter.status') }}</label>
-            <BaseSelect v-model="form.status" :options="statusOptions" />
+            <BaseSelect v-model="form.status" :options="statusOptions"/>
           </div>
           <div class="field">
             <label>{{ t('chapter.sortOrder') }}</label>
-            <BaseNumberStepper v-model="form.sortOrder" :min="0" />
+            <BaseNumberStepper v-model="form.sortOrder" :min="0"/>
           </div>
         </div>
       </div>
 
       <div class="editor-footer">
         <button class="btn-cancel" @click="emit('close')">{{ t('chapter.cancel') }}</button>
-        <button class="btn-save" :disabled="!form.chapterName.trim()" @click="handleSave">
+        <button :disabled="!form.chapterName.trim()" class="btn-save" @click="handleSave">
           {{ t('chapter.save') }}
         </button>
       </div>
@@ -61,14 +61,14 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, reactive, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { X } from 'lucide-vue-next'
+import {computed, reactive, watch} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {X} from 'lucide-vue-next'
 import BaseNumberStepper from '@/shared/components/BaseNumberStepper.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import BaseTextEditor from '@/shared/components/BaseTextEditor.vue'
-import type { Chapter, CreateChapterRequest, UpdateChapterRequest } from '@/features/course/types/chapter'
-import { notify } from '@/shared/composables/useGlobalNotification'
+import type {Chapter, CreateChapterRequest, UpdateChapterRequest} from '@/features/course/types/chapter'
+import {notify} from '@/shared/composables/useGlobalNotification'
 
 const props = defineProps<{
   visible: boolean
@@ -82,7 +82,7 @@ const emit = defineEmits<{
   save: [data: CreateChapterRequest | UpdateChapterRequest]
 }>()
 
-const { t } = useI18n()
+const {t} = useI18n()
 
 const isEditing = !!props.chapter
 
@@ -98,8 +98,8 @@ const CHAPTER_IMAGE_MAX_SIZE_MB = 5
 const CHAPTER_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
 const statusOptions = computed(() => [
-  { label: t('chapter.draft'), value: 0 },
-  { label: t('chapter.published'), value: 1 },
+  {label: t('chapter.draft'), value: 0},
+  {label: t('chapter.published'), value: 1},
 ])
 const imageUploadOptions = computed(() => ({
   usage: 'FORUM_IMAGE' as const,
@@ -111,22 +111,22 @@ const imageUploadOptions = computed(() => ({
 }))
 
 watch(
-  () => props.visible,
-  (val) => {
-    if (val && props.chapter) {
-      form.chapterName = props.chapter.chapterName
-      form.description = props.chapter.description || ''
-      form.content = props.chapter.content || ''
-      form.status = props.chapter.status
-      form.sortOrder = props.chapter.sortOrder
-    } else if (val) {
-      form.chapterName = ''
-      form.description = ''
-      form.content = ''
-      form.status = 0
-      form.sortOrder = 0
-    }
-  },
+    () => props.visible,
+    (val) => {
+      if (val && props.chapter) {
+        form.chapterName = props.chapter.chapterName
+        form.description = props.chapter.description || ''
+        form.content = props.chapter.content || ''
+        form.status = props.chapter.status
+        form.sortOrder = props.chapter.sortOrder
+      } else if (val) {
+        form.chapterName = ''
+        form.description = ''
+        form.content = ''
+        form.status = 0
+        form.sortOrder = 0
+      }
+    },
 )
 
 function handleSave() {

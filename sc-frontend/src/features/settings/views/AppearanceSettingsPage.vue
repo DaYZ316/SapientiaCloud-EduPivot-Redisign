@@ -7,7 +7,7 @@
           <button class="btn-secondary" type="button" @click="resetAppearanceDraft">
             {{ t('settings.resetChanges') }}
           </button>
-          <button class="btn-primary" :disabled="savingAppearance" type="button" @click="saveAppearanceSettings">
+          <button :disabled="savingAppearance" class="btn-primary" type="button" @click="saveAppearanceSettings">
             {{ savingAppearance ? t('settings.saving') : t('settings.saveChanges') }}
           </button>
         </div>
@@ -19,16 +19,16 @@
         </header>
 
         <div class="settings-panel-body">
-          <div class="layout-choice-grid" role="radiogroup" :aria-label="t('common.settings.applicationLayout')">
+          <div :aria-label="t('common.settings.applicationLayout')" class="layout-choice-grid" role="radiogroup">
             <button
-              type="button"
-              class="layout-choice-card"
-              :class="{ active: uiPreferences.layoutMode === 'topbar' }"
-              role="radio"
-              :aria-checked="uiPreferences.layoutMode === 'topbar'"
-              @click="uiPreferences.setLayoutMode('topbar')"
+                :aria-checked="uiPreferences.layoutMode === 'topbar'"
+                :class="{ active: uiPreferences.layoutMode === 'topbar' }"
+                class="layout-choice-card"
+                role="radio"
+                type="button"
+                @click="uiPreferences.setLayoutMode('topbar')"
             >
-              <span class="layout-choice-preview topbar-preview" aria-hidden="true">
+              <span aria-hidden="true" class="layout-choice-preview topbar-preview">
                 <span class="preview-window">
                   <span class="preview-bar"></span>
                   <span class="preview-line short"></span>
@@ -42,14 +42,14 @@
               </span>
             </button>
             <button
-              type="button"
-              class="layout-choice-card"
-              :class="{ active: uiPreferences.layoutMode === 'sidebar' }"
-              role="radio"
-              :aria-checked="uiPreferences.layoutMode === 'sidebar'"
-              @click="uiPreferences.setLayoutMode('sidebar')"
+                :aria-checked="uiPreferences.layoutMode === 'sidebar'"
+                :class="{ active: uiPreferences.layoutMode === 'sidebar' }"
+                class="layout-choice-card"
+                role="radio"
+                type="button"
+                @click="uiPreferences.setLayoutMode('sidebar')"
             >
-              <span class="layout-choice-preview sidebar-preview" aria-hidden="true">
+              <span aria-hidden="true" class="layout-choice-preview sidebar-preview">
                 <span class="preview-window">
                   <span class="preview-sidebar">
                     <span></span>
@@ -73,9 +73,9 @@
             <p class="setting-title">{{ t('common.layout.collapseSidebar') }}</p>
             <label class="toggle">
               <input
-                type="checkbox"
-                :checked="uiPreferences.sidebarCollapsed"
-                @change="handleSidebarCollapsedToggle"
+                  :checked="uiPreferences.sidebarCollapsed"
+                  type="checkbox"
+                  @change="handleSidebarCollapsedToggle"
               />
               <span class="toggle-slider"></span>
             </label>
@@ -92,10 +92,10 @@
             <div class="setting-item">
               <p class="setting-title">{{ t('settings.theme') }}</p>
               <BaseSelect
-                :model-value="selectedTheme"
-                :options="themeOptions"
-                min-width="172px"
-                @update:model-value="handleThemeSelect"
+                  :model-value="selectedTheme"
+                  :options="themeOptions"
+                  min-width="172px"
+                  @update:model-value="handleThemeSelect"
               />
             </div>
           </div>
@@ -109,10 +109,10 @@
             <div class="setting-item">
               <p class="setting-title">{{ t('common.settings.language') }}</p>
               <BaseSelect
-                :model-value="locale"
-                :options="languageOptions"
-                min-width="172px"
-                @update:model-value="handleLocaleSelect"
+                  :model-value="locale"
+                  :options="languageOptions"
+                  min-width="172px"
+                  @update:model-value="handleLocaleSelect"
               />
             </div>
           </div>

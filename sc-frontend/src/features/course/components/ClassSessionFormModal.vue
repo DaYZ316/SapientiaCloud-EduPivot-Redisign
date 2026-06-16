@@ -5,7 +5,7 @@
         <div class="modal-header">
           <h2>{{ session ? t('courseDetail.classSession.editTitle') : t('courseDetail.classSession.createTitle') }}</h2>
           <button class="btn-close" type="button" @click="emit('close')">
-            <X :size="20" stroke-width="1.8" />
+            <X :size="20" stroke-width="1.8"/>
           </button>
         </div>
 
@@ -13,22 +13,22 @@
           <label class="form-group">
             <span>{{ t('courseDetail.classSession.titleLabel') }}</span>
             <input
-              v-model="form.title"
-              class="input-field"
-              type="text"
-              maxlength="200"
-              :placeholder="t('courseDetail.classSession.titlePlaceholder')"
+                v-model="form.title"
+                :placeholder="t('courseDetail.classSession.titlePlaceholder')"
+                class="input-field"
+                maxlength="200"
+                type="text"
             />
           </label>
 
           <label class="form-group">
             <span>{{ t('courseDetail.classSession.descriptionLabel') }}</span>
             <textarea
-              v-model="form.description"
-              class="input-field"
-              rows="4"
-              maxlength="5000"
-              :placeholder="t('courseDetail.classSession.descriptionPlaceholder')"
+                v-model="form.description"
+                :placeholder="t('courseDetail.classSession.descriptionPlaceholder')"
+                class="input-field"
+                maxlength="5000"
+                rows="4"
             ></textarea>
           </label>
 
@@ -36,21 +36,21 @@
             <label class="form-group">
               <span>{{ t('courseDetail.classSession.startAtLabel') }}</span>
               <BaseDatePicker
-                v-model="form.scheduledStartAt"
-                class="modal-date-control"
-                show-time
-                default-time="09:00"
-                :placeholder="t('courseDetail.classSession.startAtLabel')"
+                  v-model="form.scheduledStartAt"
+                  :placeholder="t('courseDetail.classSession.startAtLabel')"
+                  class="modal-date-control"
+                  default-time="09:00"
+                  show-time
               />
             </label>
             <label class="form-group">
               <span>{{ t('courseDetail.classSession.endAtLabel') }}</span>
               <BaseDatePicker
-                v-model="form.scheduledEndAt"
-                class="modal-date-control"
-                show-time
-                default-time="10:00"
-                :placeholder="t('courseDetail.classSession.endAtLabel')"
+                  v-model="form.scheduledEndAt"
+                  :placeholder="t('courseDetail.classSession.endAtLabel')"
+                  class="modal-date-control"
+                  default-time="10:00"
+                  show-time
               />
             </label>
           </div>
@@ -58,20 +58,20 @@
           <label class="form-group">
             <span>{{ t('courseDetail.classSession.roomSizeLabel') }}</span>
             <BaseSelect
-              v-model="form.roomSize"
-              class="modal-select-control"
-              :options="roomSizeOptions"
-              min-width="100%"
+                v-model="form.roomSize"
+                :options="roomSizeOptions"
+                class="modal-select-control"
+                min-width="100%"
             />
           </label>
 
           <p v-if="errorMessage" class="form-error">{{ errorMessage }}</p>
 
           <div class="modal-footer class-session-footer">
-            <button type="button" class="btn-secondary" @click="emit('close')">
+            <button class="btn-secondary" type="button" @click="emit('close')">
               {{ t('courseDetail.cancel') }}
             </button>
-            <button type="submit" class="btn-primary" :disabled="submitting">
+            <button :disabled="submitting" class="btn-primary" type="submit">
               {{ submitting ? t('courseDetail.saving') : t('courseDetail.save') }}
             </button>
           </div>
@@ -82,25 +82,25 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, reactive, ref, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { X } from 'lucide-vue-next'
+import {computed, reactive, ref, watch} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {X} from 'lucide-vue-next'
 
 import BaseDatePicker from '@/shared/components/BaseDatePicker.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
-import { ClassRoomSize, ClassRoomSizeLabel } from '@/features/course/types/classSession'
-import type { ClassSession, ClassSessionFormPayload } from '@/features/course/types/classSession'
+import type {ClassSession, ClassSessionFormPayload} from '@/features/course/types/classSession'
+import {ClassRoomSize, ClassRoomSizeLabel} from '@/features/course/types/classSession'
 
 const props = withDefaults(
-  defineProps<{
-    visible: boolean
-    session?: ClassSession | null
-    submitting?: boolean
-  }>(),
-  {
-    session: null,
-    submitting: false,
-  },
+    defineProps<{
+      visible: boolean
+      session?: ClassSession | null
+      submitting?: boolean
+    }>(),
+    {
+      session: null,
+      submitting: false,
+    },
 )
 
 const emit = defineEmits<{
@@ -108,7 +108,7 @@ const emit = defineEmits<{
   submit: [payload: ClassSessionFormPayload]
 }>()
 
-const { t } = useI18n()
+const {t} = useI18n()
 const errorMessage = ref('')
 
 const form = reactive({
@@ -120,16 +120,16 @@ const form = reactive({
 })
 
 const roomSizeOptions = computed(() => [
-  { label: t('courseDetail.classSession.roomSmall'), value: ClassRoomSize.SMALL },
-  { label: t('courseDetail.classSession.roomMedium'), value: ClassRoomSize.MEDIUM },
-  { label: t('courseDetail.classSession.roomLarge'), value: ClassRoomSize.LARGE },
-  { label: t('courseDetail.classSession.roomXLarge'), value: ClassRoomSize.XLARGE },
+  {label: t('courseDetail.classSession.roomSmall'), value: ClassRoomSize.SMALL},
+  {label: t('courseDetail.classSession.roomMedium'), value: ClassRoomSize.MEDIUM},
+  {label: t('courseDetail.classSession.roomLarge'), value: ClassRoomSize.LARGE},
+  {label: t('courseDetail.classSession.roomXLarge'), value: ClassRoomSize.XLARGE},
 ])
 
 watch(
-  () => [props.visible, props.session] as const,
-  () => resetForm(),
-  { immediate: true },
+    () => [props.visible, props.session] as const,
+    () => resetForm(),
+    {immediate: true},
 )
 
 function resetForm() {
@@ -204,10 +204,9 @@ function normalizedRoomSize(value: number) {
   border-radius: var(--radius-sm);
   color: var(--color-muted);
   cursor: pointer;
-  transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    border-color 0.2s ease;
+  transition: background 0.2s ease,
+  color 0.2s ease,
+  border-color 0.2s ease;
 }
 
 .btn-close:hover {
@@ -267,10 +266,9 @@ function normalizedRoomSize(value: number) {
   font-size: 14px;
   font-weight: 700;
   line-height: 1;
-  transition:
-    border-color 0.2s,
-    background 0.2s,
-    box-shadow 0.2s;
+  transition: border-color 0.2s,
+  background 0.2s,
+  box-shadow 0.2s;
 }
 
 .form-group :deep(.modal-date-control .base-date-picker-trigger:hover) {

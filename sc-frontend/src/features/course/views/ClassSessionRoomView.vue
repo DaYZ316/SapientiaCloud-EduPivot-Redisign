@@ -32,7 +32,9 @@
         <div class="classroom-info">
           <div>
             <span>{{ t('courseDetail.classSession.timeRange') }}</span>
-            <strong>{{ formatDateTime(session.scheduledStartAt) }} - {{ formatDateTime(session.scheduledEndAt) }}</strong>
+            <strong>{{ formatDateTime(session.scheduledStartAt) }} - {{
+                formatDateTime(session.scheduledEndAt)
+              }}</strong>
           </div>
           <div>
             <span>{{ t('courseDetail.classSession.roomSizeLabel') }}</span>
@@ -40,22 +42,28 @@
           </div>
           <div>
             <span>{{ t('courseDetail.classSession.joinStatus') }}</span>
-            <strong>{{ joined ? t('courseDetail.classSession.joined') : t('courseDetail.classSession.notJoined') }}</strong>
+            <strong>{{
+                joined ? t('courseDetail.classSession.joined') : t('courseDetail.classSession.notJoined')
+              }}</strong>
           </div>
         </div>
 
         <div class="classroom-stage">
           <div class="stage-copy">
             <Presentation :size="36" stroke-width="1.4"/>
-            <h2>{{ joined ? t('courseDetail.classSession.placeholderTitle') : t('courseDetail.classSession.beforeJoinTitle') }}</h2>
-            <p>{{ joined ? t('courseDetail.classSession.placeholderDesc') : t('courseDetail.classSession.beforeJoinDesc') }}</p>
+            <h2>{{
+                joined ? t('courseDetail.classSession.placeholderTitle') : t('courseDetail.classSession.beforeJoinTitle')
+              }}</h2>
+            <p>{{
+                joined ? t('courseDetail.classSession.placeholderDesc') : t('courseDetail.classSession.beforeJoinDesc')
+              }}</p>
           </div>
           <button
-            v-if="!joined"
-            class="btn-primary"
-            type="button"
-            :disabled="joining || !session.publishedAt"
-            @click="handleJoin"
+              v-if="!joined"
+              :disabled="joining || !session.publishedAt"
+              class="btn-primary"
+              type="button"
+              @click="handleJoin"
           >
             {{ joining ? t('courseDetail.classSession.joining') : t('courseDetail.classSession.enterAction') }}
           </button>
@@ -74,7 +82,7 @@ import {ArrowLeft, CircleAlert, LoaderCircle, Presentation} from 'lucide-vue-nex
 import {getClassSession, joinClassSession} from '@/features/course/api/classSession'
 import {getCourse} from '@/features/course/api/course'
 import {notify} from '@/shared/composables/useGlobalNotification'
-import {ClassRoomSize, ClassSessionStatus, type ClassSession} from '@/features/course/types/classSession'
+import {ClassRoomSize, type ClassSession, ClassSessionStatus} from '@/features/course/types/classSession'
 
 const {t, locale} = useI18n()
 const route = useRoute()

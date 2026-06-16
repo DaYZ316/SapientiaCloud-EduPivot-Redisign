@@ -29,6 +29,8 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class UserEventConsumer {
 
+    private static final String GROUP_ID = "sc-notification";
+
     private final NotificationRepository notificationRepository;
     private final NotificationSseEmitter sseEmitter;
     private final KafkaIdempotencyGuard idempotencyGuard;
@@ -37,14 +39,14 @@ public class UserEventConsumer {
     public void onUserEvent(Object event, Acknowledgment ack) {
         try {
             if (event instanceof UserRegisteredEvent e) {
-                if (!idempotencyGuard.tryAcquire("sc-notification", e.eventId())) {
+                if (!idempotencyGuard.tryAcquire(GROUP_ID, e.eventId())) {
                     log.info("Duplicate UserRegisteredEvent skipped: {}", e.eventId());
                     return;
                 }
                 handleUserRegistered(e);
             } else if (event instanceof UserDeactivatedEvent deactivated) {
                 log.info("User deactivated: {}", deactivated.userId());
-                if (!idempotencyGuard.tryAcquire("sc-notification", deactivated.eventId())) {
+                if (!idempotencyGuard.tryAcquire(GROUP_ID, deactivated.eventId())) {
                     return;
                 }
                 Notification notification = new Notification();

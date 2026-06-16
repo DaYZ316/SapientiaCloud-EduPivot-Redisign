@@ -18,4 +18,5 @@ public record CourseCreatedEvent(
         String eventType,
         Instant timestamp,
         String source
-) {}
+) {
+}

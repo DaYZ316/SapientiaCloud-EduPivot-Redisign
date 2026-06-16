@@ -1,43 +1,43 @@
 <template>
-  <div class="base-text-editor" :class="{ disabled }">
-    <div v-if="toolbar" class="base-text-editor-toolbar" aria-label="Text formatting">
+  <div :class="{ disabled }" class="base-text-editor">
+    <div v-if="toolbar" aria-label="Text formatting" class="base-text-editor-toolbar">
       <div class="base-text-editor-tools">
         <button
-          v-for="action in toolbarActions"
-          :key="action.id"
-          class="base-text-editor-tool"
-          type="button"
-          :title="action.label"
-          :aria-label="action.label"
-          :disabled="disabled"
-          @mousedown.prevent
-          @click="applyAction(action.id)"
+            v-for="action in toolbarActions"
+            :key="action.id"
+            :aria-label="action.label"
+            :disabled="disabled"
+            :title="action.label"
+            class="base-text-editor-tool"
+            type="button"
+            @click="applyAction(action.id)"
+            @mousedown.prevent
         >
           <component :is="action.icon" :size="15" stroke-width="1.9"/>
         </button>
         <BaseFileUploader
-          v-if="imageUploadOptions"
-          :usage="imageUploadOptions.usage"
-          :scope-type="imageUploadOptions.scopeType"
-          :scope-id="imageUploadOptions.scopeId ?? null"
-          :bucket-type="imageUploadOptions.bucketType ?? null"
-          :accept="imageUploadOptions.accept"
-          :button-label="imageUploadOptions.buttonLabel || 'Upload image'"
-          :disabled="disabled"
-          :max-size-mb="imageUploadOptions.maxSizeMb"
-          :prepare-file="prepareImageFile"
-          @uploaded="handleImageUploaded"
-          @error="emit('image-upload-error', $event)"
+            v-if="imageUploadOptions"
+            :accept="imageUploadOptions.accept"
+            :bucket-type="imageUploadOptions.bucketType ?? null"
+            :button-label="imageUploadOptions.buttonLabel || 'Upload image'"
+            :disabled="disabled"
+            :max-size-mb="imageUploadOptions.maxSizeMb"
+            :prepare-file="prepareImageFile"
+            :scope-id="imageUploadOptions.scopeId ?? null"
+            :scope-type="imageUploadOptions.scopeType"
+            :usage="imageUploadOptions.usage"
+            @error="emit('image-upload-error', $event)"
+            @uploaded="handleImageUploaded"
         >
           <template #trigger="{ openPicker, progress, uploading, disabled: uploadDisabled }">
             <button
-              class="base-text-editor-tool"
-              type="button"
-              :title="uploading ? `${progress}%` : imageUploadOptions.buttonLabel || 'Upload image'"
-              :aria-label="imageUploadOptions.buttonLabel || 'Upload image'"
-              :disabled="uploadDisabled"
-              @mousedown.prevent
-              @click="openPicker"
+                :aria-label="imageUploadOptions.buttonLabel || 'Upload image'"
+                :disabled="uploadDisabled"
+                :title="uploading ? `${progress}%` : imageUploadOptions.buttonLabel || 'Upload image'"
+                class="base-text-editor-tool"
+                type="button"
+                @click="openPicker"
+                @mousedown.prevent
             >
               <ImageIcon :size="15" stroke-width="1.9"/>
               <span v-if="uploading" class="base-text-editor-tool-progress">{{ progress }}</span>
@@ -48,30 +48,31 @@
     </div>
 
     <div
-      ref="editorRef"
-      :id="id"
-      class="base-text-editor-input"
-      :class="{'is-empty': !hasContent}"
-      :style="editorStyle"
-      role="textbox"
-      :contenteditable="disabled ? 'false' : 'true'"
-      :data-placeholder="placeholder"
-      :aria-label="ariaLabel"
-      aria-multiline="true"
-      :aria-required="required"
-      :aria-disabled="disabled"
-      @input="handleInput"
-      @focus="emit('focus', $event)"
-      @blur="emit('blur', $event)"
-      @paste.prevent="handlePaste"
+        :id="id"
+        ref="editorRef"
+        :aria-disabled="disabled"
+        :aria-label="ariaLabel"
+        :aria-required="required"
+        :class="{'is-empty': !hasContent}"
+        :contenteditable="disabled ? 'false' : 'true'"
+        :data-placeholder="placeholder"
+        :style="editorStyle"
+        aria-multiline="true"
+        class="base-text-editor-input"
+        role="textbox"
+        @blur="emit('blur', $event)"
+        @focus="emit('focus', $event)"
+        @input="handleInput"
+        @paste.prevent="handlePaste"
     ></div>
 
-    <input v-if="name" type="hidden" :name="name" :value="modelValue"/>
+    <input v-if="name" :name="name" :value="modelValue" type="hidden"/>
 
     <div v-if="imagePreviews.length > 0" class="base-text-editor-images">
       <figure v-for="image in imagePreviews" :key="image.id" class="base-text-editor-image">
-        <img :src="image.url" :alt="image.fileName"/>
-        <button type="button" :aria-label="`Remove ${image.fileName}`" :disabled="disabled" @click="removeImage(image.id)">
+        <img :alt="image.fileName" :src="image.url"/>
+        <button :aria-label="`Remove ${image.fileName}`" :disabled="disabled" type="button"
+                @click="removeImage(image.id)">
           <X :size="13" stroke-width="2"/>
         </button>
       </figure>
@@ -83,11 +84,9 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import {computed, nextTick, onMounted, ref, watch} from 'vue'
-import {
-  Bold, Eraser, Image as ImageIcon, Italic, Link, List, ListOrdered, Quote, X,
-} from 'lucide-vue-next'
+import {Bold, Eraser, Image as ImageIcon, Italic, Link, List, ListOrdered, Quote, X,} from 'lucide-vue-next'
 import type {FileAsset, StorageBucketType, StorageScopeType, StorageUsage} from '@/features/storage/types/storage'
 import BaseFileUploader from '@/shared/components/BaseFileUploader.vue'
 
@@ -105,8 +104,8 @@ type ImageUploadOptions = {
 }
 
 type MarkdownBlock =
-  | {type: 'paragraph' | 'quote'; text: string}
-  | {type: 'list'; ordered: boolean; items: string[]}
+    | { type: 'paragraph' | 'quote'; text: string }
+    | { type: 'list'; ordered: boolean; items: string[] }
 
 const props = withDefaults(defineProps<{
   modelValue: string
@@ -157,12 +156,12 @@ const editorStyle = computed(() => ({
   minHeight: `${Math.max(props.rows, props.minRows ?? 4) * 28}px`,
 }))
 const imagePreviews = computed(() => props.contentFormat === 'html' ? [] : props.imageAssets
-  .map(image => ({
-    id: image.id,
-    fileName: image.fileName,
-    url: image.url || '',
-  }))
-  .filter(image => image.url))
+    .map(image => ({
+      id: image.id,
+      fileName: image.fileName,
+      url: image.url || '',
+    }))
+    .filter(image => image.url))
 
 const toolbarActions = [
   {id: 'bold', label: 'Bold', icon: Bold},
@@ -324,15 +323,15 @@ function editorToValue(editor: HTMLElement) {
 
 function markdownToEditorHtml(content: string) {
   return parseMarkdownBlocks(content)
-    .map(block => blockToHtml(block))
-    .join('')
+      .map(block => blockToHtml(block))
+      .join('')
 }
 
 function parseMarkdownBlocks(content: string) {
   const lines = content.replace(/\r\n/g, '\n').split('\n')
   const blocks: MarkdownBlock[] = []
   let paragraph: string[] = []
-  let listBlock: Extract<MarkdownBlock, {type: 'list'}> | null = null
+  let listBlock: Extract<MarkdownBlock, { type: 'list' }> | null = null
 
   function flushParagraph() {
     if (paragraph.length === 0) return
@@ -434,25 +433,25 @@ function inlineTokenToHtml(token: string) {
 
 function editorToMarkdown(editor: HTMLElement) {
   return Array.from(editor.childNodes)
-    .map(node => serializeBlockNode(node))
-    .filter(Boolean)
-    .join('\n')
-    .trim()
+      .map(node => serializeBlockNode(node))
+      .filter(Boolean)
+      .join('\n')
+      .trim()
 }
 
 function editorToHtml(editor: HTMLElement) {
   return Array.from(editor.childNodes)
-    .map(node => serializeHtmlNode(node, true))
-    .join('')
-    .trim()
+      .map(node => serializeHtmlNode(node, true))
+      .join('')
+      .trim()
 }
 
 function sanitizeEditorHtml(content: string, normalizeImages = true) {
   const template = document.createElement('template')
   template.innerHTML = content
   return Array.from(template.content.childNodes)
-    .map(node => serializeHtmlNode(node, normalizeImages))
-    .join('')
+      .map(node => serializeHtmlNode(node, normalizeImages))
+      .join('')
 }
 
 function serializeHtmlNode(node: Node, normalizeImages: boolean): string {
@@ -524,9 +523,9 @@ function serializeBlockNode(node: Node): string {
   if (tag === 'ol') return serializeList(node, true)
   if (tag === 'blockquote') {
     return serializeInlineChildren(node)
-      .split('\n')
-      .map(line => `> ${line}`)
-      .join('\n')
+        .split('\n')
+        .map(line => `> ${line}`)
+        .join('\n')
   }
 
   return serializeInlineChildren(node).trim()
@@ -534,12 +533,12 @@ function serializeBlockNode(node: Node): string {
 
 function serializeList(node: HTMLElement, ordered: boolean) {
   return Array.from(node.children)
-    .filter(child => child.tagName.toLowerCase() === 'li')
-    .map((item, index) => {
-      const prefix = ordered ? `${index + 1}. ` : '- '
-      return `${prefix}${serializeInlineChildren(item).trim()}`
-    })
-    .join('\n')
+      .filter(child => child.tagName.toLowerCase() === 'li')
+      .map((item, index) => {
+        const prefix = ordered ? `${index + 1}. ` : '- '
+        return `${prefix}${serializeInlineChildren(item).trim()}`
+      })
+      .join('\n')
 }
 
 function serializeInlineChildren(node: Node) {
@@ -569,9 +568,9 @@ function serializeInlineNode(node: Node): string {
 
 function escapeHtml(value: string) {
   return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
 }
 
 function escapeAttribute(value: string) {

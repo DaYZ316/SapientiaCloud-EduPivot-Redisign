@@ -20,21 +20,21 @@
       <div class="invitation-list">
         <div v-for="inv in pendingInvitations" :key="inv.id" class="invitation-item">
           <UserAvatarLink
-            :user-id="inv.inviteeId"
-            :display-name="inv.inviteeName"
-            :role="2"
-            size="medium"
-            :show-name="false"
+              :display-name="inv.inviteeName"
+              :role="2"
+              :show-name="false"
+              :user-id="inv.inviteeId"
+              size="medium"
           />
           <div class="member-info">
             <strong>{{ inv.inviteeName || inv.inviteeId }}</strong>
             <span>{{ formatDate(inv.createdAt) }}</span>
           </div>
           <button
-            class="btn-icon"
-            type="button"
-            :title="t('courseDetail.withdrawInvitation')"
-            @click="handleWithdraw(inv)"
+              :title="t('courseDetail.withdrawInvitation')"
+              class="btn-icon"
+              type="button"
+              @click="handleWithdraw(inv)"
           >
             <X :size="14" stroke-width="1.8"/>
           </button>
@@ -50,12 +50,12 @@
     <div v-else-if="assistantCount > 0" class="member-list">
       <div v-for="assistant in paginatedAssistants" :key="assistant.id" class="member-item">
         <UserAvatarLink
-          :user-id="assistant.id"
-          :display-name="assistant.displayName"
-          :avatar-url="assistant.avatarUrl"
-          :role="2"
-          size="medium"
-          :show-name="false"
+            :avatar-url="assistant.avatarUrl"
+            :display-name="assistant.displayName"
+            :role="2"
+            :show-name="false"
+            :user-id="assistant.id"
+            size="medium"
         />
         <div class="member-info">
           <strong>{{ assistant.displayName || assistant.id }}</strong>
@@ -66,23 +66,23 @@
 
     <!-- 邀�?添加助教对话�?-->
     <BasePagination
-      v-if="assistantCount > MEMBER_PAGE_SIZE"
-      :page="currentPage"
-      :size="MEMBER_PAGE_SIZE"
-      :total="assistantCount"
-      :aria-label="t('courseDetail.pagination')"
-      :previous-title="t('courseDetail.previousPage')"
-      :next-title="t('courseDetail.nextPage')"
-      @change="currentPage = $event"
+        v-if="assistantCount > MEMBER_PAGE_SIZE"
+        :aria-label="t('courseDetail.pagination')"
+        :next-title="t('courseDetail.nextPage')"
+        :page="currentPage"
+        :previous-title="t('courseDetail.previousPage')"
+        :size="MEMBER_PAGE_SIZE"
+        :total="assistantCount"
+        @change="currentPage = $event"
     />
 
     <InviteAssistantModal
-      v-model="showDialog"
-      :course-id="courseId"
-      :course-teacher-id="course.teacherId"
-      :assistants="assistants"
-      :is-admin="isAdmin"
-      @invited="handleInvited"
+        v-model="showDialog"
+        :assistants="assistants"
+        :course-id="courseId"
+        :course-teacher-id="course.teacherId"
+        :is-admin="isAdmin"
+        @invited="handleInvited"
     />
   </section>
 </template>

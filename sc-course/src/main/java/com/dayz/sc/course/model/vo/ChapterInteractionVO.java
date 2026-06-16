@@ -15,4 +15,5 @@ public record ChapterInteractionVO(
         @JsonProperty("viewCount") long viewCount,
         @JsonProperty("likeCount") long likeCount,
         @JsonProperty("likedByMe") boolean likedByMe
-) {}
+) {
+}

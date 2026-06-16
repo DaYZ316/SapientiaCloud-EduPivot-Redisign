@@ -19,6 +19,14 @@ import java.util.UUID;
 @Mapper
 public interface StorageObjectMapper extends BaseMapper<StorageObject> {
 
+    /**
+     * 批量更新存储对象的删除状态。
+     *
+     * @param ids       存储对象ID列表
+     * @param deleted   删除状态（0=正常, 1=已删除）
+     * @param deletedAt 删除时间
+     * @return 受影响的行数
+     */
     @Update("<script>" +
             "UPDATE storage_object SET deleted = #{deleted}, deleted_at = #{deletedAt} " +
             "WHERE id IN " +

@@ -15,8 +15,17 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum QuestionStatus {
 
+    /**
+     * 草稿状态，题目尚未发布
+     */
     DRAFT(0, "草稿"),
+    /**
+     * 已发布状态，题目可用于考试或练习
+     */
     PUBLISHED(1, "已发布"),
+    /**
+     * 已禁用状态，题目不再可用
+     */
     DISABLED(2, "已禁用");
 
     private final int code;

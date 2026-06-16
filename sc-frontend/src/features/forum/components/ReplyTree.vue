@@ -7,19 +7,19 @@
     </div>
     <div v-else class="reply-list">
       <div
-        v-for="reply in replies"
-        :key="reply.id"
-        class="reply-item"
-        :class="{accepted: reply.isAccepted}"
+          v-for="reply in replies"
+          :key="reply.id"
+          :class="{accepted: reply.isAccepted}"
+          class="reply-item"
       >
         <UserAvatarLink
-          class="reply-author-avatar"
-          :user-id="reply.sysUserId"
-          :display-name="userMap[reply.sysUserId]?.displayName"
-          :avatar-url="userMap[reply.sysUserId]?.avatarUrl"
-          :role="userMap[reply.sysUserId]?.role"
-          size="medium"
-          :show-name="false"
+            :avatar-url="userMap[reply.sysUserId]?.avatarUrl"
+            :display-name="userMap[reply.sysUserId]?.displayName"
+            :role="userMap[reply.sysUserId]?.role"
+            :show-name="false"
+            :user-id="reply.sysUserId"
+            class="reply-author-avatar"
+            size="medium"
         />
 
         <div class="reply-content">
@@ -35,18 +35,18 @@
               <button class="btn-cancel-edit" type="button" @click="cancelEdit">
                 <X :size="14"/>
               </button>
-              <button class="btn-save-edit" :disabled="savingEdit || !editingContent.trim()" @click="saveEdit(reply)">
+              <button :disabled="savingEdit || !editingContent.trim()" class="btn-save-edit" @click="saveEdit(reply)">
                 {{ t('forum.saveEdit') }}
               </button>
             </div>
           </div>
 
           <ForumContentPreview
-            v-else
-            class="reply-text"
-            :content="reply.content"
-            :image-urls="reply.imageUrls"
-            compact
+              v-else
+              :content="reply.content"
+              :image-urls="reply.imageUrls"
+              class="reply-text"
+              compact
           />
 
           <div class="reply-actions">
@@ -70,18 +70,18 @@
 
           <div v-if="reply.children && reply.children.length" class="nested-replies">
             <div
-              v-for="child in reply.children"
-              :key="child.id"
-              class="reply-item nested"
+                v-for="child in reply.children"
+                :key="child.id"
+                class="reply-item nested"
             >
               <UserAvatarLink
-                class="reply-author-avatar"
-                :user-id="child.sysUserId"
-                :display-name="userMap[child.sysUserId]?.displayName"
-                :avatar-url="userMap[child.sysUserId]?.avatarUrl"
-                :role="userMap[child.sysUserId]?.role"
-                size="medium"
-                :show-name="false"
+                  :avatar-url="userMap[child.sysUserId]?.avatarUrl"
+                  :display-name="userMap[child.sysUserId]?.displayName"
+                  :role="userMap[child.sysUserId]?.role"
+                  :show-name="false"
+                  :user-id="child.sysUserId"
+                  class="reply-author-avatar"
+                  size="medium"
               />
               <div class="reply-content">
                 <div class="reply-header">
@@ -89,10 +89,10 @@
                   <span class="reply-time">{{ formatTime(child.createdAt) }}</span>
                 </div>
                 <ForumContentPreview
-                  class="reply-text"
-                  :content="child.content"
-                  :image-urls="child.imageUrls"
-                  compact
+                    :content="child.content"
+                    :image-urls="child.imageUrls"
+                    class="reply-text"
+                    compact
                 />
                 <div class="reply-actions">
                   <button v-if="showLike" class="action-btn" @click="$emit('like', child)">
@@ -119,7 +119,7 @@
 import {ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {Heart, MessageCircle, Pencil, Trash2, X} from 'lucide-vue-next'
-import {updateReply, deleteReply} from '@/features/forum/api/forum'
+import {deleteReply, updateReply} from '@/features/forum/api/forum'
 import type {ForumReply} from '@/features/forum/types/forum'
 import type {UserBasicInfo} from '@/features/user/types/user'
 import {confirmDialog} from '@/shared/composables/useConfirmDialog'

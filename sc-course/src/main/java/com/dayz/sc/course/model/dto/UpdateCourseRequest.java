@@ -1,7 +1,7 @@
 package com.dayz.sc.course.model.dto;
 
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 
 import java.util.List;
@@ -28,4 +28,5 @@ public record UpdateCourseRequest(
         @Min(0) Integer maxStudents,
         @Min(0) Integer totalClassHours,
         Integer status
-) {}
+) {
+}

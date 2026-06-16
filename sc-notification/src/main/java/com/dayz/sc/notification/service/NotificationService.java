@@ -3,6 +3,8 @@ package com.dayz.sc.notification.service;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.response.PageResponse;
+import com.dayz.sc.common.security.support.SecurityUtils;
+import com.dayz.sc.common.util.UuidV7Generator;
 import com.dayz.sc.notification.model.dto.SendNotificationRequest;
 import com.dayz.sc.notification.model.entity.Notification;
 import com.dayz.sc.notification.model.entity.NotificationReadStatus;
@@ -14,7 +16,6 @@ import com.dayz.sc.notification.repository.NotificationReadStatusRepository;
 import com.dayz.sc.notification.repository.NotificationRepository;
 import com.dayz.sc.notification.repository.NotificationTargetRepository;
 import com.dayz.sc.notification.sse.NotificationSseEmitter;
-import com.dayz.sc.common.security.support.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,8 +24,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-
-import com.dayz.sc.common.util.UuidV7Generator;
 import java.util.stream.Collectors;
 
 /**
@@ -51,8 +50,11 @@ public class NotificationService {
 
         NotificationType.fromCode(request.type());
         TargetType targetType = TargetType.fromCode(request.targetType());
-        if (targetType == TargetType.USER && (request.userIds() == null || request.userIds().isEmpty())) {
-            throw new BusinessException(ErrorCodes.BAD_REQUEST, "userIds is required for user-targeted notifications");
+        if (targetType == TargetType.USER) {
+            boolean hasUserIds = request.userIds() != null && !request.userIds().isEmpty();
+            if (!hasUserIds) {
+                throw new BusinessException(ErrorCodes.BAD_REQUEST, "userIds is required for user-targeted notifications");
+            }
         }
         if (targetType == TargetType.CLASS) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Class-targeted notifications are not supported yet");
@@ -122,7 +124,8 @@ public class NotificationService {
 
         readStatusRepository.findByNotificationIdAndUserId(notificationId, userId)
                 .ifPresentOrElse(
-                        readStatus -> {},
+                        readStatus -> {
+                        },
                         () -> {
                             NotificationReadStatus readStatus = new NotificationReadStatus();
                             readStatus.setId(UuidV7Generator.generate());
@@ -153,7 +156,9 @@ public class NotificationService {
         // 如果未读，先递减计数
         readStatusRepository.findByNotificationIdAndUserId(notificationId, userId)
                 .ifPresentOrElse(
-                        readStatus -> {}, // 已读，不影响计数
+                        readStatus -> {
+                            // 已读，不影响计数
+                        },
                         () -> unreadCountService.decrement(userId, notification.getType())
                 );
         notificationTargetRepository.markDeleted(notificationId, userId);
@@ -193,7 +198,7 @@ public class NotificationService {
         sseEmitter.broadcastExcept(senderId, notification);
     }
 
-    private NotificationVO toNotificationVO(Notification notification, boolean isRead) {
+    private NotificationVO toNotificationVO(Notification notification, boolean read) {
         return new NotificationVO(
                 notification.getId(),
                 notification.getType(),
@@ -203,7 +208,7 @@ public class NotificationService {
                 notification.getTargetType(),
                 notification.getCreatedAt(),
                 notification.getUpdatedAt(),
-                isRead,
+                read,
                 null
         );
     }

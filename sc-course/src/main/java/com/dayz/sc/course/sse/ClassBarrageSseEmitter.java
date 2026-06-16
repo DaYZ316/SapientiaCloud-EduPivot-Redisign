@@ -12,6 +12,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * In-process SSE broadcaster for class barrage messages.
+ *
+ * @author DaYZ
+ * @since 2026-06-14
  */
 @Component
 public class ClassBarrageSseEmitter {

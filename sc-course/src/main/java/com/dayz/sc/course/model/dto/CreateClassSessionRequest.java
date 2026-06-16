@@ -8,7 +8,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Request to create a class session draft.
+ * 创建课堂会话草稿请求
+ *
+ * @author DaYZ
+ * @since 2026-06-14
  */
 public record CreateClassSessionRequest(
         @NotNull UUID courseId,
@@ -17,4 +20,5 @@ public record CreateClassSessionRequest(
         @NotNull Instant scheduledStartAt,
         @NotNull Instant scheduledEndAt,
         @NotNull Integer roomSize
-) {}
+) {
+}

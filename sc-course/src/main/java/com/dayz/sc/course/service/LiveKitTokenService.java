@@ -20,6 +20,9 @@ import java.util.UUID;
 
 /**
  * Creates LiveKit-compatible access tokens.
+ *
+ * @author DaYZ
+ * @since 2026-06-14
  */
 @Service
 @RequiredArgsConstructor

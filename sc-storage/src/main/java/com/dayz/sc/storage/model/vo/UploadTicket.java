@@ -20,4 +20,5 @@ public record UploadTicket(
         @JsonProperty("headers") Map<String, String> headers,
         @JsonProperty("expiresAt") Instant expiresAt,
         @JsonProperty("maxSizeBytes") long maxSizeBytes
-) {}
+) {
+}

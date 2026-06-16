@@ -5,23 +5,16 @@ import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.util.UuidV7Generator;
 import com.dayz.sc.course.model.dto.CreatePracticeSessionRequest;
 import com.dayz.sc.course.model.dto.SubmitAnswerRequest;
-import com.dayz.sc.course.model.entity.PracticeAnswer;
-import com.dayz.sc.course.model.entity.PracticeSession;
-import com.dayz.sc.course.model.entity.Question;
-import com.dayz.sc.course.model.entity.QuestionBank;
-import com.dayz.sc.course.model.entity.QuestionOption;
+import com.dayz.sc.course.model.entity.*;
 import com.dayz.sc.course.model.vo.PracticeAnswerVO;
 import com.dayz.sc.course.model.vo.PracticeSessionVO;
-import com.dayz.sc.course.repository.PracticeAnswerRepository;
-import com.dayz.sc.course.repository.PracticeSessionRepository;
-import com.dayz.sc.course.repository.QuestionBankRepository;
-import com.dayz.sc.course.repository.QuestionOptionRepository;
-import com.dayz.sc.course.repository.QuestionRepository;
+import com.dayz.sc.course.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -37,6 +30,11 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class PracticeSessionService {
+
+    private static final int QUESTION_TYPE_SINGLE_CHOICE = 0;
+    private static final int QUESTION_TYPE_MULTI_CHOICE = 1;
+    private static final int QUESTION_TYPE_TRUE_FALSE = 2;
+    private static final int PARTIAL_CREDIT_SCALE = 2;
 
     private final PracticeSessionRepository practiceSessionRepository;
     private final PracticeAnswerRepository practiceAnswerRepository;
@@ -110,7 +108,7 @@ public class PracticeSessionService {
 
         int questionType = question.getQuestionType();
 
-        if (questionType == 0 || questionType == 1 || questionType == 2) {
+        if (questionType == QUESTION_TYPE_SINGLE_CHOICE || questionType == QUESTION_TYPE_MULTI_CHOICE || questionType == QUESTION_TYPE_TRUE_FALSE) {
             List<QuestionOption> correctOptions = questionOptionRepository.findByQuestionId(request.questionId())
                     .stream()
                     .filter(o -> o.getIsCorrect() == 1)
@@ -122,11 +120,11 @@ public class PracticeSessionService {
             isCorrect = correctIds.equals(selectedIds);
             if (isCorrect) {
                 earnedScore = question.getScore();
-            } else if (question.getAllowPartialCredit() == 1 && questionType == 1) {
+            } else if (question.getAllowPartialCredit() == 1 && questionType == QUESTION_TYPE_MULTI_CHOICE) {
                 long correctSelected = selectedIds.stream().filter(correctIds::contains).count();
                 if (correctIds.size() > 0) {
                     earnedScore = question.getScore().multiply(BigDecimal.valueOf(correctSelected))
-                            .divide(BigDecimal.valueOf(correctIds.size()), 2, BigDecimal.ROUND_HALF_UP);
+                            .divide(BigDecimal.valueOf(correctIds.size()), PARTIAL_CREDIT_SCALE, RoundingMode.HALF_UP);
                 }
             }
         } else {

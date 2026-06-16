@@ -16,4 +16,5 @@ public record UserBasicInfo(
         @JsonProperty @Nullable String displayName,
         @JsonProperty @Nullable String avatarUrl,
         @JsonProperty @Nullable Integer role
-) {}
+) {
+}

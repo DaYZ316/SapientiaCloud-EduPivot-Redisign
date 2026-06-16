@@ -16,4 +16,5 @@ public record UpdateQuestionBankRequest(
         Integer bankType,
         List<String> tags,
         Integer difficulty
-) {}
+) {
+}

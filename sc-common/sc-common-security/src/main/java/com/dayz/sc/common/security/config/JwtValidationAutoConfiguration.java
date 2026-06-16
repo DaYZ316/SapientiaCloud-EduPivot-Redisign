@@ -7,9 +7,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.interfaces.RSAPublicKey;
-import javax.crypto.spec.SecretKeySpec;
 
 /**
  * JWT 验证自动配置。

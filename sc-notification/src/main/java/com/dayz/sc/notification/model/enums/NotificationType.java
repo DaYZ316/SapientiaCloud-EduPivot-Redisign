@@ -14,7 +14,13 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum NotificationType {
+    /**
+     * 系统公告，平台级别的通知
+     */
     SYSTEM(1, "系统公告"),
+    /**
+     * 教学通知，与课程相关的通知
+     */
     TEACHING(2, "教学通知");
 
     private final int code;

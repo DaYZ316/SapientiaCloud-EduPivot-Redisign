@@ -13,4 +13,5 @@ import java.time.Instant;
 public record DownloadUrlResponse(
         @JsonProperty("url") String url,
         @JsonProperty("expiresAt") Instant expiresAt
-) {}
+) {
+}

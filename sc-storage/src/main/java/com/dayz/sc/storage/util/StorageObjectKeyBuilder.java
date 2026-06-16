@@ -18,6 +18,8 @@ import java.util.UUID;
  */
 public final class StorageObjectKeyBuilder {
 
+    private static final String SAFE_EXTENSION_PATTERN = "[a-z0-9]{1,12}";
+
     private StorageObjectKeyBuilder() {
     }
 
@@ -32,7 +34,7 @@ public final class StorageObjectKeyBuilder {
      * 构建最终存储路径。
      */
     public static String finalKey(StorageUsage usage, UUID scopeId, UUID objectId,
-                                   String fileName, String contentType) {
+                                  String fileName, String contentType) {
         String scope = scopeId == null ? "global" : scopeId.toString();
         String extension = extensionFor(fileName, contentType);
         return usage.name().toLowerCase(Locale.ROOT).replace('_', '-')
@@ -52,7 +54,7 @@ public final class StorageObjectKeyBuilder {
             int dot = base.lastIndexOf('.');
             if (dot >= 0 && dot < base.length() - 1) {
                 String ext = base.substring(dot + 1).toLowerCase(Locale.ROOT);
-                if (ext.matches("[a-z0-9]{1,12}")) {
+                if (ext.matches(SAFE_EXTENSION_PATTERN)) {
                     return "." + ext;
                 }
             }

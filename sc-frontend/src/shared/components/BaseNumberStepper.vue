@@ -1,40 +1,40 @@
 <template>
   <div class="base-number-stepper">
     <button
-      class="base-number-stepper-button"
-      type="button"
-      :aria-label="decrementLabel"
-      :disabled="disabled || isAtMin"
-      @click="stepBy(-step)"
+        :aria-label="decrementLabel"
+        :disabled="disabled || isAtMin"
+        class="base-number-stepper-button"
+        type="button"
+        @click="stepBy(-step)"
     >
       <span aria-hidden="true">−</span>
     </button>
 
     <input
-      class="base-number-stepper-input"
-      type="number"
-      :min="min"
-      :max="max"
-      :step="step"
-      :value="modelValue"
-      :disabled="disabled"
-      @input="handleInput"
-      @blur="clampValue"
+        :disabled="disabled"
+        :max="max"
+        :min="min"
+        :step="step"
+        :value="modelValue"
+        class="base-number-stepper-input"
+        type="number"
+        @blur="clampValue"
+        @input="handleInput"
     />
 
     <button
-      class="base-number-stepper-button"
-      type="button"
-      :aria-label="incrementLabel"
-      :disabled="disabled || isAtMax"
-      @click="stepBy(step)"
+        :aria-label="incrementLabel"
+        :disabled="disabled || isAtMax"
+        class="base-number-stepper-button"
+        type="button"
+        @click="stepBy(step)"
     >
       <span aria-hidden="true">+</span>
     </button>
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import {computed} from 'vue'
 
 const props = withDefaults(defineProps<{

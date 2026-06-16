@@ -1,19 +1,19 @@
 <template>
   <div class="notification-content-editor">
     <BaseTextEditor
-      :id="inputId"
-      name="content"
-      :model-value="modelValue"
-      :placeholder="t('notifications.modal.contentPlaceholder')"
-      :rows="rows"
-      :disabled="disabled"
-      required
-      @update:model-value="emit('update:modelValue', $event)"
+        :id="inputId"
+        :disabled="disabled"
+        :model-value="modelValue"
+        :placeholder="t('notifications.modal.contentPlaceholder')"
+        :rows="rows"
+        name="content"
+        required
+        @update:model-value="emit('update:modelValue', $event)"
     />
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import {useI18n} from 'vue-i18n'
 
 import BaseTextEditor from '@/shared/components/BaseTextEditor.vue'

@@ -7,12 +7,12 @@
       </div>
       <div v-if="canManageCourse" class="header-actions">
         <BaseFileUploader
-          usage="COURSE_FILE"
-          scope-type="COURSE"
-          :scope-id="courseId"
-          :button-label="t('courseDetail.uploadFile')"
-          @uploaded="handleFileUploaded"
-          @error="handleUploadError"
+            :button-label="t('courseDetail.uploadFile')"
+            :scope-id="courseId"
+            scope-type="COURSE"
+            usage="COURSE_FILE"
+            @error="handleUploadError"
+            @uploaded="handleFileUploaded"
         />
       </div>
     </div>
@@ -23,45 +23,45 @@
     </div>
     <div v-else class="file-list">
       <div
-        v-for="file in files"
-        :key="file.id"
-        class="file-item"
+          v-for="file in files"
+          :key="file.id"
+          class="file-item"
       >
         <router-link
-          v-if="canAccessFile && file.url"
-          :to="{ name: 'file-preview', query: { fileId: file.fileId, fileName: file.displayName } }"
-          class="file-link"
+            v-if="canAccessFile && file.url"
+            :to="{ name: 'file-preview', query: { fileId: file.fileId, fileName: file.displayName } }"
+            class="file-link"
         >
           <FileDown :size="16" stroke-width="1.8"/>
           <span>{{ file.displayName }}</span>
           <span class="file-visibility">{{ formatFileVisibility(file.visibility) }}</span>
         </router-link>
-        <span v-else class="file-link" aria-disabled="true">
+        <span v-else aria-disabled="true" class="file-link">
           <FileDown :size="16" stroke-width="1.8"/>
           <span>{{ file.displayName }}</span>
           <span class="file-visibility">{{ formatFileVisibility(file.visibility) }}</span>
         </span>
         <button
-          v-if="canManageCourse"
-          class="btn-icon danger"
-          type="button"
-          :title="t('courseDetail.deleteFile')"
-          @click="handleDelete(file)"
+            v-if="canManageCourse"
+            :title="t('courseDetail.deleteFile')"
+            class="btn-icon danger"
+            type="button"
+            @click="handleDelete(file)"
         >
           <Trash2 :size="14" stroke-width="1.8"/>
         </button>
       </div>
     </div>
     <BasePagination
-      v-if="total > 0"
-      :page="page"
-      :size="size"
-      :total="total"
-      :disabled="loading"
-      :aria-label="t('courseDetail.pagination')"
-      :previous-title="t('courseDetail.previousPage')"
-      :next-title="t('courseDetail.nextPage')"
-      @change="emit('page-change', $event)"
+        v-if="total > 0"
+        :aria-label="t('courseDetail.pagination')"
+        :disabled="loading"
+        :next-title="t('courseDetail.nextPage')"
+        :page="page"
+        :previous-title="t('courseDetail.previousPage')"
+        :size="size"
+        :total="total"
+        @change="emit('page-change', $event)"
     />
   </section>
 </template>

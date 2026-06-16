@@ -21,5 +21,9 @@ public record EnrollmentVO(
         @JsonProperty("studentName") @Nullable String studentName,
         @JsonProperty("status") int status,
         @JsonProperty("enrolledAt") Instant enrolledAt,
-        @JsonProperty("completedAt") @Nullable Instant completedAt
-) {}
+        @JsonProperty("completedAt") @Nullable Instant completedAt,
+        @JsonProperty("courseTotalClassHours") @Nullable Integer courseTotalClassHours,
+        @JsonProperty("coursePublishedClassSessionCount") long coursePublishedClassSessionCount,
+        @JsonProperty("courseProgress") int courseProgress
+) {
+}

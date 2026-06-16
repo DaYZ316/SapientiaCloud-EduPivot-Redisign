@@ -1,7 +1,7 @@
 package com.dayz.sc.course.model.vo;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.dayz.sc.common.feign.dto.UserBasicInfo;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
@@ -37,4 +37,5 @@ public record CourseDetailVO(
         @JsonProperty boolean enrolled,
         @JsonProperty Instant createdAt,
         @JsonProperty Instant updatedAt
-) {}
+) {
+}

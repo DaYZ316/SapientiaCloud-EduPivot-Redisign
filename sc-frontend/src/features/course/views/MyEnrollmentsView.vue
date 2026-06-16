@@ -1,6 +1,6 @@
 <template>
   <div class="my-courses-page">
-    <section class="courses-command-bar" aria-labelledby="my-courses-title">
+    <section aria-labelledby="my-courses-title" class="courses-command-bar">
       <div class="courses-title-block">
         <p class="section-kicker">Student workspace</p>
         <h1 id="my-courses-title">我的课程</h1>
@@ -11,10 +11,10 @@
         <label class="search-field" for="course-search">
           <Search :size="16" stroke-width="1.7"/>
           <input
-            id="course-search"
-            v-model.trim="keyword"
-            type="search"
-            placeholder="搜索课程"
+              id="course-search"
+              v-model.trim="keyword"
+              placeholder="搜索课程"
+              type="search"
           />
         </label>
         <button class="filter-button" type="button">
@@ -28,7 +28,7 @@
       </div>
     </section>
 
-    <section class="course-stats" aria-label="课程概览">
+    <section aria-label="课程概览" class="course-stats">
       <article v-for="stat in stats" :key="stat.label" class="stat-cell">
         <span>{{ stat.label }}</span>
         <strong>{{ stat.value }}</strong>
@@ -46,7 +46,7 @@
           <span>{{ filteredCourses.length }} 门</span>
         </div>
 
-        <div v-if="loading" class="course-list" aria-label="课程加载中">
+        <div v-if="loading" aria-label="课程加载中" class="course-list">
           <div v-for="n in 5" :key="n" class="course-row skeleton-row">
             <div class="skeleton-block course-mark"></div>
             <div class="skeleton-copy">
@@ -60,21 +60,21 @@
         <div v-else-if="filteredCourses.length > 0" class="course-list">
           <article v-for="course in filteredCourses" :key="course.id" class="course-row">
             <div class="course-mark">
-              <img v-if="course.coverUrl" :src="course.coverUrl" :alt="`${course.title} 封面`"/>
+              <img v-if="course.coverUrl" :alt="`${course.title} 封面`" :src="course.coverUrl"/>
               <BookOpen v-else :size="22" stroke-width="1.5"/>
             </div>
 
             <div class="course-main">
               <div class="course-title-line">
                 <h3>{{ course.title }}</h3>
-                <span class="status-tag" :class="course.statusClass">{{ course.statusLabel }}</span>
+                <span :class="course.statusClass" class="status-tag">{{ course.statusLabel }}</span>
               </div>
               <div class="course-meta">
                 <span>{{ course.teacher }}</span>
                 <span>{{ course.nextSession }}</span>
                 <span>{{ course.recentActivity }}</span>
               </div>
-              <div class="progress-track" :aria-label="`${course.title} 进度 ${course.progress}%`">
+              <div :aria-label="`${course.title} 进度 ${course.progress}%`" class="progress-track">
                 <span :style="{width: `${course.progress}%`}"></span>
               </div>
             </div>
@@ -89,12 +89,12 @@
                 继续学习
               </button>
               <button
-                v-if="course.canDrop"
-                class="drop-button"
-                type="button"
-                title="退课"
-                aria-label="退课"
-                @click="confirmDrop(course.source)"
+                  v-if="course.canDrop"
+                  aria-label="退课"
+                  class="drop-button"
+                  title="退课"
+                  type="button"
+                  @click="confirmDrop(course.source)"
               >
                 <X :size="14" stroke-width="1.8"/>
               </button>
@@ -112,26 +112,27 @@
         </div>
 
         <div v-if="!loading && totalPages > 1" class="pagination">
-          <button class="page-button" :disabled="currentPage === 1" type="button" @click="changePage(currentPage - 1)">
+          <button :disabled="currentPage === 1" class="page-button" type="button" @click="changePage(currentPage - 1)">
             {{ t('myEnrollments.previous') }}
           </button>
           <button
-            v-for="page in displayedPages"
-            :key="page"
-            class="page-button"
-            :class="{active: currentPage === page}"
-            type="button"
-            @click="changePage(page)"
+              v-for="page in displayedPages"
+              :key="page"
+              :class="{active: currentPage === page}"
+              class="page-button"
+              type="button"
+              @click="changePage(page)"
           >
             {{ page }}
           </button>
-          <button class="page-button" :disabled="currentPage === totalPages" type="button" @click="changePage(currentPage + 1)">
+          <button :disabled="currentPage === totalPages" class="page-button" type="button"
+                  @click="changePage(currentPage + 1)">
             {{ t('myEnrollments.next') }}
           </button>
         </div>
       </div>
 
-      <aside class="courses-sidebar" aria-label="学习计划">
+      <aside aria-label="学习计划" class="courses-sidebar">
         <section class="side-panel">
           <div class="panel-heading compact">
             <h2>今日计划</h2>
@@ -169,11 +170,11 @@
             <h2>学习节奏</h2>
             <Activity :size="18" stroke-width="1.6"/>
           </div>
-          <div class="rhythm-bars" aria-label="最近七日学习活动">
+          <div aria-label="最近七日学习活动" class="rhythm-bars">
             <span
-              v-for="(value, index) in rhythm"
-              :key="index"
-              :style="{height: `${value}%`}"
+                v-for="(value, index) in rhythm"
+                :key="index"
+                :style="{height: `${value}%`}"
             ></span>
           </div>
           <p class="rhythm-note">本周已完成 7 个学习片段，周三和周六负荷较高。</p>
@@ -194,15 +195,15 @@
     </section>
 
     <BaseConfirmDialog
-      :visible="showDropModal"
-      :title="t('myEnrollments.dropModal.title')"
-      :message="t('myEnrollments.dropModal.confirmMessage', {title: dropTarget?.courseTitle})"
-      :cancel-text="t('myEnrollments.dropModal.cancel')"
-      :confirm-text="t('myEnrollments.dropModal.confirm')"
-      :close-label="t('myEnrollments.dropModal.cancel')"
-      confirm-variant="danger"
-      @cancel="showDropModal = false"
-      @confirm="handleDrop"
+        :cancel-text="t('myEnrollments.dropModal.cancel')"
+        :close-label="t('myEnrollments.dropModal.cancel')"
+        :confirm-text="t('myEnrollments.dropModal.confirm')"
+        :message="t('myEnrollments.dropModal.confirmMessage', {title: dropTarget?.courseTitle})"
+        :title="t('myEnrollments.dropModal.title')"
+        :visible="showDropModal"
+        confirm-variant="danger"
+        @cancel="showDropModal = false"
+        @confirm="handleDrop"
     />
   </div>
 </template>
@@ -225,8 +226,8 @@ import {
 
 import BaseConfirmDialog from '@/shared/components/BaseConfirmDialog.vue'
 import {dropCourse, getMyEnrollments} from '@/features/course/api/course'
-import {EnrollmentStatus} from '@/features/course/types/course'
 import type {Enrollment} from '@/features/course/types/course'
+import {EnrollmentStatus} from '@/features/course/types/course'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
@@ -259,11 +260,11 @@ const showDropModal = ref(false)
 const dropTarget = ref<Enrollment | null>(null)
 
 const fallbackCourses = [
-  {title: '高等数学 A', teacher: '李明远', next: '明日 09:00', progress: 75, activity: '函数极限与连续性'},
-  {title: '大学英语精读', teacher: '王知行', next: '周三 14:00', progress: 40, activity: 'Unit 4 阅读训练'},
-  {title: '数据结构', teacher: '赵庭川', next: '周五 10:30', progress: 62, activity: '二叉树遍历练习'},
-  {title: '学术写作', teacher: '陈若澜', next: '周一 08:00', progress: 90, activity: '文献综述修订'},
-  {title: '云计算基础', teacher: '刘承泽', next: '周四 15:45', progress: 55, activity: '容器编排实验'},
+  {title: '高等数学 A', teacher: '李明远', next: '明日 09:00', activity: '函数极限与连续性'},
+  {title: '大学英语精读', teacher: '王知行', next: '周三 14:00', activity: 'Unit 4 阅读训练'},
+  {title: '数据结构', teacher: '赵庭川', next: '周五 10:30', activity: '二叉树遍历练习'},
+  {title: '学术写作', teacher: '陈若澜', next: '周一 08:00', activity: '文献综述修订'},
+  {title: '云计算基础', teacher: '刘承泽', next: '周四 15:45', activity: '容器编排实验'},
 ]
 
 const displayedPages = computed(() => {
@@ -284,7 +285,7 @@ const courseItems = computed<CourseWorkspaceItem[]>(() => {
   return enrollments.value.map((enrollment, index) => {
     const fallback = fallbackCourses[index % fallbackCourses.length]
     const statusLabel = EnrollmentStatus[enrollment.status] ?? '未知状态'
-    const progress = enrollment.status === 2 ? 100 : enrollment.status === 3 ? 18 : fallback.progress
+    const progress = enrollment.courseProgress ?? 0
 
     return {
       id: enrollment.id,
@@ -293,7 +294,7 @@ const courseItems = computed<CourseWorkspaceItem[]>(() => {
       teacher: `${fallback.teacher} 教师`,
       coverUrl: enrollment.courseCoverUrl,
       nextSession: fallback.next,
-      recentActivity: fallback.activity,
+      recentActivity: formatCourseHours(enrollment),
       progress,
       statusLabel,
       statusClass: getEnrollStatusClass(enrollment.status),
@@ -308,7 +309,7 @@ const filteredCourses = computed(() => {
   if (!value) return courseItems.value
 
   return courseItems.value.filter((course) =>
-    [course.title, course.teacher, course.recentActivity].some((field) => field.toLowerCase().includes(value)),
+      [course.title, course.teacher, course.recentActivity].some((field) => field.toLowerCase().includes(value)),
   )
 })
 
@@ -355,6 +356,15 @@ function findCourseTitle(index: number): string {
 function getEnrollStatusClass(status: number): string {
   const map: Record<number, string> = {0: 'pending', 1: 'active', 2: 'completed', 3: 'dropped'}
   return map[status] ?? 'pending'
+}
+
+function formatCourseHours(enrollment: Enrollment): string {
+  const publishedCount = enrollment.coursePublishedClassSessionCount ?? 0
+  const totalClassHours = enrollment.courseTotalClassHours ?? 0
+  if (totalClassHours <= 0) {
+    return `已开 ${publishedCount} 课时 · 总课时未设置`
+  }
+  return `已开 ${publishedCount} / ${totalClassHours} 课时`
 }
 
 async function loadData() {

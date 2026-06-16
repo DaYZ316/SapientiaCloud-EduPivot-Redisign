@@ -15,8 +15,17 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum CourseLevel {
 
+    /**
+     * 初级课程，适合入门学习
+     */
     BEGINNER(1, "初级"),
+    /**
+     * 中级课程，需要一定基础
+     */
     INTERMEDIATE(2, "中级"),
+    /**
+     * 高级课程，适合深入学习
+     */
     ADVANCED(3, "高级");
 
     private final int code;

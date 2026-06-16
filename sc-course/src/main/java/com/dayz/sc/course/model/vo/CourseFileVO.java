@@ -22,4 +22,5 @@ public record CourseFileVO(
         @JsonProperty("sortOrder") Integer sortOrder,
         @JsonProperty("createdAt") Instant createdAt,
         @JsonProperty("updatedAt") Instant updatedAt
-) {}
+) {
+}

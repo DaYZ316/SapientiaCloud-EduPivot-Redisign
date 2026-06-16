@@ -80,25 +80,25 @@
 
 ### 6. 技术栈
 
-| 层级 | 技术选型 |
-|------|---------|
-| 语言 | Java 21（虚拟线程已启用） |
-| 框架 | Spring Boot 4.0.6 + Spring Cloud 2025.1.1 + Spring Cloud Alibaba 2025.1.0.0 |
-| ORM | MyBatis-Plus 3.5.16 |
-| 数据库 | PostgreSQL 17 + PostGIS |
-| 缓存 | Redis 8 |
-| 消息队列 | Apache Kafka 3.9（KRaft 模式） |
-| 对象存储 | MinIO |
-| 配置中心 | Nacos 3.1.0 |
-| 数据库迁移 | Flyway |
-| API 文档 | SpringDoc OpenAPI 3.0.3 + Scalar 0.5.55 |
-| 熔断器 | Resilience4j 2.3.0 |
-| 分布式追踪 | Micrometer Brave + Zipkin |
-| 密码学 | BouncyCastle 1.84 |
-| 前端 | Vue 3.5 + TypeScript 6 + Vite 8 + Pinia 3 + Vue Router 5 + Vue I18n 11 |
-| UI 组件 | Naive UI + Lucide Vue Next |
-| 包管理 | pnpm 10 |
-| 容器化 | Docker Compose + Nginx |
+| 层级     | 技术选型                                                                        |
+|--------|-----------------------------------------------------------------------------|
+| 语言     | Java 21（虚拟线程已启用）                                                            |
+| 框架     | Spring Boot 4.0.6 + Spring Cloud 2025.1.1 + Spring Cloud Alibaba 2025.1.0.0 |
+| ORM    | MyBatis-Plus 3.5.16                                                         |
+| 数据库    | PostgreSQL 17 + PostGIS                                                     |
+| 缓存     | Redis 8                                                                     |
+| 消息队列   | Apache Kafka 3.9（KRaft 模式）                                                  |
+| 对象存储   | MinIO                                                                       |
+| 配置中心   | Nacos 3.1.0                                                                 |
+| 数据库迁移  | Flyway                                                                      |
+| API 文档 | SpringDoc OpenAPI 3.0.3 + Scalar 0.5.55                                     |
+| 熔断器    | Resilience4j 2.3.0                                                          |
+| 分布式追踪  | Micrometer Brave + Zipkin                                                   |
+| 密码学    | BouncyCastle 1.84                                                           |
+| 前端     | Vue 3.5 + TypeScript 6 + Vite 8 + Pinia 3 + Vue Router 5 + Vue I18n 11      |
+| UI 组件  | Naive UI + Lucide Vue Next                                                  |
+| 包管理    | pnpm 10                                                                     |
+| 容器化    | Docker Compose + Nginx                                                      |
 
 ### 7. 微服务架构
 
@@ -117,14 +117,14 @@ sc-gateway (:39080) ── JWT 校验 + 路由 + 限流
 
 **端口分配：**
 
-| 服务 | 端口 |
-|------|------|
-| sc-gateway | 39080 |
-| sc-auth | 28081 |
-| sc-notification | 28082 |
-| sc-course | 28084 |
-| sc-storage | 28085 |
-| sc-frontend | 5173（开发）/ 80（容器） |
+| 服务              | 端口               |
+|-----------------|------------------|
+| sc-gateway      | 39080            |
+| sc-auth         | 28081            |
+| sc-notification | 28082            |
+| sc-course       | 28084            |
+| sc-storage      | 28085            |
+| sc-frontend     | 5173（开发）/ 80（容器） |
 
 ### 8. 模块结构（sc-common）
 
@@ -141,6 +141,7 @@ sc-common/
 ### 9. 包命名规范
 
 **业务服务包结构：**
+
 ```
 com.dayz.sc.{service}
     .controller        REST 控制器
@@ -162,6 +163,7 @@ com.dayz.sc.{service}
 ```
 
 **公共模块包结构：**
+
 ```
 com.dayz.sc.common
     .response            ApiResponse, PageResponse
@@ -224,7 +226,8 @@ public ApiResponse<UUID> createCourse(
 #### 10.5 Entity
 
 - 表映射：`@TableName("table_name")`
-- 主键：`@TableId(type = IdType.INPUT)`，在 Service 层使用 `UuidV7Generator.generate()` 生成 ID（MyBatis-Plus 3.5.16 的 `ASSIGN_UUID` 不支持 UUID 类型）
+- 主键：`@TableId(type = IdType.INPUT)`，在 Service 层使用 `UuidV7Generator.generate()` 生成 ID（MyBatis-Plus 3.5.16 的
+  `ASSIGN_UUID` 不支持 UUID 类型）
 - 字段映射：`@TableField("column_name")`
 - 自动填充：`@TableField(fill = FieldFill.INSERT)` / `FieldFill.INSERT_UPDATE`
 - 软删除：`@TableLogic`
@@ -322,6 +325,7 @@ public record PageResponse<T>(List<T> records, long total, long page, long size)
 | `storage_` | sc-storage | `storage_object`, `storage_upload_session` |
 
 **列规范：**
+
 - 主键：`id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
 - 时间戳：`created_at`、`updated_at`、`deleted_at`（TIMESTAMPTZ）
 - 软删除：`deleted SMALLINT NOT NULL DEFAULT 0`（0=正常, 1=已删除）
@@ -330,6 +334,7 @@ public record PageResponse<T>(List<T> records, long total, long page, long size)
 - 索引命名：`idx_{table}_{columns}`
 
 **Flyway 规范：**
+
 - 版本格式：`V{YYYYMMDD}{seq}`（如 `V2026061001`）
 - 描述分隔：双下划线 `__` + snake_case 描述
 - 各服务独立历史表（如 `flyway_schema_history_auth`）
@@ -340,6 +345,7 @@ public record PageResponse<T>(List<T> records, long total, long page, long size)
 ### 17. 前端规范
 
 **目录结构：**
+
 ```
 src/
   app/              入口（main.ts, App.vue, router, i18n）
@@ -363,15 +369,18 @@ src/
 ```
 
 **API 调用：**
+
 - 集中 Axios 实例（`shared/api/request.ts`），baseURL 来自环境变量
 - 自动附加 Bearer Token，401 时自动刷新
 - `request<T>(config)` 返回解包后的 `T`（从 `ApiResponse<T>` 中提取 `data`）
 
 **状态管理：**
+
 - Pinia Composition API 风格：`defineStore('name', () => { ... })`
 - Token 持久化：localStorage
 
 **路由：**
+
 - HTML5 History 模式
 - 路由守卫：`meta.requiresAuth`、`meta.guestOnly`
 - 懒加载：`() => import('@/features/...')`
@@ -383,6 +392,7 @@ src/
 ### 18. Docker 部署规范
 
 **Java 服务 Dockerfile：**
+
 - 多阶段构建：`mcr.microsoft.com/openjdk/jdk:21-ubuntu`
 - Maven 构建使用 `--mount=type=cache,target=/root/.m2`
 - 健康检查：`/actuator/health/liveness`
@@ -390,10 +400,12 @@ src/
 - 密钥通过环境变量注入（如 `JWT_PRIVATE_KEY_B64` Base64 解码）
 
 **前端 Dockerfile：**
+
 - 多阶段：`node:22-alpine` 构建 → `nginx:1.27-alpine` 运行
 - Vite 构建参数通过 Docker build args 注入
 
 **docker-compose 规范：**
+
 - 项目名：`sc-edupivot`
 - 网络：`SC-Network`（bridge）
 - 所有服务：`restart: unless-stopped`
@@ -405,12 +417,14 @@ src/
 ### 19. Nacos 配置规范
 
 **配置层级：**
+
 1. `sc-edupivot-{service}-common.yaml`（Group: `EDUPIVOT_NAVIGATOR`）— 业务配置，热刷新
 2. `sc-edupivot-{service}-infra-{profile}.yaml`（Group: `EDUPIVOT_LOCAL` / `EDUPIVOT_DOCKER`）— 基础设施配置
 3. `sc-edupivot-gateway-routes-{profile}.yaml` — 网关路由规则
 4. 各服务 `application.yaml` — 仅保留 Nacos 引导配置
 
 **环境 Profile：**
+
 - `local` — 本地开发（localhost 连接）
 - `docker` — Docker Compose（容器名连接）
 

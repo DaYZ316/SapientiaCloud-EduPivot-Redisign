@@ -6,12 +6,12 @@
 
 ## 服务与迁移表映射
 
-| 服务 | 迁移表 | 数据库 |
-|------|--------|--------|
-| sc-auth | flyway_schema_history_auth | edupivot |
-| sc-course | flyway_schema_history_course | edupivot |
+| 服务              | 迁移表                                | 数据库      |
+|-----------------|------------------------------------|----------|
+| sc-auth         | flyway_schema_history_auth         | edupivot |
+| sc-course       | flyway_schema_history_course       | edupivot |
 | sc-notification | flyway_schema_history_notification | edupivot |
-| sc-storage | flyway_schema_history_storage | edupivot |
+| sc-storage      | flyway_schema_history_storage      | edupivot |
 
 ## 迁移文件命名规范
 
@@ -20,10 +20,12 @@ V{yyyyMMdd}{序号}__{描述}.sql
 `
 
 示例：
+
 - V2026061301__add_user_avatar.sql
 - V2026061302__create_notification_table.sql
 
 ### 版本号规则
+
 - yyyyMMdd：创建日期（如 20260613）
 - 序号：同一天内的序号（01, 02, 03...）
 - 描述：使用 snake_case 描述迁移内容
@@ -31,32 +33,37 @@ V{yyyyMMdd}{序号}__{描述}.sql
 ## 迁移文件编写规范
 
 ### 1. 必须幂等
+
 所有迁移文件必须是幂等的，可以重复执行而不会报错。
 
 `sql
 -- 正确
 CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(100) NOT NULL
+id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+name VARCHAR(100) NOT NULL
 );
 
 -- 错误
 CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(100) NOT NULL
+id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+name VARCHAR(100) NOT NULL
 );
 `
 
 ### 2. 使用事务
+
 Flyway 默认在事务中执行迁移（PostgreSQL 支持）。确保迁移可以在事务中回滚。
 
 ### 3. 避免数据迁移
+
 数据迁移（如 UPDATE、INSERT）应该：
+
 - 单独创建迁移文件
 - 考虑大数据量的性能影响
 - 添加必要的索引
 
 ### 4. 注释规范
+
 `sql
 -- V2026061301: 添加用户头像字段
 -- @author DaYZ
@@ -84,14 +91,17 @@ Flyway 默认在事务中执行迁移（PostgreSQL 支持）。确保迁移可�
 ### 修复迁移问题
 
 #### Checksum 不匹配
+
 使用 flyway repair 修复
 
 #### 迁移失败
+
 1. 检查 SQL 语法错误
 2. 修复问题后重新部署
 3. Flyway 会自动重试失败的迁移
 
 #### 需要回滚
+
 1. 不要修改旧的迁移文件
 2. 创建新的反向迁移文件
 
@@ -100,38 +110,41 @@ Flyway 默认在事务中执行迁移（PostgreSQL 支持）。确保迁移可�
 ### 绝对不要
 
 1. 修改已部署的迁移文件
-   - 一旦迁移应用到任何环境，文件不可变
-   - 需要修改时，创建新版本迁移
+    - 一旦迁移应用到任何环境，文件不可变
+    - 需要修改时，创建新版本迁移
 
 2. 直接修改 flyway_schema_history 表
-   - 使用 flyway repair 命令
-   - 不要手动 SQL 操作
+    - 使用 flyway repair 命令
+    - 不要手动 SQL 操作
 
 3. 在生产环境使用 flyway clean
-   - clean 会删除所有数据
-   - 仅在开发/测试环境使用
+    - clean 会删除所有数据
+    - 仅在开发/测试环境使用
 
 4. 跳过迁移版本
-   - Flyway 按版本号顺序执行
-   - 跳过版本会导致验证失败
+    - Flyway 按版本号顺序执行
+    - 跳过版本会导致验证失败
 
 5. 在迁移中使用 SELECT
-   - 迁移应该是纯 DDL（CREATE、ALTER、DROP）
-   - 数据查询应在应用代码中
+    - 迁移应该是纯 DDL（CREATE、ALTER、DROP）
+    - 数据查询应在应用代码中
 
 ## 故障排查
 
 ### 常见问题
 
 #### 1. Checksum mismatch
+
 原因：迁移文件在部署后被修改
 解决：flyway repair
 
 #### 2. Applied migration not resolved locally
+
 原因：数据库中有迁移记录，但本地文件缺失
 解决：恢复迁移文件，或使用 flyway repair 标记为 DELETED
 
 #### 3. Migration already applied
+
 原因：迁移已执行，尝试重新应用
 解决：检查迁移是否幂等，或创建新版本
 

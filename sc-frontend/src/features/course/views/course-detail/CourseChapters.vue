@@ -12,7 +12,7 @@
       </button>
     </header>
 
-    <div v-if="chaptersLoading" class="chapter-nav-shell chapter-loading-shell" aria-hidden="true">
+    <div v-if="chaptersLoading" aria-hidden="true" class="chapter-nav-shell chapter-loading-shell">
       <section class="chapter-ledger-panel">
         <div class="ledger-summary">
           <div v-for="n in 2" :key="n">
@@ -78,7 +78,7 @@
     </div>
 
     <div v-else-if="flatChapters.length > 0" class="chapter-nav-shell">
-      <section class="chapter-ledger-panel" :aria-label="t('chapter.title')">
+      <section :aria-label="t('chapter.title')" class="chapter-ledger-panel">
         <div class="ledger-summary">
           <div>
             <span>{{ t('chapter.title') }}</span>
@@ -92,10 +92,10 @@
 
         <div class="chapter-ledger">
           <article
-            v-for="(chapter, chapterIndex) in chapterTree"
-            :key="chapter.id"
-            class="chapter-section"
-            :class="{active: isSelected(chapter)}"
+              v-for="(chapter, chapterIndex) in chapterTree"
+              :key="chapter.id"
+              :class="{active: isSelected(chapter)}"
+              class="chapter-section"
           >
             <button class="chapter-section-head" type="button" @click="previewChapter(chapter)">
               <span class="chapter-index">{{ formatIndex(chapterIndex + 1) }}</span>
@@ -110,31 +110,33 @@
               </span>
             </button>
 
-            <div v-if="canManageCourse" class="chapter-section-actions" :aria-label="t('chapter.editChapter')">
-              <button type="button" :title="t('chapter.addSubChapter')" @click="emit('addChildChapter', chapter)">
+            <div v-if="canManageCourse" :aria-label="t('chapter.editChapter')" class="chapter-section-actions">
+              <button :title="t('chapter.addSubChapter')" type="button" @click="emit('addChildChapter', chapter)">
                 <Plus :size="14" stroke-width="1.8"/>
               </button>
-              <button type="button" :title="t('chapter.editChapter')" @click="emit('editChapter', chapter)">
+              <button :title="t('chapter.editChapter')" type="button" @click="emit('editChapter', chapter)">
                 <Pencil :size="14" stroke-width="1.8"/>
               </button>
-              <button type="button" :title="t('chapter.deleteChapter')" @click="emit('deleteChapter', chapter)">
+              <button :title="t('chapter.deleteChapter')" type="button" @click="emit('deleteChapter', chapter)">
                 <Trash2 :size="14" stroke-width="1.8"/>
               </button>
             </div>
 
             <div v-if="lessonsForChapter(chapter).length > 0" class="lesson-list">
               <div
-                v-for="(lesson, lessonIndex) in lessonsForChapter(chapter)"
-                :key="lesson.id"
-                class="lesson-row-wrap"
+                  v-for="(lesson, lessonIndex) in lessonsForChapter(chapter)"
+                  :key="lesson.id"
+                  class="lesson-row-wrap"
               >
                 <button
-                  class="lesson-row"
-                  :class="[chapterState(lesson), {selected: isSelected(lesson)}]"
-                  type="button"
-                  @click="previewChapter(lesson)"
+                    :class="[chapterState(lesson), {selected: isSelected(lesson)}]"
+                    class="lesson-row"
+                    type="button"
+                    @click="previewChapter(lesson)"
                 >
-                  <span class="lesson-state">{{ formatIndex(chapterIndex + 1) }}.{{ formatIndex(lessonIndex + 1) }}</span>
+                  <span class="lesson-state">{{ formatIndex(chapterIndex + 1) }}.{{
+                      formatIndex(lessonIndex + 1)
+                    }}</span>
                   <span class="lesson-copy">
                     <strong>{{ lesson.chapterName }}</strong>
                     <small v-if="lesson.description">{{ truncateText(lesson.description, 72) }}</small>
@@ -143,10 +145,10 @@
                 </button>
 
                 <div v-if="canManageCourse" class="lesson-actions">
-                  <button type="button" :title="t('chapter.editChapter')" @click="emit('editChapter', lesson)">
+                  <button :title="t('chapter.editChapter')" type="button" @click="emit('editChapter', lesson)">
                     <Pencil :size="13" stroke-width="1.8"/>
                   </button>
-                  <button type="button" :title="t('chapter.deleteChapter')" @click="emit('deleteChapter', lesson)">
+                  <button :title="t('chapter.deleteChapter')" type="button" @click="emit('deleteChapter', lesson)">
                     <Trash2 :size="13" stroke-width="1.8"/>
                   </button>
                 </div>
@@ -156,7 +158,7 @@
         </div>
       </section>
 
-      <aside class="lesson-preview-panel" :aria-label="t('chapter.currentLesson')">
+      <aside :aria-label="t('chapter.currentLesson')" class="lesson-preview-panel">
         <div class="preview-sticky">
           <span class="chapter-kicker">{{ t('chapter.currentLesson') }}</span>
           <h3>{{ selectedChapter?.chapterName }}</h3>
@@ -169,7 +171,13 @@
             </div>
             <div>
               <dt>{{ t('chapter.interaction') }}</dt>
-              <dd>{{ selectedChapter ? t('chapter.interactionFormat', { views: selectedChapter.viewCount, likes: selectedChapter.likeCount }) : '-' }}</dd>
+              <dd>{{
+                  selectedChapter ? t('chapter.interactionFormat', {
+                    views: selectedChapter.viewCount,
+                    likes: selectedChapter.likeCount
+                  }) : '-'
+                }}
+              </dd>
             </div>
           </dl>
 
@@ -177,11 +185,11 @@
             <span>{{ t('chapter.resources') }}</span>
             <template v-if="selectedChapter?.attachmentUrls?.length">
               <a
-                v-for="(url, index) in selectedChapter.attachmentUrls"
-                :key="url"
-                :href="url"
-                target="_blank"
-                rel="noopener noreferrer"
+                  v-for="(url, index) in selectedChapter.attachmentUrls"
+                  :key="url"
+                  :href="url"
+                  rel="noopener noreferrer"
+                  target="_blank"
               >
                 <FileText :size="14" stroke-width="1.8"/>
                 {{ t('chapter.attachments') }} {{ index + 1 }}
@@ -191,19 +199,19 @@
           </div>
 
           <div class="preview-actions">
-            <button type="button" class="nav-step" :disabled="!previousChapter" @click="selectAdjacent(-1)">
+            <button :disabled="!previousChapter" class="nav-step" type="button" @click="selectAdjacent(-1)">
               <ChevronLeft :size="14" stroke-width="1.8"/>
               {{ t('chapter.previousLesson') }}
             </button>
             <button
-              type="button"
-              class="open-lesson"
-              :disabled="!canOpenSelectedChapter"
-              @click="openSelectedChapter"
+                :disabled="!canOpenSelectedChapter"
+                class="open-lesson"
+                type="button"
+                @click="openSelectedChapter"
             >
               {{ openLessonLabel }}
             </button>
-            <button type="button" class="nav-step" :disabled="!nextChapter" @click="selectAdjacent(1)">
+            <button :disabled="!nextChapter" class="nav-step" type="button" @click="selectAdjacent(1)">
               {{ t('chapter.nextLesson') }}
               <ChevronRight :size="14" stroke-width="1.8"/>
             </button>
@@ -211,19 +219,19 @@
         </div>
       </aside>
 
-      <section class="learning-path" :aria-label="t('chapter.learningPath')">
+      <section :aria-label="t('chapter.learningPath')" class="learning-path">
         <div class="path-header">
           <span class="chapter-kicker">Learning path</span>
           <strong>{{ t('chapter.learningPath') }}</strong>
         </div>
         <div class="path-rail">
           <button
-            v-for="(chapter, index) in chapterTree"
-            :key="chapter.id"
-            class="path-node"
-            :class="{active: isChapterGroupActive(chapter), locked: chapter.status !== 1}"
-            type="button"
-            @click="previewChapter(chapter)"
+              v-for="(chapter, index) in chapterTree"
+              :key="chapter.id"
+              :class="{active: isChapterGroupActive(chapter), locked: chapter.status !== 1}"
+              class="path-node"
+              type="button"
+              @click="previewChapter(chapter)"
           >
             <span>{{ formatIndex(index + 1) }}</span>
             <strong>{{ chapter.chapterName }}</strong>
@@ -249,15 +257,7 @@
 <script lang="ts" setup>
 import {computed, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {
-  BookOpen,
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-  Pencil,
-  Plus,
-  Trash2,
-} from 'lucide-vue-next'
+import {BookOpen, ChevronLeft, ChevronRight, FileText, Pencil, Plus, Trash2,} from 'lucide-vue-next'
 import type {Chapter} from '@/features/course/types/chapter'
 
 const props = defineProps<{
@@ -353,8 +353,6 @@ function chapterState(chapter: Chapter) {
   if (chapter.id === selectedChapter.value?.id) return 'current'
   return 'available'
 }
-
-
 
 
 function truncateText(text: string, maxLength: number) {
@@ -1056,11 +1054,11 @@ function formatIndex(index: number) {
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--color-surface-card) 40%,
-    var(--color-surface-card) 60%,
-    transparent 100%
+      90deg,
+      transparent 0%,
+      var(--color-surface-card) 40%,
+      var(--color-surface-card) 60%,
+      transparent 100%
   );
   animation: shimmer 1.4s ease-in-out infinite;
 }

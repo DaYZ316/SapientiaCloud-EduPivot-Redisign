@@ -39,4 +39,5 @@ public record ForumPostVO(
         @JsonProperty("chapterId") @Nullable UUID chapterId,
         @JsonProperty("createdAt") Instant createdAt,
         @JsonProperty("updatedAt") Instant updatedAt
-) {}
+) {
+}

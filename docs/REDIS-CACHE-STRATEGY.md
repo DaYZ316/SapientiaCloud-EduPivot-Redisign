@@ -13,28 +13,29 @@
 
 **缓存 Key 设计：**
 
-| Key 格式 | 数据 | TTL |
-|----------|------|-----|
-| `auth:user:{userId}` | User 对象 | 30min |
-| `auth:identity:{provider}:{providerUserId}` | UserIdentity 对象 | 30min |
-| `auth:user:{userId}:providers` | List\<OauthProvider\> | 30min |
-| `auth:user:email:{email}` | User 对象 | 30min |
+| Key 格式                                      | 数据                    | TTL   |
+|---------------------------------------------|-----------------------|-------|
+| `auth:user:{userId}`                        | User 对象               | 30min |
+| `auth:identity:{provider}:{providerUserId}` | UserIdentity 对象       | 30min |
+| `auth:user:{userId}:providers`              | List\<OauthProvider\> | 30min |
+| `auth:user:email:{email}`                   | User 对象               | 30min |
 
 **安全措施：**
+
 - Redis 异常静默吞没，降级到数据库
 - 写操作后主动更新缓存
 
 ### 1.2 存在问题
 
-| 问题 | 说明 | 风险等级 |
-|------|------|----------|
-| **缓存穿透** | 查询不存在的数据（如错误 email），每次请求都打到 DB | 🔴 高 |
-| **缓存击穿** | 热点 key（如管理员账号）过期瞬间，并发请求全部打到 DB | 🔴 高 |
-| **缓存雪崩** | 所有 key TTL 相同（30min），同时过期时 DB 压力骤增 | 🟡 中 |
+| 问题        | 说明                                                                   | 风险等级 |
+|-----------|----------------------------------------------------------------------|------|
+| **缓存穿透**  | 查询不存在的数据（如错误 email），每次请求都打到 DB                                       | 🔴 高 |
+| **缓存击穿**  | 热点 key（如管理员账号）过期瞬间，并发请求全部打到 DB                                       | 🔴 高 |
+| **缓存雪崩**  | 所有 key TTL 相同（30min），同时过期时 DB 压力骤增                                   | 🟡 中 |
 | **缓存不一致** | `saveUser()` 后更新了 `auth:user:{id}`，但 `auth:user:email:{email}` 仍是旧数据 | 🟡 中 |
-| **无缓存预热** | 系统启动后首次请求全部打到 DB | 🟡 中 |
-| **无分布式锁** | 并发读同一 key 时，多个请求同时查 DB | 🟡 中 |
-| **序列化开销** | `GenericJacksonJsonRedisSerializer` 带类型信息，存储体积大 | 🟢 低 |
+| **无缓存预热** | 系统启动后首次请求全部打到 DB                                                     | 🟡 中 |
+| **无分布式锁** | 并发读同一 key 时，多个请求同时查 DB                                               | 🟡 中 |
+| **序列化开销** | `GenericJacksonJsonRedisSerializer` 带类型信息，存储体积大                      | 🟢 低 |
 
 ---
 
@@ -115,11 +116,11 @@ public Optional<User> findByEmail(String email) {
 
 **参数设计：**
 
-| 参数 | 值 | 说明 |
-|------|-----|------|
-| `CACHE_TTL` | 30 min | 正常数据 TTL |
-| `NULL_CACHE_TTL` | 2 min | 空值标记 TTL（不宜太长，防止长期占用内存） |
-| `NULL_MARKER` | `new Object()` 或特定字符串 | 空值标记，区别于正常 User 对象 |
+| 参数               | 值                     | 说明                      |
+|------------------|-----------------------|-------------------------|
+| `CACHE_TTL`      | 30 min                | 正常数据 TTL                |
+| `NULL_CACHE_TTL` | 2 min                 | 空值标记 TTL（不宜太长，防止长期占用内存） |
+| `NULL_MARKER`    | `new Object()` 或特定字符串 | 空值标记，区别于正常 User 对象      |
 
 **方案 B：布隆过滤器（适合数据量大的场景）**
 
@@ -189,11 +190,11 @@ private void releaseLock(String key) {
 
 **参数设计：**
 
-| 参数 | 值 | 说明 |
-|------|-----|------|
-| `LOCK_TIMEOUT` | 3 s | 锁超时时间，防止死锁 |
-| `RETRY_SLEEP` | 50 ms | 重试等待时间 |
-| `MAX_RETRIES` | 3 | 最大重试次数 |
+| 参数             | 值     | 说明         |
+|----------------|-------|------------|
+| `LOCK_TIMEOUT` | 3 s   | 锁超时时间，防止死锁 |
+| `RETRY_SLEEP`  | 50 ms | 重试等待时间     |
+| `MAX_RETRIES`  | 3     | 最大重试次数     |
 
 **优化：本地缓存（Caffeine）作为 L1 缓存**
 
@@ -227,11 +228,11 @@ private void putCached(String key, Object value) {
 
 **参数设计：**
 
-| 参数 | 值 | 说明 |
-|------|-----|------|
-| `CACHE_TTL` | 30 min | 基础 TTL |
-| `CACHE_JITTER` | 5 min | 随机偏移范围 |
-| 实际 TTL | 30~35 min | 均匀分散过期时间 |
+| 参数             | 值         | 说明       |
+|----------------|-----------|----------|
+| `CACHE_TTL`    | 30 min    | 基础 TTL   |
+| `CACHE_JITTER` | 5 min     | 随机偏移范围   |
+| 实际 TTL         | 30~35 min | 均匀分散过期时间 |
 
 ---
 
@@ -330,6 +331,7 @@ private void evictUserCache(UUID userId, String email) {
 ### 5.2 Key 长度控制
 
 Redis key 过长会浪费内存。建议：
+
 - 总长度不超过 128 字节
 - 使用缩写：`auth:` 而不是 `authentication:`
 - UUID 去掉短横线：`uuid.replace("-", "")` 可节省 4 字节
@@ -382,13 +384,13 @@ public void warmCourseCache() {
 
 ### 7.1 关键指标
 
-| 指标 | 说明 | 告警阈值 |
-|------|------|----------|
-| 缓存命中率 | `hits / (hits + misses)` | < 80% |
-| Redis 内存使用率 | `used_memory / maxmemory` | > 80% |
-| Redis 连接数 | `connected_clients` | > 100 |
-| 慢查询 | `slowlog get` | > 10ms |
-| Key 过期数 | `expired_keys` 监控雪崩 | 突增 |
+| 指标          | 说明                        | 告警阈值   |
+|-------------|---------------------------|--------|
+| 缓存命中率       | `hits / (hits + misses)`  | < 80%  |
+| Redis 内存使用率 | `used_memory / maxmemory` | > 80%  |
+| Redis 连接数   | `connected_clients`       | > 100  |
+| 慢查询         | `slowlog get`             | > 10ms |
+| Key 过期数     | `expired_keys` 监控雪崩       | 突增     |
 
 ### 7.2 日志记录
 
@@ -415,28 +417,28 @@ private <T> Optional<T> getCached(String key, Class<T> type) {
 
 ### Phase 1: 基础加固（当前迭代）
 
-| 任务 | 优先级 | 工作量 |
-|------|--------|--------|
-| 缓存空值防穿透 | P0 | 0.5d |
-| TTL 随机化防雪崩 | P0 | 0.5d |
-| 写操作改为"只删不更新" | P0 | 0.5d |
-| 修复 email 缓存不一致 | P0 | 0.5d |
+| 任务             | 优先级 | 工作量  |
+|----------------|-----|------|
+| 缓存空值防穿透        | P0  | 0.5d |
+| TTL 随机化防雪崩     | P0  | 0.5d |
+| 写操作改为"只删不更新"   | P0  | 0.5d |
+| 修复 email 缓存不一致 | P0  | 0.5d |
 
 ### Phase 2: 高可用（下一迭代）
 
-| 任务 | 优先级 | 工作量 |
-|------|--------|--------|
-| 分布式锁防击穿 | P1 | 1d |
-| 缓存命中率监控 | P1 | 1d |
-| 缓存预热 | P2 | 0.5d |
+| 任务      | 优先级 | 工作量  |
+|---------|-----|------|
+| 分布式锁防击穿 | P1  | 1d   |
+| 缓存命中率监控 | P1  | 1d   |
+| 缓存预热    | P2  | 0.5d |
 
 ### Phase 3: 性能优化（后续）
 
-| 任务 | 优先级 | 工作量 |
-|------|--------|--------|
-| 本地缓存 L1（Caffeine） | P2 | 1d |
-| Pipeline 批量操作 | P2 | 0.5d |
-| 热点 key 探测 | P3 | 1d |
+| 任务                | 优先级 | 工作量  |
+|-------------------|-----|------|
+| 本地缓存 L1（Caffeine） | P2  | 1d   |
+| Pipeline 批量操作     | P2  | 0.5d |
+| 热点 key 探测         | P3  | 1d   |
 
 ---
 
@@ -444,15 +446,15 @@ private <T> Optional<T> getCached(String key, Class<T> type) {
 
 不同数据采用不同的缓存策略：
 
-| 数据类型 | TTL | 策略 | 示例 |
-|----------|-----|------|------|
-| 用户基础信息 | 30min | Cache-Aside + 空值缓存 | User, UserProfile |
-| OAuth 身份 | 30min | Cache-Aside | UserIdentity |
-| 课程信息 | 15min | Cache-Aside | Course, Chapter |
-| 通知计数 | 5min | Cache-Aside | UnreadCount |
-| 会话状态 | 7d | 直接存储 | RefreshToken |
-| 限流计数 | 滑动窗口 | 直接存储 | RateLimit |
-| Token 黑名单 | Token 剩余 TTL | 直接存储 | Blacklist |
-| 搜索结果 | 2min | Cache-Aside（短 TTL） | CourseList |
+| 数据类型      | TTL          | 策略                 | 示例                |
+|-----------|--------------|--------------------|-------------------|
+| 用户基础信息    | 30min        | Cache-Aside + 空值缓存 | User, UserProfile |
+| OAuth 身份  | 30min        | Cache-Aside        | UserIdentity      |
+| 课程信息      | 15min        | Cache-Aside        | Course, Chapter   |
+| 通知计数      | 5min         | Cache-Aside        | UnreadCount       |
+| 会话状态      | 7d           | 直接存储               | RefreshToken      |
+| 限流计数      | 滑动窗口         | 直接存储               | RateLimit         |
+| Token 黑名单 | Token 剩余 TTL | 直接存储               | Blacklist         |
+| 搜索结果      | 2min         | Cache-Aside（短 TTL） | CourseList        |
 
 **原则：变化越频繁的数据，TTL 越短。**

@@ -13,4 +13,5 @@ import java.util.List;
 public record UpdateForumReplyRequest(
         @NotBlank String content,
         List<String> imageUrls
-) {}
+) {
+}

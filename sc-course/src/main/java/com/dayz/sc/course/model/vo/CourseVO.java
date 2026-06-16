@@ -33,5 +33,8 @@ public record CourseVO(
         @JsonProperty int currentStudents,
         @JsonProperty int status,
         @JsonProperty Instant createdAt,
-        @JsonProperty Instant updatedAt
-) {}
+        @JsonProperty Instant updatedAt,
+        @JsonProperty long publishedClassSessionCount,
+        @JsonProperty int courseProgress
+) {
+}

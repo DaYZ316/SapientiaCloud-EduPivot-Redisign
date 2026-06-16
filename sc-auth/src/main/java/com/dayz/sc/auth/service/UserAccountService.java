@@ -9,6 +9,7 @@ import com.dayz.sc.auth.repository.UserAccountRepository;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.model.UserRole;
+import com.dayz.sc.common.util.UuidV7Generator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,8 +19,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-
-import com.dayz.sc.common.util.UuidV7Generator;
 
 /**
  * 协调内部系统用户与外部 OAuth 身份
@@ -91,7 +90,8 @@ public class UserAccountService {
                 normalizedClientIp,
                 1L,
                 null,
-                UserRole.STUDENT.getCode(),  // OAuth 用户默认角色为学生
+                // OAuth 用户默认角色为学生
+                UserRole.STUDENT.getCode(),
                 null,
                 null,
                 null,

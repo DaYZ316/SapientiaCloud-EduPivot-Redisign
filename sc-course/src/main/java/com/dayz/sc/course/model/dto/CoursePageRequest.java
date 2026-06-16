@@ -19,4 +19,5 @@ public record CoursePageRequest(
         Instant createdAtEnd,
         Instant updatedAtStart,
         Instant updatedAtEnd
-) {}
+) {
+}

@@ -14,4 +14,5 @@ public record ChapterPageRequest(
         UUID courseId,
         Integer status,
         String keyword
-) {}
+) {
+}
