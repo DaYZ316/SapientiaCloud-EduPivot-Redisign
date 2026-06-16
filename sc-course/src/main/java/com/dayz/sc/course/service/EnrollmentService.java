@@ -166,7 +166,9 @@ public class EnrollmentService {
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
         boolean isCourseTeacher = course.getTeacherId().equals(userId)
                 || courseTeacherRepository.existsByCourseIdAndTeacherId(courseId, userId);
-        if (!isCourseTeacher && !SecurityUtils.isAdmin(role)) {
+        boolean publicPublishedCourse = Objects.equals(course.getIsPublic(), 1)
+                && Objects.equals(course.getStatus(), CourseStatus.PUBLISHED.getCode());
+        if (!isCourseTeacher && !SecurityUtils.isAdmin(role) && !publicPublishedCourse) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
 

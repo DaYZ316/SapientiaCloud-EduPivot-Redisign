@@ -4,7 +4,7 @@
     font-style: normal;
     font-weight: 100 700;
     font-display: swap;
-    src: url('/fonts/MaterialSymbolsOutlined.ttf') format('truetype');
+    src: url('MaterialSymbolsOutlined.ttf') format('truetype');
 }
 
 /* Bodoni Moda */
@@ -13,7 +13,7 @@
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: url('/fonts/BodoniModa-Regular.ttf') format('truetype');
+    src: url('BodoniModa-Regular.ttf') format('truetype');
 }
 
 @font-face {
@@ -21,7 +21,7 @@
     font-style: normal;
     font-weight: 500;
     font-display: swap;
-    src: url('/fonts/BodoniModa-Medium.ttf') format('truetype');
+    src: url('BodoniModa-Medium.ttf') format('truetype');
 }
 
 @font-face {
@@ -29,7 +29,7 @@
     font-style: normal;
     font-weight: 600;
     font-display: swap;
-    src: url('/fonts/BodoniModa-SemiBold.ttf') format('truetype');
+    src: url('BodoniModa-SemiBold.ttf') format('truetype');
 }
 
 @font-face {
@@ -37,7 +37,7 @@
     font-style: normal;
     font-weight: 700;
     font-display: swap;
-    src: url('/fonts/BodoniModa-Bold.ttf') format('truetype');
+    src: url('BodoniModa-Bold.ttf') format('truetype');
 }
 
 @font-face {
@@ -45,7 +45,7 @@
     font-style: italic;
     font-weight: 400;
     font-display: swap;
-    src: url('/fonts/BodoniModa-Italic.ttf') format('truetype');
+    src: url('BodoniModa-Italic.ttf') format('truetype');
 }
 
 /* Hanken Grotesk */
@@ -54,7 +54,7 @@
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: url('/fonts/HankenGrotesk-Regular.ttf') format('truetype');
+    src: url('HankenGrotesk-Regular.ttf') format('truetype');
 }
 
 @font-face {
@@ -62,7 +62,7 @@
     font-style: normal;
     font-weight: 500;
     font-display: swap;
-    src: url('/fonts/HankenGrotesk-Medium.ttf') format('truetype');
+    src: url('HankenGrotesk-Medium.ttf') format('truetype');
 }
 
 @font-face {
@@ -70,7 +70,7 @@
     font-style: normal;
     font-weight: 600;
     font-display: swap;
-    src: url('/fonts/HankenGrotesk-SemiBold.ttf') format('truetype');
+    src: url('HankenGrotesk-SemiBold.ttf') format('truetype');
 }
 
 @font-face {
@@ -78,5 +78,5 @@
     font-style: normal;
     font-weight: 700;
     font-display: swap;
-    src: url('/fonts/HankenGrotesk-Bold.ttf') format('truetype');
+    src: url('HankenGrotesk-Bold.ttf') format('truetype');
 }

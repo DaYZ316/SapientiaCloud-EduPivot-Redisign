@@ -443,3 +443,106 @@ src/
 - 代码标识符：英文
 - 设计文档：`docs/DESIGN.md`
 - 缓存策略：`docs/REDIS-CACHE-STRATEGY.md`
+
+### 22. 阿里巴巴 Java 开发规范（强制）
+
+基于阿里巴巴 Java 开发手册，以下规则必须遵守：
+
+#### 22.1 控制语句
+
+- **if/else/for/while/do 必须使用大括号**，即使只有一行代码
+- **switch 块必须包含 default 语句**，放在最后
+- **禁止在条件判断中使用复杂表达式**，将结果赋值给有意义的布尔变量
+
+```java
+// ✗ 错误
+if (a != null && (b.canRead() || c.canWrite()) && d.equals(e)) { ... }
+
+// ✓ 正确
+boolean hasAccess = a != null && (b.canRead() || c.canWrite());
+boolean isOwner = d.equals(e);
+if (hasAccess && isOwner) { ... }
+```
+
+#### 22.2 命名规范
+
+- **POJO 布尔字段禁止使用 is 前缀**，否则部分框架解析会引起序列化错误
+- **方法名、参数名、成员变量、局部变量统一使用 lowerCamelCase**
+
+```java
+// ✗ 错误
+public record CourseAccessVO(boolean isPrimaryTeacher) {}
+public void toForumReplyVOWithChildren() {}
+
+// ✓ 正确
+public record CourseAccessVO(@JsonProperty("isPrimaryTeacher") boolean primaryTeacher) {}
+public void toForumReplyVoWithChildren() {}
+```
+
+#### 22.3 注释规范
+
+- **所有接口方法必须使用 Javadoc 注释**，包含 `@param`、`@return` 标签
+- **所有类必须添加 `@author` 和 `@since` 信息**
+- **枚举字段必须添加注释**，说明每个数据项的用途
+- **禁止使用行尾注释**，注释应另起一行
+- **字段注释必须使用 Javadoc 格式**（`/** */`），禁止 `//` 注释
+
+```java
+// ✗ 错误
+private static final int MAX_POLL_ROUNDS = 30; // 最多等 3s
+
+// ✓ 正确
+/** 最多等 3s */
+private static final int MAX_POLL_ROUNDS = 30;
+```
+
+#### 22.4 魔法值
+
+- **禁止任何魔法值直接出现在代码中**，必须定义为常量
+
+```java
+// ✗ 错误
+if (authorization.startsWith("Bearer ")) { ... }
+if (status == 403 || status == 404) { ... }
+
+// ✓ 正确
+private static final String BEARER_PREFIX = "Bearer ";
+private static final int HTTP_FORBIDDEN = 403;
+private static final int HTTP_NOT_FOUND = 404;
+
+if (authorization.startsWith(BEARER_PREFIX)) { ... }
+if (status == HTTP_FORBIDDEN || status == HTTP_NOT_FOUND) { ... }
+```
+
+#### 22.5 集合与线程池
+
+- **集合初始化时必须指定初始值大小**
+- **线程池禁止使用 Executors 创建**，必须通过 ThreadPoolExecutor 方式
+
+```java
+// ✗ 错误
+Map<UUID, String> urls = new HashMap<>();
+ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+
+// ✓ 正确
+Map<UUID, String> urls = new HashMap<>(objects.size());
+ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(1, r -> {
+    Thread t = new Thread(r, "sse-heartbeat");
+    t.setDaemon(true);
+    return t;
+});
+```
+
+#### 22.6 方法规范
+
+- **单个方法总行数不超过 80 行**，超过需拆分为私有方法
+- **禁止使用过时的类或方法**
+
+```java
+// ✗ 错误（BigDecimal.ROUND_HALF_UP 自 Java 9 起已弃用）
+score.divide(divisor, 2, BigDecimal.ROUND_HALF_UP);
+
+// ✓ 正确
+import java.math.RoundingMode;
+score.divide(divisor, 2, RoundingMode.HALF_UP);
+```

@@ -111,6 +111,19 @@
             </div>
           </article>
         </div>
+
+        <BasePagination
+            v-if="sessionTotal > 0"
+            :aria-label="t('courseDetail.pagination')"
+            :disabled="loading"
+            :next-title="t('courseDetail.nextPage')"
+            :page="currentPage"
+            :previous-title="t('courseDetail.previousPage')"
+            :size="pageSize"
+            :total="sessionTotal"
+            class="session-pagination"
+            @change="changeSessionPage"
+        />
       </div>
 
       <aside v-if="loading" aria-hidden="true" class="session-editor-panel loading-editor">
@@ -338,6 +351,7 @@ import {
 } from '@/features/course/api/classSession'
 import CourseEntryTransition from '@/features/course/components/CourseEntryTransition.vue'
 import BaseDatePicker from '@/shared/components/BaseDatePicker.vue'
+import BasePagination from '@/shared/components/BasePagination.vue'
 import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import {
@@ -362,6 +376,9 @@ const {t, locale} = useI18n()
 const router = useRouter()
 
 const sessions = ref<ClassSession[]>([])
+const currentPage = ref(1)
+const pageSize = 10
+const sessionTotal = ref(0)
 const loading = ref(false)
 const loadFailed = ref(false)
 const submitting = ref(false)
@@ -474,6 +491,7 @@ onMounted(() => {
 })
 
 watch(() => props.courseId, () => {
+  currentPage.value = 1
   void loadSessions()
 })
 
@@ -487,10 +505,16 @@ async function loadSessions() {
   loading.value = true
   loadFailed.value = false
   try {
-    const response = await getCourseClassSessions(props.courseId, 1, 50)
+    const response = await getCourseClassSessions(props.courseId, currentPage.value, pageSize)
     const editingId = editingSession.value?.id
     const previewId = previewSession.value?.id
     sessions.value = response.records || []
+    sessionTotal.value = response.total || 0
+    if (sessions.value.length === 0 && sessionTotal.value > 0 && currentPage.value > 1) {
+      currentPage.value -= 1
+      await loadSessions()
+      return
+    }
     if (editingId) {
       const nextEditing = sessions.value.find(session => session.id === editingId) || null
       if (nextEditing && isDraft(nextEditing)) {
@@ -519,6 +543,11 @@ async function loadSessions() {
   } finally {
     loading.value = false
   }
+}
+
+function changeSessionPage(page: number) {
+  currentPage.value = page
+  void loadSessions()
 }
 
 function resetForm() {
@@ -843,6 +872,11 @@ function normalizedRoomSize(value: number) {
 
 .session-list-loading {
   display: grid;
+}
+
+.session-pagination {
+  padding: 14px 12px 16px;
+  border-top: 1px solid var(--color-outline-light);
 }
 
 .session-create-row {

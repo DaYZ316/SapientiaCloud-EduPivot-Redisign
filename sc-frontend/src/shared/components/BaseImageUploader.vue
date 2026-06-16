@@ -677,6 +677,8 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string) {
 }
 
 .image-crop-stage {
+  --image-crop-aspect: 16 / 9;
+
   position: relative;
   width: 100%;
   aspect-ratio: var(--image-crop-aspect);

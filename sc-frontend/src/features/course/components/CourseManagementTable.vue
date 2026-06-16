@@ -90,7 +90,7 @@
               <Pencil :size="15" stroke-width="1.8"/>
             </button>
             <button
-                v-if="editable"
+                v-if="canInviteAssistant"
                 :aria-label="t('enrollmentManagement.inviteAssistant')"
                 :title="t('enrollmentManagement.inviteAssistant')"
                 class="btn-icon"
@@ -127,8 +127,10 @@ withDefaults(defineProps<{
   courses: Course[]
   loading?: boolean
   editable?: boolean
+  canInviteAssistant?: boolean
 }>(), {
   editable: true,
+  canInviteAssistant: true,
 })
 
 defineEmits<{

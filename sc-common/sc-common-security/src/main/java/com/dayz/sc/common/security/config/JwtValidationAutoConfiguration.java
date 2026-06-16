@@ -1,6 +1,7 @@
 package com.dayz.sc.common.security.config;
 
 import com.dayz.sc.common.security.crypto.RsaKeyLoader;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -20,6 +21,7 @@ import java.security.interfaces.RSAPublicKey;
  * @author DaYZ
  * @since 2026-06-09
  */
+@AutoConfiguration
 public class JwtValidationAutoConfiguration {
 
     /**

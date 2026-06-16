@@ -96,6 +96,19 @@ class ClassSessionRepositoryTest {
     }
 
     @Test
+    void countPublishedByCourseIds_shouldReadCamelCaseMapKeys() {
+        MybatisClassSessionRepository repository = new MybatisClassSessionRepository(classSessionMapper);
+        UUID courseId = UUID.randomUUID();
+        when(classSessionMapper.selectMaps(any())).thenReturn(List.of(
+                Map.of("courseId", courseId.toString(), "publishedCount", "4")
+        ));
+
+        Map<UUID, Long> result = repository.countPublishedByCourseIds(List.of(courseId));
+
+        assertThat(result).containsEntry(courseId, 4L);
+    }
+
+    @Test
     void existsBySessionIdAndUserId_shouldQueryUniqueParticipantPair() {
         MybatisClassParticipantRepository repository = new MybatisClassParticipantRepository(classParticipantMapper);
         when(classParticipantMapper.selectCount(any())).thenReturn(1L);

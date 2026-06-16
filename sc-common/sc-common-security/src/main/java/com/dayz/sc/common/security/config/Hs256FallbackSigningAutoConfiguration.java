@@ -1,6 +1,5 @@
 package com.dayz.sc.common.security.config;
 
-import com.dayz.sc.common.security.service.JwtTokenService;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -34,9 +33,4 @@ public class Hs256FallbackSigningAutoConfiguration {
         return new NimbusJwtEncoder(new ImmutableSecret<>(secretKey));
     }
 
-    @Bean
-    @ConditionalOnMissingBean(JwtTokenService.class)
-    public JwtTokenService hs256JwtTokenService(JwtEncoder jwtEncoder, JwtProperties jwtProperties) {
-        return new JwtTokenService(jwtEncoder, jwtProperties);
-    }
 }

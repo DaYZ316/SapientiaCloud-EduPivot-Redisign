@@ -351,7 +351,7 @@ onMounted(async () => {
   margin-bottom: 32px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 16px;
+  border-radius: var(--radius-md);
   overflow-x: auto;
   overflow-y: hidden;
 }
@@ -418,7 +418,7 @@ onMounted(async () => {
   flex-shrink: 0;
   place-items: center;
   background: var(--color-surface-canvas);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--color-on-surface);
   overflow: hidden;
 }
@@ -440,7 +440,7 @@ onMounted(async () => {
   align-items: center;
   min-height: 24px;
   padding: 0 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
   font-weight: 800;
 }
@@ -478,7 +478,7 @@ onMounted(async () => {
   place-items: center;
   background: transparent;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--color-muted);
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
@@ -539,7 +539,7 @@ onMounted(async () => {
   padding: 10px 16px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
   font-weight: 400;
@@ -566,7 +566,7 @@ onMounted(async () => {
 
 .skeleton-line {
   height: 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--color-surface-canvas);
   width: 120px;
 }
@@ -582,14 +582,14 @@ onMounted(async () => {
 .skeleton-pill {
   width: 64px;
   height: 24px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--color-surface-canvas);
 }
 
 .skeleton-actions {
   width: 48px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--color-surface-canvas);
 }
 

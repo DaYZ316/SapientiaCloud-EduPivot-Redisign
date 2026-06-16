@@ -6,7 +6,7 @@
         class="base-date-picker-trigger"
         type="button"
         @click="openPicker"
-        @keydown.escape="closePicker"
+        @keydown="handleTriggerKeydown"
     >
       <span>{{ selectedDateDisplay || placeholderText }}</span>
       <CalendarDays :size="18" stroke-width="1.8"/>
@@ -363,6 +363,12 @@ function openPicker() {
 function closePicker() {
   activePanel.value = 'calendar'
   pickerOpen.value = false
+}
+
+function handleTriggerKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    closePicker()
+  }
 }
 
 function togglePanel(panel: DatePickerPanel) {

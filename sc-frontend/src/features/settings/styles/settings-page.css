@@ -199,11 +199,6 @@
     color-scheme: light;
 }
 
-.form-group .input-field[type="date"]::-webkit-datetime-edit,
-.form-group .input-field[type="time"]::-webkit-datetime-edit {
-    color: var(--color-on-surface);
-}
-
 .form-group .input-field[type="date"]::-webkit-calendar-picker-indicator,
 .form-group .input-field[type="time"]::-webkit-calendar-picker-indicator {
     width: 18px;

@@ -26,7 +26,7 @@
 
     <!-- Table Skeleton -->
     <template v-else-if="variant === 'table'">
-      <div class="skeleton-table">
+      <div :style="{'--cols': String(columns)}" class="skeleton-table">
         <div class="skeleton-table-header">
           <div v-for="col in columns" :key="col" class="skeleton-table-cell skeleton-header-cell"></div>
         </div>
@@ -152,6 +152,8 @@ withDefaults(defineProps<Props>(), {
 
 /* Table variant */
 .skeleton-table {
+  --cols: 7;
+
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
   border-radius: 32px;

@@ -53,8 +53,11 @@ public class InvitationService {
         Course course = courseRepository.findById(request.courseId())
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
 
-        // 教师必须是课程主讲教师，管理员可邀请任意课程
-        if (com.dayz.sc.common.security.support.SecurityUtils.isTeacher(inviterRole) && !course.getTeacherId().equals(inviterId)) {
+        // 只有主讲教师和管理员可以邀请助教；teacherIds 仅表示课程教师/助教关联集合
+        boolean admin = com.dayz.sc.common.security.support.SecurityUtils.isAdmin(inviterRole);
+        boolean primaryTeacher = com.dayz.sc.common.security.support.SecurityUtils.isTeacher(inviterRole)
+                && course.getTeacherId().equals(inviterId);
+        if (!admin && !primaryTeacher) {
             throw new BusinessException(ErrorCodes.FORBIDDEN, "只有主讲教师能邀请助教");
         }
 
@@ -86,7 +89,7 @@ public class InvitationService {
         invitation.setInviteeId(request.inviteeId());
 
         // 管理员邀请直接接受，教师邀请需要对方确认
-        if (com.dayz.sc.common.security.support.SecurityUtils.isAdmin(inviterRole)) {
+        if (admin) {
             invitation.setStatus(InvitationStatus.ACCEPTED.getCode());
         } else {
             invitation.setStatus(InvitationStatus.PENDING.getCode());
@@ -96,7 +99,7 @@ public class InvitationService {
         invitationRepository.save(invitation);
 
         // 管理员邀请直接加入课程教师关联表
-        if (com.dayz.sc.common.security.support.SecurityUtils.isAdmin(inviterRole)) {
+        if (admin) {
             courseTeacherRepository.batchSave(request.courseId(), List.of(request.inviteeId()));
         }
 
@@ -105,14 +108,14 @@ public class InvitationService {
         String inviterName = inviterInfo != null ? inviterInfo.displayName() : "未知教师";
         String inviteeName = inviteeInfo.displayName() != null ? inviteeInfo.displayName() : "未知教师";
 
-        String action = com.dayz.sc.common.security.support.SecurityUtils.isAdmin(inviterRole) ? "AUTO_ACCEPTED" : "INVITED";
+        String action = admin ? "AUTO_ACCEPTED" : "INVITED";
         courseEventPublisher.publishInvitationChanged(
                 request.courseId(), course.getTitle(),
                 inviterId, inviterName,
                 request.inviteeId(), inviteeName,
                 action);
 
-        if (com.dayz.sc.common.security.support.SecurityUtils.isAdmin(inviterRole)) {
+        if (admin) {
             log.info("Admin {} auto-added {} as assistant for course {}", inviterId, request.inviteeId(), request.courseId());
         } else {
             log.info("Teacher {} invited {} as assistant for course {}", inviterId, request.inviteeId(), request.courseId());

@@ -266,7 +266,7 @@ public class QuestionBankService {
         }
     }
 
-    private void updateQuestionOptions(UUID questionId, UUID courseId, List<?> options) {
+    private void updateQuestionOptions(UUID questionId, UUID courseId, List<QuestionOptionRequest> options) {
         questionOptionRepository.deleteByQuestionId(questionId);
         List<QuestionOption> optionEntities = options.stream()
                 .map(opt -> {
@@ -286,7 +286,7 @@ public class QuestionBankService {
         questionOptionRepository.saveBatch(optionEntities);
     }
 
-    private void updateQuestionAnswers(UUID questionId, UUID courseId, List<?> answers) {
+    private void updateQuestionAnswers(UUID questionId, UUID courseId, List<QuestionAnswerRequest> answers) {
         questionAnswerRepository.deleteByQuestionId(questionId);
         List<QuestionAnswer> answerEntities = answers.stream()
                 .map(ans -> {

@@ -260,7 +260,7 @@ onMounted(() => {
   margin-bottom: 24px;
   padding: 4px;
   background: var(--color-surface-canvas);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   width: fit-content;
 }
 
@@ -268,7 +268,7 @@ onMounted(() => {
   padding: 10px 24px;
   background: transparent;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
   font-weight: 400;
@@ -302,7 +302,7 @@ onMounted(() => {
   padding: 20px 24px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 16px;
+  border-radius: var(--radius-md);
 }
 
 .invitation-card {
@@ -317,7 +317,7 @@ onMounted(() => {
 .skeleton-cover {
   width: 80px;
   height: 60px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 
@@ -450,7 +450,7 @@ onMounted(() => {
   padding: 10px 16px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
   font-weight: 400;
@@ -495,7 +495,7 @@ onMounted(() => {
   overflow: hidden;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 24px;
+  border-radius: var(--radius-lg);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.16);
 }
 
@@ -521,7 +521,7 @@ onMounted(() => {
   place-items: center;
   background: none;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--color-muted);
   cursor: pointer;
   transition: all 0.2s;
@@ -605,7 +605,7 @@ onMounted(() => {
 .skeleton-title {
   height: 20px;
   width: 50%;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--color-surface-canvas);
   margin-bottom: 12px;
 }

@@ -23,7 +23,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  */
 @AutoConfiguration
 @EnableConfigurationProperties(JwtProperties.class)
-@Import({JwtSigningAutoConfiguration.class, JwtValidationAutoConfiguration.class})
+@Import({
+        JwtSigningAutoConfiguration.class,
+        JwtValidationAutoConfiguration.class,
+        Hs256FallbackSigningAutoConfiguration.class,
+        JwtTokenAutoConfiguration.class
+})
 public class SecurityAutoConfiguration {
 
     @Bean

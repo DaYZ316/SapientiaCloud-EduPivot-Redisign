@@ -20,6 +20,7 @@ WORKDIR /app
 
 ENV TZ=Asia/Shanghai
 ENV JAVA_OPTS=""
+ENV JWT_PRIVATE_KEY_B64=""
 
 COPY --from=build /workspace/sc-auth/target/sc-auth-*.jar app.jar
 

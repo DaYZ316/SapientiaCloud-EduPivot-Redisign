@@ -251,7 +251,7 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, ref, watch} from 'vue'
+import {computed, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
 import {
@@ -299,7 +299,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-const courseId = route.params.id as string
+const courseId = computed(() => String(route.params.id || ''))
 
 const loading = ref(true)
 const chaptersLoading = ref(false)
@@ -345,7 +345,7 @@ const canManageCourse = computed(() => {
 const canManageAssistants = computed(() => {
   const userId = authStore.user?.id
   if (!userId || !course.value) return isAdmin.value
-  return isAdmin.value || course.value.teacherId === userId || Boolean(course.value.teacherIds?.includes(userId)) || Boolean(course.value.assistantIds?.includes(userId))
+  return isAdmin.value || course.value.teacherId === userId
 })
 const canComment = computed(() => {
   const userId = authStore.user?.id
@@ -364,6 +364,7 @@ const isPublicPublishedCourse = computed(() => course.value?.isPublic === 1 && i
 const canAccessCourseContent = computed(() => {
   return canManageCourse.value || Boolean(course.value?.enrolled) || isPublicPublishedCourse.value
 })
+const canViewStudents = computed(() => canManageCourse.value || isPublicPublishedCourse.value)
 
 const assistantOnlyInfos = computed<TeacherInfo[]>(() => {
   if (!course.value?.teacherInfos) return []
@@ -436,12 +437,12 @@ const tabs = computed(() => [
   {key: 'forums' as const, label: t('courseDetail.discussionTab'), icon: MessageCircle, roles: [0, 1, 2]},
   {key: 'banks' as const, label: t('courseDetail.practiceTab'), icon: Database, roles: [0, 1, 2]},
   {key: 'files' as const, label: t('courseDetail.filesTab'), icon: Database, roles: [0, 1, 2]},
-  {key: 'students' as const, label: t('courseDetail.studentsTab'), icon: Users, roles: [0, 2]},
+  {key: 'students' as const, label: t('courseDetail.studentsTab'), icon: Users, roles: [0, 1, 2], requiresViewStudents: true},
   {key: 'assistants' as const, label: t('courseDetail.assistantsTab'), icon: UserCheck, roles: [0, 2]},
 ])
 const visibleTabs = computed(() => {
   const role = authStore.user?.role ?? 1
-  return tabs.value.filter(tab => tab.roles.includes(role))
+  return tabs.value.filter(tab => tab.roles.includes(role) && (!tab.requiresViewStudents || canViewStudents.value))
 })
 
 const activeTabKey = computed(() => {
@@ -453,6 +454,7 @@ const activeTabKey = computed(() => {
   }
   return 'overview'
 })
+const isActiveTabVisible = computed(() => visibleTabs.value.some(tab => tab.key === activeTabKey.value))
 
 const activeListPage = computed(() => {
   switch (activeTabKey.value) {
@@ -505,17 +507,56 @@ const activeListPaginationProps = computed(() => {
   }
 })
 
-onMounted(loadCourseDetail)
+watch(
+  courseId,
+  (newCourseId, oldCourseId) => {
+    if (newCourseId !== oldCourseId) resetCourseData()
+    void loadCourseDetail(newCourseId)
+  },
+  {immediate: true},
+)
 
 watch(activeTabKey, () => {
   if (!course.value || loading.value) return
+  if (!isActiveTabVisible.value) {
+    void router.replace({name: 'course-overview', params: {id: courseId.value}})
+    return
+  }
   void ensureActiveTabData()
 })
 
-async function loadCourseDetail() {
+watch(isActiveTabVisible, (visible) => {
+  if (!course.value || loading.value || visible) return
+  void router.replace({name: 'course-overview', params: {id: courseId.value}})
+})
+
+function resetCourseData() {
+  course.value = null
+  chapterTree.value = []
+  courseBanks.value = []
+  courseFiles.value = []
+  courseStudents.value = []
+  chaptersLoading.value = false
+  banksLoading.value = false
+  filesLoading.value = false
+  studentsLoading.value = false
+  chaptersLoaded.value = false
+  banksLoaded.value = false
+  filesLoaded.value = false
+  studentsLoaded.value = false
+  banksPage.value = 1
+  banksTotal.value = 0
+  filesPage.value = 1
+  filesTotal.value = 0
+  studentsPage.value = 1
+  studentsTotal.value = 0
+}
+
+async function loadCourseDetail(targetCourseId = courseId.value) {
   loading.value = true
   try {
-    const courseData = await getCourse(courseId)
+    const courseData = await getCourse(targetCourseId)
+    if (targetCourseId !== courseId.value) return
 
     course.value = courseData
     recordCourseVisit({
@@ -524,18 +565,21 @@ async function loadCourseDetail() {
       coverUrl: courseData.coverUrl,
       teacherName: courseData.teacherName,
     })
+    if (!isActiveTabVisible.value) {
+      await router.replace({name: 'course-overview', params: {id: courseId.value}})
+    }
   } finally {
-    loading.value = false
+    if (targetCourseId === courseId.value) loading.value = false
   }
 
-  await ensureActiveTabData()
+  if (targetCourseId === courseId.value) await ensureActiveTabData()
 }
 
 async function handleEnroll() {
   if (!course.value || enrolling.value || isFull.value || !isPublished.value) return
   enrolling.value = true
   try {
-    await enroll({courseId})
+    await enroll({courseId: courseId.value})
     course.value.enrolled = true
     course.value.currentStudents += 1
     notify.success(t('courseDetail.alert.enrollSuccess'))
@@ -556,7 +600,7 @@ function handlePrimaryAction() {
     return
   }
   if (canAccessCourseContent.value) {
-    router.push({name: 'course-class-sessions', params: {id: courseId}})
+    router.push({name: 'course-class-sessions', params: {id: courseId.value}})
   }
 }
 
@@ -581,7 +625,7 @@ function openChapterEditor() {
 function handleChapterSelect(chapter: Chapter) {
   router.push({
     name: 'chapter-detail',
-    params: {courseId},
+    params: {courseId: courseId.value},
     query: {chapterId: chapter.id},
   })
 }
@@ -632,12 +676,12 @@ async function handleSaveChapter(data: CreateChapterRequest | UpdateChapterReque
 }
 
 function goToCourseBanks() {
-  router.push({name: 'course-question-banks', params: {courseId}})
+  router.push({name: 'course-question-banks', params: {courseId: courseId.value}})
 }
 
 async function openClassSessionCreator() {
   if (route.name !== 'course-class-sessions') {
-    await router.push({name: 'course-class-sessions', params: {id: courseId}, query: {create: '1'}})
+    await router.push({name: 'course-class-sessions', params: {id: courseId.value}, query: {create: '1'}})
   }
   classSessionCreateRequestKey.value += 1
 }
@@ -697,56 +741,64 @@ async function handleListPageChange(page: number) {
 }
 
 async function reloadChapters() {
+  const targetCourseId = courseId.value
   chaptersLoading.value = true
   try {
-    chapterTree.value = await getChapterTree(courseId)
+    const tree = await getChapterTree(targetCourseId)
+    if (targetCourseId !== courseId.value) return
+    chapterTree.value = tree
     chaptersLoaded.value = true
   } finally {
-    chaptersLoading.value = false
+    if (targetCourseId === courseId.value) chaptersLoading.value = false
   }
 }
 
 async function reloadBanks(page = banksPage.value) {
+  const targetCourseId = courseId.value
   if (banksLoading.value) return
   banksLoading.value = true
   try {
     let nextPage = page
-    let resp = await getQuestionBanks({courseId, page: nextPage, size: DETAIL_PAGE_SIZE})
+    let resp = await getQuestionBanks({courseId: targetCourseId, page: nextPage, size: DETAIL_PAGE_SIZE})
     while ((resp.records || []).length === 0 && resp.total > 0 && nextPage > 1) {
       nextPage -= 1
-      resp = await getQuestionBanks({courseId, page: nextPage, size: DETAIL_PAGE_SIZE})
+      resp = await getQuestionBanks({courseId: targetCourseId, page: nextPage, size: DETAIL_PAGE_SIZE})
     }
+    if (targetCourseId !== courseId.value) return
     courseBanks.value = resp.records || []
     banksPage.value = resp.page
     banksTotal.value = resp.total
     banksLoaded.value = true
   } finally {
-    banksLoading.value = false
+    if (targetCourseId === courseId.value) banksLoading.value = false
   }
 }
 
 async function reloadFiles(page = filesPage.value) {
+  const targetCourseId = courseId.value
   if (filesLoading.value) return
   filesLoading.value = true
   try {
     let nextPage = page
-    let resp = await listCourseFiles(courseId, nextPage, DETAIL_PAGE_SIZE)
+    let resp = await listCourseFiles(targetCourseId, nextPage, DETAIL_PAGE_SIZE)
     while ((resp.records || []).length === 0 && resp.total > 0 && nextPage > 1) {
       nextPage -= 1
-      resp = await listCourseFiles(courseId, nextPage, DETAIL_PAGE_SIZE)
+      resp = await listCourseFiles(targetCourseId, nextPage, DETAIL_PAGE_SIZE)
     }
+    if (targetCourseId !== courseId.value) return
     courseFiles.value = resp.records || []
     filesPage.value = resp.page
     filesTotal.value = resp.total
     filesLoaded.value = true
   } finally {
-    filesLoading.value = false
+    if (targetCourseId === courseId.value) filesLoading.value = false
   }
 }
 
 async function reloadStudents(page = studentsPage.value) {
+  const targetCourseId = courseId.value
   if (studentsLoading.value) return
-  if (authStore.user?.role !== 0 && authStore.user?.role !== 2) {
+  if (!canViewStudents.value) {
     courseStudents.value = []
     studentsTotal.value = 0
     studentsLoaded.value = true
@@ -755,25 +807,30 @@ async function reloadStudents(page = studentsPage.value) {
   studentsLoading.value = true
   try {
     let nextPage = page
-    let resp = await getCourseEnrollments(courseId, nextPage, DETAIL_PAGE_SIZE)
+    let resp = await getCourseEnrollments(targetCourseId, nextPage, DETAIL_PAGE_SIZE)
     while ((resp.records || []).length === 0 && resp.total > 0 && nextPage > 1) {
       nextPage -= 1
-      resp = await getCourseEnrollments(courseId, nextPage, DETAIL_PAGE_SIZE)
+      resp = await getCourseEnrollments(targetCourseId, nextPage, DETAIL_PAGE_SIZE)
     }
+    if (targetCourseId !== courseId.value) return
     courseStudents.value = resp.records || []
     studentsPage.value = resp.page
     studentsTotal.value = resp.total
     studentsLoaded.value = true
   } catch {
-    courseStudents.value = []
-    studentsTotal.value = 0
+    if (targetCourseId === courseId.value) {
+      courseStudents.value = []
+      studentsTotal.value = 0
+    }
   } finally {
-    studentsLoading.value = false
+    if (targetCourseId === courseId.value) studentsLoading.value = false
   }
 }
 
 async function reloadCourse() {
-  course.value = await getCourse(courseId)
+  const targetCourseId = courseId.value
+  const courseData = await getCourse(targetCourseId)
+  if (targetCourseId === courseId.value) course.value = courseData
 }
 
 function formatDate(dateStr?: string | null) {

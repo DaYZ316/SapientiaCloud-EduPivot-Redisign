@@ -9,7 +9,6 @@
     coverUrl: string | null
     coverFileId: string | null
     teacherIds: string[] | null
-    assistantIds?: string[] | null
     teacherInfos?: { id: string; displayName: string | null; avatarUrl: string | null }[] | null
     semester: string | null
     location: string | null

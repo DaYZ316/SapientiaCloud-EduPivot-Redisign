@@ -1,11 +1,11 @@
 package com.dayz.sc.common.security.config;
 
 import com.dayz.sc.common.security.crypto.RsaKeyLoader;
-import com.dayz.sc.common.security.service.JwtTokenService;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -28,6 +28,7 @@ import java.security.spec.RSAPublicKeySpec;
  * @author DaYZ
  * @since 2026-06-09
  */
+@AutoConfiguration
 @ConditionalOnProperty(prefix = "edupivot.security.jwt", name = "private-key")
 public class JwtSigningAutoConfiguration {
 
@@ -71,12 +72,6 @@ public class JwtSigningAutoConfiguration {
         } catch (Exception e) {
             throw new IllegalStateException("无法从私钥创建 JwtDecoder", e);
         }
-    }
-
-    @Bean
-    @ConditionalOnMissingBean(JwtTokenService.class)
-    public JwtTokenService jwtTokenService(JwtEncoder jwtEncoder, JwtProperties jwtProperties) {
-        return new JwtTokenService(jwtEncoder, jwtProperties);
     }
 
     @Bean

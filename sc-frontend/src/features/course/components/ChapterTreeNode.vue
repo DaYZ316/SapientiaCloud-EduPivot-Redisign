@@ -1,7 +1,7 @@
 <template>
   <div class="tree-node">
     <div
-        :class="{active: chapter.id === activeChapterId, published: chapter.status === 1}"
+        :class="{active: chapter.id === activeChapterId}"
         :style="{'--node-indent': depth * 18 + 'px'}"
         class="node-row"
         @click="$emit('select', chapter)"
@@ -20,8 +20,7 @@
         <span class="chapter-index">{{ t(depth === 0 ? 'chapter.chapterUnit' : 'chapter.lessonUnit') }}</span>
       </span>
 
-      <span v-if="chapter.status === 1" class="status-badge published">{{ t('chapter.published') }}</span>
-      <span v-else class="status-badge draft">{{ t('chapter.draft') }}</span>
+      <span v-if="chapter.status !== 1" class="status-badge draft">{{ t('chapter.draft') }}</span>
 
       <div v-if="isEditable" class="node-actions" @click.stop>
         <button :title="t('chapter.moveUp')" class="action-btn" @click="$emit('move-up', chapter)">
@@ -95,6 +94,8 @@ const expanded = ref(true)
 }
 
 .node-row {
+  --node-indent: 0px;
+
   position: relative;
   display: flex;
   align-items: center;
@@ -198,12 +199,6 @@ const expanded = ref(true)
   border-radius: 0;
   text-transform: uppercase;
   flex-shrink: 0;
-}
-
-.status-badge.published {
-  color: var(--color-on-surface);
-  background: transparent;
-  border: 1px solid var(--color-outline-light);
 }
 
 .status-badge.draft {

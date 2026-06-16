@@ -80,12 +80,31 @@ public class MybatisClassSessionRepository implements ClassSessionRepository {
 
         Map<UUID, Long> counts = new HashMap<>(courseIds.size());
         classSessionMapper.selectMaps(wrapper).forEach(row -> {
-            Object courseId = row.get("course_id");
-            Object count = row.get("published_count");
-            if (courseId != null && count instanceof Number number) {
-                counts.put(UUID.fromString(courseId.toString()), number.longValue());
+            Object courseId = value(row, "course_id", "courseId");
+            Object count = value(row, "published_count", "publishedCount");
+            if (courseId != null && count != null) {
+                counts.put(toUuid(courseId), toLong(count));
             }
         });
         return counts;
+    }
+
+    private Object value(Map<String, Object> row, String snakeCaseKey, String camelCaseKey) {
+        Object value = row.get(snakeCaseKey);
+        return value != null ? value : row.get(camelCaseKey);
+    }
+
+    private UUID toUuid(Object value) {
+        if (value instanceof UUID uuid) {
+            return uuid;
+        }
+        return UUID.fromString(value.toString());
+    }
+
+    private Long toLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return Long.parseLong(value.toString());
     }
 }

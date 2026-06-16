@@ -7,9 +7,7 @@
         role="combobox"
         type="button"
         @click="toggleOpen"
-        @keydown.down.prevent="openMenu"
-        @keydown.enter.prevent="toggleOpen"
-        @keydown.escape.stop="closeMenu"
+        @keydown="handleTriggerKeydown"
     >
       <span>{{ selectedOption?.label || placeholder }}</span>
       <ChevronDown :size="16" class="base-select-icon" stroke-width="1.8"/>
@@ -96,6 +94,25 @@ function openMenu() {
 
 function closeMenu() {
   isOpen.value = false
+}
+
+function handleTriggerKeydown(event: KeyboardEvent) {
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    openMenu()
+    return
+  }
+
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    toggleOpen()
+    return
+  }
+
+  if (event.key === 'Escape') {
+    event.stopPropagation()
+    closeMenu()
+  }
 }
 
 function selectOption(value: SelectValue) {

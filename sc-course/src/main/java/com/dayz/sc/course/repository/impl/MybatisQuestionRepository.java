@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.mapper.QuestionMapper;
 import com.dayz.sc.course.model.entity.Question;
+import com.dayz.sc.course.model.enums.QuestionStatus;
 import com.dayz.sc.course.repository.QuestionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -74,17 +75,16 @@ public class MybatisQuestionRepository implements QuestionRepository {
             wrapper.eq(Question::getStatus, status);
             if (sysUserId != null) {
                 // status=0(草稿)：仅自己可见；status=1(已发布)：所有人可见
-                if (status == 0) {
+                if (status == QuestionStatus.DRAFT.getCode()) {
                     wrapper.eq(Question::getSysUserId, sysUserId);
                 }
             }
         } else if (sysUserId != null) {
             // 未指定 status：已发布 + 当前用户自己的草稿
             wrapper.and(w -> w
-                    .eq(Question::getStatus, 1)
-                    .or()
-                    .and(inner -> inner
-                            .eq(Question::getStatus, 0)
+                    .eq(Question::getStatus, QuestionStatus.PUBLISHED.getCode())
+                    .or(inner -> inner
+                            .eq(Question::getStatus, QuestionStatus.DRAFT.getCode())
                             .eq(Question::getSysUserId, sysUserId)
                     )
             );

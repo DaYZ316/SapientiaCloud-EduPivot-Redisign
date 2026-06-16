@@ -87,7 +87,7 @@
                 <div class="course-title-line">
                   <h3>{{ course.title }}</h3>
                   <span class="status-tag role-tag" :class="course.roleClass">{{ course.roleLabel }}</span>
-                  <span class="status-tag" :class="course.statusClass">{{ course.statusLabel }}</span>
+                  <span v-if="course.statusLabel" class="status-tag" :class="course.statusClass">{{ course.statusLabel }}</span>
                 </div>
                 <div class="course-meta">
                   <span>{{ course.teacher }}</span>
@@ -109,7 +109,7 @@
                   查看课程
                 </button>
                 <button
-                  v-if="course.canManage"
+                  v-if="course.canEdit"
                   class="drop-button"
                   type="button"
                   :title="t('courses.edit')"
@@ -119,7 +119,7 @@
                   <Pencil :size="14" stroke-width="1.8" />
                 </button>
                 <button
-                  v-if="course.canManage"
+                  v-if="course.canInviteAssistant"
                   class="drop-button"
                   type="button"
                   :title="t('enrollmentManagement.inviteAssistant')"
@@ -129,7 +129,7 @@
                   <UserPlus :size="14" stroke-width="1.8" />
                 </button>
                 <button
-                  v-if="course.canManage"
+                  v-if="course.canEdit"
                   class="drop-button danger"
                   type="button"
                   :title="t('courses.delete')"
@@ -221,17 +221,6 @@
         </aside>
       </section>
 
-      <section class="resume-panel">
-        <div>
-          <p class="section-kicker">Open course</p>
-          <h2>最近课程</h2>
-          <p>{{ teacherResumeCourse.title }} · {{ teacherResumeCourse.recentActivity }}</p>
-        </div>
-        <button class="outline-button" type="button" @click="viewCourse(teacherResumeCourse.courseId)">
-          <Timer :size="16" stroke-width="1.7" />
-          <span>打开课程</span>
-        </button>
-      </section>
     </template>
 
     <template v-else>
@@ -290,6 +279,7 @@
         :courses="courses"
         :loading="loading"
         :editable="canManageCourses"
+        :can-invite-assistant="canInviteAssistant"
         @view="viewCourse"
         @edit="editCourse"
         @delete="confirmDeleteCourse"
@@ -511,7 +501,6 @@ import {
   Pencil,
   Plus,
   Search,
-  Timer,
   Trash2,
   UserPlus,
   X,
@@ -549,6 +538,7 @@ const isPrimaryTeacherCourses = computed(() => teacherCourseRole.value === 'prim
 const canManageCourses = computed(
   () => isAdmin.value || (isTeacher.value && isTeacherPage.value && isPrimaryTeacherCourses.value),
 )
+const canInviteAssistant = computed(() => canManageCourses.value)
 const canCreateCourse = computed(() => canManageCourses.value)
 const canEditCourseStatus = computed(() => canManageCourses.value)
 const pageTitle = computed(() => (isAdmin.value ? t('common.navigation.courseManagement') : t('myEnrollments.title')))
@@ -584,7 +574,8 @@ interface TeacherCourseWorkspaceItem {
   statusClass: string
   roleLabel: string
   roleClass: string
-  canManage: boolean
+  canEdit: boolean
+  canInviteAssistant: boolean
   source: Course
 }
 
@@ -687,7 +678,7 @@ const teacherAvatarSrc = computed(() => authStore.user?.avatarUrl || '/assets/av
 
 const teacherCourseItems = computed<TeacherCourseWorkspaceItem[]>(() =>
   courses.value.map((course) => {
-    const statusLabel = getStatusLabel(course.status)
+    const statusLabel = course.status === 1 ? '' : getStatusLabel(course.status)
     const roleLabel = teacherCourseRole.value === 'assistant' ? t('courses.teacherTabs.assistant') : t('courses.teacherTabs.primary')
 
     return {
@@ -705,7 +696,8 @@ const teacherCourseItems = computed<TeacherCourseWorkspaceItem[]>(() =>
       statusClass: getCourseStatusClass(course.status),
       roleLabel,
       roleClass: teacherCourseRole.value,
-      canManage: canManageCourses.value,
+      canEdit: canManageCourses.value,
+      canInviteAssistant: canInviteAssistant.value,
       source: course,
     }
   }),
@@ -722,7 +714,6 @@ const filteredTeacherCourses = computed(() => {
   )
 })
 
-const publishedCourseCount = computed(() => courses.value.filter((course) => course.status === 1).length)
 const draftCourseCount = computed(() => courses.value.filter((course) => course.status === 0).length)
 const archivedCourseCount = computed(() => courses.value.filter((course) => course.status === 2).length)
 const averageCourseProgress = computed(() => {
@@ -735,7 +726,6 @@ const teacherStats = computed(() => [
   { label: '课程角色', value: teacherCourseRoleLabel.value, note: teacherCourseRole.value === 'assistant' ? '助教协作' : '主讲管理' },
   { label: '课程数量', value: courses.value.length, note: '当前列表' },
   { label: '平均进度', value: `${averageCourseProgress.value}%`, note: '按课时计算' },
-  { label: '已发布', value: publishedCourseCount.value, note: '可见课程' },
 ])
 
 const teacherRoleNotes = computed(() =>
@@ -753,7 +743,6 @@ const teacherRoleNotes = computed(() =>
 )
 
 const teacherStatusSummaries = computed(() => [
-  { title: t('courses.status.published'), note: '正在展示的课程', count: publishedCourseCount.value, tone: 'normal' },
   { title: t('courses.status.draft'), note: '尚未发布的课程', count: draftCourseCount.value, tone: 'muted' },
   { title: t('courses.status.archived'), note: '已归档课程', count: archivedCourseCount.value, tone: 'muted' },
 ])
@@ -782,12 +771,6 @@ const teacherEmptyDescription = computed(() => {
   return teacherCourseRole.value === 'assistant'
     ? '接受助教邀请后，协作课程会显示在这里。'
     : '创建第一门课程后，主讲课程会显示在这里。'
-})
-
-const teacherResumeCourse = computed(() => filteredTeacherCourses.value[0] ?? teacherCourseItems.value[0] ?? {
-  courseId: '',
-  title: '暂无课程',
-  recentActivity: '切换主讲或助教课程查看列表',
 })
 
 function getStatusLabel(status: number): string {
@@ -1039,8 +1022,7 @@ onMounted(() => {
   color: var(--color-on-surface);
 }
 
-.my-courses-page .courses-command-bar,
-.my-courses-page .resume-panel {
+.my-courses-page .courses-command-bar {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1065,7 +1047,6 @@ onMounted(() => {
 
 .my-courses-page .courses-title-block h1,
 .my-courses-page .panel-heading h2,
-.my-courses-page .resume-panel h2,
 .my-courses-page .empty-state h3 {
   margin: 0;
   font-family: var(--font-heading);
@@ -1080,7 +1061,6 @@ onMounted(() => {
 }
 
 .my-courses-page .courses-title-block p,
-.my-courses-page .resume-panel p,
 .my-courses-page .rhythm-note {
   margin: 12px 0 0;
   max-width: 62ch;
@@ -1107,7 +1087,7 @@ onMounted(() => {
   height: 44px;
   display: inline-flex;
   align-items: center;
-  border-radius: 0;
+  border-radius: var(--radius-sm);
   font-family: var(--font-body);
   transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s;
 }
@@ -1215,6 +1195,8 @@ onMounted(() => {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   border: 1px solid var(--course-border);
   background: var(--course-surface);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .my-courses-page .stat-cell {
@@ -1264,10 +1246,11 @@ onMounted(() => {
 }
 
 .my-courses-page .courses-primary,
-.my-courses-page .side-panel,
-.my-courses-page .resume-panel {
+.my-courses-page .side-panel {
   background: var(--course-surface);
   border: 1px solid var(--course-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .my-courses-page .courses-primary {
@@ -1589,15 +1572,6 @@ onMounted(() => {
   font-size: 13px;
 }
 
-.my-courses-page .resume-panel {
-  padding: 22px 24px;
-}
-
-.my-courses-page .resume-panel h2 {
-  font-size: 26px;
-  line-height: 1.2;
-}
-
 .my-courses-page .skeleton-row {
   pointer-events: none;
 }
@@ -1663,7 +1637,7 @@ onMounted(() => {
   margin-bottom: 24px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
 }
 
 .teacher-course-tab {
@@ -1671,7 +1645,7 @@ onMounted(() => {
   padding: 0 16px;
   background: transparent;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--color-muted);
   font-family: var(--font-label);
   font-size: 13px;
@@ -1705,7 +1679,7 @@ onMounted(() => {
   padding: 12px 16px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 16px;
+  border-radius: var(--radius-md);
 }
 
 .search-input svg {
@@ -1749,7 +1723,7 @@ onMounted(() => {
   justify-content: center;
   gap: 6px;
   padding: 0 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-family: var(--font-label);
   font-size: 13px;
   font-weight: 800;
@@ -1796,7 +1770,7 @@ onMounted(() => {
 .skeleton-title {
   height: 20px;
   width: 70%;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--color-surface-canvas);
   margin-bottom: 12px;
 }
@@ -1825,13 +1799,13 @@ onMounted(() => {
   padding: 20px 24px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 16px;
+  border-radius: var(--radius-md);
 }
 
 .skeleton-enroll-cover {
   width: 80px;
   height: 60px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--color-surface-canvas);
   flex-shrink: 0;
 }
@@ -1887,7 +1861,7 @@ onMounted(() => {
   padding: 20px 24px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 16px;
+  border-radius: var(--radius-md);
   transition: all 0.2s;
 }
 
@@ -1901,7 +1875,7 @@ onMounted(() => {
   display: grid;
   place-items: center;
   background: var(--color-surface-canvas);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--color-on-surface);
   overflow: hidden;
   flex-shrink: 0;
@@ -1997,7 +1971,7 @@ onMounted(() => {
   place-items: center;
   background: none;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--color-muted);
   cursor: pointer;
   transition: all 0.2s;
@@ -2050,7 +2024,7 @@ onMounted(() => {
   padding: 10px 16px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-family: 'Hanken Grotesk', sans-serif;
   font-size: 14px;
   font-weight: 400;
@@ -2103,7 +2077,7 @@ onMounted(() => {
 .modal {
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 24px;
+  border-radius: var(--radius-lg);
   width: 100%;
   max-width: 400px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.16);
@@ -2143,7 +2117,7 @@ onMounted(() => {
   place-items: center;
   background: none;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--color-muted);
   cursor: pointer;
   transition: all 0.2s;
@@ -2362,7 +2336,7 @@ onMounted(() => {
   background: transparent;
   border: none;
   border-bottom: 1px solid var(--login-field-border);
-  border-radius: 0;
+  border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: 16px;
   font-weight: 400;
@@ -2387,7 +2361,7 @@ onMounted(() => {
   padding: 14px 16px;
   background: var(--color-surface-canvas);
   border: 1px solid var(--color-outline-light);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   line-height: 1.6;
   box-shadow: none;
 }
@@ -2417,7 +2391,7 @@ onMounted(() => {
   background: transparent;
   border: 0;
   border-bottom: 1px solid var(--login-field-border);
-  border-radius: 0;
+  border-radius: var(--radius-sm);
   font-size: 16px;
   font-weight: 400;
   color: var(--color-on-surface);
@@ -2440,7 +2414,7 @@ onMounted(() => {
   padding: 6px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
 }
 
@@ -2492,8 +2466,7 @@ onMounted(() => {
 }
 
 @media (max-width: 1180px) {
-  .my-courses-page .courses-command-bar,
-  .my-courses-page .resume-panel {
+  .my-courses-page .courses-command-bar {
     flex-direction: column;
   }
 
@@ -2577,8 +2550,7 @@ onMounted(() => {
   }
 
   .my-courses-page .panel-heading,
-  .my-courses-page .course-row,
-  .my-courses-page .resume-panel {
+  .my-courses-page .course-row {
     padding-right: 16px;
     padding-left: 16px;
   }
@@ -2687,7 +2659,7 @@ onMounted(() => {
   padding: 0 12px;
   background: var(--color-surface-canvas);
   border: 1px solid var(--color-outline-light);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   color: var(--color-muted);
 }
 
@@ -2718,7 +2690,7 @@ onMounted(() => {
   gap: 12px;
   padding: 10px 12px;
   border: 1px solid var(--color-outline-light);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--color-surface-card);
   cursor: pointer;
   transition:
@@ -2763,7 +2735,7 @@ onMounted(() => {
 .invite-empty {
   padding: 18px 12px;
   border: 1px dashed var(--color-outline-light);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: 14px;
   color: var(--color-muted);
@@ -2788,7 +2760,7 @@ onMounted(() => {
   padding: 14px 16px;
   background: var(--color-surface-canvas);
   border: 1px solid var(--color-outline-light);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: 14px;
   color: var(--color-on-surface);
