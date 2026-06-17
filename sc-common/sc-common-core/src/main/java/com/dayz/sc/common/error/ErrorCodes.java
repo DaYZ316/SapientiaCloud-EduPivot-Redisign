@@ -120,7 +120,19 @@ public enum ErrorCodes implements ErrorCode {
     /**
      * 已邀请过该用户。
      */
-    INVITATION_ALREADY_INVITED(40014, "已邀请过该用户", HttpStatus.BAD_REQUEST);
+    INVITATION_ALREADY_INVITED(40014, "已邀请过该用户", HttpStatus.BAD_REQUEST),
+    /**
+     * AI 会话不存在。
+     */
+    AI_CONVERSATION_NOT_FOUND(40410, "会话不存在", HttpStatus.NOT_FOUND),
+    /**
+     * AI 知识库文档不存在。
+     */
+    AI_KNOWLEDGE_DOC_NOT_FOUND(40411, "知识库文档不存在", HttpStatus.NOT_FOUND),
+    /**
+     * AI 文档处理失败。
+     */
+    AI_DOCUMENT_PROCESS_FAILED(50001, "文档处理失败", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final int code;
     private final String message;

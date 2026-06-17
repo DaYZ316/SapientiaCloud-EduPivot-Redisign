@@ -53,6 +53,10 @@
               uri: lb://sc-storage
               predicates:
                 - Path=/api/storage/**
+            - id: ai-route
+              uri: lb://sc-ai
+              predicates:
+                - Path=/api/ai/**
             # OpenAPI 文档路由
             - id: auth-openapi-route
               uri: lb://sc-auth
@@ -76,5 +80,11 @@
               uri: lb://sc-storage
               predicates:
                 - Path=/openapi/storage
+              filters:
+                - SetPath=/v3/api-docs
+            - id: ai-openapi-route
+              uri: lb://sc-ai
+              predicates:
+                - Path=/openapi/ai
               filters:
                 - SetPath=/v3/api-docs

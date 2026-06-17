@@ -32,6 +32,9 @@ APP_NAMES = {
     "sc-edupivot-storage-common.yaml": "sc-storage",
     "sc-edupivot-storage-infra-docker.yaml": "sc-storage",
     "sc-edupivot-storage-infra-local.yaml": "sc-storage",
+    "sc-edupivot-ai-common.yaml": "sc-ai",
+    "sc-edupivot-ai-infra-docker.yaml": "sc-ai",
+    "sc-edupivot-ai-infra-local.yaml": "sc-ai",
     "sc-edupivot-infra-docker.yaml": "sc-edupivot",
     "sc-edupivot-infra-local.yaml": "sc-edupivot",
 }
