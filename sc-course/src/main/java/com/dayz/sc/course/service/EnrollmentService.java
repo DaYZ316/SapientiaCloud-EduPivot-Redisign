@@ -166,9 +166,7 @@ public class EnrollmentService {
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
         boolean isCourseTeacher = course.getTeacherId().equals(userId)
                 || courseTeacherRepository.existsByCourseIdAndTeacherId(courseId, userId);
-        boolean publicPublishedCourse = Objects.equals(course.getIsPublic(), 1)
-                && Objects.equals(course.getStatus(), CourseStatus.PUBLISHED.getCode());
-        if (!isCourseTeacher && !SecurityUtils.isAdmin(role) && !publicPublishedCourse) {
+        if (!isCourseTeacher && !SecurityUtils.isAdmin(role) && !isPublicCourse(course)) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
 
@@ -186,6 +184,10 @@ public class EnrollmentService {
                 .toList();
 
         return new PageResponse<>(voList, result.getTotal(), currentPage, pageSize);
+    }
+
+    private boolean isPublicCourse(Course course) {
+        return Objects.equals(course.getIsPublic(), 1);
     }
 
     private void publishEnrollmentEvent(Course course, UUID studentId, String action) {

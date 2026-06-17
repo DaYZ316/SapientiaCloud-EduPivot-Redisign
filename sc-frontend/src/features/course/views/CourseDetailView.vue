@@ -361,10 +361,15 @@ const isFull = computed(() => {
 })
 const showEnrollButton = computed(() => isStudent.value && !course.value?.enrolled)
 const isPublicPublishedCourse = computed(() => course.value?.isPublic === 1 && isPublished.value)
+const isPublicCourse = computed(() => course.value?.isPublic === 1)
 const canAccessCourseContent = computed(() => {
   return canManageCourse.value || Boolean(course.value?.enrolled) || isPublicPublishedCourse.value
 })
-const canViewStudents = computed(() => canManageCourse.value || isPublicPublishedCourse.value)
+const canEnterClassSessions = computed(() => {
+  return canManageCourse.value || Boolean(course.value?.enrolled)
+})
+const canViewStudents = computed(() => canManageCourse.value || isPublicCourse.value)
+const canViewAssistants = computed(() => canManageCourse.value || isPublicCourse.value)
 
 const assistantOnlyInfos = computed<TeacherInfo[]>(() => {
   if (!course.value?.teacherInfos) return []
@@ -408,12 +413,12 @@ const enrollLabel = computed(() => {
 })
 const primaryActionLabel = computed(() => {
   if (showEnrollButton.value) return enrollLabel.value
-  if (canAccessCourseContent.value) return t('courseDetail.continueLearning')
+  if (canEnterClassSessions.value) return t('courseDetail.continueLearning')
   return emptyActionLabel.value
 })
 const primaryActionDisabled = computed(() => {
   if (showEnrollButton.value) return enrolling.value || isFull.value || !isPublished.value
-  return !canAccessCourseContent.value
+  return !canEnterClassSessions.value
 })
 const maxStudentsLabel = computed(() => {
   if (!course.value || course.value.maxStudents <= 0) return t('courseDetail.unlimited')
@@ -438,11 +443,13 @@ const tabs = computed(() => [
   {key: 'banks' as const, label: t('courseDetail.practiceTab'), icon: Database, roles: [0, 1, 2]},
   {key: 'files' as const, label: t('courseDetail.filesTab'), icon: Database, roles: [0, 1, 2]},
   {key: 'students' as const, label: t('courseDetail.studentsTab'), icon: Users, roles: [0, 1, 2], requiresViewStudents: true},
-  {key: 'assistants' as const, label: t('courseDetail.assistantsTab'), icon: UserCheck, roles: [0, 2]},
+  {key: 'assistants' as const, label: t('courseDetail.assistantsTab'), icon: UserCheck, roles: [0, 1, 2], requiresViewAssistants: true},
 ])
 const visibleTabs = computed(() => {
   const role = authStore.user?.role ?? 1
-  return tabs.value.filter(tab => tab.roles.includes(role) && (!tab.requiresViewStudents || canViewStudents.value))
+  return tabs.value.filter(tab => tab.roles.includes(role)
+      && (!tab.requiresViewStudents || canViewStudents.value)
+      && (!tab.requiresViewAssistants || canViewAssistants.value))
 })
 
 const activeTabKey = computed(() => {
@@ -594,12 +601,18 @@ function openEditModal() {
   showEditModal.value = true
 }
 
-function handlePrimaryAction() {
+async function handlePrimaryAction() {
   if (showEnrollButton.value) {
-    void handleEnroll()
+    const confirmed = await confirmDialog({
+      title: t('courseDetail.enrollNow'),
+      message: t('courseDetail.guestActionDescription'),
+      confirmText: t('courseDetail.enrollNow'),
+      cancelText: t('courseDetail.cancel'),
+    })
+    if (confirmed) await handleEnroll()
     return
   }
-  if (canAccessCourseContent.value) {
+  if (canEnterClassSessions.value) {
     router.push({name: 'course-class-sessions', params: {id: courseId.value}})
   }
 }

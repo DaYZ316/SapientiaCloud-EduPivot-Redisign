@@ -37,15 +37,20 @@ import {useRoute, useRouter} from 'vue-router'
 import {CircleAlert} from 'lucide-vue-next'
 
 import {getClassSession} from '@/features/course/api/classSession'
+import {getCourse} from '@/features/course/api/course'
 import type {ClassSession} from '@/features/course/types/classSession'
+import type {CourseDetail} from '@/features/course/types/course'
 import Classroom3D from '@/features/classroom/components/Classroom3D.vue'
 import CourseEntryTransition from '@/features/course/components/CourseEntryTransition.vue'
+import {useAuthStore} from '@/features/auth/stores/auth'
 
 const {t} = useI18n()
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 
 const sessionId = computed(() => route.params.sessionId as string)
+const isAdmin = computed(() => authStore.user?.role === 0)
 const loading = ref(true)
 const session = ref<ClassSession | null>(null)
 const classroomReady = ref(false)
@@ -67,12 +72,25 @@ async function loadSession() {
   classroomReady.value = false
   classroomLoadFailed.value = false
   try {
-    session.value = await getClassSession(sessionId.value)
+    const sessionData = await getClassSession(sessionId.value)
+    const courseData = await getCourse(sessionData.courseId)
+    if (!canEnterClassroom(courseData)) {
+      await router.replace({name: 'course-overview', params: {id: sessionData.courseId}})
+      return
+    }
+    session.value = sessionData
   } catch {
     session.value = null
   } finally {
     loading.value = false
   }
+}
+
+function canEnterClassroom(courseData: CourseDetail) {
+  const userId = authStore.user?.id
+  if (isAdmin.value) return true
+  if (!userId) return false
+  return courseData.teacherId === userId || Boolean(courseData.teacherIds?.includes(userId)) || Boolean(courseData.enrolled)
 }
 
 function markJoined() {

@@ -65,7 +65,7 @@ class EnrollmentServiceTest {
     }
 
     @Test
-    void listCourseEnrollments_shouldAllowUnrelatedTeacherForPublicPublishedCourse() {
+    void listCourseEnrollments_shouldAllowUnrelatedTeacherForPublicCourse() {
         UUID courseId = UUID.randomUUID();
         UUID primaryTeacherId = UUID.randomUUID();
         UUID unrelatedTeacherId = UUID.randomUUID();
@@ -79,12 +79,27 @@ class EnrollmentServiceTest {
         verify(enrollmentRepository).findByCourseId(eq(courseId), anyInt(), anyInt());
     }
 
+    @Test
+    void listCourseEnrollments_shouldAllowUnenrolledStudentForPublicCourse() {
+        UUID courseId = UUID.randomUUID();
+        UUID primaryTeacherId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(publicCourse(courseId, primaryTeacherId)));
+        when(courseTeacherRepository.existsByCourseIdAndTeacherId(courseId, studentId)).thenReturn(false);
+        when(enrollmentRepository.findByCourseId(courseId, 1, 10)).thenReturn(new Page<Enrollment>(1, 10));
+
+        enrollmentService.listCourseEnrollments(courseId, 1, 10, studentId, 1);
+
+        verify(enrollmentRepository).findByCourseId(eq(courseId), anyInt(), anyInt());
+    }
+
     private Course publicCourse(UUID courseId, UUID teacherId) {
         Course course = new Course();
         course.setId(courseId);
         course.setTeacherId(teacherId);
         course.setIsPublic(1);
-        course.setStatus(CourseStatus.PUBLISHED.getCode());
+        course.setStatus(CourseStatus.DRAFT.getCode());
         return course;
     }
 }
