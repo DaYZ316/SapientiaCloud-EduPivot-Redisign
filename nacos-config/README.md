@@ -52,6 +52,42 @@ refreshEnabled: false
 
 - MinIO 连接信息
 
+### sc-ai
+
+公共配置：
+
+```text
+sc-edupivot-ai-common.yaml
+Group: EDUPIVOT_NAVIGATOR
+refreshEnabled: true
+```
+
+包含：
+
+- 服务端口、虚拟线程、Actuator、Scalar
+- Spring AI：DashScope OpenAI 兼容端点、chat 模型（qwen-plus）、embedding 模型（text-embedding-v3）
+- Redis 向量库（RediSearch 索引）配置
+- RAG 参数（top-k、相似度阈值）、知识库切分参数
+
+按环境区分的基础设施配置：
+
+```text
+local/sc-edupivot-ai-infra-local.yaml
+Group: EDUPIVOT_LOCAL
+refreshEnabled: false
+
+docker/sc-edupivot-ai-infra-docker.yaml
+Group: EDUPIVOT_DOCKER
+refreshEnabled: false
+```
+
+包含：
+
+- PostgreSQL 连接
+- Redis 连接（向量库与缓存共用）
+
+> 注意：sc-ai 需要 `DASHSCOPE_API_KEY` 环境变量（通义百炼 API Key），通过 `.env` 注入。
+
 ### sc-gateway
 
 公共配置：
@@ -89,12 +125,14 @@ auth-route: /api/auth/** -> sc-auth
 notification-route: /api/notifications/** -> sc-notification
 course-route: /api/courses/**, /api/chapters/**, /api/enrollments/**, /api/forums/**, /api/question-banks/**, /api/invitations/** -> sc-course
 storage-route: /api/storage/** -> sc-storage
+ai-route: /api/ai/** -> sc-ai
 
 # OpenAPI 文档路由
 auth-openapi-route: /openapi/auth -> sc-auth /v3/api-docs
 notification-openapi-route: /openapi/notification -> sc-notification /v3/api-docs
 course-openapi-route: /openapi/course -> sc-course /v3/api-docs
 storage-openapi-route: /openapi/storage -> sc-storage /v3/api-docs
+ai-openapi-route: /openapi/ai -> sc-ai /v3/api-docs
 
 # 内部端点保护（返回 403）
 storage-internal-block: /api/storage/internal/** -> 403

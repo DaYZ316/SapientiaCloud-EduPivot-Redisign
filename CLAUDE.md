@@ -1,5 +1,61 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Part 0: 常用命令
+
+> 没有 Maven Wrapper（`mvnw`），直接使用本机 `mvn`（需 JDK 21）。前端使用 `pnpm`（版本见 `sc-frontend/package.json` 的 `packageManager`）。
+
+### 后端（根目录，Maven 多模块聚合工程）
+
+```bash
+# 全量构建（跳过测试）；sc-common 是其他服务的依赖，会随聚合构建一起安装
+mvn -B -ntp -DskipTests clean install
+
+# 仅编译（CI 中 Qodana 的 bootstrap 命令）
+mvn -B -ntp -DskipTests clean compile
+
+# 构建单个服务（-pl 指定模块，-am 同时构建其依赖的 sc-common）
+mvn -pl sc-auth -am -DskipTests clean package
+
+# 本地运行单个服务（需先在 Nacos 中导入对应配置，并设置 profile）
+SPRING_PROFILES_ACTIVE=local mvn -pl sc-auth spring-boot:run
+
+# 运行测试（注：当前仓库尚无测试代码）
+mvn test                      # 全部
+mvn -pl sc-course test        # 单模块
+mvn -pl sc-course test -Dtest=CourseServiceTest#methodName   # 单个测试方法
+```
+
+### 前端（`sc-frontend/`）
+
+```bash
+pnpm install          # 安装依赖
+pnpm dev              # Vite 开发服务器（:5173）
+pnpm build            # vue-tsc 类型检查 + 生产构建
+pnpm preview          # 预览生产构建
+pnpm test:unit        # Vitest（注：当前尚无测试代码）
+```
+
+### 本地基础设施 / 全栈
+
+```bash
+# 启动全部服务（含基础设施），profile=docker，构建镜像
+docker compose up -d --build
+
+# 仅启动开发所需的基础设施（按需挑选服务名）
+docker compose up -d nacos postgres redis kafka minio zipkin
+
+# 生成 JWT RS256 密钥对到 keys/（首次运行 sc-auth 前）
+./scripts/generate-rsa-keys.sh
+```
+
+### 关键前置条件
+
+- **Nacos 配置**：服务启动依赖 Nacos 中已导入的配置（见 `nacos-config/` 与其 `README.md`）。`application.yaml` 仅含 Nacos 引导配置，业务/基础设施配置全部在 Nacos。
+- **环境变量**：复制 `.env.example` 为 `.env` 后再 `docker compose up`。
+- **数据库迁移**：各服务通过 Flyway 在启动时自动执行 `src/main/resources/db/migration/` 下的脚本，无需手动建表。
+
 ## Part I: 编码行为准则
 
 旨在减少常见 LLM 编程错误的行为准则。
@@ -110,10 +166,11 @@ sc-gateway (:39080) ── JWT 校验 + 路由 + 限流
     ├── sc-auth (:28081)          认证、OAuth2、用户管理
     ├── sc-notification (:28082)  通知、SSE 推送
     ├── sc-course (:28084)        课程、章节、题库
-    └── sc-storage (:28085)       文件上传/下载（MinIO）
+    ├── sc-storage (:28085)       文件上传/下载（MinIO）
+    └── sc-ai (:28086)            AI 教学助手（RAG 问答、知识库、会话）
 ```
 
-所有服务共享同一个 PostgreSQL 实例（各服务拥有独立的 Flyway 历史表）和 Redis。
+所有服务共享同一个 PostgreSQL 实例（各服务拥有独立的 Flyway 历史表）和 Redis（向量检索使用 Redis Stack 的 RediSearch 模块）。
 
 **端口分配：**
 
@@ -124,6 +181,7 @@ sc-gateway (:39080) ── JWT 校验 + 路由 + 限流
 | sc-notification | 28082            |
 | sc-course       | 28084            |
 | sc-storage      | 28085            |
+| sc-ai           | 28086            |
 | sc-frontend     | 5173（开发）/ 80（容器） |
 
 ### 8. 模块结构（sc-common）
@@ -323,6 +381,7 @@ public record PageResponse<T>(List<T> records, long total, long page, long size)
 | `edu_` | sc-course | `edu_course`, `edu_enrollment` |
 | `ntf_` | sc-notification | `ntf_notification`, `ntf_read_status` |
 | `storage_` | sc-storage | `storage_object`, `storage_upload_session` |
+| `ai_` | sc-ai | `ai_conversation`, `ai_message`, `ai_knowledge_doc` |
 
 **列规范：**
 

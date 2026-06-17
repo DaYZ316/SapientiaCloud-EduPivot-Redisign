@@ -30,6 +30,9 @@ public interface StorageInternalClient {
     @GetMapping("/files/{fileId}")
     ApiResponse<@NonNull StorageObjectInfo> getFile(@PathVariable("fileId") UUID fileId);
 
+    @GetMapping("/files/{fileId}/url")
+    ApiResponse<String> getDownloadUrl(@PathVariable("fileId") UUID fileId);
+
     /**
      * 批量获取文件预签名访问URL。
      *

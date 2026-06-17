@@ -1,0 +1,8 @@
+# 默认按内容自动处理文本/二进制
+* text=auto
+
+# 在容器内执行的脚本必须使用 LF，避免 Windows 下 CRLF 导致 bash 报错
+*.sh text eol=lf
+
+# 数据库初始化 / 迁移脚本在 Linux 容器内执行，统一 LF
+*.sql text eol=lf
