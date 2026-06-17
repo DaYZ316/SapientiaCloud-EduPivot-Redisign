@@ -1,6 +1,7 @@
 package com.dayz.sc.common.events.config;
 
 import org.apache.kafka.clients.admin.NewTopic;
+import org.jspecify.annotations.NonNull;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -29,7 +30,7 @@ public class KafkaErrorHandlerAutoConfiguration {
      */
     @Bean
     @ConditionalOnBean(KafkaTemplate.class)
-    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, Object> dltKafkaTemplate) {
+    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<@NonNull String, @NonNull Object> dltKafkaTemplate) {
         return new DefaultErrorHandler(
                 new DeadLetterPublishingRecoverer(dltKafkaTemplate),
                 new FixedBackOff(1_000L, 3L));

@@ -4,6 +4,7 @@ import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.feign.dto.StorageObjectInfo;
 import com.dayz.sc.common.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -21,13 +22,13 @@ import java.util.UUID;
 public class StorageInternalClientFallback implements StorageInternalClient {
 
     @Override
-    public ApiResponse<StorageObjectInfo> getFile(UUID fileId) {
+    public ApiResponse<@NonNull StorageObjectInfo> getFile(UUID fileId) {
         log.warn("StorageInternalClient fallback: getFile({})", fileId);
         return ApiResponse.failOf(ErrorCodes.SERVICE_UNAVAILABLE);
     }
 
     @Override
-    public ApiResponse<Map<UUID, String>> getUrls(List<UUID> fileIds) {
+    public ApiResponse<@NonNull Map<@NonNull UUID, @NonNull String>> getUrls(List<UUID> fileIds) {
         log.warn("StorageInternalClient fallback: getUrls({})", fileIds);
         return ApiResponse.failOf(ErrorCodes.SERVICE_UNAVAILABLE);
     }

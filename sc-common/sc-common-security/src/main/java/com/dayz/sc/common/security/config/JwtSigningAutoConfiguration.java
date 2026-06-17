@@ -8,6 +8,7 @@ import com.nimbusds.jose.proc.SecurityContext;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
@@ -30,6 +31,7 @@ import java.security.spec.RSAPublicKeySpec;
  */
 @AutoConfiguration
 @ConditionalOnProperty(prefix = "edupivot.security.jwt", name = "private-key")
+@EnableConfigurationProperties(JwtProperties.class)
 public class JwtSigningAutoConfiguration {
 
     @Bean

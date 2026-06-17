@@ -12,6 +12,7 @@ import com.dayz.sc.course.model.vo.ChapterVO;
 import com.dayz.sc.course.service.ChapterService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -34,8 +35,8 @@ public class ChapterController {
     private final ChapterService chapterService;
 
     @PostMapping
-    @RateLimited(maxRequests = 20, windowSeconds = 60)
-    public ApiResponse<UUID> createChapter(
+    @RateLimited(maxRequests = 20)
+    public ApiResponse<@NonNull UUID> createChapter(
             @Valid @RequestBody CreateChapterRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID teacherId = JwtPrincipalResolver.requireUserId(jwt);
@@ -44,13 +45,13 @@ public class ChapterController {
     }
 
     @GetMapping
-    public ApiResponse<PageResponse<ChapterVO>> listChapters(ChapterPageRequest request) {
-        PageResponse<ChapterVO> response = chapterService.listChapters(request);
+    public ApiResponse<@NonNull PageResponse<@NonNull ChapterVO>> listChapters(ChapterPageRequest request) {
+        PageResponse<@NonNull ChapterVO> response = chapterService.listChapters(request);
         return ApiResponse.ok(response);
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<ChapterVO> getChapter(
+    public ApiResponse<@NonNull ChapterVO> getChapter(
             @PathVariable UUID id,
             @AuthenticationPrincipal @Nullable Jwt jwt) {
         UUID userId = jwt != null ? JwtPrincipalResolver.userId(jwt) : null;
@@ -60,7 +61,7 @@ public class ChapterController {
     }
 
     @GetMapping("/course/{courseId}")
-    public ApiResponse<List<ChapterVO>> listChaptersByCourse(
+    public ApiResponse<@NonNull List<@NonNull ChapterVO>> listChaptersByCourse(
             @PathVariable UUID courseId,
             @AuthenticationPrincipal @Nullable Jwt jwt) {
         UUID userId = jwt != null ? JwtPrincipalResolver.userId(jwt) : null;
@@ -70,7 +71,7 @@ public class ChapterController {
     }
 
     @GetMapping("/course/{courseId}/tree")
-    public ApiResponse<List<ChapterVO>> getChapterTree(
+    public ApiResponse<@NonNull List<@NonNull ChapterVO>> getChapterTree(
             @PathVariable UUID courseId,
             @AuthenticationPrincipal @Nullable Jwt jwt) {
         UUID userId = jwt != null ? JwtPrincipalResolver.userId(jwt) : null;
@@ -80,8 +81,8 @@ public class ChapterController {
     }
 
     @PutMapping("/{id}")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> updateChapter(
+    @RateLimited
+    public ApiResponse<@NonNull Void> updateChapter(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateChapterRequest request,
             @AuthenticationPrincipal Jwt jwt) {
@@ -92,8 +93,8 @@ public class ChapterController {
     }
 
     @DeleteMapping("/{id}")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> deleteChapter(
+    @RateLimited
+    public ApiResponse<@NonNull Void> deleteChapter(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -103,7 +104,7 @@ public class ChapterController {
     }
 
     @PostMapping("/{id}/view")
-    public ApiResponse<ChapterInteractionVO> viewChapter(
+    public ApiResponse<@NonNull ChapterInteractionVO> viewChapter(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -113,7 +114,7 @@ public class ChapterController {
     }
 
     @PostMapping("/{id}/like")
-    public ApiResponse<ChapterInteractionVO> likeChapter(
+    public ApiResponse<@NonNull ChapterInteractionVO> likeChapter(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -123,7 +124,7 @@ public class ChapterController {
     }
 
     @DeleteMapping("/{id}/like")
-    public ApiResponse<ChapterInteractionVO> unlikeChapter(
+    public ApiResponse<@NonNull ChapterInteractionVO> unlikeChapter(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);

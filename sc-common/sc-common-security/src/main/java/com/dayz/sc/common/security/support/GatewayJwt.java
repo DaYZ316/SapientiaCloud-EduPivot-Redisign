@@ -1,7 +1,9 @@
 package com.dayz.sc.common.security.support;
 
+import lombok.Getter;
 import org.springframework.security.oauth2.jwt.Jwt;
 
+import java.io.Serial;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -18,8 +20,10 @@ import java.util.UUID;
  * @author DaYZ
  * @since 2026-06-11
  */
+@Getter
 public class GatewayJwt extends Jwt {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     private final UUID userId;
@@ -57,11 +61,4 @@ public class GatewayJwt extends Jwt {
         }
     }
 
-    public UUID getUserId() {
-        return userId;
-    }
-
-    public Integer getRole() {
-        return role;
-    }
 }

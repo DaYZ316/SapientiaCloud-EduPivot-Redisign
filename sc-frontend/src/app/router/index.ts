@@ -113,11 +113,6 @@ export const router = createRouter({
                     component: () => import('@/features/question-bank/views/QuestionBankListView.vue'),
                 },
                 {
-                    path: 'class-sessions/:sessionId',
-                    name: 'class-session-room',
-                    component: () => import('@/features/course/views/ClassSessionRoomView.vue'),
-                },
-                {
                     path: 'question-banks/:id',
                     name: 'question-bank-detail',
                     component: () => import('@/features/question-bank/views/QuestionBankDetailView.vue'),
@@ -196,6 +191,14 @@ export const router = createRouter({
                     component: () => import('@/features/file-preview/views/FilePreviewView.vue'),
                 },
             ],
+        },
+        {
+            path: '/class-sessions/:sessionId',
+            name: 'class-session-room',
+            component: () => import('@/features/course/views/ClassSessionRoomView.vue'),
+            meta: {
+                requiresAuth: true,
+            },
         },
         {
             path: '/:pathMatch(.*)*',

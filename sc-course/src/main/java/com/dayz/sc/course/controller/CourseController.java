@@ -19,6 +19,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import org.jspecify.annotations.NonNull;
+
 import java.util.UUID;
 
 /**
@@ -35,8 +37,8 @@ public class CourseController {
     private final CourseService courseService;
 
     @PostMapping
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<UUID> createCourse(
+    @RateLimited
+    public ApiResponse<@NonNull UUID> createCourse(
             @Valid @RequestBody CreateCourseRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID teacherId = JwtPrincipalResolver.requireUserId(jwt);
@@ -50,13 +52,13 @@ public class CourseController {
     }
 
     @GetMapping
-    public ApiResponse<PageResponse<CourseVO>> listCourses(CoursePageRequest request) {
-        PageResponse<CourseVO> response = courseService.listCourses(request);
+    public ApiResponse<@NonNull PageResponse<@NonNull CourseVO>> listCourses(CoursePageRequest request) {
+        PageResponse<@NonNull CourseVO> response = courseService.listCourses(request);
         return ApiResponse.ok(response);
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<CourseDetailVO> getCourse(
+    public ApiResponse<@NonNull CourseDetailVO> getCourse(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = jwt != null ? JwtPrincipalResolver.userId(jwt) : null;
@@ -65,7 +67,7 @@ public class CourseController {
     }
 
     @PutMapping("/{id}")
-    public ApiResponse<Void> updateCourse(
+    public ApiResponse<@NonNull Void> updateCourse(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateCourseRequest request,
             @AuthenticationPrincipal Jwt jwt) {
@@ -76,7 +78,7 @@ public class CourseController {
     }
 
     @DeleteMapping("/{id}")
-    public ApiResponse<Void> deleteCourse(
+    public ApiResponse<@NonNull Void> deleteCourse(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -86,13 +88,13 @@ public class CourseController {
     }
 
     @GetMapping("/teacher")
-    public ApiResponse<PageResponse<CourseVO>> listTeacherCourses(
+    public ApiResponse<@NonNull PageResponse<@NonNull CourseVO>> listTeacherCourses(
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) String role,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         UUID teacherId = JwtPrincipalResolver.requireUserId(jwt);
-        PageResponse<CourseVO> response = courseService.listTeacherCourses(teacherId, role, page, size);
+        PageResponse<@NonNull CourseVO> response = courseService.listTeacherCourses(teacherId, role, page, size);
         return ApiResponse.ok(response);
     }
 }

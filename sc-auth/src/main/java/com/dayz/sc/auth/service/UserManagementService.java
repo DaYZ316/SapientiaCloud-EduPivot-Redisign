@@ -385,7 +385,7 @@ public class UserManagementService {
         if (storageInternalClient == null) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Storage service is unavailable");
         }
-        ApiResponse<StorageObjectInfo> response = storageInternalClient.getFile(fileId);
+        ApiResponse<@NonNull StorageObjectInfo> response = storageInternalClient.getFile(fileId);
         if (response == null || response.code() != ErrorCodes.SUCCESS.code() || response.data() == null) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid storage file");
         }
@@ -419,7 +419,7 @@ public class UserManagementService {
             return Map.of();
         }
         try {
-            ApiResponse<Map<UUID, String>> response = storageInternalClient.getUrls(fileIds);
+            ApiResponse<@NonNull Map<@NonNull UUID, @NonNull String>> response = storageInternalClient.getUrls(fileIds);
             if (response != null && response.code() == ErrorCodes.SUCCESS.code() && response.data() != null) {
                 return response.data();
             }

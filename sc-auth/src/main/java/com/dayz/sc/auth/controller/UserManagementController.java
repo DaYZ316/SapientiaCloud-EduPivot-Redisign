@@ -41,7 +41,7 @@ public class UserManagementController {
     }
 
     @PutMapping("/me")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
+    @RateLimited
     public ApiResponse<@NonNull UserProfileVO> updateCurrentUser(@Valid @RequestBody UpdateUserRequest request,
                                                                  @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -57,7 +57,7 @@ public class UserManagementController {
     }
 
     @PutMapping("/{id}")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
+    @RateLimited
     public ApiResponse<@NonNull UserProfileVO> updateUser(@PathVariable UUID id,
                                                           @Valid @RequestBody UpdateUserRequest request,
                                                           @AuthenticationPrincipal Jwt jwt) {
@@ -66,8 +66,8 @@ public class UserManagementController {
     }
 
     @PutMapping("/{id}/reset-password")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> resetPassword(@PathVariable UUID id,
+    @RateLimited
+    public ApiResponse<@NonNull Void> resetPassword(@PathVariable UUID id,
                                            @AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
         userManagementService.resetPassword(id);

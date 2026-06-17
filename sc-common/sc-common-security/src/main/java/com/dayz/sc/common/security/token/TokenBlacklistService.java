@@ -15,15 +15,9 @@ import java.time.Duration;
  * @since 2026-06-09
  */
 @Slf4j
-public class TokenBlacklistService {
+public record TokenBlacklistService(RedisTemplate<String, Object> redisTemplate) {
 
     private static final String KEY_PREFIX = "auth:blacklist:";
-
-    private final RedisTemplate<String, Object> redisTemplate;
-
-    public TokenBlacklistService(RedisTemplate<String, Object> redisTemplate) {
-        this.redisTemplate = redisTemplate;
-    }
 
     /**
      * 将 token JTI 加入黑名单。

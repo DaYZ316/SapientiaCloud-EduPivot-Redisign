@@ -14,6 +14,7 @@ import com.dayz.sc.course.service.EnrollmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,8 +34,8 @@ public class EnrollmentController {
     private final EnrollmentService enrollmentService;
 
     @PostMapping
-    @RateLimited(maxRequests = 5, windowSeconds = 60)
-    public ApiResponse<UUID> enroll(
+    @RateLimited(maxRequests = 5)
+    public ApiResponse<@NonNull UUID> enroll(
             @Valid @RequestBody EnrollRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID studentId = JwtPrincipalResolver.requireUserId(jwt);
@@ -48,30 +49,30 @@ public class EnrollmentController {
     }
 
     @GetMapping("/my")
-    public ApiResponse<PageResponse<EnrollmentVO>> listMyEnrollments(
+    public ApiResponse<@NonNull PageResponse<@NonNull EnrollmentVO>> listMyEnrollments(
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         UUID studentId = JwtPrincipalResolver.requireUserId(jwt);
-        PageResponse<EnrollmentVO> response = enrollmentService.listStudentEnrollments(studentId, page, size);
+        PageResponse<@NonNull EnrollmentVO> response = enrollmentService.listStudentEnrollments(studentId, page, size);
         return ApiResponse.ok(response);
     }
 
     @GetMapping("/course/{courseId}")
-    public ApiResponse<PageResponse<EnrollmentVO>> listCourseEnrollments(
+    public ApiResponse<@NonNull PageResponse<@NonNull EnrollmentVO>> listCourseEnrollments(
             @PathVariable UUID courseId,
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
-        PageResponse<EnrollmentVO> response = enrollmentService.listCourseEnrollments(courseId, page, size, userId, role);
+        PageResponse<@NonNull EnrollmentVO> response = enrollmentService.listCourseEnrollments(courseId, page, size, userId, role);
         return ApiResponse.ok(response);
     }
 
     @PutMapping("/{id}/status")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> updateStatus(
+    @RateLimited
+    public ApiResponse<@NonNull Void> updateStatus(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateEnrollmentStatusRequest request,
             @AuthenticationPrincipal Jwt jwt) {
@@ -82,8 +83,8 @@ public class EnrollmentController {
     }
 
     @DeleteMapping("/{id}")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> dropCourse(
+    @RateLimited
+    public ApiResponse<@NonNull Void> dropCourse(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID studentId = JwtPrincipalResolver.requireUserId(jwt);

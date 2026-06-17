@@ -12,6 +12,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.jspecify.annotations.NonNull;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -31,8 +32,8 @@ public class PracticeSessionController {
     private final PracticeSessionService practiceSessionService;
 
     @PostMapping
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<UUID> createPracticeSession(
+    @RateLimited
+    public ApiResponse<@NonNull UUID> createPracticeSession(
             @Valid @RequestBody CreatePracticeSessionRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -41,7 +42,7 @@ public class PracticeSessionController {
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<PracticeSessionVO> getPracticeSession(
+    public ApiResponse<@NonNull PracticeSessionVO> getPracticeSession(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -50,8 +51,8 @@ public class PracticeSessionController {
     }
 
     @PostMapping("/{id}/answers")
-    @RateLimited(maxRequests = 30, windowSeconds = 60)
-    public ApiResponse<PracticeAnswerVO> submitAnswer(
+    @RateLimited(maxRequests = 30)
+    public ApiResponse<@NonNull PracticeAnswerVO> submitAnswer(
             @PathVariable UUID id,
             @Valid @RequestBody SubmitAnswerRequest request,
             @AuthenticationPrincipal Jwt jwt) {
@@ -61,7 +62,7 @@ public class PracticeSessionController {
     }
 
     @PutMapping("/{id}/complete")
-    public ApiResponse<Void> completePracticeSession(
+    public ApiResponse<@NonNull Void> completePracticeSession(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -70,7 +71,7 @@ public class PracticeSessionController {
     }
 
     @GetMapping("/my")
-    public ApiResponse<List<PracticeSessionVO>> getMyPracticeHistory(
+    public ApiResponse<@NonNull List<@NonNull PracticeSessionVO>> getMyPracticeHistory(
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         List<PracticeSessionVO> history = practiceSessionService.getMyPracticeHistory(userId);
@@ -78,7 +79,7 @@ public class PracticeSessionController {
     }
 
     @GetMapping("/bank/{bankId}/stats")
-    public ApiResponse<PracticeSessionVO> getBankPracticeStats(@PathVariable UUID bankId) {
+    public ApiResponse<@NonNull PracticeSessionVO> getBankPracticeStats(@PathVariable UUID bankId) {
         PracticeSessionVO stats = practiceSessionService.getBankPracticeStats(bankId);
         return ApiResponse.ok(stats);
     }

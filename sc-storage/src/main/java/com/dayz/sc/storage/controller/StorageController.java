@@ -12,6 +12,7 @@ import com.dayz.sc.storage.service.DocConversionService;
 import com.dayz.sc.storage.service.StorageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -35,8 +36,8 @@ public class StorageController {
     private final DocConversionService docConversionService;
 
     @PostMapping("/uploads")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<UploadTicket> createUpload(@Valid @RequestBody CreateUploadRequest request,
+    @RateLimited
+    public ApiResponse<@NonNull UploadTicket> createUpload(@Valid @RequestBody CreateUploadRequest request,
                                                   @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
@@ -44,8 +45,8 @@ public class StorageController {
     }
 
     @PostMapping("/uploads/{objectId}/complete")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<FileAsset> completeUpload(@PathVariable UUID objectId,
+    @RateLimited
+    public ApiResponse<@NonNull FileAsset> completeUpload(@PathVariable UUID objectId,
                                                  @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
@@ -53,7 +54,7 @@ public class StorageController {
     }
 
     @GetMapping("/files/{fileId}")
-    public ApiResponse<FileAsset> getFile(@PathVariable UUID fileId,
+    public ApiResponse<@NonNull FileAsset> getFile(@PathVariable UUID fileId,
                                           @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
@@ -61,7 +62,7 @@ public class StorageController {
     }
 
     @GetMapping("/files/{fileId}/download-url")
-    public ApiResponse<DownloadUrlResponse> downloadUrl(@PathVariable UUID fileId,
+    public ApiResponse<@NonNull DownloadUrlResponse> downloadUrl(@PathVariable UUID fileId,
                                                         @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
@@ -69,8 +70,8 @@ public class StorageController {
     }
 
     @PostMapping("/files/{fileId}/convert")
-    @RateLimited(maxRequests = 5, windowSeconds = 60)
-    public ApiResponse<DownloadUrlResponse> convertFile(@PathVariable UUID fileId,
+    @RateLimited(maxRequests = 5)
+    public ApiResponse<@NonNull DownloadUrlResponse> convertFile(@PathVariable UUID fileId,
                                                         @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
@@ -80,8 +81,8 @@ public class StorageController {
     }
 
     @DeleteMapping("/files/{fileId}")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> deleteFile(@PathVariable UUID fileId,
+    @RateLimited
+    public ApiResponse<@NonNull Void> deleteFile(@PathVariable UUID fileId,
                                         @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
@@ -90,17 +91,17 @@ public class StorageController {
     }
 
     @GetMapping("/internal/files/{fileId}/url")
-    public ApiResponse<String> internalDownloadUrl(@PathVariable UUID fileId) {
+    public ApiResponse<@NonNull String> internalDownloadUrl(@PathVariable UUID fileId) {
         return ApiResponse.ok(storageService.createInternalDownloadUrl(fileId));
     }
 
     @GetMapping("/internal/files/{fileId}")
-    public ApiResponse<StorageObjectInfo> internalFile(@PathVariable UUID fileId) {
+    public ApiResponse<@NonNull StorageObjectInfo> internalFile(@PathVariable UUID fileId) {
         return ApiResponse.ok(storageService.getInternalObjectInfo(fileId));
     }
 
     @PostMapping("/internal/files/urls")
-    public ApiResponse<Map<UUID, String>> internalDownloadUrls(@RequestBody List<UUID> fileIds) {
+    public ApiResponse<@NonNull Map<@NonNull UUID, @NonNull String>> internalDownloadUrls(@RequestBody List<UUID> fileIds) {
         return ApiResponse.ok(storageService.createInternalDownloadUrls(fileIds));
     }
 }

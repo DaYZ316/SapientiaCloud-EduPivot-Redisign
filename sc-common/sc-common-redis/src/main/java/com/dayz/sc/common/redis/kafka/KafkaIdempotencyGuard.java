@@ -1,6 +1,5 @@
 package com.dayz.sc.common.redis.kafka;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
@@ -14,13 +13,10 @@ import java.util.UUID;
  * @since 2026-06-12
  */
 @Slf4j
-@RequiredArgsConstructor
-public class KafkaIdempotencyGuard {
+public record KafkaIdempotencyGuard(StringRedisTemplate redisTemplate) {
 
     private static final String KEY_PREFIX = "kafka:idempotent:";
     private static final Duration TTL = Duration.ofHours(24);
-
-    private final StringRedisTemplate redisTemplate;
 
     /**
      * 尝试获取事件处理权。返回 true 表示该事件首次处理，false 表示重复事件应跳过。

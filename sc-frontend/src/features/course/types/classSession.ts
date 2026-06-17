@@ -21,9 +21,12 @@ export interface ClassParticipant {
     sessionId: string
     userId: string
     role: number
+    seatIndex: number | null
     x: number
     y: number
     z: number
+    displayName: string | null
+    avatarUrl: string | null
     joinedAt: string
 }
 
@@ -48,6 +51,12 @@ export interface JoinClassSessionRequest {
     x: number
     y: number
     z?: number
+    seatIndex?: number
+}
+
+export interface ClassSeatSyncToken {
+    token: string
+    expiresInSeconds: number
 }
 
 export type ClassSessionFormPayload = Omit<CreateClassSessionRequest, 'courseId'>
@@ -67,8 +76,8 @@ export const ClassRoomSize = {
 } as const
 
 export const ClassRoomSizeLabel: Record<number, string> = {
-    [ClassRoomSize.SMALL]: '小型教室',
-    [ClassRoomSize.MEDIUM]: '中型教室',
-    [ClassRoomSize.LARGE]: '大型教室',
-    [ClassRoomSize.XLARGE]: '超大型教室',
+    [ClassRoomSize.SMALL]: 'Small classroom',
+    [ClassRoomSize.MEDIUM]: 'Medium classroom',
+    [ClassRoomSize.LARGE]: 'Large classroom',
+    [ClassRoomSize.XLARGE]: 'Extra large classroom',
 }

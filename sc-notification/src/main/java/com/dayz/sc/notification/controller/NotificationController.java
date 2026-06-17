@@ -20,6 +20,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import org.jspecify.annotations.NonNull;
+
 import java.util.UUID;
 
 /**
@@ -43,8 +45,8 @@ public class NotificationController {
      * 角色通过 Gateway 注入的 X-User-Role 请求头获取。
      */
     @PostMapping
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<UUID> sendNotification(
+    @RateLimited
+    public ApiResponse<@NonNull UUID> sendNotification(
             @Valid @RequestBody SendNotificationRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID senderId = JwtPrincipalResolver.requireUserId(jwt);
@@ -57,27 +59,27 @@ public class NotificationController {
     }
 
     @GetMapping
-    public ApiResponse<PageResponse<NotificationVO>> getNotifications(
+    public ApiResponse<@NonNull PageResponse<@NonNull NotificationVO>> getNotifications(
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) Integer type,
             @RequestParam(defaultValue = "false") boolean sentByMe) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
-        PageResponse<NotificationVO> response = notificationService.getNotifications(userId, page, size, type, sentByMe);
+        PageResponse<@NonNull NotificationVO> response = notificationService.getNotifications(userId, page, size, type, sentByMe);
         return ApiResponse.ok(response);
     }
 
     @GetMapping("/unread-count")
-    public ApiResponse<UnreadCountVO> getUnreadCount(@AuthenticationPrincipal Jwt jwt) {
+    public ApiResponse<@NonNull UnreadCountVO> getUnreadCount(@AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         UnreadCountVO response = notificationService.getUnreadCount(userId);
         return ApiResponse.ok(response);
     }
 
     @PutMapping("/{id}/read")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> markAsRead(
+    @RateLimited
+    public ApiResponse<@NonNull Void> markAsRead(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -86,8 +88,8 @@ public class NotificationController {
     }
 
     @PutMapping("/read-all")
-    @RateLimited(maxRequests = 5, windowSeconds = 60)
-    public ApiResponse<Void> markAllAsRead(
+    @RateLimited(maxRequests = 5)
+    public ApiResponse<@NonNull Void> markAllAsRead(
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) Integer type) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -96,8 +98,8 @@ public class NotificationController {
     }
 
     @DeleteMapping("/{id}")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> deleteNotification(
+    @RateLimited
+    public ApiResponse<@NonNull Void> deleteNotification(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -106,8 +108,8 @@ public class NotificationController {
     }
 
     @DeleteMapping("/all")
-    @RateLimited(maxRequests = 5, windowSeconds = 60)
-    public ApiResponse<Void> deleteAllNotifications(
+    @RateLimited(maxRequests = 5)
+    public ApiResponse<@NonNull Void> deleteAllNotifications(
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) Integer type) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -119,8 +121,8 @@ public class NotificationController {
      * 撤回通知（仅发送者可操作，对所有接收者生效）。
      */
     @DeleteMapping("/{id}/recall")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> recallNotification(
+    @RateLimited
+    public ApiResponse<@NonNull Void> recallNotification(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID senderId = JwtPrincipalResolver.requireUserId(jwt);

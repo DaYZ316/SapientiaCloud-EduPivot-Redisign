@@ -29,6 +29,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.jspecify.annotations.NonNull;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -61,7 +63,7 @@ public class ForumService {
     private final AuthInternalClient authInternalClient;
     private final StorageInternalClient storageInternalClient;
 
-    public PageResponse<ForumPostVO> listCourseComments(UUID courseId, Long pageValue, Long sizeValue) {
+    public PageResponse<@NonNull ForumPostVO> listCourseComments(UUID courseId, Long pageValue, Long sizeValue) {
         courseRepository.findById(courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
 
@@ -415,7 +417,7 @@ public class ForumService {
     }
 
     private StorageObjectInfo requireStorageFile(UUID fileId) {
-        ApiResponse<StorageObjectInfo> response = storageInternalClient.getFile(fileId);
+        ApiResponse<@NonNull StorageObjectInfo> response = storageInternalClient.getFile(fileId);
         if (response == null || response.code() != ErrorCodes.SUCCESS.code() || response.data() == null) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid comment image");
         }
@@ -434,7 +436,7 @@ public class ForumService {
         if (imageIds.isEmpty()) {
             return Map.of();
         }
-        ApiResponse<Map<UUID, String>> response = storageInternalClient.getUrls(imageIds);
+        ApiResponse<@NonNull Map<@NonNull UUID, @NonNull String>> response = storageInternalClient.getUrls(imageIds);
         if (response == null || response.code() != ErrorCodes.SUCCESS.code() || response.data() == null) {
             return Map.of();
         }
@@ -446,7 +448,7 @@ public class ForumService {
             return Map.of();
         }
         try {
-            ApiResponse<List<UserBasicInfo>> response = authInternalClient.getUsersBasicInfo(userIds);
+            ApiResponse<@NonNull List<@NonNull UserBasicInfo>> response = authInternalClient.getUsersBasicInfo(userIds);
             if (response != null && response.code() == ErrorCodes.SUCCESS.code() && response.data() != null) {
                 return response.data().stream()
                         .collect(Collectors.toMap(UserBasicInfo::id, info -> info, (a, b) -> a));

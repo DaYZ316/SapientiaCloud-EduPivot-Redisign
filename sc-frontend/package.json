@@ -16,16 +16,20 @@
   },
   "devDependencies": {
     "@types/node": "^25.6.2",
+    "@types/three": "^0.184.1",
     "@vitejs/plugin-vue": "^6.0.6",
     "@vue/test-utils": "^2.4.10",
     "eslint": "^9.39.4",
+    "eslint-plugin-vue": "^10.9.2",
     "jsdom": "^28.1.0",
     "playwright": "^1.59.1",
     "prettier": "^3.8.3",
     "stylelint": "^17.11.0",
     "typescript": "~6.0.2",
+    "typescript-eslint": "^8.61.1",
     "vite": "^8.0.10",
     "vitest": "^4.1.5",
+    "vue-eslint-parser": "^10.4.1",
     "vue-tsc": "^3.2.8"
   },
   "dependencies": {
@@ -39,6 +43,7 @@
     "marked": "^18.0.5",
     "pinia": "^3.0.4",
     "sass": "^1.99.0",
+    "three": "^0.184.0",
     "vue": "^3.5.34",
     "vue-demi": "^0.14.10",
     "vue-i18n": "^11.4.2",

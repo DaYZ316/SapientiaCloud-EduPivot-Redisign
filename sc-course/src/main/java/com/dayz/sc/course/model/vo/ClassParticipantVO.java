@@ -17,9 +17,12 @@ public record ClassParticipantVO(
         @JsonProperty UUID sessionId,
         @JsonProperty UUID userId,
         @JsonProperty Integer role,
+        @JsonProperty Integer seatIndex,
         @JsonProperty BigDecimal x,
         @JsonProperty BigDecimal y,
         @JsonProperty BigDecimal z,
+        @JsonProperty String displayName,
+        @JsonProperty String avatarUrl,
         @JsonProperty Instant joinedAt
 ) {
 }

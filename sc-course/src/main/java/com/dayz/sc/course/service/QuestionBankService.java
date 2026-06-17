@@ -24,6 +24,7 @@ import com.dayz.sc.course.repository.QuestionBankRepository;
 import com.dayz.sc.course.repository.QuestionOptionRepository;
 import com.dayz.sc.course.repository.QuestionRepository;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -114,7 +115,7 @@ public class QuestionBankService {
         return toQuestionBankVO(bank, questionCount);
     }
 
-    public PageResponse<QuestionBankVO> listQuestionBanks(QuestionBankPageRequest request) {
+    public PageResponse<@NonNull QuestionBankVO> listQuestionBanks(QuestionBankPageRequest request) {
         int page = PageUtils.normalizePage(request.page());
         int size = PageUtils.normalizeSize(request.size());
 
@@ -339,7 +340,7 @@ public class QuestionBankService {
         return toQuestionVO(question, options, answers);
     }
 
-    public PageResponse<QuestionVO> listQuestions(QuestionPageRequest request, UUID userId, Integer role) {
+    public PageResponse<@NonNull QuestionVO> listQuestions(QuestionPageRequest request, UUID userId, Integer role) {
         int page = PageUtils.normalizePage(request.page());
         int size = PageUtils.normalizeSize(request.size());
         UUID visibleUserId = SecurityUtils.isAdmin(role) ? null : userId;

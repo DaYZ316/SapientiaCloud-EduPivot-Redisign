@@ -2,6 +2,8 @@ package com.dayz.sc.notification.sse;
 
 import com.dayz.sc.notification.model.vo.NotificationVO;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
@@ -24,10 +26,14 @@ public class RedisSseSubscriber implements MessageListener {
     private final NotificationSseEmitter sseEmitter;
 
     @Override
-    public void onMessage(Message message, byte[] pattern) {
+    public void onMessage(@NonNull Message message, byte @Nullable [] pattern) {
         try {
-            RedisSerializer<String> keySerializer = (RedisSerializer<String>) redisTemplate.getKeySerializer();
-            Object rawValue = redisTemplate.getValueSerializer().deserialize(message.getBody());
+            RedisSerializer<?> valueSerializer = redisTemplate.getValueSerializer();
+            if (valueSerializer == null) {
+                log.warn("Redis value serializer is not configured, skipping SSE message");
+                return;
+            }
+            Object rawValue = valueSerializer.deserialize(message.getBody());
 
             if (!(rawValue instanceof SseMessage sseMessage)) {
                 log.warn("Received invalid SSE message type: {}", rawValue != null ? rawValue.getClass() : "null");

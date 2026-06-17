@@ -3,11 +3,12 @@
       :class="[
       `layout-${uiPreferences.layoutMode}`,
       { 'sidebar-collapsed': uiPreferences.isSidebarLayout && uiPreferences.sidebarCollapsed },
+      { 'layout-fullscreen': isFullscreenPage },
     ]"
       class="layout"
   >
     <!-- Top Navigation Bar -->
-    <header v-if="!uiPreferences.isSidebarLayout" class="top-nav">
+    <header v-if="!isFullscreenPage && !uiPreferences.isSidebarLayout" class="top-nav">
       <div class="nav-container">
         <!-- Logo -->
         <router-link class="nav-logo" to="/dashboard">
@@ -79,7 +80,7 @@
     </header>
 
     <!-- Side Navigation Bar -->
-    <aside v-else aria-label="Primary navigation" class="side-nav">
+    <aside v-else-if="!isFullscreenPage" aria-label="Primary navigation" class="side-nav">
       <div class="side-nav-header">
         <router-link class="nav-logo side-logo" to="/dashboard">
           <img :src="brandLogoSrc" alt="" class="brand-mark"/>
@@ -263,6 +264,7 @@ const navItems = computed(() => [
 ])
 
 const isNotificationsPage = computed(() => router.currentRoute.value.path === '/notifications')
+const isFullscreenPage = computed(() => router.currentRoute.value.meta.fullscreen === true)
 
 function handleClickOutside(event: MouseEvent) {
   const target = event.target as HTMLElement
@@ -949,5 +951,27 @@ async function handleLogout() {
   .user-name {
     display: none;
   }
+}
+
+.layout-fullscreen {
+  min-height: 100dvh;
+  overflow: hidden;
+  background: #0b1020;
+}
+
+.layout-fullscreen .main-content,
+.layout-sidebar.layout-fullscreen .main-content,
+.layout-sidebar.sidebar-collapsed.layout-fullscreen .main-content {
+  margin-left: 0;
+  min-height: 100dvh;
+  padding: 0;
+}
+
+.layout-fullscreen .content-container {
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
 }
 </style>

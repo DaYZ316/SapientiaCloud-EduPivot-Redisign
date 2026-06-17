@@ -3,6 +3,9 @@ package com.dayz.sc.course.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.feign.client.AuthInternalClient;
+import com.dayz.sc.common.feign.dto.UserBasicInfo;
+import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.common.util.PageUtils;
@@ -18,18 +21,26 @@ import com.dayz.sc.course.model.enums.ClassSessionStatus;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
 import com.dayz.sc.course.model.vo.ClassBarrageVO;
 import com.dayz.sc.course.model.vo.ClassParticipantVO;
+import com.dayz.sc.course.model.vo.ClassSeatSyncTokenVO;
 import com.dayz.sc.course.model.vo.ClassSessionVO;
 import com.dayz.sc.course.model.vo.LiveKitTokenVO;
 import com.dayz.sc.course.repository.*;
 import com.dayz.sc.course.sse.ClassBarrageSseEmitter;
+import com.dayz.sc.course.websocket.ClassSeatSyncTokenService;
+import com.dayz.sc.course.websocket.ClassSeatSyncWebSocketHub;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Business service for class sessions.
@@ -42,6 +53,10 @@ import java.util.UUID;
 public class ClassSessionService {
 
     private static final BigDecimal ZERO = BigDecimal.ZERO;
+    private static final int SMALL_SEAT_COUNT = 12;
+    private static final int MEDIUM_SEAT_COUNT = 64;
+    private static final int LARGE_SEAT_COUNT = 160;
+    private static final int XLARGE_SEAT_COUNT = 250;
 
     private final ClassSessionRepository classSessionRepository;
     private final ClassParticipantRepository classParticipantRepository;
@@ -51,6 +66,9 @@ public class ClassSessionService {
     private final EnrollmentRepository enrollmentRepository;
     private final ClassBarrageSseEmitter barrageSseEmitter;
     private final LiveKitTokenService liveKitTokenService;
+    private final AuthInternalClient authInternalClient;
+    private final ClassSeatSyncTokenService classSeatSyncTokenService;
+    private final ClassSeatSyncWebSocketHub seatSyncWebSocketHub;
 
     @Transactional(rollbackFor = Exception.class)
     public UUID createSession(CreateClassSessionRequest request, UUID userId, Integer role) {
@@ -127,7 +145,7 @@ public class ClassSessionService {
         classSessionRepository.deleteById(sessionId);
     }
 
-    public PageResponse<ClassSessionVO> listByCourse(UUID courseId, int page, int size, UUID userId, Integer role) {
+    public PageResponse<@NonNull ClassSessionVO> listByCourse(UUID courseId, int page, int size, UUID userId, Integer role) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
         boolean isTeacher = isCourseTeacher(course.getId(), userId, role);
@@ -157,7 +175,7 @@ public class ClassSessionService {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
         if (isTeacher && session.getPublishedAt() != null) {
-            ensureParticipant(session, userId, ClassParticipantRole.TEACHER, ZERO, ZERO, ZERO);
+            ensureParticipant(session, userId, ClassParticipantRole.TEACHER, null, ZERO, ZERO, ZERO);
         }
         return toSessionVO(session, joined(sessionId, userId));
     }
@@ -169,14 +187,61 @@ public class ClassSessionService {
         ensurePublished(session);
         boolean isTeacher = isCourseTeacher(session.getCourseId(), userId, role);
         if (isTeacher) {
-            return toParticipantVO(ensureParticipant(session, userId, ClassParticipantRole.TEACHER,
-                    valueOrZero(request.x()), valueOrZero(request.y()), valueOrZero(request.z())));
+            ClassParticipant participant = ensureParticipant(session, userId, ClassParticipantRole.TEACHER, null,
+                    valueOrZero(request.x()), valueOrZero(request.y()), valueOrZero(request.z()));
+            return toParticipantVO(participant, loadUserInfoMap(List.of(participant.getUserId())));
         }
         if (!SecurityUtils.isStudent(role) || !isStudentEnrolled(session.getCourseId(), userId)) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
-        return toParticipantVO(ensureParticipant(session, userId, ClassParticipantRole.STUDENT,
-                valueOrZero(request.x()), valueOrZero(request.y()), valueOrZero(request.z())));
+        int seatIndex = validateSeatIndex(session.getRoomSize(), request.seatIndex());
+        ensureSeatAvailable(sessionId, seatIndex, userId);
+        try {
+            ClassParticipant participant = ensureParticipant(session, userId, ClassParticipantRole.STUDENT, seatIndex,
+                    valueOrZero(request.x()), valueOrZero(request.y()), valueOrZero(request.z()));
+            ClassParticipantVO vo = toParticipantVO(participant, loadUserInfoMap(List.of(participant.getUserId())));
+            seatSyncWebSocketHub.broadcastUpsert(sessionId, vo);
+            return vo;
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Seat is already occupied");
+        }
+    }
+
+    public List<ClassParticipantVO> listParticipants(UUID sessionId, UUID userId, Integer role) {
+        ClassSession session = classSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        requirePublishedSessionAccess(session, userId, role);
+        List<ClassParticipant> participants = classParticipantRepository.findBySessionId(sessionId);
+        Map<UUID, UserBasicInfo> userInfoMap = loadUserInfoMap(participants.stream()
+                .map(ClassParticipant::getUserId)
+                .distinct()
+                .toList());
+        return participants.stream()
+                .map(participant -> toParticipantVO(participant, userInfoMap))
+                .toList();
+    }
+
+    public ClassSeatSyncTokenVO createSeatSyncToken(UUID sessionId, UUID userId, Integer role) {
+        ClassSession session = classSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        requirePublishedSessionAccess(session, userId, role);
+        return classSeatSyncTokenService.issueToken(sessionId, userId, role);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void leaveSeat(UUID sessionId, UUID userId, Integer role) {
+        ClassSession session = classSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        ensurePublished(session);
+        if (!SecurityUtils.isStudent(role) || !isStudentEnrolled(session.getCourseId(), userId)) {
+            throw new BusinessException(ErrorCodes.FORBIDDEN);
+        }
+        classParticipantRepository.findBySessionIdAndUserId(sessionId, userId)
+                .ifPresent(participant -> {
+                    Integer seatIndex = participant.getSeatIndex();
+                    classParticipantRepository.deleteBySessionIdAndUserId(sessionId, userId);
+                    seatSyncWebSocketHub.broadcastRemove(sessionId, userId, seatIndex);
+                });
     }
 
     public LiveKitTokenVO createLiveToken(UUID sessionId, UUID userId, Integer role) {
@@ -184,7 +249,7 @@ public class ClassSessionService {
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
         ensurePublished(session);
         if (isCourseTeacher(session.getCourseId(), userId, role)) {
-            ensureParticipant(session, userId, ClassParticipantRole.TEACHER, ZERO, ZERO, ZERO);
+            ensureParticipant(session, userId, ClassParticipantRole.TEACHER, null, ZERO, ZERO, ZERO);
         }
         if (!joined(sessionId, userId)) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
@@ -217,7 +282,7 @@ public class ClassSessionService {
         return vo;
     }
 
-    public PageResponse<ClassBarrageVO> listBarrages(UUID sessionId, int page, int size, UUID userId, Integer role) {
+    public PageResponse<@NonNull ClassBarrageVO> listBarrages(UUID sessionId, int page, int size, UUID userId, Integer role) {
         requireJoinedPublishedSession(sessionId, userId, role);
         int currentPage = PageUtils.normalizePage(page);
         int pageSize = PageUtils.normalizeSize(size);
@@ -230,7 +295,7 @@ public class ClassSessionService {
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
         ensurePublished(session);
         if (isCourseTeacher(session.getCourseId(), userId, role)) {
-            ensureParticipant(session, userId, ClassParticipantRole.TEACHER, ZERO, ZERO, ZERO);
+            ensureParticipant(session, userId, ClassParticipantRole.TEACHER, null, ZERO, ZERO, ZERO);
         }
         if (!joined(sessionId, userId)) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
@@ -238,10 +303,12 @@ public class ClassSessionService {
     }
 
     private ClassParticipant ensureParticipant(ClassSession session, UUID userId, ClassParticipantRole role,
+                                               Integer seatIndex,
                                                BigDecimal x, BigDecimal y, BigDecimal z) {
         return classParticipantRepository.findBySessionIdAndUserId(session.getId(), userId)
                 .map(existing -> {
                     existing.setRole(role.getCode());
+                    existing.setSeatIndex(seatIndex);
                     existing.setX(x);
                     existing.setY(y);
                     existing.setZ(z);
@@ -254,6 +321,7 @@ public class ClassSessionService {
                     participant.setSessionId(session.getId());
                     participant.setUserId(userId);
                     participant.setRole(role.getCode());
+                    participant.setSeatIndex(seatIndex);
                     participant.setX(x);
                     participant.setY(y);
                     participant.setZ(z);
@@ -273,6 +341,44 @@ public class ClassSessionService {
         if (!isCourseTeacher(course.getId(), userId, role)) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
+    }
+
+    private void requirePublishedSessionAccess(ClassSession session, UUID userId, Integer role) {
+        ensurePublished(session);
+        boolean isTeacher = isCourseTeacher(session.getCourseId(), userId, role);
+        boolean isStudent = isStudentEnrolled(session.getCourseId(), userId);
+        if (!isTeacher && !isStudent && !SecurityUtils.isAdmin(role)) {
+            throw new BusinessException(ErrorCodes.FORBIDDEN);
+        }
+    }
+
+    private int validateSeatIndex(Integer roomSize, Integer seatIndex) {
+        if (seatIndex == null) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Seat index is required");
+        }
+        int capacity = seatCapacity(roomSize);
+        if (seatIndex < 0 || seatIndex >= capacity) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Seat index is out of range");
+        }
+        return seatIndex;
+    }
+
+    private int seatCapacity(Integer roomSize) {
+        ClassRoomSize size = ClassRoomSize.fromCode(roomSize == null ? ClassRoomSize.SMALL.getCode() : roomSize);
+        return switch (size) {
+            case SMALL -> SMALL_SEAT_COUNT;
+            case MEDIUM -> MEDIUM_SEAT_COUNT;
+            case LARGE -> LARGE_SEAT_COUNT;
+            case XLARGE -> XLARGE_SEAT_COUNT;
+        };
+    }
+
+    private void ensureSeatAvailable(UUID sessionId, int seatIndex, UUID userId) {
+        classParticipantRepository.findBySessionIdAndSeatIndex(sessionId, seatIndex)
+                .filter(participant -> !participant.getUserId().equals(userId))
+                .ifPresent(participant -> {
+                    throw new BusinessException(ErrorCodes.BAD_REQUEST, "Seat is already occupied");
+                });
     }
 
     private boolean isCourseTeacher(UUID courseId, UUID userId, Integer role) {
@@ -343,17 +449,37 @@ public class ClassSessionService {
         );
     }
 
-    private ClassParticipantVO toParticipantVO(ClassParticipant participant) {
+    private ClassParticipantVO toParticipantVO(ClassParticipant participant, Map<UUID, UserBasicInfo> userInfoMap) {
+        UserBasicInfo userInfo = userInfoMap.get(participant.getUserId());
         return new ClassParticipantVO(
                 participant.getId(),
                 participant.getSessionId(),
                 participant.getUserId(),
                 participant.getRole(),
+                participant.getSeatIndex(),
                 participant.getX(),
                 participant.getY(),
                 participant.getZ(),
+                userInfo != null ? userInfo.displayName() : null,
+                userInfo != null ? userInfo.avatarUrl() : null,
                 participant.getJoinedAt()
         );
+    }
+
+    private Map<UUID, UserBasicInfo> loadUserInfoMap(List<UUID> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            ApiResponse<@NonNull List<@NonNull UserBasicInfo>> response = authInternalClient.getUsersBasicInfo(userIds);
+            if (response != null && response.code() == ErrorCodes.SUCCESS.code() && response.data() != null) {
+                return response.data().stream()
+                        .collect(Collectors.toMap(UserBasicInfo::id, info -> info, (a, b) -> a));
+            }
+        } catch (Exception ignored) {
+            return Map.of();
+        }
+        return Map.of();
     }
 
     private ClassBarrageVO toBarrageVO(ClassBarrage barrage) {

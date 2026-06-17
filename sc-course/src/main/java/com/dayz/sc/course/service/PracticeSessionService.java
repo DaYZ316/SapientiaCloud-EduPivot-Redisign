@@ -103,7 +103,7 @@ public class PracticeSessionService {
         Question question = questionRepository.findById(request.questionId())
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
 
-        boolean isCorrect = false;
+        boolean isCorrect;
         BigDecimal earnedScore = BigDecimal.ZERO;
 
         int questionType = question.getQuestionType();
@@ -122,7 +122,7 @@ public class PracticeSessionService {
                 earnedScore = question.getScore();
             } else if (question.getAllowPartialCredit() == 1 && questionType == QUESTION_TYPE_MULTI_CHOICE) {
                 long correctSelected = selectedIds.stream().filter(correctIds::contains).count();
-                if (correctIds.size() > 0) {
+                if (!correctIds.isEmpty()) {
                     earnedScore = question.getScore().multiply(BigDecimal.valueOf(correctSelected))
                             .divide(BigDecimal.valueOf(correctIds.size()), PARTIAL_CREDIT_SCALE, RoundingMode.HALF_UP);
                 }

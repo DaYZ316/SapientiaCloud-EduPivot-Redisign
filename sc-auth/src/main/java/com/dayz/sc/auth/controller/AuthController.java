@@ -47,14 +47,14 @@ public class AuthController {
     private final JwtDecoder jwtDecoder;
 
     @PostMapping("/google/login")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
+    @RateLimited
     public ApiResponse<@NonNull LoginResponseVO> googleLogin(@Valid @RequestBody GoogleLoginRequest request,
                                                              HttpServletRequest servletRequest) {
         return ApiResponse.ok(googleLoginService.login(request, resolveClientIp(servletRequest)));
     }
 
     @PostMapping("/github/login")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
+    @RateLimited
     public ApiResponse<@NonNull LoginResponseVO> githubLogin(@Valid @RequestBody GitHubLoginRequest request,
                                                              HttpServletRequest servletRequest) {
         return ApiResponse.ok(gitHubLoginService.login(request, resolveClientIp(servletRequest)));
@@ -68,7 +68,7 @@ public class AuthController {
     }
 
     @PostMapping("/password/login")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
+    @RateLimited
     public ApiResponse<@NonNull LoginResponseVO> passwordLogin(@Valid @RequestBody PasswordLoginRequest request,
                                                                HttpServletRequest servletRequest) {
         return ApiResponse.ok(passwordLoginService.login(request, resolveClientIp(servletRequest)));
@@ -80,7 +80,7 @@ public class AuthController {
      * 使用 Refresh Token 换取新的 Access Token + 新的 Refresh Token（轮转）。
      */
     @PostMapping("/refresh")
-    @RateLimited(maxRequests = 20, windowSeconds = 60)
+    @RateLimited(maxRequests = 20)
     public ApiResponse<@NonNull LoginResponseVO> refresh(@Valid @RequestBody RefreshTokenRequest request) {
         String oldRefreshToken = request.refreshToken();
 
@@ -120,8 +120,8 @@ public class AuthController {
      * 将当前 Access Token 加入黑名单，并吊销 Refresh Token。
      */
     @PostMapping("/logout")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> logout(@RequestHeader(value = "Authorization", required = false) String authorization,
+    @RateLimited
+    public ApiResponse<@NonNull Void> logout(@RequestHeader(value = "Authorization", required = false) String authorization,
                                     @RequestBody(required = false) LogoutRequest request) {
         // 从 Authorization header 提取 token 并加入黑名单
         if (StringUtils.hasText(authorization) && authorization.startsWith(BEARER_PREFIX)) {

@@ -21,6 +21,7 @@ import com.dayz.sc.course.repository.CourseRepository;
 import com.dayz.sc.course.repository.CourseTeacherRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -213,7 +214,7 @@ public class InvitationService {
         log.info("Teacher {} withdrew invitation {} for course {}", inviterId, invitationId, invitation.getCourseId());
     }
 
-    public PageResponse<CourseInvitationVO> listReceived(InvitationPageRequest request, UUID inviteeId) {
+    public PageResponse<@NonNull CourseInvitationVO> listReceived(InvitationPageRequest request, UUID inviteeId) {
         int page = PageUtils.normalizePage(request.page());
         int size = PageUtils.normalizeSize(request.size());
 
@@ -225,7 +226,7 @@ public class InvitationService {
         return new PageResponse<>(voList, total, page, size);
     }
 
-    public PageResponse<CourseInvitationVO> listSent(InvitationPageRequest request, UUID inviterId) {
+    public PageResponse<@NonNull CourseInvitationVO> listSent(InvitationPageRequest request, UUID inviterId) {
         int page = PageUtils.normalizePage(request.page());
         int size = PageUtils.normalizeSize(request.size());
 
@@ -297,7 +298,7 @@ public class InvitationService {
      */
     private Map<UUID, UserBasicInfo> getBasicUserInfoBatch(List<UUID> userIds) {
         try {
-            ApiResponse<List<UserBasicInfo>> response = authInternalClient.getUsersBasicInfo(userIds);
+            ApiResponse<@NonNull List<@NonNull UserBasicInfo>> response = authInternalClient.getUsersBasicInfo(userIds);
             if (response != null && response.code() == 0 && response.data() != null) {
                 return response.data().stream()
                         .collect(Collectors.toMap(UserBasicInfo::id, u -> u, (a, b) -> a));
@@ -310,7 +311,7 @@ public class InvitationService {
     private String resolveCoverUrl(Course course) {
         if (course.getCoverFileId() != null) {
             try {
-                ApiResponse<Map<UUID, String>> response = storageInternalClient.getUrls(List.of(course.getCoverFileId()));
+                ApiResponse<@NonNull Map<@NonNull UUID, @NonNull String>> response = storageInternalClient.getUrls(List.of(course.getCoverFileId()));
                 if (response != null && response.code() == 0 && response.data() != null) {
                     return response.data().get(course.getCoverFileId());
                 }
@@ -325,7 +326,7 @@ public class InvitationService {
      */
     private Map<UUID, String> resolveCoverUrlsBatch(List<UUID> fileIds) {
         try {
-            ApiResponse<Map<UUID, String>> response = storageInternalClient.getUrls(fileIds);
+            ApiResponse<@NonNull Map<@NonNull UUID, @NonNull String>> response = storageInternalClient.getUrls(fileIds);
             if (response != null && response.code() == 0 && response.data() != null) {
                 return response.data();
             }

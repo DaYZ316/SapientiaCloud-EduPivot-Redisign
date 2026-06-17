@@ -2,6 +2,7 @@ package com.dayz.sc.course.repository;
 
 import com.dayz.sc.course.model.entity.ClassParticipant;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,6 +22,10 @@ public interface ClassParticipantRepository {
      * @return 参与者实体，可能为空
      */
     Optional<ClassParticipant> findBySessionIdAndUserId(UUID sessionId, UUID userId);
+
+    List<ClassParticipant> findBySessionId(UUID sessionId);
+
+    Optional<ClassParticipant> findBySessionIdAndSeatIndex(UUID sessionId, Integer seatIndex);
 
     /**
      * 检查用户是否已参与指定课堂会话。
@@ -44,4 +49,6 @@ public interface ClassParticipantRepository {
      * @param participant 参与者实体
      */
     void update(ClassParticipant participant);
+
+    void deleteBySessionIdAndUserId(UUID sessionId, UUID userId);
 }

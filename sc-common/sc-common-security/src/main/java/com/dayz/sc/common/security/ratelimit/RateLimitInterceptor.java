@@ -4,7 +4,7 @@ import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.util.StringUtils;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -17,15 +17,12 @@ import org.springframework.web.servlet.HandlerInterceptor;
  * @author DaYZ
  * @since 2026-06-09
  */
-@RequiredArgsConstructor
-public class RateLimitInterceptor implements HandlerInterceptor {
+public record RateLimitInterceptor(RateLimiterService rateLimiterService) implements HandlerInterceptor {
 
     private static final String UNKNOWN_IP = "unknown";
 
-    private final RateLimiterService rateLimiterService;
-
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+    public boolean preHandle(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull Object handler) {
         if (!(handler instanceof HandlerMethod handlerMethod)) {
             return true;
         }

@@ -1,6 +1,7 @@
 package com.dayz.sc.course.service;
 
 import com.dayz.sc.common.error.BusinessException;
+import com.dayz.sc.common.feign.client.AuthInternalClient;
 import com.dayz.sc.course.model.dto.CreateClassBarrageRequest;
 import com.dayz.sc.course.model.dto.CreateClassSessionRequest;
 import com.dayz.sc.course.model.dto.JoinClassSessionRequest;
@@ -11,6 +12,8 @@ import com.dayz.sc.course.model.enums.EnrollmentStatus;
 import com.dayz.sc.course.model.vo.LiveKitTokenVO;
 import com.dayz.sc.course.repository.*;
 import com.dayz.sc.course.sse.ClassBarrageSseEmitter;
+import com.dayz.sc.course.websocket.ClassSeatSyncTokenService;
+import com.dayz.sc.course.websocket.ClassSeatSyncWebSocketHub;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,6 +59,15 @@ class ClassSessionServiceTest {
     @Mock
     private LiveKitTokenService liveKitTokenService;
 
+    @Mock
+    private AuthInternalClient authInternalClient;
+
+    @Mock
+    private ClassSeatSyncTokenService classSeatSyncTokenService;
+
+    @Mock
+    private ClassSeatSyncWebSocketHub seatSyncWebSocketHub;
+
     @Captor
     private ArgumentCaptor<ClassSession> sessionCaptor;
 
@@ -77,7 +89,10 @@ class ClassSessionServiceTest {
                 courseTeacherRepository,
                 enrollmentRepository,
                 barrageSseEmitter,
-                liveKitTokenService
+                liveKitTokenService,
+                authInternalClient,
+                classSeatSyncTokenService,
+                seatSyncWebSocketHub
         );
     }
 
@@ -109,7 +124,7 @@ class ClassSessionServiceTest {
         when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session(sessionId, null)));
 
         assertThatThrownBy(() -> classSessionService.joinSession(sessionId,
-                new JoinClassSessionRequest(BigDecimal.ONE, BigDecimal.TEN, null), studentId, 1))
+                new JoinClassSessionRequest(BigDecimal.ONE, BigDecimal.TEN, null, 0), studentId, 1))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("Class session is still preparing");
     }
@@ -152,15 +167,39 @@ class ClassSessionServiceTest {
         when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
         when(enrollmentRepository.findByCourseIdAndStudentId(session.getCourseId(), studentId))
                 .thenReturn(Optional.of(enrollment(studentId, EnrollmentStatus.ACTIVE.getCode())));
+        when(classParticipantRepository.findBySessionIdAndSeatIndex(sessionId, 5)).thenReturn(Optional.empty());
         when(classParticipantRepository.findBySessionIdAndUserId(sessionId, studentId)).thenReturn(Optional.empty());
 
         classSessionService.joinSession(sessionId,
-                new JoinClassSessionRequest(new BigDecimal("12.50"), new BigDecimal("9.25"), null), studentId, 1);
+                new JoinClassSessionRequest(new BigDecimal("12.50"), new BigDecimal("9.25"), null, 5), studentId, 1);
 
         verify(classParticipantRepository).save(participantCaptor.capture());
+        assertThat(participantCaptor.getValue().getSeatIndex()).isEqualTo(5);
         assertThat(participantCaptor.getValue().getX()).isEqualByComparingTo("12.50");
         assertThat(participantCaptor.getValue().getY()).isEqualByComparingTo("9.25");
         assertThat(participantCaptor.getValue().getZ()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void joinSession_shouldRejectSeatOccupiedByAnotherStudent() {
+        UUID sessionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        UUID anotherStudentId = UUID.randomUUID();
+        ClassSession session = session(sessionId, Instant.now());
+        ClassParticipant occupied = new ClassParticipant();
+        occupied.setSessionId(sessionId);
+        occupied.setUserId(anotherStudentId);
+        occupied.setSeatIndex(8);
+        when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(enrollmentRepository.findByCourseIdAndStudentId(session.getCourseId(), studentId))
+                .thenReturn(Optional.of(enrollment(studentId, EnrollmentStatus.ACTIVE.getCode())));
+        when(classParticipantRepository.findBySessionIdAndSeatIndex(sessionId, 8)).thenReturn(Optional.of(occupied));
+
+        assertThatThrownBy(() -> classSessionService.joinSession(sessionId,
+                new JoinClassSessionRequest(BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ZERO, 8), studentId, 1))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Seat is already occupied");
+        verify(classParticipantRepository, never()).save(any());
     }
 
     @Test

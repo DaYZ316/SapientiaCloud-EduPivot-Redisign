@@ -11,6 +11,7 @@ import com.dayz.sc.course.model.dto.UpdateForumReplyRequest;
 import com.dayz.sc.course.model.vo.ForumPostVO;
 import com.dayz.sc.course.model.vo.ForumReplyVO;
 import com.dayz.sc.course.service.ForumService;
+import org.jspecify.annotations.NonNull;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -35,19 +36,19 @@ public class ForumController {
     private final ForumService forumService;
 
     @GetMapping("/course/{courseId}/comments")
-    public ApiResponse<PageResponse<ForumPostVO>> listCourseComments(
+    public ApiResponse<@NonNull PageResponse<@NonNull ForumPostVO>> listCourseComments(
             @PathVariable UUID courseId,
             @RequestParam(required = false) Long page,
             @RequestParam(required = false) Long size,
             @AuthenticationPrincipal Jwt jwt) {
         JwtPrincipalResolver.requireUserId(jwt);
-        PageResponse<ForumPostVO> response = forumService.listCourseComments(courseId, page, size);
+        PageResponse<@NonNull ForumPostVO> response = forumService.listCourseComments(courseId, page, size);
         return ApiResponse.ok(response);
     }
 
     @PostMapping("/course/{courseId}/comments")
-    @RateLimited(maxRequests = 20, windowSeconds = 60)
-    public ApiResponse<UUID> createCourseComment(
+    @RateLimited(maxRequests = 20)
+    public ApiResponse<@NonNull UUID> createCourseComment(
             @PathVariable UUID courseId,
             @Valid @RequestBody CreateCourseCommentRequest request,
             @AuthenticationPrincipal Jwt jwt) {
@@ -58,8 +59,8 @@ public class ForumController {
     }
 
     @PutMapping("/posts/{id}")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> updatePost(
+    @RateLimited
+    public ApiResponse<@NonNull Void> updatePost(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateForumPostRequest request,
             @AuthenticationPrincipal Jwt jwt) {
@@ -70,8 +71,8 @@ public class ForumController {
     }
 
     @DeleteMapping("/posts/{id}")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> deletePost(
+    @RateLimited
+    public ApiResponse<@NonNull Void> deletePost(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -81,7 +82,7 @@ public class ForumController {
     }
 
     @GetMapping("/comments/{postId}/replies/tree")
-    public ApiResponse<List<ForumReplyVO>> getCommentReplyTree(
+    public ApiResponse<@NonNull List<@NonNull ForumReplyVO>> getCommentReplyTree(
             @PathVariable UUID postId,
             @AuthenticationPrincipal Jwt jwt) {
         JwtPrincipalResolver.requireUserId(jwt);
@@ -90,8 +91,8 @@ public class ForumController {
     }
 
     @PostMapping("/comments/{postId}/replies")
-    @RateLimited(maxRequests = 30, windowSeconds = 60)
-    public ApiResponse<UUID> createCourseCommentReply(
+    @RateLimited(maxRequests = 30)
+    public ApiResponse<@NonNull UUID> createCourseCommentReply(
             @PathVariable UUID postId,
             @Valid @RequestBody CreateCourseCommentReplyRequest request,
             @AuthenticationPrincipal Jwt jwt,
@@ -105,8 +106,8 @@ public class ForumController {
     }
 
     @PutMapping("/replies/{id}")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> updateReply(
+    @RateLimited
+    public ApiResponse<@NonNull Void> updateReply(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateForumReplyRequest request,
             @AuthenticationPrincipal Jwt jwt) {
@@ -117,8 +118,8 @@ public class ForumController {
     }
 
     @DeleteMapping("/replies/{id}")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> deleteReply(
+    @RateLimited
+    public ApiResponse<@NonNull Void> deleteReply(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);

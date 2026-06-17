@@ -26,6 +26,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.jspecify.annotations.NonNull;
+
 import java.time.Instant;
 import java.util.*;
 import java.util.function.Function;
@@ -109,10 +111,8 @@ public class EnrollmentService {
         enrollment.setStatus(EnrollmentStatus.DROPPED.getCode());
         enrollmentRepository.update(enrollment);
 
-        Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
-        if (course != null) {
-            publishEnrollmentEvent(course, studentId, "DROPPED");
-        }
+        courseRepository.findById(enrollment.getCourseId())
+                .ifPresent(course -> publishEnrollmentEvent(course, studentId, "DROPPED"));
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -139,7 +139,7 @@ public class EnrollmentService {
         enrollmentRepository.update(enrollment);
     }
 
-    public PageResponse<EnrollmentVO> listStudentEnrollments(UUID studentId, int page, int size) {
+    public PageResponse<@NonNull EnrollmentVO> listStudentEnrollments(UUID studentId, int page, int size) {
         int currentPage = PageUtils.normalizePage(page);
         int pageSize = PageUtils.normalizeSize(size);
         Page<Enrollment> result = enrollmentRepository.findByStudentId(studentId, currentPage, pageSize);
@@ -161,7 +161,7 @@ public class EnrollmentService {
         return new PageResponse<>(voList, result.getTotal(), currentPage, pageSize);
     }
 
-    public PageResponse<EnrollmentVO> listCourseEnrollments(UUID courseId, int page, int size, UUID userId, Integer role) {
+    public PageResponse<@NonNull EnrollmentVO> listCourseEnrollments(UUID courseId, int page, int size, UUID userId, Integer role) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
         boolean isCourseTeacher = course.getTeacherId().equals(userId)
@@ -191,7 +191,7 @@ public class EnrollmentService {
     private void publishEnrollmentEvent(Course course, UUID studentId, String action) {
         UserBasicInfo studentInfo = null;
         try {
-            ApiResponse<List<UserBasicInfo>> resp = authInternalClient.getUsersBasicInfo(List.of(studentId));
+            ApiResponse<@NonNull List<@NonNull UserBasicInfo>> resp = authInternalClient.getUsersBasicInfo(List.of(studentId));
             if (resp != null && resp.code() == 0 && resp.data() != null && !resp.data().isEmpty()) {
                 studentInfo = resp.data().getFirst();
             }
@@ -237,7 +237,7 @@ public class EnrollmentService {
             return Map.of();
         }
         try {
-            ApiResponse<Map<UUID, String>> response = storageInternalClient.getUrls(fileIds);
+            ApiResponse<@NonNull Map<@NonNull UUID, @NonNull String>> response = storageInternalClient.getUrls(fileIds);
             if (response != null && response.code() == 0 && response.data() != null) {
                 return response.data();
             }
@@ -269,7 +269,7 @@ public class EnrollmentService {
             return Map.of();
         }
         try {
-            ApiResponse<List<UserBasicInfo>> response = authInternalClient.getUsersBasicInfo(studentIds);
+            ApiResponse<@NonNull List<@NonNull UserBasicInfo>> response = authInternalClient.getUsersBasicInfo(studentIds);
             if (response != null && response.code() == 0 && response.data() != null) {
                 return response.data().stream()
                         .filter(u -> u.displayName() != null)

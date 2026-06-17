@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.jspecify.annotations.NonNull;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -29,8 +30,8 @@ public class CourseFileController {
     private final CourseFileService courseFileService;
 
     @PostMapping
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<CourseFileVO> bindFile(@PathVariable UUID courseId,
+    @RateLimited
+    public ApiResponse<@NonNull CourseFileVO> bindFile(@PathVariable UUID courseId,
                                               @Valid @RequestBody BindCourseFileRequest request,
                                               @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -39,7 +40,7 @@ public class CourseFileController {
     }
 
     @GetMapping
-    public ApiResponse<PageResponse<CourseFileVO>> listFiles(@PathVariable UUID courseId,
+    public ApiResponse<@NonNull PageResponse<@NonNull CourseFileVO>> listFiles(@PathVariable UUID courseId,
                                                              @RequestParam(defaultValue = "1") int page,
                                                              @RequestParam(defaultValue = "10") int size,
                                                              @AuthenticationPrincipal Jwt jwt) {
@@ -49,8 +50,8 @@ public class CourseFileController {
     }
 
     @DeleteMapping("/{courseFileId}")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> deleteFile(@PathVariable UUID courseId,
+    @RateLimited
+    public ApiResponse<@NonNull Void> deleteFile(@PathVariable UUID courseId,
                                         @PathVariable UUID courseFileId,
                                         @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);

@@ -10,6 +10,7 @@ import com.dayz.sc.course.model.dto.JoinClassSessionRequest;
 import com.dayz.sc.course.model.dto.UpdateClassSessionRequest;
 import com.dayz.sc.course.model.vo.ClassBarrageVO;
 import com.dayz.sc.course.model.vo.ClassParticipantVO;
+import com.dayz.sc.course.model.vo.ClassSeatSyncTokenVO;
 import com.dayz.sc.course.model.vo.ClassSessionVO;
 import com.dayz.sc.course.model.vo.LiveKitTokenVO;
 import com.dayz.sc.course.service.ClassSessionService;
@@ -17,9 +18,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.jspecify.annotations.NonNull;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -36,8 +39,8 @@ public class ClassSessionController {
     private final ClassSessionService classSessionService;
 
     @PostMapping
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<UUID> createSession(
+    @RateLimited
+    public ApiResponse<@NonNull UUID> createSession(
             @Valid @RequestBody CreateClassSessionRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -46,7 +49,7 @@ public class ClassSessionController {
     }
 
     @PutMapping("/{id}")
-    public ApiResponse<Void> updateSession(
+    public ApiResponse<@NonNull Void> updateSession(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateClassSessionRequest request,
             @AuthenticationPrincipal Jwt jwt) {
@@ -56,7 +59,7 @@ public class ClassSessionController {
     }
 
     @PostMapping("/{id}/publish")
-    public ApiResponse<Void> publishSession(
+    public ApiResponse<@NonNull Void> publishSession(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -65,7 +68,7 @@ public class ClassSessionController {
     }
 
     @DeleteMapping("/{id}")
-    public ApiResponse<Void> deleteSession(
+    public ApiResponse<@NonNull Void> deleteSession(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -74,7 +77,7 @@ public class ClassSessionController {
     }
 
     @GetMapping("/course/{courseId}")
-    public ApiResponse<PageResponse<ClassSessionVO>> listByCourse(
+    public ApiResponse<@NonNull PageResponse<@NonNull ClassSessionVO>> listByCourse(
             @PathVariable UUID courseId,
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(defaultValue = "1") int page,
@@ -84,7 +87,7 @@ public class ClassSessionController {
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<ClassSessionVO> getSession(
+    public ApiResponse<@NonNull ClassSessionVO> getSession(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -92,8 +95,8 @@ public class ClassSessionController {
     }
 
     @PostMapping("/{id}/join")
-    @RateLimited(maxRequests = 20, windowSeconds = 60)
-    public ApiResponse<ClassParticipantVO> joinSession(
+    @RateLimited(maxRequests = 20)
+    public ApiResponse<@NonNull ClassParticipantVO> joinSession(
             @PathVariable UUID id,
             @Valid @RequestBody JoinClassSessionRequest request,
             @AuthenticationPrincipal Jwt jwt) {
@@ -101,9 +104,35 @@ public class ClassSessionController {
         return ApiResponse.ok(classSessionService.joinSession(id, request, userId, JwtPrincipalResolver.role(jwt)));
     }
 
+    @GetMapping("/{id}/participants")
+    public ApiResponse<@NonNull List<@NonNull ClassParticipantVO>> listParticipants(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        return ApiResponse.ok(classSessionService.listParticipants(id, userId, JwtPrincipalResolver.role(jwt)));
+    }
+
+    @DeleteMapping("/{id}/participants/me")
+    public ApiResponse<@NonNull Void> leaveSeat(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        classSessionService.leaveSeat(id, userId, JwtPrincipalResolver.role(jwt));
+        return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/{id}/seat-sync-token")
+    @RateLimited(maxRequests = 20)
+    public ApiResponse<@NonNull ClassSeatSyncTokenVO> seatSyncToken(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        return ApiResponse.ok(classSessionService.createSeatSyncToken(id, userId, JwtPrincipalResolver.role(jwt)));
+    }
+
     @PostMapping("/{id}/live-token")
-    @RateLimited(maxRequests = 20, windowSeconds = 60)
-    public ApiResponse<LiveKitTokenVO> liveToken(
+    @RateLimited(maxRequests = 20)
+    public ApiResponse<@NonNull LiveKitTokenVO> liveToken(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -119,8 +148,8 @@ public class ClassSessionController {
     }
 
     @PostMapping("/{id}/barrages")
-    @RateLimited(maxRequests = 60, windowSeconds = 60)
-    public ApiResponse<ClassBarrageVO> sendBarrage(
+    @RateLimited(maxRequests = 60)
+    public ApiResponse<@NonNull ClassBarrageVO> sendBarrage(
             @PathVariable UUID id,
             @Valid @RequestBody CreateClassBarrageRequest request,
             @AuthenticationPrincipal Jwt jwt) {
@@ -129,7 +158,7 @@ public class ClassSessionController {
     }
 
     @GetMapping("/{id}/barrages")
-    public ApiResponse<PageResponse<ClassBarrageVO>> listBarrages(
+    public ApiResponse<@NonNull PageResponse<@NonNull ClassBarrageVO>> listBarrages(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(defaultValue = "1") int page,

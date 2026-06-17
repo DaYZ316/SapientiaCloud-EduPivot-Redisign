@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 public record JoinClassSessionRequest(
         @NotNull BigDecimal x,
         @NotNull BigDecimal y,
-        BigDecimal z
+        BigDecimal z,
+        Integer seatIndex
 ) {
 }

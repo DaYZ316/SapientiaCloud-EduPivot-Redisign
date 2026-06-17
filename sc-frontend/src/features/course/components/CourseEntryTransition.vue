@@ -7,7 +7,7 @@
         <div class="progress-track">
           <div class="progress-fill"></div>
         </div>
-        <div class="loading-label">AUTHENTICATING</div>
+        <div class="loading-label">{{ label }}</div>
       </div>
     </div>
   </div>
@@ -15,6 +15,12 @@
 
 <script lang="ts" setup>
 import {onBeforeUnmount, onMounted, ref} from 'vue'
+
+withDefaults(defineProps<{
+  label?: string
+}>(), {
+  label: 'LOADING CLASSROOM',
+})
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 let animationFrame = 0
@@ -306,20 +312,20 @@ onBeforeUnmount(() => {
   color: #000000;
 }
 
-:global(:root[data-theme='light']) .percentage {
+:global(:root[data-theme='light'] .course-entry-transition .percentage) {
   color: #000000;
 }
 
-:global(:root[data-theme='light']) .progress-track {
+:global(:root[data-theme='light'] .course-entry-transition .progress-track) {
   background: #e2e2e2;
 }
 
-:global(:root[data-theme='light']) .progress-fill {
+:global(:root[data-theme='light'] .course-entry-transition .progress-fill) {
   background: #000000;
 }
 
-:global(:root[data-theme='light']) .loading-label {
-  color: #5d5f5f;
+:global(:root[data-theme='light'] .course-entry-transition .loading-label) {
+  color: #000000;
 }
 
 @keyframes load {
@@ -338,7 +344,7 @@ onBeforeUnmount(() => {
   }
 
   to {
-    --num: 67;
+    --num: 100;
   }
 }
 

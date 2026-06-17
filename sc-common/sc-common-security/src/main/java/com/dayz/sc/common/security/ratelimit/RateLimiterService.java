@@ -1,6 +1,7 @@
 package com.dayz.sc.common.security.ratelimit;
 
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 
@@ -35,7 +36,7 @@ public class RateLimiterService {
             """;
 
     private final StringRedisTemplate redisTemplate;
-    private final DefaultRedisScript<Long> redisScript;
+    private final DefaultRedisScript<@NonNull Long> redisScript;
 
     public RateLimiterService(StringRedisTemplate redisTemplate) {
         this.redisTemplate = redisTemplate;
@@ -56,7 +57,7 @@ public class RateLimiterService {
                     String.valueOf(maxRequests),
                     String.valueOf(now)
             );
-            return result != null && result == 1L;
+            return result == 1L;
         } catch (Exception e) {
             log.warn("限流服务异常，放行请求: key={}", key, e);
             return true;

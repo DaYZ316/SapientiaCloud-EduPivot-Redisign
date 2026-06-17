@@ -24,6 +24,7 @@ import com.dayz.sc.course.repository.CourseTeacherRepository;
 import com.dayz.sc.course.repository.EnrollmentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -152,7 +153,7 @@ public class ChapterService {
         return getChapter(chapterId, userId, null);
     }
 
-    public PageResponse<ChapterVO> listChapters(ChapterPageRequest request) {
+    public PageResponse<@NonNull ChapterVO> listChapters(ChapterPageRequest request) {
         int page = PageUtils.normalizePage(request.page());
         int size = PageUtils.normalizeSize(request.size());
 
@@ -342,7 +343,7 @@ public class ChapterService {
     }
 
     private StorageObjectInfo requireStorageFile(UUID fileId) {
-        ApiResponse<StorageObjectInfo> response = storageInternalClient.getFile(fileId);
+        ApiResponse<@NonNull StorageObjectInfo> response = storageInternalClient.getFile(fileId);
         if (response == null || response.code() != ErrorCodes.SUCCESS.code() || response.data() == null) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid chapter image");
         }
@@ -382,7 +383,7 @@ public class ChapterService {
         if (imageIds.isEmpty()) {
             return Map.of();
         }
-        ApiResponse<Map<UUID, String>> response = storageInternalClient.getUrls(imageIds);
+        ApiResponse<@NonNull Map<@NonNull UUID, @NonNull String>> response = storageInternalClient.getUrls(imageIds);
         if (response == null || response.code() != ErrorCodes.SUCCESS.code() || response.data() == null) {
             return Map.of();
         }

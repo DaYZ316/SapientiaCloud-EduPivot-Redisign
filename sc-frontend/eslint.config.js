@@ -6,7 +6,7 @@ import vueParser from 'vue-eslint-parser'
 export default [
     js.configs.recommended,
     ...tseslint.configs.recommended,
-    ...pluginVue['flat/recommended'],
+    ...pluginVue.configs['flat/recommended'],
     {
         files: ['**/*.{ts,tsx,vue}'],
         languageOptions: {
@@ -22,6 +22,7 @@ export default [
             'vue/no-v-html': 'off',
             '@typescript-eslint/no-explicit-any': 'warn',
             '@typescript-eslint/no-unused-vars': ['warn', {argsIgnorePattern: '^_'}],
+            'no-undef': 'off',
             'no-console': ['warn', {allow: ['warn', 'error']}],
         },
     },

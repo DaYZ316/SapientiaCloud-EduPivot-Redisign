@@ -2,9 +2,9 @@
   <div class="my-courses-page">
     <section aria-labelledby="my-courses-title" class="courses-command-bar">
       <div class="courses-title-block">
-        <p class="section-kicker">Student workspace</p>
-        <h1 id="my-courses-title">我的课程</h1>
-        <p>查看本学期课程进度、待完成事项，并快速回到最近的学习位置。</p>
+        <p class="section-kicker">{{ t('myEnrollments.student.workspace') }}</p>
+        <h1 id="my-courses-title">{{ t('myEnrollments.title') }}</h1>
+        <p>{{ t('myEnrollments.student.description') }}</p>
       </div>
 
       <div class="courses-tools" role="search">
@@ -13,22 +13,22 @@
           <input
               id="course-search"
               v-model.trim="keyword"
-              placeholder="搜索课程"
+              :placeholder="t('myEnrollments.searchPlaceholder')"
               type="search"
           />
         </label>
         <button class="filter-button" type="button">
           <Filter :size="16" stroke-width="1.7"/>
-          <span>筛选</span>
+          <span>{{ t('myEnrollments.filter') }}</span>
         </button>
         <div class="student-chip">
-          <img :src="studentAvatarSrc" alt="学生头像"/>
-          <span>{{ authStore.user?.displayName || 'Student' }}</span>
+          <img :src="studentAvatarSrc" :alt="t('myEnrollments.student.avatarAlt')"/>
+          <span>{{ authStore.user?.displayName || t('myEnrollments.student.defaultName') }}</span>
         </div>
       </div>
     </section>
 
-    <section aria-label="课程概览" class="course-stats">
+    <section :aria-label="t('myEnrollments.overviewAria')" class="course-stats">
       <article v-for="stat in stats" :key="stat.label" class="stat-cell">
         <span>{{ stat.label }}</span>
         <strong>{{ stat.value }}</strong>
@@ -40,13 +40,13 @@
       <div class="courses-primary">
         <div class="panel-heading">
           <div>
-            <p class="section-kicker">Enrolled courses</p>
-            <h2>进行中的课程</h2>
+            <p class="section-kicker">{{ t('myEnrollments.student.enrolledCourses') }}</p>
+            <h2>{{ t('myEnrollments.student.activeCourses') }}</h2>
           </div>
-          <span>{{ filteredCourses.length }} 门</span>
+          <span>{{ t('myEnrollments.courseCount', {count: filteredCourses.length}) }}</span>
         </div>
 
-        <div v-if="loading" aria-label="课程加载中" class="course-list">
+        <div v-if="loading" :aria-label="t('myEnrollments.loadingAria')" class="course-list">
           <div v-for="n in 5" :key="n" class="course-row skeleton-row">
             <div class="skeleton-block course-mark"></div>
             <div class="skeleton-copy">
@@ -60,7 +60,7 @@
         <div v-else-if="filteredCourses.length > 0" class="course-list">
           <article v-for="course in filteredCourses" :key="course.id" class="course-row">
             <div class="course-mark">
-              <img v-if="course.coverUrl" :alt="`${course.title} 封面`" :src="course.coverUrl"/>
+              <img v-if="course.coverUrl" :alt="t('myEnrollments.courseCoverAlt', {title: course.title})" :src="course.coverUrl"/>
               <BookOpen v-else :size="22" stroke-width="1.5"/>
             </div>
 
@@ -74,25 +74,25 @@
                 <span>{{ course.nextSession }}</span>
                 <span>{{ course.recentActivity }}</span>
               </div>
-              <div :aria-label="`${course.title} 进度 ${course.progress}%`" class="progress-track">
+              <div :aria-label="t('myEnrollments.progressAria', {title: course.title, progress: course.progress})" class="progress-track">
                 <span :style="{width: `${course.progress}%`}"></span>
               </div>
             </div>
 
             <div class="course-progress">
               <strong>{{ course.progress }}%</strong>
-              <small>完成进度</small>
+              <small>{{ t('myEnrollments.student.progressLabel') }}</small>
             </div>
 
             <div class="course-actions">
               <button class="continue-button" type="button" @click="viewCourse(course.courseId)">
-                继续学习
+                {{ t('myEnrollments.student.continueLearning') }}
               </button>
               <button
                   v-if="course.canDrop"
-                  aria-label="退课"
+                  :aria-label="t('myEnrollments.student.dropCourse')"
                   class="drop-button"
-                  title="退课"
+                  :title="t('myEnrollments.student.dropCourse')"
                   type="button"
                   @click="confirmDrop(course.source)"
               >
@@ -104,8 +104,8 @@
 
         <div v-else class="empty-state">
           <GraduationCap :size="46" stroke-width="1.2"/>
-          <h3>{{ keyword ? '没有匹配的课程' : t('myEnrollments.noEnrollments') }}</h3>
-          <p>{{ keyword ? '换一个关键词，或清空搜索查看全部课程。' : t('myEnrollments.noEnrollmentsDesc') }}</p>
+          <h3>{{ keyword ? t('myEnrollments.noMatchedCourses') : t('myEnrollments.noEnrollments') }}</h3>
+          <p>{{ keyword ? t('myEnrollments.noMatchedCoursesDesc') : t('myEnrollments.noEnrollmentsDesc') }}</p>
           <button class="continue-button" type="button" @click="router.push('/courses')">
             {{ t('myEnrollments.browseCourses') }}
           </button>
@@ -132,10 +132,10 @@
         </div>
       </div>
 
-      <aside aria-label="学习计划" class="courses-sidebar">
+      <aside :aria-label="t('myEnrollments.student.planAria')" class="courses-sidebar">
         <section class="side-panel">
           <div class="panel-heading compact">
-            <h2>今日计划</h2>
+            <h2>{{ t('myEnrollments.student.todayPlan') }}</h2>
             <CalendarDays :size="18" stroke-width="1.6"/>
           </div>
           <div class="task-list">
@@ -151,7 +151,7 @@
 
         <section class="side-panel">
           <div class="panel-heading compact">
-            <h2>截止提醒</h2>
+            <h2>{{ t('myEnrollments.student.deadlines') }}</h2>
             <AlertTriangle :size="18" stroke-width="1.6"/>
           </div>
           <div class="deadline-list">
@@ -167,30 +167,30 @@
 
         <section class="side-panel">
           <div class="panel-heading compact">
-            <h2>学习节奏</h2>
+            <h2>{{ t('myEnrollments.student.rhythm') }}</h2>
             <Activity :size="18" stroke-width="1.6"/>
           </div>
-          <div aria-label="最近七日学习活动" class="rhythm-bars">
+          <div :aria-label="t('myEnrollments.student.rhythmAria')" class="rhythm-bars">
             <span
                 v-for="(value, index) in rhythm"
                 :key="index"
                 :style="{height: `${value}%`}"
             ></span>
           </div>
-          <p class="rhythm-note">本周已完成 7 个学习片段，周三和周六负荷较高。</p>
+          <p class="rhythm-note">{{ t('myEnrollments.student.rhythmNote') }}</p>
         </section>
       </aside>
     </section>
 
     <section class="resume-panel">
       <div>
-        <p class="section-kicker">Continue</p>
-        <h2>继续上次学习</h2>
+        <p class="section-kicker">{{ t('myEnrollments.student.continue') }}</p>
+        <h2>{{ t('myEnrollments.student.resumeTitle') }}</h2>
         <p>{{ resumeCourse.title }} · {{ resumeCourse.recentActivity }}</p>
       </div>
       <button class="outline-button" type="button" @click="viewCourse(resumeCourse.courseId)">
         <Timer :size="16" stroke-width="1.7"/>
-        <span>回到进度</span>
+        <span>{{ t('myEnrollments.student.resumeAction') }}</span>
       </button>
     </section>
 
@@ -227,7 +227,6 @@ import {
 import BaseConfirmDialog from '@/shared/components/BaseConfirmDialog.vue'
 import {dropCourse, getMyEnrollments} from '@/features/course/api/course'
 import type {Enrollment} from '@/features/course/types/course'
-import {EnrollmentStatus} from '@/features/course/types/course'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
@@ -259,13 +258,7 @@ const keyword = ref('')
 const showDropModal = ref(false)
 const dropTarget = ref<Enrollment | null>(null)
 
-const fallbackCourses = [
-  {title: '高等数学 A', teacher: '李明远', next: '明日 09:00', activity: '函数极限与连续性'},
-  {title: '大学英语精读', teacher: '王知行', next: '周三 14:00', activity: 'Unit 4 阅读训练'},
-  {title: '数据结构', teacher: '赵庭川', next: '周五 10:30', activity: '二叉树遍历练习'},
-  {title: '学术写作', teacher: '陈若澜', next: '周一 08:00', activity: '文献综述修订'},
-  {title: '云计算基础', teacher: '刘承泽', next: '周四 15:45', activity: '容器编排实验'},
-]
+const fallbackCourseKeys = ['math', 'english', 'dataStructures', 'writing', 'cloud'] as const
 
 const displayedPages = computed(() => {
   const pages: number[] = []
@@ -283,15 +276,15 @@ const displayedPages = computed(() => {
 
 const courseItems = computed<CourseWorkspaceItem[]>(() => {
   return enrollments.value.map((enrollment, index) => {
-    const fallback = fallbackCourses[index % fallbackCourses.length]
-    const statusLabel = EnrollmentStatus[enrollment.status] ?? '未知状态'
+    const fallback = getFallbackCourse(index)
+    const statusLabel = getEnrollmentStatusLabel(enrollment.status)
     const progress = enrollment.courseProgress ?? 0
 
     return {
       id: enrollment.id,
       courseId: enrollment.courseId,
       title: enrollment.courseTitle || fallback.title,
-      teacher: `${fallback.teacher} 教师`,
+      teacher: t('myEnrollments.student.teacherSuffix', {name: fallback.teacher}),
       coverUrl: enrollment.courseCoverUrl,
       nextSession: fallback.next,
       recentActivity: formatCourseHours(enrollment),
@@ -321,36 +314,67 @@ const averageProgress = computed(() => {
 })
 
 const stats = computed(() => [
-  {label: '进行中课程', value: activeCourses.value.length || courseItems.value.length, note: '本学期已加入'},
-  {label: '本周待交', value: Math.min(3, Math.max(1, courseItems.value.length)), note: '作业与测验'},
-  {label: '平均进度', value: `${averageProgress.value}%`, note: '按课程进度估算'},
-  {label: '未读讨论', value: courseItems.value.length ? 12 : 0, note: '来自课程讨论'},
+  {
+    label: t('myEnrollments.student.stats.activeCourses'),
+    value: activeCourses.value.length || courseItems.value.length,
+    note: t('myEnrollments.student.stats.joinedThisTerm'),
+  },
+  {
+    label: t('myEnrollments.student.stats.dueThisWeek'),
+    value: Math.min(3, Math.max(1, courseItems.value.length)),
+    note: t('myEnrollments.student.stats.assignmentsAndQuizzes'),
+  },
+  {
+    label: t('myEnrollments.student.stats.averageProgress'),
+    value: `${averageProgress.value}%`,
+    note: t('myEnrollments.student.stats.byCourseProgress'),
+  },
+  {
+    label: t('myEnrollments.student.stats.unreadDiscussions'),
+    value: courseItems.value.length ? 12 : 0,
+    note: t('myEnrollments.student.stats.fromCourseDiscussions'),
+  },
 ])
 
 const todayPlan = computed(() => [
-  {time: '14:00', title: '观看数据结构视频', course: findCourseTitle(2)},
-  {time: '16:30', title: '完成英语课后练习', course: findCourseTitle(1)},
-  {time: '20:00', title: '整理实验报告提纲', course: findCourseTitle(4)},
+  {time: '14:00', title: t('myEnrollments.student.todayPlanItems.dataStructureVideo'), course: findCourseTitle(2)},
+  {time: '16:30', title: t('myEnrollments.student.todayPlanItems.englishPractice'), course: findCourseTitle(1)},
+  {time: '20:00', title: t('myEnrollments.student.todayPlanItems.labReportOutline'), course: findCourseTitle(4)},
 ])
 
 const deadlines = computed(() => [
-  {title: '云计算实验报告', course: findCourseTitle(4), due: '剩余 2 天', tone: 'urgent'},
-  {title: '学术写作初稿', course: findCourseTitle(3), due: '周五', tone: 'normal'},
-  {title: '高数章节测验', course: findCourseTitle(0), due: '今晚', tone: 'urgent'},
+  {
+    title: t('myEnrollments.student.deadlineItems.cloudReport'),
+    course: findCourseTitle(4),
+    due: t('myEnrollments.student.deadlineItems.twoDaysLeft'),
+    tone: 'urgent',
+  },
+  {
+    title: t('myEnrollments.student.deadlineItems.writingDraft'),
+    course: findCourseTitle(3),
+    due: t('myEnrollments.student.deadlineItems.friday'),
+    tone: 'normal',
+  },
+  {
+    title: t('myEnrollments.student.deadlineItems.mathQuiz'),
+    course: findCourseTitle(0),
+    due: t('myEnrollments.student.deadlineItems.tonight'),
+    tone: 'urgent',
+  },
 ])
 
 const rhythm = [28, 52, 74, 46, 64, 88, 58]
 
 const resumeCourse = computed(() => courseItems.value[0] ?? {
   courseId: '',
-  title: '尚未开始课程',
-  recentActivity: '浏览课程广场，加入第一门课程',
+  title: t('myEnrollments.student.resumeEmptyTitle'),
+  recentActivity: t('myEnrollments.student.resumeEmptyActivity'),
 })
 
 const studentAvatarSrc = computed(() => authStore.user?.avatarUrl || '/assets/avatar-student-default.png')
 
 function findCourseTitle(index: number): string {
-  return courseItems.value[index]?.title || fallbackCourses[index % fallbackCourses.length].title
+  return courseItems.value[index]?.title || getFallbackCourse(index).title
 }
 
 function getEnrollStatusClass(status: number): string {
@@ -362,9 +386,29 @@ function formatCourseHours(enrollment: Enrollment): string {
   const publishedCount = enrollment.coursePublishedClassSessionCount ?? 0
   const totalClassHours = enrollment.courseTotalClassHours ?? 0
   if (totalClassHours <= 0) {
-    return `已开 ${publishedCount} 课时 · 总课时未设置`
+    return t('myEnrollments.classHoursUnset', {publishedCount})
   }
-  return `已开 ${publishedCount} / ${totalClassHours} 课时`
+  return t('myEnrollments.classHoursProgress', {publishedCount, totalClassHours})
+}
+
+function getFallbackCourse(index: number) {
+  const key = fallbackCourseKeys[index % fallbackCourseKeys.length]
+  return {
+    title: t(`myEnrollments.student.fallbackCourses.${key}.title`),
+    teacher: t(`myEnrollments.student.fallbackCourses.${key}.teacher`),
+    next: t(`myEnrollments.student.fallbackCourses.${key}.next`),
+    activity: t(`myEnrollments.student.fallbackCourses.${key}.activity`),
+  }
+}
+
+function getEnrollmentStatusLabel(status: number): string {
+  const map: Record<number, string> = {
+    0: t('myEnrollments.student.status.pending'),
+    1: t('myEnrollments.student.status.active'),
+    2: t('myEnrollments.student.status.completed'),
+    3: t('myEnrollments.student.status.dropped'),
+  }
+  return map[status] ?? t('myEnrollments.unknownStatus')
 }
 
 async function loadData() {
@@ -375,7 +419,7 @@ async function loadData() {
     totalPages.value = Math.ceil(response.total / pageSize.value)
   } catch (error) {
     console.error('Failed to load enrollments:', error)
-    notify.error('Failed to load enrollments')
+    notify.error(t('myEnrollments.alert.loadFailed'))
     enrollments.value = []
   } finally {
     loading.value = false

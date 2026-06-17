@@ -17,16 +17,13 @@ import java.time.Duration;
  * @since 2026-06-09
  */
 @Slf4j
-public class RefreshTokenService {
+public record RefreshTokenService(RedisTemplate<String, Object> redisTemplate,
+                                  Duration refreshTokenTtl) {
 
     private static final String KEY_PREFIX = "auth:refresh:";
 
-    private final RedisTemplate<String, Object> redisTemplate;
-    private final Duration refreshTokenTtl;
-
     public RefreshTokenService(RedisTemplate<String, Object> redisTemplate, JwtProperties jwtProperties) {
-        this.redisTemplate = redisTemplate;
-        this.refreshTokenTtl = jwtProperties.getRefreshTokenTtl();
+        this(redisTemplate, jwtProperties.getRefreshTokenTtl());
     }
 
     /**

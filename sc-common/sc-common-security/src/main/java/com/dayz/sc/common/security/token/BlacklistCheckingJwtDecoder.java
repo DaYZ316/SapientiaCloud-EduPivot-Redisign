@@ -12,21 +12,14 @@ import org.springframework.security.oauth2.jwt.JwtException;
  * @author DaYZ
  * @since 2026-06-09
  */
-public class BlacklistCheckingJwtDecoder implements JwtDecoder {
-
-    private final JwtDecoder delegate;
-    private final TokenBlacklistService tokenBlacklistService;
-
-    public BlacklistCheckingJwtDecoder(JwtDecoder delegate, TokenBlacklistService tokenBlacklistService) {
-        this.delegate = delegate;
-        this.tokenBlacklistService = tokenBlacklistService;
-    }
+public record BlacklistCheckingJwtDecoder(JwtDecoder delegate,
+                                          TokenBlacklistService tokenBlacklistService) implements JwtDecoder {
 
     @Override
     public Jwt decode(String token) throws JwtException {
         Jwt jwt = delegate.decode(token);
         String jti = jwt.getId();
-        if (jti != null && tokenBlacklistService.isBlacklisted(jti)) {
+        if (tokenBlacklistService.isBlacklisted(jti)) {
             throw new JwtException("Token 已被吊销");
         }
         return jwt;

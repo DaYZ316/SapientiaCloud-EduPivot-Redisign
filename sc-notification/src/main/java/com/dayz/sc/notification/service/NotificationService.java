@@ -16,6 +16,7 @@ import com.dayz.sc.notification.repository.NotificationReadStatusRepository;
 import com.dayz.sc.notification.repository.NotificationRepository;
 import com.dayz.sc.notification.repository.NotificationTargetRepository;
 import com.dayz.sc.notification.sse.NotificationSseEmitter;
+import org.jspecify.annotations.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -95,7 +96,7 @@ public class NotificationService {
         return notification.getId();
     }
 
-    public PageResponse<NotificationVO> getNotifications(UUID userId, int page, int size, Integer type, boolean sentByMe) {
+    public PageResponse<@NonNull NotificationVO> getNotifications(UUID userId, int page, int size, Integer type, boolean sentByMe) {
         UUID senderId = sentByMe ? userId : null;
         UUID currentUserId = sentByMe ? null : userId;
         List<Notification> notifications = notificationRepository.findAll(page, size, type, senderId, currentUserId);

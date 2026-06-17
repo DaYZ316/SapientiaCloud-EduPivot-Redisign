@@ -3,7 +3,7 @@
     <template v-if="isTeacherPage">
       <section class="courses-command-bar" aria-labelledby="teacher-my-courses-title">
         <div class="courses-title-block">
-          <p class="section-kicker">Teacher workspace</p>
+          <p class="section-kicker">{{ t('myEnrollments.teacher.workspace') }}</p>
           <h1 id="teacher-my-courses-title">{{ t('myEnrollments.title') }}</h1>
           <p>{{ teacherRoleDescription }}</p>
         </div>
@@ -15,7 +15,7 @@
               id="teacher-course-search"
               v-model.trim="searchKeyword"
               type="search"
-              placeholder="搜索课程"
+              :placeholder="t('myEnrollments.searchPlaceholder')"
             />
           </label>
           <div class="teacher-course-tabs">
@@ -41,13 +41,13 @@
             <span>{{ t('courses.createCourse') }}</span>
           </button>
           <div class="student-chip">
-            <img :src="teacherAvatarSrc" alt="教师头像" />
-            <span>{{ authStore.user?.displayName || 'Teacher' }}</span>
+            <img :src="teacherAvatarSrc" :alt="t('myEnrollments.teacher.avatarAlt')" />
+            <span>{{ authStore.user?.displayName || t('myEnrollments.teacher.defaultName') }}</span>
           </div>
         </div>
       </section>
 
-      <section class="course-stats" aria-label="课程概览">
+      <section class="course-stats" :aria-label="t('myEnrollments.overviewAria')">
         <article v-for="stat in teacherStats" :key="stat.label" class="stat-cell">
           <span>{{ stat.label }}</span>
           <strong>{{ stat.value }}</strong>
@@ -59,13 +59,13 @@
         <div class="courses-primary">
           <div class="panel-heading">
             <div>
-              <p class="section-kicker">Teaching courses</p>
+              <p class="section-kicker">{{ t('myEnrollments.teacher.teachingCourses') }}</p>
               <h2>{{ teacherCourseRoleLabel }}</h2>
             </div>
-            <span>{{ filteredTeacherCourses.length }} 门</span>
+            <span>{{ t('myEnrollments.courseCount', { count: filteredTeacherCourses.length }) }}</span>
           </div>
 
-          <div v-if="loading" class="course-list" aria-label="课程加载中">
+          <div v-if="loading" class="course-list" :aria-label="t('myEnrollments.loadingAria')">
             <div v-for="n in 5" :key="n" class="course-row skeleton-row">
               <div class="skeleton-block course-mark"></div>
               <div class="skeleton-copy">
@@ -79,7 +79,7 @@
           <div v-else-if="filteredTeacherCourses.length > 0" class="course-list">
             <article v-for="course in filteredTeacherCourses" :key="course.id" class="course-row">
               <div class="course-mark">
-                <img v-if="course.coverUrl" :src="course.coverUrl" :alt="`${course.title} 封面`" />
+                <img v-if="course.coverUrl" :src="course.coverUrl" :alt="t('myEnrollments.courseCoverAlt', { title: course.title })" />
                 <BookOpen v-else :size="22" stroke-width="1.5" />
               </div>
 
@@ -94,19 +94,19 @@
                   <span>{{ course.schedule }}</span>
                   <span>{{ course.recentActivity }}</span>
                 </div>
-                <div class="progress-track" :aria-label="`${course.title} 课时进度 ${course.progress}%`">
+                <div class="progress-track" :aria-label="t('myEnrollments.classHourProgressAria', { title: course.title, progress: course.progress })">
                   <span :style="{ width: `${course.progress}%` }"></span>
                 </div>
               </div>
 
               <div class="course-progress">
                 <strong>{{ course.progress }}%</strong>
-                <small>课时进度</small>
+                <small>{{ t('myEnrollments.teacher.classHourProgress') }}</small>
               </div>
 
               <div class="course-actions">
                 <button class="continue-button" type="button" @click="viewCourse(course.courseId)">
-                  查看课程
+                  {{ t('myEnrollments.viewCourse') }}
                 </button>
                 <button
                   v-if="course.canEdit"
@@ -171,10 +171,10 @@
           </div>
         </div>
 
-        <aside class="courses-sidebar" aria-label="课程协作信息">
+        <aside class="courses-sidebar" :aria-label="t('myEnrollments.teacher.collaborationAria')">
           <section class="side-panel">
             <div class="panel-heading compact">
-              <h2>角色说明</h2>
+              <h2>{{ t('myEnrollments.teacher.roleDescriptionTitle') }}</h2>
               <CalendarDays :size="18" stroke-width="1.6" />
             </div>
             <div class="task-list">
@@ -190,7 +190,7 @@
 
           <section class="side-panel">
             <div class="panel-heading compact">
-              <h2>课程状态</h2>
+              <h2>{{ t('myEnrollments.teacher.statusTitle') }}</h2>
               <Activity :size="18" stroke-width="1.6" />
             </div>
             <div class="deadline-list">
@@ -206,10 +206,10 @@
 
           <section class="side-panel">
             <div class="panel-heading compact">
-              <h2>课时概览</h2>
+              <h2>{{ t('myEnrollments.teacher.classHoursTitle') }}</h2>
               <BookOpen :size="18" stroke-width="1.6" />
             </div>
-            <div class="rhythm-bars" aria-label="课程课时进度">
+            <div class="rhythm-bars" :aria-label="t('myEnrollments.teacher.classHoursAria')">
               <span
                 v-for="(value, index) in progressBars"
                 :key="index"
@@ -670,8 +670,8 @@ const teacherCourseRoleLabel = computed(() =>
 
 const teacherRoleDescription = computed(() =>
   teacherCourseRole.value === 'assistant'
-    ? '查看您参与协作的助教课程，快速进入课程空间。'
-    : '管理您主讲的课程，维护内容、学生与助教协作。',
+    ? t('myEnrollments.teacher.assistantDescription')
+    : t('myEnrollments.teacher.primaryDescription'),
 )
 
 const teacherAvatarSrc = computed(() => authStore.user?.avatarUrl || '/assets/avatar-teacher-default.png')
@@ -686,8 +686,10 @@ const teacherCourseItems = computed<TeacherCourseWorkspaceItem[]>(() =>
       courseId: course.id,
       title: course.title,
       teacher: teacherCourseRole.value === 'assistant'
-        ? `主讲：${course.teacherName || '待定'}`
-        : `${course.teacherName || authStore.user?.displayName || '主讲教师'} 教师`,
+        ? t('myEnrollments.teacher.primaryTeacherPrefix', { name: course.teacherName || t('courses.card.unset') })
+        : t('myEnrollments.teacher.primaryTeacherName', {
+            name: course.teacherName || authStore.user?.displayName || t('myEnrollments.teacher.defaultName'),
+          }),
       coverUrl: course.coverUrl,
       schedule: course.semester || course.location || t('courses.card.unset'),
       recentActivity: formatCourseHours(course),
@@ -723,28 +725,76 @@ const averageCourseProgress = computed(() => {
 })
 
 const teacherStats = computed(() => [
-  { label: '课程角色', value: teacherCourseRoleLabel.value, note: teacherCourseRole.value === 'assistant' ? '助教协作' : '主讲管理' },
-  { label: '课程数量', value: courses.value.length, note: '当前列表' },
-  { label: '平均进度', value: `${averageCourseProgress.value}%`, note: '按课时计算' },
+  {
+    label: t('myEnrollments.teacher.stats.courseRole'),
+    value: teacherCourseRoleLabel.value,
+    note: teacherCourseRole.value === 'assistant'
+      ? t('myEnrollments.teacher.stats.assistantNote')
+      : t('myEnrollments.teacher.stats.primaryNote'),
+  },
+  {
+    label: t('myEnrollments.teacher.stats.courseCount'),
+    value: courses.value.length,
+    note: t('myEnrollments.teacher.stats.currentList'),
+  },
+  {
+    label: t('myEnrollments.teacher.stats.averageProgress'),
+    value: `${averageCourseProgress.value}%`,
+    note: t('myEnrollments.teacher.stats.byClassHours'),
+  },
 ])
 
 const teacherRoleNotes = computed(() =>
   teacherCourseRole.value === 'assistant'
     ? [
-        { label: '角色', title: '助教课程', note: '以协作身份参与课程' },
-        { label: '范围', title: '查看课程', note: '进入课程空间跟进内容' },
-        { label: '区分', title: '不显示管理操作', note: '编辑与邀请保留给主讲教师' },
+        {
+          label: t('myEnrollments.teacher.roleNotes.role'),
+          title: t('myEnrollments.teacher.roleNotes.assistantCourse'),
+          note: t('myEnrollments.teacher.roleNotes.assistantCourseNote'),
+        },
+        {
+          label: t('myEnrollments.teacher.roleNotes.scope'),
+          title: t('myEnrollments.teacher.roleNotes.viewCourse'),
+          note: t('myEnrollments.teacher.roleNotes.viewCourseNote'),
+        },
+        {
+          label: t('myEnrollments.teacher.roleNotes.distinction'),
+          title: t('myEnrollments.teacher.roleNotes.noManagementActions'),
+          note: t('myEnrollments.teacher.roleNotes.noManagementActionsNote'),
+        },
       ]
     : [
-        { label: '角色', title: '主讲课程', note: '您是课程负责人' },
-        { label: '范围', title: '课程维护', note: '创建、编辑、删除课程' },
-        { label: '协作', title: '助教管理', note: '可邀请教师成为助教' },
+        {
+          label: t('myEnrollments.teacher.roleNotes.role'),
+          title: t('myEnrollments.teacher.roleNotes.primaryCourse'),
+          note: t('myEnrollments.teacher.roleNotes.primaryCourseNote'),
+        },
+        {
+          label: t('myEnrollments.teacher.roleNotes.scope'),
+          title: t('myEnrollments.teacher.roleNotes.courseMaintenance'),
+          note: t('myEnrollments.teacher.roleNotes.courseMaintenanceNote'),
+        },
+        {
+          label: t('myEnrollments.teacher.roleNotes.collaboration'),
+          title: t('myEnrollments.teacher.roleNotes.assistantManagement'),
+          note: t('myEnrollments.teacher.roleNotes.assistantManagementNote'),
+        },
       ],
 )
 
 const teacherStatusSummaries = computed(() => [
-  { title: t('courses.status.draft'), note: '尚未发布的课程', count: draftCourseCount.value, tone: 'muted' },
-  { title: t('courses.status.archived'), note: '已归档课程', count: archivedCourseCount.value, tone: 'muted' },
+  {
+    title: t('courses.status.draft'),
+    note: t('myEnrollments.teacher.statusNotes.draft'),
+    count: draftCourseCount.value,
+    tone: 'muted',
+  },
+  {
+    title: t('courses.status.archived'),
+    note: t('myEnrollments.teacher.statusNotes.archived'),
+    count: archivedCourseCount.value,
+    tone: 'muted',
+  },
 ])
 
 const progressBars = computed(() => {
@@ -757,20 +807,20 @@ const progressBars = computed(() => {
 
 const progressNote = computed(() =>
   courses.value.length > 0
-    ? `已加载课程平均进度 ${averageCourseProgress.value}%。`
-    : '暂无课程课时数据。',
+    ? t('myEnrollments.teacher.progressNote', { progress: averageCourseProgress.value })
+    : t('myEnrollments.teacher.noProgressData'),
 )
 
 const teacherEmptyTitle = computed(() => {
-  if (searchKeyword.value.trim()) return '没有匹配的课程'
-  return teacherCourseRole.value === 'assistant' ? '暂无助教课程' : t('myEnrollments.noCourses')
+  if (searchKeyword.value.trim()) return t('myEnrollments.noMatchedCourses')
+  return teacherCourseRole.value === 'assistant' ? t('myEnrollments.teacher.noAssistantCourses') : t('myEnrollments.noCourses')
 })
 
 const teacherEmptyDescription = computed(() => {
-  if (searchKeyword.value.trim()) return '换一个关键词，或清空搜索查看全部课程。'
+  if (searchKeyword.value.trim()) return t('myEnrollments.noMatchedCoursesDesc')
   return teacherCourseRole.value === 'assistant'
-    ? '接受助教邀请后，协作课程会显示在这里。'
-    : '创建第一门课程后，主讲课程会显示在这里。'
+    ? t('myEnrollments.teacher.noAssistantCoursesDesc')
+    : t('myEnrollments.teacher.noPrimaryCoursesDesc')
 })
 
 function getStatusLabel(status: number): string {
@@ -793,9 +843,9 @@ function formatCourseHours(course: Course): string {
   const publishedCount = course.publishedClassSessionCount ?? 0
   const totalClassHours = course.totalClassHours ?? 0
   if (totalClassHours <= 0) {
-    return `已开 ${publishedCount} 课时 · 总课时未设置`
+    return t('myEnrollments.classHoursUnset', { publishedCount })
   }
-  return `已开 ${publishedCount} / ${totalClassHours} 课时`
+  return t('myEnrollments.classHoursProgress', { publishedCount, totalClassHours })
 }
 
 // ���� Data Loading ����
@@ -820,7 +870,7 @@ async function loadData() {
     totalPages.value = Math.ceil(response.total / pageSize.value)
   } catch (error) {
     console.error('Failed to load data:', error)
-    notify.error('Failed to load data')
+    notify.error(t('myEnrollments.alert.loadFailed'))
     courses.value = []
   } finally {
     loading.value = false

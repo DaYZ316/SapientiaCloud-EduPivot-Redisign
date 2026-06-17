@@ -81,7 +81,7 @@
               <div class="session-heading">
                 <h3>{{ session.title }}</h3>
                 <span :class="statusClass(session)" class="status-badge">
-                  {{ session.statusText || fallbackStatusText(session.status) }}
+                  {{ fallbackStatusText(session.status) }}
                 </span>
               </div>
               <p>{{ session.description || t('courseDetail.classSession.noDescription') }}</p>
@@ -332,7 +332,7 @@
       </aside>
     </div>
 
-    <CourseEntryTransition v-if="enteringSessionId"/>
+    <CourseEntryTransition v-if="enteringSessionId" :label="t('courseDetail.classSession.modelLoading')"/>
   </section>
 </template>
 
@@ -459,7 +459,7 @@ const arcDots = computed(() => {
 
 const sessionMetrics = computed(() => [
   {
-    label: t('courses.status.draft'),
+    label: t('courseDetail.classSession.statusPreparing'),
     value: sessions.value.filter(session => !session.publishedAt).length,
   },
   {
@@ -685,7 +685,6 @@ async function enterSession(session: ClassSession) {
   if (enteringSessionId.value) return
   enteringSessionId.value = session.id
   try {
-    await new Promise(resolve => window.setTimeout(resolve, 3000))
     await router.push({name: 'class-session-room', params: {sessionId: session.id}})
   } catch (error) {
     enteringSessionId.value = null

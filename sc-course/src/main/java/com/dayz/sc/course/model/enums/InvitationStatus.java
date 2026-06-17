@@ -2,6 +2,7 @@ package com.dayz.sc.course.model.enums;
 
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import lombok.Getter;
 
 /**
  * 状态枚举
@@ -9,6 +10,7 @@ import com.dayz.sc.common.error.ErrorCodes;
  * @author DaYZ
  * @since 2026-06-13
  */
+@Getter
 public enum InvitationStatus {
 
     /**
@@ -45,11 +47,4 @@ public enum InvitationStatus {
         throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid invitation status: " + code);
     }
 
-    public int getCode() {
-        return code;
-    }
-
-    public String getDescription() {
-        return description;
-    }
 }

@@ -4,6 +4,7 @@ import com.dayz.sc.notification.model.vo.UnreadCountVO;
 import com.dayz.sc.notification.repository.NotificationReadStatusRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
@@ -36,7 +37,7 @@ public class UnreadCountService {
     private static final Duration TTL_JITTER = Duration.ofMinutes(5);
     private static final Duration LOCK_TTL = Duration.ofSeconds(3);
     private static final long POLL_INTERVAL_MS = 100;
-    private static final RedisScript<Long> INCREMENT_IF_PRESENT_SCRIPT = RedisScript.of("""
+    private static final RedisScript<@NonNull Long> INCREMENT_IF_PRESENT_SCRIPT = RedisScript.of("""
             if redis.call('EXISTS', KEYS[1]) == 0 then
               return 0
             end
@@ -45,7 +46,7 @@ public class UnreadCountService {
             redis.call('EXPIRE', KEYS[1], ARGV[2])
             return 1
             """, Long.class);
-    private static final RedisScript<Long> DECREMENT_IF_PRESENT_SCRIPT = RedisScript.of("""
+    private static final RedisScript<@NonNull Long> DECREMENT_IF_PRESENT_SCRIPT = RedisScript.of("""
             if redis.call('EXISTS', KEYS[1]) == 0 then
               return 0
             end
@@ -59,7 +60,7 @@ public class UnreadCountService {
             end
             return 1
             """, Long.class);
-    private static final RedisScript<Long> RELEASE_LOCK_SCRIPT = RedisScript.of("""
+    private static final RedisScript<@NonNull Long> RELEASE_LOCK_SCRIPT = RedisScript.of("""
             if redis.call('GET', KEYS[1]) == ARGV[1] then
               return redis.call('DEL', KEYS[1])
             end

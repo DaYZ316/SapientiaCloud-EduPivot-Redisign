@@ -12,6 +12,7 @@ import com.dayz.sc.course.repository.CourseRepository;
 import com.dayz.sc.course.repository.CourseTeacherRepository;
 import com.dayz.sc.course.repository.EnrollmentRepository;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,7 +38,7 @@ public class CourseInternalController {
     private final CourseTeacherRepository courseTeacherRepository;
 
     @GetMapping("/{courseId}/access")
-    public ApiResponse<CourseAccessVO> access(@PathVariable UUID courseId,
+    public ApiResponse<@NonNull CourseAccessVO> access(@PathVariable UUID courseId,
                                               @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);

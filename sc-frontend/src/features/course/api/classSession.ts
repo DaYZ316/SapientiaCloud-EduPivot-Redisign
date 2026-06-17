@@ -2,6 +2,7 @@ import {request} from '@/shared/api/request'
 import type {PageResponse} from '@/shared/types/common'
 import type {
     ClassParticipant,
+    ClassSeatSyncToken,
     ClassSession,
     CreateClassSessionRequest,
     JoinClassSessionRequest,
@@ -40,4 +41,20 @@ export function getClassSession(id: string) {
 
 export function joinClassSession(id: string, data: JoinClassSessionRequest) {
     return request<ClassParticipant>({method: 'POST', url: `/api/class-sessions/${id}/join`, data, silent: true})
+}
+
+export function listClassSessionParticipants(id: string) {
+    return request<ClassParticipant[]>({method: 'GET', url: `/api/class-sessions/${id}/participants`, silent: true})
+}
+
+export function leaveClassSessionSeat(id: string) {
+    return request<void>({method: 'DELETE', url: `/api/class-sessions/${id}/participants/me`, silent: true})
+}
+
+export function issueClassSessionSeatSyncToken(id: string) {
+    return request<ClassSeatSyncToken>({
+        method: 'POST',
+        url: `/api/class-sessions/${id}/seat-sync-token`,
+        silent: true,
+    })
 }

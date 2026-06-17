@@ -5,9 +5,9 @@ import com.dayz.sc.common.events.config.KafkaTopicConstants;
 import com.dayz.sc.common.events.user.UserDeactivatedEvent;
 import com.dayz.sc.common.events.user.UserRegisteredEvent;
 import com.dayz.sc.common.util.UuidV7Generator;
-import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
@@ -26,14 +26,14 @@ import java.time.Instant;
 public class UserEventPublisher {
 
     @NonNull
-    private final ObjectProvider<KafkaTemplate<String, Object>> kafkaTemplateProvider;
+    private final ObjectProvider<@NonNull KafkaTemplate<@NonNull String, @NonNull Object>> kafkaTemplateProvider;
 
     public void publishUserRegistered(User user) {
         if (user == null || user.getId() == null) {
             log.warn("Cannot publish UserRegisteredEvent: user or userId is null");
             return;
         }
-        KafkaTemplate<String, Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
+        KafkaTemplate<@NonNull String, @NonNull Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
         if (kafkaTemplate == null) {
             log.warn("KafkaTemplate not available, skipping event publishing");
             return;
@@ -56,7 +56,7 @@ public class UserEventPublisher {
             log.warn("Cannot publish UserDeactivatedEvent: user or userId is null");
             return;
         }
-        KafkaTemplate<String, Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
+        KafkaTemplate<@NonNull String, @NonNull Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
         if (kafkaTemplate == null) {
             log.warn("KafkaTemplate not available, skipping event publishing");
             return;

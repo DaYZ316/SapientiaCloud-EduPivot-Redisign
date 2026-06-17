@@ -1,11 +1,14 @@
 package com.dayz.sc.common.model;
 
+import lombok.Getter;
+
 /**
  * 用户角色枚举
  *
  * @author DaYZ
  * @since 2026-06-12
  */
+@Getter
 public enum UserRole {
 
     /**
@@ -52,14 +55,6 @@ public enum UserRole {
      */
     public static UserRole fromCode(Integer code) {
         return code != null ? fromCode(code.intValue()) : null;
-    }
-
-    public int getCode() {
-        return code;
-    }
-
-    public String getDescription() {
-        return description;
     }
 
     /**

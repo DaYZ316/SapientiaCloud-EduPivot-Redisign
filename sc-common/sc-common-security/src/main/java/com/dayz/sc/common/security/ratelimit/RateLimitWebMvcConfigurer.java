@@ -1,6 +1,5 @@
 package com.dayz.sc.common.security.ratelimit;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -10,10 +9,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * @author DaYZ
  * @since 2026-06-09
  */
-@RequiredArgsConstructor
-public class RateLimitWebMvcConfigurer implements WebMvcConfigurer {
-
-    private final RateLimitInterceptor rateLimitInterceptor;
+public record RateLimitWebMvcConfigurer(RateLimitInterceptor rateLimitInterceptor) implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {

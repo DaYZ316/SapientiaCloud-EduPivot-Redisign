@@ -32,6 +32,8 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.jspecify.annotations.NonNull;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -245,7 +247,7 @@ public class CourseService {
                 coverUrl,
                 course.getCoverFileId(),
                 teacherIds,
-                teacherIds.stream().<UserBasicInfo>map(id -> assistantInfoMap.getOrDefault(id, new UserBasicInfo(id, null, null, null))).toList(),
+                teacherIds.stream().map(id -> assistantInfoMap.getOrDefault(id, new UserBasicInfo(id, null, null, null))).toList(),
                 course.getSemester(),
                 course.getLocation(),
                 course.getCourseType(),
@@ -260,7 +262,7 @@ public class CourseService {
         );
     }
 
-    public PageResponse<CourseVO> listCourses(CoursePageRequest request) {
+    public PageResponse<@NonNull CourseVO> listCourses(CoursePageRequest request) {
         CoursePageRequest pageRequest = request != null
                 ? request
                 : new CoursePageRequest(null, null, null, null, null, null, null, null, null, null);
@@ -287,7 +289,7 @@ public class CourseService {
         return enrichCourses(courses, result.getTotal(), page, size);
     }
 
-    public PageResponse<CourseVO> listTeacherCourses(UUID teacherId, String role, int page, int size) {
+    public PageResponse<@NonNull CourseVO> listTeacherCourses(UUID teacherId, String role, int page, int size) {
         int currentPage = PageUtils.normalizePage(page);
         int pageSize = PageUtils.normalizeSize(size);
 
@@ -300,7 +302,7 @@ public class CourseService {
         return enrichCourses(courses, result.getTotal(), currentPage, pageSize);
     }
 
-    private PageResponse<CourseVO> enrichCourses(List<Course> courses, long total, int page, int size) {
+    private PageResponse<@NonNull CourseVO> enrichCourses(List<Course> courses, long total, int page, int size) {
         Map<UUID, Long> activeCounts = enrollmentRepository.countActiveByCourseIds(
                 courses.stream().map(Course::getId).toList());
         Map<UUID, Long> publishedClassSessionCounts = classSessionRepository.countPublishedByCourseIds(
@@ -376,7 +378,7 @@ public class CourseService {
     }
 
     private StorageObjectInfo internalFile(UUID fileId) {
-        ApiResponse<StorageObjectInfo> response = storageInternalClient.getFile(fileId);
+        ApiResponse<@NonNull StorageObjectInfo> response = storageInternalClient.getFile(fileId);
         if (response == null || response.code() != ErrorCodes.SUCCESS.code() || response.data() == null) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid storage file");
         }
@@ -393,7 +395,7 @@ public class CourseService {
             return Map.of();
         }
         try {
-            ApiResponse<Map<UUID, String>> response = storageInternalClient.getUrls(fileIds);
+            ApiResponse<@NonNull Map<@NonNull UUID, @NonNull String>> response = storageInternalClient.getUrls(fileIds);
             if (response != null && response.code() == 0 && response.data() != null) {
                 return response.data();
             }
@@ -408,7 +410,7 @@ public class CourseService {
             return Map.of();
         }
         try {
-            ApiResponse<List<UserBasicInfo>> response = authInternalClient.getUsersBasicInfo(teacherIds);
+            ApiResponse<@NonNull List<@NonNull UserBasicInfo>> response = authInternalClient.getUsersBasicInfo(teacherIds);
             if (response != null && response.code() == 0 && response.data() != null) {
                 return response.data().stream()
                         .collect(Collectors.toMap(UserBasicInfo::id, info -> info));

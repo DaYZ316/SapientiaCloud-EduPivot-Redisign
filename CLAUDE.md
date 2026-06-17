@@ -384,6 +384,9 @@ src/
 - HTML5 History 模式
 - 路由守卫：`meta.requiresAuth`、`meta.guestOnly`
 - 懒加载：`() => import('@/features/...')`
+- 全屏 WebGL / 3D 教室页面必须定义为顶层受保护路由，使用 `meta.requiresAuth`，不要挂在 `MainLayout` 的 `children` 下。
+- 全屏页面根容器和 canvas 使用 `position: fixed`、`inset: 0`、`width: 100vw`、`height: 100dvh`，避免被 layout、padding、`.content-container` 限制。
+- 普通业务页面继续走 `MainLayout`；不要为了单个沉浸式页面污染通用布局结构。
 
 **国际化：** Vue I18n，`en-US` + `zh-CN`，按功能模块拆分
 
@@ -435,6 +438,14 @@ src/
 - 包级 `@NullMarked`（通过 `package-info.java` + `org.jspecify.annotations`）
 - Record 可选字段：`@Nullable`
 - 泛型参数：`@NonNull`（如 `ApiResponse<@NonNull LoginResponse>`）
+- Qodana / 静态检查必须保持为 0 个新增问题；修复时优先用最小类型声明或局部代码调整，不做无关重构。
+- `@RateLimited` 使用默认值时写成 `@RateLimited`，不要写 `@RateLimited(maxRequests = 10)`。
+- `@NullMarked` 包内泛型必须补齐类型用途注解，例如 `ObjectProvider<@NonNull KafkaTemplate<@NonNull String, @NonNull Object>>`。
+- `ApiResponse`、`PageResponse`、Feign DTO、集合元素类型都要按实际语义标注 `@NonNull` / `@Nullable`。
+- 已声明为非空的返回值不要再做无意义 null 判断；已有 null-safe 方法也不要在调用前重复写防御判断。
+- `DefaultRedisScript` 等 Spring 泛型类型按脚本或 API 的真实返回值声明类型用途 nullability。
+- Kafka 可选 Bean 仍保留 `getIfAvailable()` 后的 null 判定，但泛型声明必须完整。
+- 仅构造注入、无额外可变状态的简单服务类优先使用 Java `record`；不得因此改变现有构造参数、依赖类型或业务行为。
 
 ### 21. 注释与文档
 

@@ -9,6 +9,7 @@ import com.dayz.sc.course.model.vo.QuestionBankVO;
 import com.dayz.sc.course.model.vo.QuestionVO;
 import com.dayz.sc.course.service.QuestionBankService;
 import jakarta.validation.Valid;
+import org.jspecify.annotations.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -33,8 +34,8 @@ public class QuestionBankController {
     // ==================== QuestionBank ====================
 
     @PostMapping
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<UUID> createQuestionBank(
+    @RateLimited
+    public ApiResponse<@NonNull UUID> createQuestionBank(
             @Valid @RequestBody CreateQuestionBankRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -43,26 +44,26 @@ public class QuestionBankController {
     }
 
     @GetMapping
-    public ApiResponse<PageResponse<QuestionBankVO>> listQuestionBanks(QuestionBankPageRequest request) {
-        PageResponse<QuestionBankVO> response = questionBankService.listQuestionBanks(request);
+    public ApiResponse<@NonNull PageResponse<@NonNull QuestionBankVO>> listQuestionBanks(QuestionBankPageRequest request) {
+        PageResponse<@NonNull QuestionBankVO> response = questionBankService.listQuestionBanks(request);
         return ApiResponse.ok(response);
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<QuestionBankVO> getQuestionBank(@PathVariable UUID id) {
+    public ApiResponse<@NonNull QuestionBankVO> getQuestionBank(@PathVariable UUID id) {
         QuestionBankVO bank = questionBankService.getQuestionBank(id);
         return ApiResponse.ok(bank);
     }
 
     @GetMapping("/course/{courseId}")
-    public ApiResponse<List<QuestionBankVO>> listQuestionBanksByCourse(@PathVariable UUID courseId) {
+    public ApiResponse<@NonNull List<@NonNull QuestionBankVO>> listQuestionBanksByCourse(@PathVariable UUID courseId) {
         List<QuestionBankVO> banks = questionBankService.listQuestionBanksByCourse(courseId);
         return ApiResponse.ok(banks);
     }
 
     @PutMapping("/{id}")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> updateQuestionBank(
+    @RateLimited
+    public ApiResponse<@NonNull Void> updateQuestionBank(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateQuestionBankRequest request,
             @AuthenticationPrincipal Jwt jwt) {
@@ -73,8 +74,8 @@ public class QuestionBankController {
     }
 
     @DeleteMapping("/{id}")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> deleteQuestionBank(
+    @RateLimited
+    public ApiResponse<@NonNull Void> deleteQuestionBank(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -86,8 +87,8 @@ public class QuestionBankController {
     // ==================== Question ====================
 
     @PostMapping("/questions")
-    @RateLimited(maxRequests = 30, windowSeconds = 60)
-    public ApiResponse<UUID> createQuestion(
+    @RateLimited(maxRequests = 30)
+    public ApiResponse<@NonNull UUID> createQuestion(
             @Valid @RequestBody CreateQuestionRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -96,17 +97,17 @@ public class QuestionBankController {
     }
 
     @GetMapping("/questions")
-    public ApiResponse<PageResponse<QuestionVO>> listQuestions(
+    public ApiResponse<@NonNull PageResponse<@NonNull QuestionVO>> listQuestions(
             QuestionPageRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
-        PageResponse<QuestionVO> response = questionBankService.listQuestions(request, userId, role);
+        PageResponse<@NonNull QuestionVO> response = questionBankService.listQuestions(request, userId, role);
         return ApiResponse.ok(response);
     }
 
     @GetMapping("/questions/{id}")
-    public ApiResponse<QuestionVO> getQuestion(
+    public ApiResponse<@NonNull QuestionVO> getQuestion(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -116,8 +117,8 @@ public class QuestionBankController {
     }
 
     @PutMapping("/questions/{id}")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> updateQuestion(
+    @RateLimited
+    public ApiResponse<@NonNull Void> updateQuestion(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateQuestionRequest request,
             @AuthenticationPrincipal Jwt jwt) {
@@ -128,8 +129,8 @@ public class QuestionBankController {
     }
 
     @DeleteMapping("/questions/{id}")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> deleteQuestion(
+    @RateLimited
+    public ApiResponse<@NonNull Void> deleteQuestion(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -139,8 +140,8 @@ public class QuestionBankController {
     }
 
     @PutMapping("/questions/{id}/publish")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> publishQuestion(
+    @RateLimited
+    public ApiResponse<@NonNull Void> publishQuestion(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -150,8 +151,8 @@ public class QuestionBankController {
     }
 
     @PostMapping("/questions/{id}/view")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> viewQuestion(@PathVariable UUID id) {
+    @RateLimited
+    public ApiResponse<@NonNull Void> viewQuestion(@PathVariable UUID id) {
         questionBankService.viewQuestion(id);
         return ApiResponse.ok(null);
     }

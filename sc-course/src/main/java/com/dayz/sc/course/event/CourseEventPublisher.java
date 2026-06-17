@@ -6,6 +6,7 @@ import com.dayz.sc.common.util.UuidV7Generator;
 import com.dayz.sc.course.model.entity.Course;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
@@ -24,14 +25,14 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CourseEventPublisher {
 
-    private final ObjectProvider<KafkaTemplate<String, Object>> kafkaTemplateProvider;
+    private final ObjectProvider<@NonNull KafkaTemplate<@NonNull String, @NonNull Object>> kafkaTemplateProvider;
 
     public void publishCourseCreated(Course course) {
         if (course == null || course.getId() == null) {
             log.warn("Cannot publish CourseCreatedEvent: course or courseId is null");
             return;
         }
-        KafkaTemplate<String, Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
+        KafkaTemplate<@NonNull String, @NonNull Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
         if (kafkaTemplate == null) {
             log.warn("Skip CourseCreatedEvent for course {}: KafkaTemplate is unavailable", course.getId());
             return;
@@ -54,7 +55,7 @@ public class CourseEventPublisher {
             log.warn("Cannot publish CourseDeletedEvent: course or courseId is null");
             return;
         }
-        KafkaTemplate<String, Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
+        KafkaTemplate<@NonNull String, @NonNull Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
         if (kafkaTemplate == null) {
             log.warn("Skip CourseDeletedEvent for course {}: KafkaTemplate is unavailable", course.getId());
             return;
@@ -73,7 +74,7 @@ public class CourseEventPublisher {
     }
 
     public void publishCourseStatusChanged(UUID courseId, String courseTitle, UUID teacherId, String action) {
-        KafkaTemplate<String, Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
+        KafkaTemplate<@NonNull String, @NonNull Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
         if (kafkaTemplate == null) {
             log.warn("Skip CourseStatusChangedEvent for course {}: KafkaTemplate is unavailable", courseId);
             return;
@@ -94,7 +95,7 @@ public class CourseEventPublisher {
     public void publishEnrollmentChanged(UUID courseId, String courseTitle,
                                          UUID studentId, String studentName,
                                          UUID teacherId, String action) {
-        KafkaTemplate<String, Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
+        KafkaTemplate<@NonNull String, @NonNull Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
         if (kafkaTemplate == null) {
             log.warn("Skip EnrollmentChangedEvent for course {}: KafkaTemplate is unavailable", courseId);
             return;
@@ -117,7 +118,7 @@ public class CourseEventPublisher {
                                          UUID inviterId, String inviterName,
                                          UUID inviteeId, String inviteeName,
                                          String action) {
-        KafkaTemplate<String, Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
+        KafkaTemplate<@NonNull String, @NonNull Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
         if (kafkaTemplate == null) {
             log.warn("Skip InvitationChangedEvent for course {}: KafkaTemplate is unavailable", courseId);
             return;

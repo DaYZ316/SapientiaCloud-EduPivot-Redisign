@@ -301,7 +301,9 @@ function startDrag(event: PointerEvent) {
   dragStartY.value = event.clientY
   dragOriginX.value = offsetX.value
   dragOriginY.value = offsetY.value
-  event.currentTarget instanceof HTMLElement && event.currentTarget.setPointerCapture(event.pointerId)
+  if (event.currentTarget instanceof HTMLElement) {
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
 }
 
 function dragImage(event: PointerEvent) {
@@ -315,7 +317,9 @@ function stopDrag(event: PointerEvent) {
   if (!dragging.value) return
 
   dragging.value = false
-  event.currentTarget instanceof HTMLElement && event.currentTarget.releasePointerCapture(event.pointerId)
+  if (event.currentTarget instanceof HTMLElement) {
+    event.currentTarget.releasePointerCapture(event.pointerId)
+  }
 }
 
 function renderPreview() {

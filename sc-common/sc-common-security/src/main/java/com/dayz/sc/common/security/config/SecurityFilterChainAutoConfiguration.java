@@ -1,6 +1,8 @@
 package com.dayz.sc.common.security.config;
 
 import com.dayz.sc.common.security.filter.GatewayHeaderAuthenticationFilter;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
@@ -82,6 +84,8 @@ public class SecurityFilterChainAutoConfiguration {
     /**
      * 安全端点配置属性。
      */
+    @Getter
+    @Setter
     public static class SecurityEndpointProperties {
         /**
          * 公共（无需认证）端点列表。
@@ -95,21 +99,5 @@ public class SecurityFilterChainAutoConfiguration {
          * 仅当服务仅通过内网 Gateway 访问时启用。
          */
         private boolean trustGatewayHeaders = false;
-
-        public String[] getPublicEndpoints() {
-            return publicEndpoints;
-        }
-
-        public void setPublicEndpoints(String[] publicEndpoints) {
-            this.publicEndpoints = publicEndpoints;
-        }
-
-        public boolean isTrustGatewayHeaders() {
-            return trustGatewayHeaders;
-        }
-
-        public void setTrustGatewayHeaders(boolean trustGatewayHeaders) {
-            this.trustGatewayHeaders = trustGatewayHeaders;
-        }
     }
 }

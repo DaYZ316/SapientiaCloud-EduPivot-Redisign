@@ -2,6 +2,7 @@ package com.dayz.sc.common.feign.client;
 
 import com.dayz.sc.common.feign.dto.StorageObjectInfo;
 import com.dayz.sc.common.response.ApiResponse;
+import org.jspecify.annotations.NonNull;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,7 +28,7 @@ public interface StorageInternalClient {
      * @return 文件元数据信息
      */
     @GetMapping("/files/{fileId}")
-    ApiResponse<StorageObjectInfo> getFile(@PathVariable("fileId") UUID fileId);
+    ApiResponse<@NonNull StorageObjectInfo> getFile(@PathVariable("fileId") UUID fileId);
 
     /**
      * 批量获取文件预签名访问URL。
@@ -36,5 +37,5 @@ public interface StorageInternalClient {
      * @return 文件ID到预签名URL的映射
      */
     @PostMapping("/files/urls")
-    ApiResponse<Map<UUID, String>> getUrls(@RequestBody List<UUID> fileIds);
+    ApiResponse<@NonNull Map<@NonNull UUID, @NonNull String>> getUrls(@RequestBody List<UUID> fileIds);
 }

@@ -12,6 +12,7 @@ import com.dayz.sc.storage.model.enums.StorageUsage;
 import com.dayz.sc.storage.model.enums.StorageVisibility;
 import com.dayz.sc.storage.model.vo.CourseAccess;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -149,7 +150,7 @@ public class StorageAuthorizationService {
         if (courseId == null) {
             return null;
         }
-        ApiResponse<CourseAccess> response = courseAccessClient.getAccess(courseId);
+        ApiResponse<@NonNull CourseAccess> response = courseAccessClient.getAccess(courseId);
         if (response == null || response.data() == null || response.code() != ErrorCodes.SUCCESS.code()) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }

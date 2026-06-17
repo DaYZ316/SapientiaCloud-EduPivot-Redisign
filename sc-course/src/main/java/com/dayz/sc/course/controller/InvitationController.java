@@ -10,6 +10,7 @@ import com.dayz.sc.course.model.vo.CourseInvitationVO;
 import com.dayz.sc.course.service.InvitationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -30,8 +31,8 @@ public class InvitationController {
     private final InvitationService invitationService;
 
     @PostMapping
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<UUID> invite(
+    @RateLimited
+    public ApiResponse<@NonNull UUID> invite(
             @Valid @RequestBody InviteAssistantRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -41,7 +42,7 @@ public class InvitationController {
     }
 
     @GetMapping("/received")
-    public ApiResponse<PageResponse<CourseInvitationVO>> listReceived(
+    public ApiResponse<@NonNull PageResponse<@NonNull CourseInvitationVO>> listReceived(
             @Valid InvitationPageRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -49,7 +50,7 @@ public class InvitationController {
     }
 
     @GetMapping("/sent")
-    public ApiResponse<PageResponse<CourseInvitationVO>> listSent(
+    public ApiResponse<@NonNull PageResponse<@NonNull CourseInvitationVO>> listSent(
             @Valid InvitationPageRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -57,8 +58,8 @@ public class InvitationController {
     }
 
     @PutMapping("/{id}/accept")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> accept(
+    @RateLimited
+    public ApiResponse<@NonNull Void> accept(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -67,8 +68,8 @@ public class InvitationController {
     }
 
     @PutMapping("/{id}/decline")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> decline(
+    @RateLimited
+    public ApiResponse<@NonNull Void> decline(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -77,8 +78,8 @@ public class InvitationController {
     }
 
     @DeleteMapping("/{id}")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> withdraw(
+    @RateLimited
+    public ApiResponse<@NonNull Void> withdraw(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);

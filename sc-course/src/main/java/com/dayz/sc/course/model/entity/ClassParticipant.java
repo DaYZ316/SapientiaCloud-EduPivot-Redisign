@@ -34,6 +34,9 @@ public class ClassParticipant {
     @TableField("role")
     private Integer role;
 
+    @TableField("seat_index")
+    private Integer seatIndex;
+
     @TableField("x")
     private BigDecimal x;
 

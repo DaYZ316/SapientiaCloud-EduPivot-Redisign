@@ -20,6 +20,7 @@ import com.dayz.sc.course.repository.CourseFileRepository;
 import com.dayz.sc.course.repository.CourseRepository;
 import com.dayz.sc.course.repository.EnrollmentRepository;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -69,7 +70,7 @@ public class CourseFileService {
         return toVO(courseFile, Map.of(request.fileId(), internalUrl(request.fileId())), visibility);
     }
 
-    public PageResponse<CourseFileVO> listFiles(UUID courseId, UUID userId, Integer role, int page, int size) {
+    public PageResponse<@NonNull CourseFileVO> listFiles(UUID courseId, UUID userId, Integer role, int page, int size) {
         Course course = requireCourse(courseId);
         int currentPage = PageUtils.normalizePage(page);
         int pageSize = PageUtils.normalizeSize(size);
@@ -136,7 +137,7 @@ public class CourseFileService {
     }
 
     private StorageObjectInfo requireStorageFile(UUID fileId) {
-        ApiResponse<StorageObjectInfo> response = storageInternalClient.getFile(fileId);
+        ApiResponse<@NonNull StorageObjectInfo> response = storageInternalClient.getFile(fileId);
         if (response == null || response.code() != ErrorCodes.SUCCESS.code() || response.data() == null) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid storage file");
         }
@@ -158,7 +159,7 @@ public class CourseFileService {
         if (fileIds == null || fileIds.isEmpty()) {
             return Map.of();
         }
-        ApiResponse<Map<UUID, String>> response = storageInternalClient.getUrls(fileIds);
+        ApiResponse<@NonNull Map<@NonNull UUID, @NonNull String>> response = storageInternalClient.getUrls(fileIds);
         if (response == null || response.code() != ErrorCodes.SUCCESS.code() || response.data() == null) {
             return Map.of();
         }

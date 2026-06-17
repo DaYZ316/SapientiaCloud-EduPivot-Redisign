@@ -76,7 +76,7 @@ public class UserRoleHeaderFilter implements Filter {
 
         @Override
         public Enumeration<String> getHeaderNames() {
-            Set<String> names = new HashSet<>(Collections.<String>list(super.getHeaderNames()));
+            Set<String> names = new HashSet<>(Collections.list(super.getHeaderNames()));
             names.addAll(extraHeaders.keySet());
             return Collections.enumeration(names);
         }
