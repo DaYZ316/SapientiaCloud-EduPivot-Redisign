@@ -16,7 +16,7 @@ import java.util.UUID;
 public interface NotificationReadStatusRepository {
 
     /**
-     * 根据通知ID和用户ID查询已读状态。
+     * 根据通知ID和用户ID查询已读状态
      *
      * @param notificationId 通知ID
      * @param userId         用户ID
@@ -25,21 +25,21 @@ public interface NotificationReadStatusRepository {
     Optional<NotificationReadStatus> findByNotificationIdAndUserId(UUID notificationId, UUID userId);
 
     /**
-     * 保存已读状态。
+     * 保存已读状态
      *
      * @param readStatus 已读状态实体
      */
     void save(NotificationReadStatus readStatus);
 
     /**
-     * 批量保存已读状态。
+     * 批量保存已读状态
      *
      * @param readStatuses 已读状态列表
      */
     void saveAll(List<NotificationReadStatus> readStatuses);
 
     /**
-     * 查询用户已读的通知ID列表。
+     * 查询用户已读的通知ID列表
      *
      * @param userId          用户ID
      * @param notificationIds 通知ID列表
@@ -48,7 +48,7 @@ public interface NotificationReadStatusRepository {
     List<UUID> findReadNotificationIds(UUID userId, List<UUID> notificationIds);
 
     /**
-     * 统计用户的未读通知数量。
+     * 统计用户的未读通知数量
      *
      * @param userId 用户ID
      * @param type   通知类型
@@ -57,7 +57,7 @@ public interface NotificationReadStatusRepository {
     long countUnread(UUID userId, Integer type);
 
     /**
-     * 统计用户所有类型的未读通知数量。
+     * 统计用户所有类型的未读通知数量
      *
      * @param userId 用户ID
      * @return 通知类型与未读数量的映射
@@ -65,7 +65,7 @@ public interface NotificationReadStatusRepository {
     Map<String, Long> countUnreadAll(UUID userId);
 
     /**
-     * 将用户的所有通知标记为已读。
+     * 将用户的所有通知标记为已读
      *
      * @param userId 用户ID
      * @param type   通知类型

@@ -9,6 +9,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * 创建随堂练习请求
+ *
+ * @author DaYZ
+ * @since 2026-06-18
+ */
 public record CreateLivePracticeRequest(
         @NotBlank @Size(max = 200) String title,
         @NotNull Instant availableStartAt,

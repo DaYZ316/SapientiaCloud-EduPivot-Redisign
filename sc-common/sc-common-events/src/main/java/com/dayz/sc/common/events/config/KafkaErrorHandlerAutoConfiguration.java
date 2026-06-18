@@ -25,8 +25,8 @@ import org.springframework.util.backoff.FixedBackOff;
 public class KafkaErrorHandlerAutoConfiguration {
 
     /**
-     * 全局 Kafka 消费错误处理：重试 3 次（间隔 1 秒），失败后发送到死信 topic。
-     * Spring Boot 自动将此 Bean 注入到 ConcurrentKafkaListenerContainerFactory。
+     * 全局 Kafka 消费错误处理：重试 3 次（间隔 1 秒），失败后发送到死信 topic
+     * Spring Boot 自动将此 Bean 注入到 ConcurrentKafkaListenerContainerFactory
      */
     @Bean
     @ConditionalOnBean(KafkaTemplate.class)

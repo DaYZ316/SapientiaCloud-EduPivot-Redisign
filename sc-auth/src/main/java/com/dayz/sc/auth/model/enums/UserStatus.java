@@ -8,15 +8,15 @@ package com.dayz.sc.auth.model.enums;
  */
 public enum UserStatus {
     /**
-     * 账号可正常登录和使用。
+     * 账号可正常登录和使用
      */
     ACTIVE,
     /**
-     * 账号被停用，暂不可登录。
+     * 账号被停用，暂不可登录
      */
     DISABLED,
     /**
-     * 账号已删除，仅保留必要审计数据。
+     * 账号已删除，仅保留必要审计数据
      */
     DELETED
 }

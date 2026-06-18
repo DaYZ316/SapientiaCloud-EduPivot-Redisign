@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 对话消息视图对象。
+ * 对话消息视图对象
  *
  * @author DaYZ
  * @since 2026-06-16

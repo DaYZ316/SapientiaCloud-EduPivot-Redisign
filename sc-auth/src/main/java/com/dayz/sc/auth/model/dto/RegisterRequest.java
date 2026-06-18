@@ -4,7 +4,7 @@ import jakarta.validation.constraints.*;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 账号注册请求。
+ * 账号注册请求
  *
  * @param email       邮箱
  * @param password    密码（8-64 位）

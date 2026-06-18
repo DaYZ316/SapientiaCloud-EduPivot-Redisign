@@ -10,7 +10,7 @@ import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
- * 限流拦截器。
+ * 限流拦截器
  * <p>
  * 检查 Controller 方法上的 {@link RateLimited} 注解，基于客户端 IP 进行滑动窗口限流
  *

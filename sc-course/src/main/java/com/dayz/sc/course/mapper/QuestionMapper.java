@@ -20,7 +20,7 @@ import java.util.UUID;
 public interface QuestionMapper extends BaseMapper<Question> {
 
     /**
-     * 按题库ID分组统计题目数量。
+     * 按题库ID分组统计题目数量
      *
      * @param bankIds 题库ID列表
      * @return 包含question_bank_id和cnt字段的Map列表

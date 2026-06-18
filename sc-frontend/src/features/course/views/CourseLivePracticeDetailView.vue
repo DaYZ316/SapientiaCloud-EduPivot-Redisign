@@ -9,14 +9,14 @@
         :size="16"
         stroke-width="1.8"
       />
-      返回练习列表
+      {{ t('courseDetail.livePractice.backToList') }}
     </button>
 
     <div
       v-if="loading"
       class="state-block"
     >
-      加载中...
+      {{ t('courseDetail.livePractice.loading') }}
     </div>
     <div
       v-else-if="loadFailed"
@@ -26,29 +26,30 @@
         :size="28"
         stroke-width="1.5"
       />
-      <h3>练习详情加载失败</h3>
+      <h3>{{ t('courseDetail.livePractice.detailLoadFailed') }}</h3>
       <button
         class="text-button"
         type="button"
         @click="loadData"
       >
-        重试
+        {{ t('courseDetail.livePractice.retry') }}
       </button>
     </div>
 
     <template v-else-if="group">
       <header class="detail-header">
         <div>
-          <span>Live Practice</span>
+          <span>{{ t('courseDetail.livePractice.kicker') }}</span>
           <h2>{{ group.title }}</h2>
           <p>
-            {{ sessionTitle }} · 第 {{ group.publishOrder }} 组 · {{ group.totalQuestions }} 题 ·
-            {{ formatDateTime(group.availableEndAt) }} 截止
+            {{ sessionTitle }} · {{ t('courseDetail.livePractice.groupOrder', {order: group.publishOrder}) }} ·
+            {{ t('courseDetail.livePractice.questionCount', {count: group.totalQuestions}) }} ·
+            {{ t('courseDetail.livePractice.deadlineAt', {time: formatDateTime(group.availableEndAt)}) }}
           </p>
         </div>
         <div class="header-count">
           <strong>{{ group.submittedStudents }}/{{ group.totalStudents }}</strong>
-          <span>提交学生</span>
+          <span>{{ t('courseDetail.livePractice.submittedStudents') }}</span>
         </div>
       </header>
 
@@ -58,14 +59,14 @@
             :size="16"
             stroke-width="1.8"
           />
-          <span>{{ group.totalQuestions }} 题</span>
+          <span>{{ t('courseDetail.livePractice.questionCount', {count: group.totalQuestions}) }}</span>
         </div>
         <div class="summary-item">
           <Users
             :size="16"
             stroke-width="1.8"
           />
-          <span>{{ group.totalStudents }} 名学生</span>
+          <span>{{ t('courseDetail.livePractice.studentCount', {count: group.totalStudents}) }}</span>
         </div>
         <div class="summary-item">
           <Clock
@@ -79,14 +80,14 @@
             :size="16"
             stroke-width="1.8"
           />
-          <span>{{ group.allowLateSubmission === 1 ? '允许补交' : '不允许补交' }}</span>
+          <span>{{ group.allowLateSubmission === 1 ? t('courseDetail.livePractice.allowLate') : t('courseDetail.livePractice.disallowLate') }}</span>
         </div>
       </div>
 
       <div class="detail-workspace">
         <section class="question-ledger">
           <div class="ledger-header">
-            <span>题目列表</span>
+            <span>{{ t('courseDetail.livePractice.questionList') }}</span>
             <strong>{{ questions.length }}</strong>
           </div>
 
@@ -103,16 +104,16 @@
               <span class="question-title">{{ question.questionTitle }}</span>
               <span class="question-tags">
                 <span>{{ questionTypeLabel(question.questionType) }}</span>
-                <span>{{ question.score }} 分</span>
+                <span>{{ t('courseDetail.livePractice.scorePoints', {score: question.score}) }}</span>
                 <span v-if="canManageCourse && question.analysis">
-                  未提交 {{ question.analysis.notSubmittedCount }}
+                  {{ t('courseDetail.livePractice.notSubmittedCount', {count: question.analysis.notSubmittedCount}) }}
                 </span>
                 <span
                   v-else
                   :class="submitStatusClass(question.mySubmission?.submitStatus)"
                   class="submit-badge"
                 >
-                  {{ question.mySubmission?.submitStatusText || '未提交' }}
+                  {{ submitStatusLabel(question.mySubmission?.submitStatus) }}
                 </span>
               </span>
             </span>
@@ -122,7 +123,7 @@
             v-if="questions.length === 0"
             class="empty-list"
           >
-            暂无题目
+            {{ t('courseDetail.livePractice.emptyQuestions') }}
           </div>
         </section>
 
@@ -130,7 +131,7 @@
           <template v-if="selectedQuestion">
             <div class="preview-header">
               <div>
-                <span class="section-label">题目浏览</span>
+                <span class="section-label">{{ t('courseDetail.livePractice.questionPreview') }}</span>
                 <h3>{{ selectedQuestion.questionTitle }}</h3>
               </div>
               <span
@@ -154,19 +155,19 @@
                   :size="14"
                   stroke-width="1.8"
                 />
-                {{ selectedQuestion.score }} 分
+                {{ t('courseDetail.livePractice.scorePoints', {score: selectedQuestion.score}) }}
               </span>
               <span v-if="selectedQuestion.estimatedTime">
                 <Clock
                   :size="14"
                   stroke-width="1.8"
                 />
-                {{ selectedQuestion.estimatedTime }} 分钟
+                {{ t('courseDetail.livePractice.estimatedMinutes', {minutes: selectedQuestion.estimatedTime}) }}
               </span>
             </div>
 
             <section class="preview-section">
-              <h4>题干</h4>
+              <h4>{{ t('courseDetail.livePractice.stem') }}</h4>
               <p>{{ selectedQuestion.questionContent || selectedQuestion.questionTitle }}</p>
             </section>
 
@@ -174,7 +175,7 @@
               v-if="selectedQuestion.options?.length"
               class="preview-section"
             >
-              <h4>选项</h4>
+              <h4>{{ t('courseDetail.livePractice.options') }}</h4>
               <div class="option-list">
                 <div
                   v-for="option in selectedQuestion.options"
@@ -187,8 +188,8 @@
                 >
                   <span class="option-label">{{ option.optionLabel }}</span>
                   <span>{{ option.optionContent }}</span>
-                  <strong v-if="canManageCourse && option.isCorrect === 1">正确</strong>
-                  <strong v-else-if="isSelectedOption(option.id)">已选</strong>
+                  <strong v-if="canManageCourse && option.isCorrect === 1">{{ t('courseDetail.livePractice.correct') }}</strong>
+                  <strong v-else-if="isSelectedOption(option.id)">{{ t('courseDetail.livePractice.selected') }}</strong>
                 </div>
               </div>
             </section>
@@ -197,7 +198,7 @@
               v-if="selectedQuestion.tags?.length"
               class="preview-section"
             >
-              <h4>标签</h4>
+              <h4>{{ t('courseDetail.livePractice.tags') }}</h4>
               <div class="tag-list">
                 <span
                   v-for="tag in selectedQuestion.tags"
@@ -216,25 +217,25 @@
               v-if="canManageCourse"
               class="preview-section"
             >
-              <h4>教师分析</h4>
+              <h4>{{ t('courseDetail.livePractice.teacherAnalysis') }}</h4>
               <div
                 v-if="selectedQuestion.analysis"
                 class="analysis-grid"
               >
                 <div>
-                  <span>提交</span>
+                  <span>{{ t('courseDetail.livePractice.submittedLabel') }}</span>
                   <strong>{{ selectedQuestion.analysis.submittedCount }}</strong>
                 </div>
                 <div>
-                  <span>未提交</span>
+                  <span>{{ t('courseDetail.livePractice.notSubmittedLabel') }}</span>
                   <strong>{{ selectedQuestion.analysis.notSubmittedCount }}</strong>
                 </div>
                 <div>
-                  <span>正确</span>
+                  <span>{{ t('courseDetail.livePractice.correctLabel') }}</span>
                   <strong>{{ selectedQuestion.analysis.correctCount }}</strong>
                 </div>
                 <div>
-                  <span>均分</span>
+                  <span>{{ t('courseDetail.livePractice.averageScoreLabel') }}</span>
                   <strong>{{ selectedQuestion.analysis.averageScore }}</strong>
                 </div>
               </div>
@@ -255,7 +256,7 @@
                 v-if="selectedQuestion.analysis?.notSubmittedStudents.length"
                 class="not-submitted"
               >
-                <span>未提交学生</span>
+                <span>{{ t('courseDetail.livePractice.notSubmittedStudents') }}</span>
                 <div>
                   <span
                     v-for="student in selectedQuestion.analysis.notSubmittedStudents"
@@ -271,7 +272,7 @@
               v-if="canManageCourse && answerItems.length"
               class="preview-section"
             >
-              <h4>参考答案</h4>
+              <h4>{{ t('courseDetail.livePractice.referenceAnswers') }}</h4>
               <div class="answer-list">
                 <div
                   v-for="answer in answerItems"
@@ -287,16 +288,16 @@
               v-if="!canManageCourse"
               class="preview-section"
             >
-              <h4>我的提交</h4>
+              <h4>{{ t('courseDetail.livePractice.mySubmission') }}</h4>
               <div
                 v-if="selectedQuestion.mySubmission"
                 class="submission-card"
               >
                 <div class="submission-meta">
                   <span :class="submitStatusClass(selectedQuestion.mySubmission.submitStatus)">
-                    {{ selectedQuestion.mySubmission.submitStatusText }}
+                    {{ submitStatusLabel(selectedQuestion.mySubmission.submitStatus) }}
                   </span>
-                  <strong>得分 {{ selectedQuestion.mySubmission.earnedScore }}</strong>
+                  <strong>{{ t('courseDetail.livePractice.earnedScore', {score: selectedQuestion.mySubmission.earnedScore}) }}</strong>
                   <span>{{ formatDateTime(selectedQuestion.mySubmission.submittedAt) }}</span>
                 </div>
                 <div
@@ -322,7 +323,7 @@
                 v-else
                 class="muted-text"
               >
-                尚未提交本题。
+                {{ t('courseDetail.livePractice.notSubmittedQuestion') }}
               </p>
             </section>
           </template>
@@ -356,7 +357,7 @@ import type {ClassSession} from '@/features/course/types/classSession'
 import type {CourseDetail} from '@/features/course/types/course'
 import type {LivePracticeGroup} from '@/features/live-practice/types/livePractice'
 
-const {locale} = useI18n()
+const {t, locale} = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -392,9 +393,9 @@ const answerItems = computed(() => {
       .map(answer => answer.answerContent)
       .filter(Boolean)
 })
-const sessionTitle = computed(() => classSession.value?.title || '所属开课记录')
+const sessionTitle = computed(() => classSession.value?.title || t('courseDetail.livePractice.classSessionFallback'))
 const sessionTimeRange = computed(() => {
-  if (!classSession.value) return `${formatDateTime(group.value?.publishedAt)} 发布`
+  if (!classSession.value) return t('courseDetail.livePractice.publishedAt', {time: formatDateTime(group.value?.publishedAt)})
   return `${formatDateTime(classSession.value.scheduledStartAt)} - ${formatDateTime(classSession.value.scheduledEndAt)}`
 })
 
@@ -451,22 +452,22 @@ function formatDateTime(value?: string | null) {
 
 function questionTypeLabel(type: number) {
   const labels: Record<number, string> = {
-    0: '单选题',
-    1: '多选题',
-    2: '判断题',
-    3: '填空题',
-    4: '简答题',
+    0: t('courseDetail.livePractice.singleChoice'),
+    1: t('courseDetail.livePractice.multipleChoice'),
+    2: t('courseDetail.livePractice.trueFalse'),
+    3: t('courseDetail.livePractice.fillBlank'),
+    4: t('courseDetail.livePractice.shortAnswer'),
   }
-  return labels[type] || '未知题型'
+  return labels[type] || t('courseDetail.livePractice.unknownQuestionType')
 }
 
 function difficultyLabel(difficulty: number) {
   const labels: Record<number, string> = {
-    1: '简单',
-    2: '中等',
-    3: '困难',
+    1: t('courseDetail.livePractice.easy'),
+    2: t('courseDetail.livePractice.medium'),
+    3: t('courseDetail.livePractice.hard'),
   }
-  return labels[difficulty] || '未知难度'
+  return labels[difficulty] || t('courseDetail.livePractice.unknownDifficulty')
 }
 
 function difficultyClass(difficulty: number) {
@@ -479,6 +480,12 @@ function submitStatusClass(status?: number | null) {
   if (status === 1) return 'submitted'
   if (status === 2) return 'late'
   return 'missing'
+}
+
+function submitStatusLabel(status?: number | null) {
+  if (status === 1) return t('courseDetail.livePractice.statusSubmitted')
+  if (status === 2) return t('courseDetail.livePractice.statusLateSubmitted')
+  return t('courseDetail.livePractice.statusNotSubmitted')
 }
 
 function isSelectedOption(optionId: string) {
@@ -503,7 +510,7 @@ function isSelectedOption(optionId: string) {
   padding: 0 12px;
   background: transparent;
   border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   color: var(--color-on-surface);
   cursor: pointer;
   font-family: var(--font-label);
@@ -613,7 +620,7 @@ function isSelectedOption(optionId: string) {
 .state-block {
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
 }
 
 .ledger-header {

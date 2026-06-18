@@ -5,7 +5,7 @@ import com.dayz.sc.ai.model.entity.ChatMessage;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * 消息 Mapper。
+ * 消息 Mapper
  *
  * @author DaYZ
  * @since 2026-06-16

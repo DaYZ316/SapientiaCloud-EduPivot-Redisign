@@ -173,7 +173,7 @@ public class NotificationService {
     }
 
     /**
-     * 撤回通知（发送者或管理员可操作，对所有接收者生效）。
+     * 撤回通知（发送者或管理员可操作，对所有接收者生效）
      */
     @Transactional(rollbackFor = Exception.class)
     public void recallNotification(UUID notificationId, UUID senderId, Integer role) {

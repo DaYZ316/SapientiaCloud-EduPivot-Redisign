@@ -154,7 +154,7 @@ public class GoogleLoginService {
     }
 
     /**
-     * 精简 JWT claims：仅包含 userId 和 role。
+     * 精简 JWT claims：仅包含 userId 和 role
      */
     private Map<String, Object> buildClaims(User user) {
         Map<String, Object> claims = new LinkedHashMap<>();

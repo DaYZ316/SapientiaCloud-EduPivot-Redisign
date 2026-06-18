@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 知识库文档视图对象。
+ * 知识库文档视图对象
  *
  * @author DaYZ
  * @since 2026-06-16

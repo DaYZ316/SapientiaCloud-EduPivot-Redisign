@@ -13,7 +13,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * AI 助手对话消息实体。
+ * AI 助手对话消息实体
  *
  * @author DaYZ
  * @since 2026-06-16

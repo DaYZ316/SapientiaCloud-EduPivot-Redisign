@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 @FeignClient(name = "github-oauth-client", url = "https://github.com")
 public interface GitHubOauthClient {
     /**
-     * 使用授权码换取 GitHub OAuth 访问令牌。
+     * 使用授权码换取 GitHub OAuth 访问令牌
      *
      * @param accept       响应格式，固定请求 JSON
      * @param clientId     GitHub OAuth App 客户端编号

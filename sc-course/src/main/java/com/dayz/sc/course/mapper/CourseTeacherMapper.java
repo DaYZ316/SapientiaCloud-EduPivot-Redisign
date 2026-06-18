@@ -18,7 +18,7 @@ import java.util.List;
 public interface CourseTeacherMapper extends BaseMapper<CourseTeacher> {
 
     /**
-     * 批量插入课程教师关联。
+     * 批量插入课程教师关联
      *
      * @param list 课程教师关联列表
      * @return 受影响的行数

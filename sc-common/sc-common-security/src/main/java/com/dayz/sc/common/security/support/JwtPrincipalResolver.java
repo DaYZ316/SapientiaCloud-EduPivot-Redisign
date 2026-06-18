@@ -8,6 +8,7 @@ package com.dayz.sc.common.security.support;
 
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.util.UUID;
@@ -17,7 +18,7 @@ public final class JwtPrincipalResolver {
     private JwtPrincipalResolver() {
     }
 
-    public static UUID requireUserId(Jwt jwt) {
+    public static UUID requireUserId(@Nullable Jwt jwt) {
         if (jwt == null || jwt.getSubject() == null || jwt.getSubject().isBlank()) {
             throw new BusinessException(ErrorCodes.UNAUTHORIZED);
         }
@@ -30,9 +31,9 @@ public final class JwtPrincipalResolver {
     }
 
     /**
-     * 非必须模式：未登录返回 null，不抛异常。
+     * 非必须模式：未登录返回 null，不抛异常
      */
-    public static UUID userId(Jwt jwt) {
+    public static @Nullable UUID userId(@Nullable Jwt jwt) {
         if (jwt == null || jwt.getSubject() == null || jwt.getSubject().isBlank()) {
             return null;
         }
@@ -43,7 +44,7 @@ public final class JwtPrincipalResolver {
         }
     }
 
-    public static Integer role(Jwt jwt) {
+    public static @Nullable Integer role(@Nullable Jwt jwt) {
         if (jwt == null) {
             return null;
         }

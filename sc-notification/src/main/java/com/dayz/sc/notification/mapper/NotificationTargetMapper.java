@@ -20,7 +20,7 @@ import java.util.UUID;
 public interface NotificationTargetMapper extends BaseMapper<NotificationTarget> {
 
     /**
-     * 将用户的所有通知目标标记为已删除。
+     * 将用户的所有通知目标标记为已删除
      *
      * @param userId 用户ID
      * @param type   通知类型，为null时匹配所有类型
@@ -44,7 +44,7 @@ public interface NotificationTargetMapper extends BaseMapper<NotificationTarget>
     int markAllDeleted(@Param("userId") UUID userId, @Param("type") Integer type);
 
     /**
-     * 批量插入通知目标用户关联。
+     * 批量插入通知目标用户关联
      *
      * @param list 通知目标用户关联列表
      * @return 受影响的行数

@@ -1,7 +1,7 @@
 package com.dayz.sc.ai.model.enums;
 
 /**
- * 知识库文档索引状态。
+ * 知识库文档索引状态
  *
  * @author DaYZ
  * @since 2026-06-16

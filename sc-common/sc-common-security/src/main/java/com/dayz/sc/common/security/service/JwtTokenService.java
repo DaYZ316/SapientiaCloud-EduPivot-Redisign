@@ -11,7 +11,7 @@ import java.time.Instant;
 import java.util.Map;
 
 /**
- * 为已认证用户创建签名后的 JWT 访问令牌。
+ * 为已认证用户创建签名后的 JWT 访问令牌
  * <p>
  * 自动根据密钥类型选择算法：有 privateKey 时使用 RS256，否则使用 HS256
  *
@@ -21,7 +21,7 @@ import java.util.Map;
 public record JwtTokenService(JwtEncoder jwtEncoder, JwtProperties jwtProperties) {
 
     /**
-     * 创建 Access Token。
+     * 创建 Access Token
      *
      * @param subject JWT subject（通常是 userId）
      * @param claims  自定义声明
@@ -42,7 +42,7 @@ public record JwtTokenService(JwtEncoder jwtEncoder, JwtProperties jwtProperties
     }
 
     /**
-     * 获取 Access Token TTL（秒）。
+     * 获取 Access Token TTL（秒）
      */
     public long getAccessTokenTtlSeconds() {
         return jwtProperties.getAccessTokenTtl().getSeconds();

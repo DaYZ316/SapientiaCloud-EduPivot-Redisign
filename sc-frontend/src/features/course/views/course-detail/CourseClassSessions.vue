@@ -161,7 +161,7 @@
       <aside v-else-if="canManageCourse || previewSession" class="session-editor-panel">
         <form class="session-form" @submit.prevent="handleSubmit">
           <div class="editor-heading">
-            <h3>{{ panelTitle }}</h3>
+            <h3 :title="panelTitle">{{ panelTitle }}</h3>
             <div class="form-actions">
               <button v-if="canManageCourse && !isPreviewing" :disabled="submitting" class="btn-add primary" type="submit">
                 {{ submitting ? t('courseDetail.saving') : t('courseDetail.save') }}
@@ -1150,12 +1150,16 @@ function normalizedRoomSize(value: number) {
 }
 
 .editor-heading h3 {
+  min-width: 0;
+  overflow: hidden;
   margin: 0;
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: 32px;
   font-weight: 400;
   line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .loading-editor {

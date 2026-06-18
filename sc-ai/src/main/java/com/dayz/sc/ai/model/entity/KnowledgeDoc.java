@@ -13,7 +13,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * AI 知识库文档实体。
+ * AI 知识库文档实体
  *
  * @author DaYZ
  * @since 2026-06-16

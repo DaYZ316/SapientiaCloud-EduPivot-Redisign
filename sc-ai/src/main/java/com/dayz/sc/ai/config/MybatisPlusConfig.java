@@ -16,7 +16,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * MyBatis-Plus 配置：分页拦截器、UUID 类型处理、自动填充。
+ * MyBatis-Plus 配置：分页拦截器、UUID 类型处理、自动填充
  *
  * @author DaYZ
  * @since 2026-06-16

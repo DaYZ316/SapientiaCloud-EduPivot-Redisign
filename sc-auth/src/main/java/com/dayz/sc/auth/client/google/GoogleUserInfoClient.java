@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 @FeignClient(name = "google-user-info-client", url = "https://openidconnect.googleapis.com")
 public interface GoogleUserInfoClient {
     /**
-     * 使用 Google 访问令牌读取用户基础资料。
+     * 使用 Google 访问令牌读取用户基础资料
      *
      * @param authorization Bearer 访问令牌
      * @return Google 用户信息响应

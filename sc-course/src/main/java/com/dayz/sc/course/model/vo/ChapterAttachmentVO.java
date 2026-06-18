@@ -6,7 +6,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.UUID;
 
 /**
- * 章节附件视图对象。
+ * 章节附件视图对象
  *
  * @author DaYZ
  * @since 2026-06-18

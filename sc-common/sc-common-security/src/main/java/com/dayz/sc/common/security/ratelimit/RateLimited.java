@@ -3,7 +3,8 @@ package com.dayz.sc.common.security.ratelimit;
 import java.lang.annotation.*;
 
 /**
- * 接口限流注解。
+ * 接口限流注解
+ *
  * <p>
  * 标注在 Controller 方法上，基于客户端 IP 进行滑动窗口限流
  *
@@ -16,12 +17,12 @@ import java.lang.annotation.*;
 public @interface RateLimited {
 
     /**
-     * 时间窗口内最大请求数。
+     * 时间窗口内最大请求数
      */
     int maxRequests() default 10;
 
     /**
-     * 时间窗口大小（秒）。
+     * 时间窗口大小（秒）
      */
     int windowSeconds() default 60;
 }

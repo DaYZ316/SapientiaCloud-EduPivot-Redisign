@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Size;
 import java.util.UUID;
 
 /**
- * 问答请求。
+ * 问答请求
  *
  * @author DaYZ
  * @since 2026-06-16

@@ -8,6 +8,7 @@ import com.dayz.sc.common.security.ratelimit.RateLimited;
 import com.dayz.sc.common.security.support.JwtPrincipalResolver;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -23,7 +24,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 知识库管理控制器。
+ * 知识库管理控制器
  *
  * @author DaYZ
  * @since 2026-06-16
@@ -36,8 +37,8 @@ public class KnowledgeBaseController {
     private final KnowledgeBaseService knowledgeBaseService;
 
     @PostMapping
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<UUID> ingest(
+    @RateLimited
+    public ApiResponse<@NonNull UUID> ingest(
             @Valid @RequestBody IngestDocumentRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -45,7 +46,7 @@ public class KnowledgeBaseController {
     }
 
     @GetMapping
-    public ApiResponse<List<KnowledgeDocVO>> list(
+    public ApiResponse<@NonNull List<@NonNull KnowledgeDocVO>> list(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal Jwt jwt) {
@@ -54,8 +55,8 @@ public class KnowledgeBaseController {
     }
 
     @DeleteMapping("/{id}")
-    @RateLimited(maxRequests = 10, windowSeconds = 60)
-    public ApiResponse<Void> delete(
+    @RateLimited
+    public ApiResponse<@NonNull Void> delete(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);

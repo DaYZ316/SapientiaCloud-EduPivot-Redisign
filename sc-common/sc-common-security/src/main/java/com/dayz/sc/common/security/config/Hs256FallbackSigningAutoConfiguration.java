@@ -12,10 +12,10 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 
 /**
- * HS256 共享密钥回退配置（向后兼容）。
+ * HS256 共享密钥回退配置（向后兼容）
  * <p>
  * 当仅配置了 {@code edupivot.security.jwt.secret} 时激活，
- * 同时提供签名和验证能力。新服务应使用 RS256
+ * 同时提供签名和验证能力，新服务应使用 RS256
  *
  * @author DaYZ
  * @since 2026-06-09

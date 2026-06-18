@@ -16,11 +16,11 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 未读通知计数管理（Redis Hash 原子计数）。
+ * 未读通知计数管理（Redis Hash 原子计数）
  * <p>
  * Key: notification:unread:{userId}
  * Fields: total, system, teaching
- * TTL: 5-10 分钟（随机抖动），过期后由 getOrInitFromDb 从 DB 重建。
+ * TTL: 5-10 分钟（随机抖动），过期后由 getOrInitFromDb 从 DB 重建
  * 缓存击穿防护：单飞锁（Redis SET NX），同一 userId 同时只有一个请求回源 DB
  *
  * @author DaYZ
@@ -81,7 +81,7 @@ public class UnreadCountService {
     }
 
     /**
-     * 带随机抖动的 TTL，防止雪崩。
+     * 带随机抖动的 TTL，防止雪崩
      */
     private Duration ttlWithJitter() {
         long jitterSeconds = ThreadLocalRandom.current().nextLong(TTL_JITTER.getSeconds());
@@ -89,7 +89,7 @@ public class UnreadCountService {
     }
 
     /**
-     * 新通知到达：total +1，对应 type +1。
+     * 新通知到达：total +1，对应 type +1
      */
     public UnreadCountVO increment(UUID userId, int type) {
         String key = key(userId);
@@ -105,7 +105,7 @@ public class UnreadCountService {
     }
 
     /**
-     * 标记单条已读：total -1，对应 type -1（不低于 0）。
+     * 标记单条已读：total -1，对应 type -1（不低于 0）
      */
     public void decrement(UUID userId, int type) {
         String key = key(userId);
@@ -116,14 +116,14 @@ public class UnreadCountService {
     }
 
     /**
-     * 全部已读 / 删除全部：直接删除 key。
+     * 全部已读 / 删除全部：直接删除 key
      */
     public void reset(UUID userId) {
         redisTemplate.delete(key(userId));
     }
 
     /**
-     * 读取当前未读计数（Redis 有数据时直接读，无数据返回 null）。
+     * 读取当前未读计数（Redis 有数据时直接读，无数据返回 null）
      */
     public UnreadCountVO getUnreadCount(UUID userId) {
         String key = key(userId);
@@ -134,7 +134,7 @@ public class UnreadCountService {
     }
 
     /**
-     * 读取未读计数，Redis 无数据时从 DB 初始化（带单飞锁防缓存击穿）。
+     * 读取未读计数，Redis 无数据时从 DB 初始化（带单飞锁防缓存击穿）
      */
     public UnreadCountVO getOrInitFromDb(UUID userId, NotificationReadStatusRepository repo) {
         String key = key(userId);
@@ -216,7 +216,7 @@ public class UnreadCountService {
     }
 
     /**
-     * 原子递增/递减，结果不低于 0。
+     * 原子递增/递减，结果不低于 0
      */
     private String typeField(int type) {
         return type == 1 ? "system" : "teaching";

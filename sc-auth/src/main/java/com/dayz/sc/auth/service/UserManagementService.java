@@ -128,7 +128,7 @@ public class UserManagementService {
     }
 
     /**
-     * 批量获取用户基本信息（displayName, avatarUrl），用于服务间通信。
+     * 批量获取用户基本信息（displayName, avatarUrl），用于服务间通信
      */
     public List<UserBasicInfo> getUsersBasicInfo(List<UUID> ids) {
         if (ids == null || ids.isEmpty()) {

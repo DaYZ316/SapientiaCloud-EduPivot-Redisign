@@ -1,169 +1,115 @@
-﻿# 数据库迁移规范
+# 数据库迁移规范
 
 ## 概述
 
-本项目使用 Flyway 管理数据库迁移。每个微服务有独立的迁移历史表，共享同一个 PostgreSQL 数据库。
+本项目使用 Flyway 管理数据库迁移。所有后端服务共享同一个 PostgreSQL 数据库和 schema，但每个服务使用独立的 Flyway 历史表。Flyway 的 versioned migration 只执行一次，执行记录由对应的 `flyway_schema_history_*` 表保存。
 
 ## 服务与迁移表映射
 
-| 服务              | 迁移表                                | 数据库      |
-|-----------------|------------------------------------|----------|
-| sc-auth         | flyway_schema_history_auth         | edupivot |
-| sc-course       | flyway_schema_history_course       | edupivot |
-| sc-notification | flyway_schema_history_notification | edupivot |
-| sc-storage      | flyway_schema_history_storage      | edupivot |
+| 服务 | 表前缀 | 迁移表 | 数据库 |
+|------|--------|--------|--------|
+| sc-auth | `auth_` | `flyway_schema_history_auth` | edupivot |
+| sc-course | `edu_` | `flyway_schema_history_course` | edupivot |
+| sc-notification | `ntf_` | `flyway_schema_history_notification` | edupivot |
+| sc-storage | `storage_` | `flyway_schema_history_storage` | edupivot |
+| sc-ai | `ai_` | `flyway_schema_history_ai` | edupivot |
 
-## 迁移文件命名规范
+历史例外：早期 `sc-auth` 迁移曾创建 `edu_*` 与 `ntf_*` 表。不要移动或重写这些已存在迁移；从现在开始禁止新增跨服务表前缀迁移。
 
-`
-V{yyyyMMdd}{序号}__{描述}.sql
-`
+## 命名与归属
+
+迁移文件格式：
+
+```text
+V{yyyyMMdd}{NN}__{snake_case_description}.sql
+```
 
 示例：
 
-- V2026061301__add_user_avatar.sql
-- V2026061302__create_notification_table.sql
+- `V2026061301__add_user_avatar.sql`
+- `V2026061302__create_notification_target_table.sql`
 
-### 版本号规则
+规则：
 
-- yyyyMMdd：创建日期（如 20260613）
-- 序号：同一天内的序号（01, 02, 03...）
-- 描述：使用 snake_case 描述迁移内容
+- `yyyyMMdd` 使用创建迁移的日期，`NN` 为当天两位序号。
+- 同一服务内版本号必须唯一，新增迁移版本必须大于该服务已发布最高版本。
+- 文件放在对应服务的 `src/main/resources/db/migration/`。
+- 迁移只能维护本服务表前缀对应的对象；跨服务数据修复必须先拆清服务归属。
 
-## 迁移文件编写规范
+## 编写规范
 
-### 1. 必须幂等
+- 已应用迁移不可修改、重命名、移动或删除；任何修复都新增前向迁移。
+- 新迁移尽量使用 `IF NOT EXISTS` / `IF EXISTS`，但不能依赖 Flyway 重跑已成功迁移。
+- 复杂表、列、约束建议补充 `COMMENT ON TABLE/COLUMN`。
+- 数据修复迁移允许使用 DML，但必须独立成文件，说明影响范围，并保证可审计、可回滚。
+- 大表索引需要评估锁表影响；`CREATE INDEX CONCURRENTLY` 不能在普通事务迁移中随意使用。
+- 避免在迁移中写业务查询逻辑；如必须使用 `SELECT`，需要在迁移注释中说明原因。
 
-所有迁移文件必须是幂等的，可以重复执行而不会报错。
+## 配置规则
 
-`sql
--- 正确
-CREATE TABLE IF NOT EXISTS users (
-id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-name VARCHAR(100) NOT NULL
-);
-
--- 错误
-CREATE TABLE users (
-id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-name VARCHAR(100) NOT NULL
-);
-`
-
-### 2. 使用事务
-
-Flyway 默认在事务中执行迁移（PostgreSQL 支持）。确保迁移可以在事务中回滚。
-
-### 3. 避免数据迁移
-
-数据迁移（如 UPDATE、INSERT）应该：
-
-- 单独创建迁移文件
-- 考虑大数据量的性能影响
-- 添加必要的索引
-
-### 4. 注释规范
-
-`sql
--- V2026061301: 添加用户头像字段
--- @author DaYZ
--- @since 2026-06-13
-`
+- 禁止启用 `spring.flyway.out-of-order`。Flyway 默认按版本顺序执行，乱序迁移会让环境状态更难复现。
+- 本项目保留 `baseline-on-migrate: true` 作为共享 schema + 各服务独立 history 表的首次接入例外。不要用它掩盖连错库、连错 schema 或误删 history 表的问题。
+- 各服务必须显式配置自己的 `spring.flyway.table`，避免多个服务写入同一个 history 表。
 
 ## 操作流程
 
 ### 新增迁移
 
-1. 创建迁移文件
-   在对应服务的 db/migration 目录下创建文件
+1. 在对应服务目录新增迁移文件。
+2. 运行只读校验：
 
-2. 测试迁移
-   本地环境验证
+   ```bash
+   python scripts/validate_flyway_migrations.py
+   ```
 
-3. 提交到 Git
-   git add db/migration/V2026061301__add_user_avatar.sql
-   git commit -m "feat(auth): add user avatar field"
+3. 本地或测试环境启动服务，确认 Flyway 成功执行。
+4. 发布前查看目标环境迁移状态：
 
-4. 部署后验证
+   ```bash
    flyway info
    flyway validate
+   ```
 
 ### 修复迁移问题
 
-#### Checksum 不匹配
+- `Checksum mismatch`：说明已应用迁移文件被改过。优先恢复原文件；只有确认 history 元数据需要修复时才使用 `repair`。
+- `Applied migration not resolved locally`：说明数据库记录存在但本地文件缺失。优先恢复文件；如确认为废弃历史，再评估 `repair`。
+- 迁移 SQL 失败：修复 SQL 后重新部署，Flyway 会重试失败迁移；如果迁移已成功执行，不要改旧文件。
+- 需要回滚业务结构：新增反向迁移，不直接编辑旧迁移。
 
-使用 flyway repair 修复
+使用 `repair` 前必须备份对应 history 表，例如：
 
-#### 迁移失败
-
-1. 检查 SQL 语法错误
-2. 修复问题后重新部署
-3. Flyway 会自动重试失败的迁移
-
-#### 需要回滚
-
-1. 不要修改旧的迁移文件
-2. 创建新的反向迁移文件
+```sql
+CREATE TABLE flyway_schema_history_auth_backup_yyyymmdd AS
+SELECT * FROM flyway_schema_history_auth;
+```
 
 ## 禁止事项
 
-### 绝对不要
+- 禁止修改、重命名、移动或删除已应用迁移。
+- 禁止直接手写 SQL 修改 `flyway_schema_history_*`；需要修复元数据时使用 Flyway `repair`。
+- 禁止生产环境使用 `flyway clean`。
+- 禁止新增低于当前最高版本的迁移。
+- 禁止新增跨服务表前缀迁移。
+- 禁止用 `baseline-on-migrate` 或 `repair` 掩盖错误数据库连接。
 
-1. 修改已部署的迁移文件
-    - 一旦迁移应用到任何环境，文件不可变
-    - 需要修改时，创建新版本迁移
+## 校验脚本
 
-2. 直接修改 flyway_schema_history 表
-    - 使用 flyway repair 命令
-    - 不要手动 SQL 操作
+`scripts/validate_flyway_migrations.py` 是只读校验工具：
 
-3. 在生产环境使用 flyway clean
-    - clean 会删除所有数据
-    - 仅在开发/测试环境使用
-
-4. 跳过迁移版本
-    - Flyway 按版本号顺序执行
-    - 跳过版本会导致验证失败
-
-5. 在迁移中使用 SELECT
-    - 迁移应该是纯 DDL（CREATE、ALTER、DROP）
-    - 数据查询应在应用代码中
-
-## 故障排查
-
-### 常见问题
-
-#### 1. Checksum mismatch
-
-原因：迁移文件在部署后被修改
-解决：flyway repair
-
-#### 2. Applied migration not resolved locally
-
-原因：数据库中有迁移记录，但本地文件缺失
-解决：恢复迁移文件，或使用 flyway repair 标记为 DELETED
-
-#### 3. Migration already applied
-
-原因：迁移已执行，尝试重新应用
-解决：检查迁移是否幂等，或创建新版本
-
-### 调试命令
-
-flyway info - 查看迁移状态
-flyway validate - 验证迁移
-flyway repair - 修复迁移
-flyway migrate - 执行迁移
+- 文件名格式错误、同服务版本重复、非 legacy 跨服务表前缀会失败。
+- 现存 legacy 跨服务迁移、DML、顶层 `SELECT`、`CREATE INDEX CONCURRENTLY`、`DROP` 操作会输出 warning。
+- 脚本不会修改迁移 SQL、数据库或 history 表。
 
 ## 最佳实践
 
-1. 小步迭代：每个迁移只做一件事
-2. 向后兼容：新迁移不能破坏旧版本应用
-3. 测试先行：在测试环境验证迁移
-4. 文档记录：复杂迁移添加注释
-5. 监控告警：迁移失败时及时通知
+1. 小步迭代：每个迁移只做一件事。
+2. 前向兼容：新迁移不能破坏仍可能运行的旧版本应用。
+3. 先校验再发布：提交前跑脚本，发布前跑 `validate/info`。
+4. 复杂迁移写清楚原因、影响范围和回滚方式。
+5. 迁移失败优先恢复事实，不急着 `repair`。
 
 ---
 
-最后更新：2026-06-13
+最后更新：2026-06-18
 维护者：DaYZ

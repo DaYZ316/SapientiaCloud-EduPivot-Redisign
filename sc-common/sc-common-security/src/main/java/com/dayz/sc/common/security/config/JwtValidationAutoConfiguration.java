@@ -13,9 +13,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.interfaces.RSAPublicKey;
 
 /**
- * JWT 验证自动配置。
+ * JWT 验证自动配置
  * <p>
- * 优先使用 JWKS URI 动态获取公钥（推荐），其次使用静态公钥。
+ * 优先使用 JWKS URI 动态获取公钥（推荐），其次使用静态公钥
  * 当两者都未配置时，尝试使用 HS256 共享密钥（向后兼容）
  *
  * @author DaYZ
@@ -25,7 +25,7 @@ import java.security.interfaces.RSAPublicKey;
 public class JwtValidationAutoConfiguration {
 
     /**
-     * 基于 JWKS URI 的 JwtDecoder（推荐用于微服务间）。
+     * 基于 JWKS URI 的 JwtDecoder（推荐用于微服务间）
      */
     @Bean
     @ConditionalOnMissingBean(JwtDecoder.class)
@@ -35,7 +35,7 @@ public class JwtValidationAutoConfiguration {
     }
 
     /**
-     * 基于静态公钥的 JwtDecoder。
+     * 基于静态公钥的 JwtDecoder
      */
     @Bean
     @ConditionalOnMissingBean(JwtDecoder.class)
@@ -46,7 +46,7 @@ public class JwtValidationAutoConfiguration {
     }
 
     /**
-     * HS256 共享密钥 JwtDecoder（向后兼容）。
+     * HS256 共享密钥 JwtDecoder（向后兼容）
      */
     @Bean
     @ConditionalOnMissingBean(JwtDecoder.class)

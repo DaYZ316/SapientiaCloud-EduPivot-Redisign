@@ -8,9 +8,9 @@ import java.util.Locale;
 import java.util.UUID;
 
 /**
- * MinIO 对象路径构建工具。
+ * MinIO 对象路径构建工具
  * <p>
- * 临时路径：{@code temp/{objectId}.{ext}} — 上传阶段使用，由 MinIO 生命周期规则自动过期。
+ * 临时路径：{@code temp/{objectId}.{ext}} — 上传阶段使用，由 MinIO 生命周期规则自动过期
  * 最终路径：{@code {usage}/{scopeId}/{year}/{objectId}.{ext}} — completeUpload 后永久存储
  *
  * @author DaYZ
@@ -24,14 +24,14 @@ public final class StorageObjectKeyBuilder {
     }
 
     /**
-     * 构建临时上传路径。
+     * 构建临时上传路径
      */
     public static String tempKey(UUID objectId, String fileName, String contentType) {
         return "temp/" + objectId + extensionFor(fileName, contentType);
     }
 
     /**
-     * 构建最终存储路径。
+     * 构建最终存储路径
      */
     public static String finalKey(StorageUsage usage, UUID scopeId, UUID objectId,
                                   String fileName, String contentType) {
@@ -44,7 +44,7 @@ public final class StorageObjectKeyBuilder {
     }
 
     /**
-     * 从文件名或 Content-Type 推断扩展名。
+     * 从文件名或 Content-Type 推断扩展名
      */
     public static String extensionFor(String fileName, String contentType) {
         if (fileName != null) {

@@ -8,15 +8,15 @@ package com.dayz.sc.auth.model.enums;
  */
 public enum OauthProvider {
     /**
-     * Google OAuth2 身份提供方。
+     * Google OAuth2 身份提供方
      */
     GOOGLE,
     /**
-     * GitHub OAuth 身份提供方。
+     * GitHub OAuth 身份提供方
      */
     GITHUB,
     /**
-     * 账号密码登录（本地）。
+     * 账号密码登录（本地）
      */
     LOCAL
 }

@@ -9,7 +9,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
- * 安全模块总自动配置。
+ * 安全模块总自动配置
  * <p>
  * 根据配置属性自动选择激活的子配置：
  * <ul>

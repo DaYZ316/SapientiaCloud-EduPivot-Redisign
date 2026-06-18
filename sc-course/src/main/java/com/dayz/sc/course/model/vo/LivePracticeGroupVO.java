@@ -6,6 +6,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * 随堂练习分组视图对象
+ *
+ * @author DaYZ
+ * @since 2026-06-18
+ */
 public record LivePracticeGroupVO(
         @JsonProperty UUID id,
         @JsonProperty UUID courseId,

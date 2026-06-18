@@ -15,6 +15,12 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * PostgreSQL JSONB类型与UUID列表的类型处理器
+ *
+ * @author DaYZ
+ * @since 2026-06-18
+ */
 @MappedJdbcTypes(JdbcType.OTHER)
 public class PostgresJsonbUuidListTypeHandler extends BaseTypeHandler<List<UUID>> {
 

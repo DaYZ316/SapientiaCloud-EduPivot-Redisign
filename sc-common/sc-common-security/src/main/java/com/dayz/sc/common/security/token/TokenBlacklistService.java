@@ -6,9 +6,9 @@ import org.springframework.data.redis.core.RedisTemplate;
 import java.time.Duration;
 
 /**
- * JWT Token 黑名单服务。
+ * JWT Token 黑名单服务
  * <p>
- * 用于登出时将 token 的 JTI 加入黑名单，防止已签发的 token 继续使用。
+ * 用于登出时将 token 的 JTI 加入黑名单，防止已签发的 token 继续使用
  * Key 格式: {@code auth:blacklist:{jti}} → "1"
  *
  * @author DaYZ
@@ -20,7 +20,7 @@ public record TokenBlacklistService(RedisTemplate<String, Object> redisTemplate)
     private static final String KEY_PREFIX = "auth:blacklist:";
 
     /**
-     * 将 token JTI 加入黑名单。
+     * 将 token JTI 加入黑名单
      *
      * @param jti        JWT ID（jti claim）
      * @param ttlSeconds 过期时间（秒），应等于 token 剩余有效期
@@ -35,7 +35,7 @@ public record TokenBlacklistService(RedisTemplate<String, Object> redisTemplate)
     }
 
     /**
-     * 检查 token JTI 是否在黑名单中。
+     * 检查 token JTI 是否在黑名单中
      *
      * @param jti JWT ID
      * @return true 如果已被拉黑

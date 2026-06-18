@@ -9,6 +9,7 @@
         noPostsDesc: 'Be the first to start a discussion',
         noComments: 'No comments yet',
         noCommentsDesc: 'Be the first to comment on this course',
+        loadingComments: 'Loading course comments...',
         loadingReplies: 'Loading replies...',
         postTitle: 'Post Title',
         postContent: 'Post Content',

@@ -15,7 +15,7 @@ import java.util.UUID;
 public interface NotificationRepository {
 
     /**
-     * 根据ID查询通知。
+     * 根据ID查询通知
      *
      * @param id 通知ID
      * @return 通知实体，可能为空
@@ -23,21 +23,21 @@ public interface NotificationRepository {
     Optional<Notification> findById(UUID id);
 
     /**
-     * 保存通知。
+     * 保存通知
      *
      * @param notification 通知实体
      */
     void save(Notification notification);
 
     /**
-     * 标记通知为已删除。
+     * 标记通知为已删除
      *
      * @param id 通知ID
      */
     void markDeleted(UUID id);
 
     /**
-     * 分页查询通知。
+     * 分页查询通知
      *
      * @param page          页码
      * @param size          每页大小
@@ -49,7 +49,7 @@ public interface NotificationRepository {
     List<Notification> findAll(int page, int size, Integer type, UUID senderId, UUID currentUserId);
 
     /**
-     * 统计通知数量。
+     * 统计通知数量
      *
      * @param type          通知类型
      * @param senderId      发送者ID

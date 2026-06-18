@@ -15,7 +15,7 @@ import java.util.UUID;
 public interface PracticeSessionRepository {
 
     /**
-     * 根据ID查询练习会话。
+     * 根据ID查询练习会话
      *
      * @param id 练习会话ID
      * @return 练习会话实体，可能为空
@@ -23,21 +23,21 @@ public interface PracticeSessionRepository {
     Optional<PracticeSession> findById(UUID id);
 
     /**
-     * 保存练习会话。
+     * 保存练习会话
      *
      * @param session 练习会话实体
      */
     void save(PracticeSession session);
 
     /**
-     * 更新练习会话。
+     * 更新练习会话
      *
      * @param session 练习会话实体
      */
     void update(PracticeSession session);
 
     /**
-     * 根据用户ID查询练习会话。
+     * 根据用户ID查询练习会话
      *
      * @param sysUserId 用户ID
      * @return 练习会话列表
@@ -45,7 +45,7 @@ public interface PracticeSessionRepository {
     List<PracticeSession> findBySysUserId(UUID sysUserId);
 
     /**
-     * 根据题库ID查询练习会话。
+     * 根据题库ID查询练习会话
      *
      * @param questionBankId 题库ID
      * @return 练习会话列表
@@ -53,7 +53,7 @@ public interface PracticeSessionRepository {
     List<PracticeSession> findByQuestionBankId(UUID questionBankId);
 
     /**
-     * 统计题库的练习会话数量。
+     * 统计题库的练习会话数量
      *
      * @param questionBankId 题库ID
      * @return 练习会话数量
@@ -61,7 +61,7 @@ public interface PracticeSessionRepository {
     long countByQuestionBankId(UUID questionBankId);
 
     /**
-     * 统计用户的练习会话数量。
+     * 统计用户的练习会话数量
      *
      * @param sysUserId 用户ID
      * @return 练习会话数量

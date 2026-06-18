@@ -450,7 +450,7 @@ const tabs = computed(() => [
   {key: 'banks' as const, label: t('courseDetail.practiceTab'), icon: Database, roles: [0, 1, 2]},
   {
     key: 'live-practices' as const,
-    label: canManageCourse.value ? '练习' : '练习册',
+    label: canManageCourse.value ? t('courseDetail.livePractice.teacherTab') : t('courseDetail.livePractice.studentTab'),
     icon: ClipboardList,
     roles: [0, 1, 2],
   },

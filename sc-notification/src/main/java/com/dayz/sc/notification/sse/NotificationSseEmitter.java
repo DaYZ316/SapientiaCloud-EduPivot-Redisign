@@ -83,7 +83,7 @@ public class NotificationSseEmitter {
     }
 
     /**
-     * 发送通知给指定用户，附带精确的未读计数。
+     * 发送通知给指定用户，附带精确的未读计数
      */
     public void sendToUser(UUID userId, NotificationVO notification, long unreadCount) {
         redisSsePublisher.publish(new SseMessage(userId, null, notification, unreadCount));
@@ -102,7 +102,7 @@ public class NotificationSseEmitter {
     }
 
     /**
-     * 本地发送通知给指定用户，附带未读计数。
+     * 本地发送通知给指定用户，附带未读计数
      */
     public void sendToUserLocally(UUID userId, NotificationVO notification, long unreadCount) {
         SseEmitter emitter = emitters.get(userId);
@@ -178,7 +178,7 @@ public class NotificationSseEmitter {
     }
 
     /**
-     * SSE 推送的 payload 结构，包含通知详情和未读计数。
+     * SSE 推送的 payload 结构，包含通知详情和未读计数
      */
     public record SsePayload(NotificationVO notification, long unreadCount) {
     }

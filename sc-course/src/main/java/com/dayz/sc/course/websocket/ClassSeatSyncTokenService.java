@@ -20,6 +20,8 @@ public class ClassSeatSyncTokenService {
     private static final long TOKEN_TTL_SECONDS = 60;
     private static final String TOKEN_KEY_PREFIX = "class-seat-sync:";
     private static final String TOKEN_SEPARATOR = "|";
+    /** Token 负载中分隔出的字段数量：sessionId、userId、role */
+    private static final int TOKEN_PAYLOAD_PARTS = 3;
 
     private final StringRedisTemplate stringRedisTemplate;
 
@@ -43,8 +45,8 @@ public class ClassSeatSyncTokenService {
         if (value == null || value.isBlank()) {
             return Optional.empty();
         }
-        String[] parts = value.split("\\|", 3);
-        if (parts.length != 3) {
+        String[] parts = value.split("\\|", TOKEN_PAYLOAD_PARTS);
+        if (parts.length != TOKEN_PAYLOAD_PARTS) {
             return Optional.empty();
         }
         try {

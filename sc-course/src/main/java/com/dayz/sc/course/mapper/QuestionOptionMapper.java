@@ -18,7 +18,7 @@ import java.util.List;
 public interface QuestionOptionMapper extends BaseMapper<QuestionOption> {
 
     /**
-     * 批量插入题目选项。
+     * 批量插入题目选项
      *
      * @param list 题目选项列表
      * @return 受影响的行数

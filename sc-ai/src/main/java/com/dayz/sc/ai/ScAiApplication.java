@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 /**
- * sc-ai 服务启动类（AI 教学助手 Celestial Hub）。
+ * sc-ai 服务启动类（AI 教学助手 Celestial Hub）
  *
  * @author DaYZ
  * @since 2026-06-16

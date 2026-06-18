@@ -7,7 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.time.Duration;
 
 /**
- * JWT 签发与校验相关配置属性。
+ * JWT 签发与校验相关配置属性
  * <p>
  * 支持两种模式：
  * <ul>
@@ -24,44 +24,44 @@ import java.time.Duration;
 public class JwtProperties {
 
     /**
-     * HS256 对称密钥（向后兼容，新服务应使用 RS256）。
+     * HS256 对称密钥（向后兼容，新服务应使用 RS256）
      */
     @Deprecated
     private String secret;
 
     /**
-     * RS256 PEM 格式私钥，用于签发 JWT（auth 服务使用）。
+     * RS256 PEM 格式私钥，用于签发 JWT（auth 服务使用）
      */
     private String privateKey;
 
     /**
-     * RS256 PEM 格式公钥，用于验证 JWT（可选，优先使用 jwksUri）。
+     * RS256 PEM 格式公钥，用于验证 JWT（可选，优先使用 jwksUri）
      */
     private String publicKey;
 
     /**
-     * JWKS 端点地址，用于动态获取公钥（推荐用于微服务间）。
+     * JWKS 端点地址，用于动态获取公钥（推荐用于微服务间）
      * 例：http://sc-auth:28081/.well-known/jwks.json
      */
     private String jwksUri;
 
     /**
-     * Access Token 有效期。
+     * Access Token 有效期
      */
     private Duration accessTokenTtl = Duration.ofMinutes(30);
 
     /**
-     * Refresh Token 有效期。
+     * Refresh Token 有效期
      */
     private Duration refreshTokenTtl = Duration.ofDays(7);
 
     /**
-     * JWT 签发者。
+     * JWT 签发者
      */
     private String issuer = "sc-edupivot";
 
     /**
-     * @deprecated 使用 {@link #getAccessTokenTtl()} 代替。
+     * @deprecated 使用 {@link #getAccessTokenTtl()} 代替
      */
     @Deprecated
     public Duration getTtl() {

@@ -21,9 +21,9 @@ import java.security.interfaces.RSAPublicKey;
 import java.security.spec.RSAPublicKeySpec;
 
 /**
- * JWT 签发自动配置。
+ * JWT 签发自动配置
  * <p>
- * 当配置了 {@code edupivot.security.jwt.private-key} 时使用 RS256 签发。
+ * 当配置了 {@code edupivot.security.jwt.private-key} 时使用 RS256 签发
  * 同时提供 JwtDecoder，使 auth 服务也能验证自己签发的 token
  *
  * @author DaYZ
@@ -58,7 +58,7 @@ public class JwtSigningAutoConfiguration {
     }
 
     /**
-     * auth 服务也需要 JwtDecoder 来验证自己签发的 token（用于 refresh/logout 端点）。
+     * auth 服务也需要 JwtDecoder 来验证自己签发的 token（用于 refresh/logout 端点）
      */
     @Bean
     @ConditionalOnMissingBean(JwtDecoder.class)

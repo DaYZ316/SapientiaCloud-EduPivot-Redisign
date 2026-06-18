@@ -4,10 +4,10 @@ import java.security.SecureRandom;
 import java.util.UUID;
 
 /**
- * UUID v7 生成器（RFC 9562）。
+ * UUID v7 生成器（RFC 9562）
  * <p>
  * UUID v7 是时间有序的 UUID，前 48 位为毫秒级 Unix 时间戳，
- * 后续位为随机数。时间有序性对数据库索引友好。
+ * 后续位为随机数时间有序性对数据库索引友好
  * <p>
  * 格式：
  * <pre>
@@ -35,7 +35,7 @@ public final class UuidV7Generator {
     }
 
     /**
-     * 生成一个新的 UUID v7。
+     * 生成一个新的 UUID v7
      *
      * @return 时间有序的 UUID v7
      */

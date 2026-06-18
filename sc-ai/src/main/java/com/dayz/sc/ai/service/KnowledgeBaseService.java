@@ -12,6 +12,7 @@ import com.dayz.sc.common.feign.dto.StorageObjectInfo;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.util.UuidV7Generator;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.tika.TikaDocumentReader;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
@@ -27,7 +28,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 知识库管理：拉取 sc-storage 文件 → Tika 解析 → 切分 → 写入向量库。
+ * 知识库管理：拉取 sc-storage 文件 → Tika 解析 → 切分 → 写入向量库
  *
  * @author DaYZ
  * @since 2026-06-16
@@ -36,23 +37,23 @@ import java.util.UUID;
 @Service
 public class KnowledgeBaseService {
 
-    /** 向量库文档元数据键：所属用户。 */
+    /** 向量库文档元数据键：所属用户 */
     public static final String META_USER_ID = "userId";
-    /** 向量库文档元数据键：所属知识库文档。 */
+    /** 向量库文档元数据键：所属知识库文档 */
     public static final String META_DOC_ID = "docId";
 
     private final KnowledgeDocRepository knowledgeDocRepository;
     private final StorageInternalClient storageInternalClient;
-    private final ObjectProvider<VectorStore> vectorStoreProvider;
+    private final ObjectProvider<@NonNull VectorStore> vectorStoreProvider;
     private final AiProperties aiProperties;
 
     /**
      * vectorStore 以 {@link ObjectProvider} 延迟获取：避免在缺少 API Key 时因向量库
-     * schema 初始化（需调用 embedding）而拖垮整个服务启动。
+     * schema 初始化（需调用 embedding）而拖垮整个服务启动
      */
     public KnowledgeBaseService(KnowledgeDocRepository knowledgeDocRepository,
                                 StorageInternalClient storageInternalClient,
-                                ObjectProvider<VectorStore> vectorStoreProvider,
+                                ObjectProvider<@NonNull VectorStore> vectorStoreProvider,
                                 AiProperties aiProperties) {
         this.knowledgeDocRepository = knowledgeDocRepository;
         this.storageInternalClient = storageInternalClient;
@@ -61,7 +62,7 @@ public class KnowledgeBaseService {
     }
 
     /**
-     * 同步入库：拉取文件、解析、切分、向量化并写入。返回文档记录 ID。
+     * 同步入库：拉取文件、解析、切分、向量化并写入返回文档记录 ID
      */
     @Transactional(rollbackFor = Exception.class)
     public UUID ingest(UUID storageObjectId, UUID userId) {
@@ -130,7 +131,7 @@ public class KnowledgeBaseService {
         return splitter.apply(documents);
     }
 
-    private <T> T unwrap(ApiResponse<T> response) {
+    private <T> T unwrap(ApiResponse<@NonNull T> response) {
         if (response == null || response.code() != 0 || response.data() == null) {
             throw new BusinessException(ErrorCodes.STORAGE_OBJECT_NOT_FOUND);
         }

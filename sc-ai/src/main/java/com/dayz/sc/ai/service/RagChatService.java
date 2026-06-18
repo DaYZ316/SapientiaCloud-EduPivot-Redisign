@@ -5,6 +5,7 @@ import com.dayz.sc.ai.model.entity.ChatMessage;
 import com.dayz.sc.ai.model.enums.MessageRole;
 import com.dayz.sc.ai.repository.MessageRepository;
 import com.dayz.sc.common.util.UuidV7Generator;
+import org.jspecify.annotations.NonNull;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
@@ -18,7 +19,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * RAG 问答：向量检索 → 拼装上下文 → LLM 流式生成 → 持久化消息。
+ * RAG 问答：向量检索 → 拼装上下文 → LLM 流式生成 → 持久化消息
  *
  * @author DaYZ
  * @since 2026-06-16
@@ -27,17 +28,17 @@ import java.util.stream.Collectors;
 public class RagChatService {
 
     private final ChatClient chatClient;
-    private final ObjectProvider<VectorStore> vectorStoreProvider;
+    private final ObjectProvider<@NonNull VectorStore> vectorStoreProvider;
     private final MessageRepository messageRepository;
     private final AiProperties aiProperties;
 
     /**
      * vectorStore 以 {@link ObjectProvider} 延迟获取：向量库 schema 初始化需调用
-     * embedding 接口探测维度，若启动时即创建会在缺少 API Key 时拖垮整个服务启动。
-     * 延迟到首次实际检索时再实例化，使不依赖 LLM 的会话管理功能可独立运行。
+     * embedding 接口探测维度，若启动时即创建会在缺少 API Key 时拖垮整个服务启动
+     * 延迟到首次实际检索时再实例化，使不依赖 LLM 的会话管理功能可独立运行
      */
     public RagChatService(ChatClient chatClient,
-                          ObjectProvider<VectorStore> vectorStoreProvider,
+                          ObjectProvider<@NonNull VectorStore> vectorStoreProvider,
                           MessageRepository messageRepository,
                           AiProperties aiProperties) {
         this.chatClient = chatClient;
@@ -47,14 +48,14 @@ public class RagChatService {
     }
 
     /**
-     * 流式问答。用户消息先落库，助手回答在流结束后整体落库。
+     * 流式问答用户消息先落库，助手回答在流结束后整体落库
      *
      * @param conversationId 已校验归属的会话 ID
      * @param userId         当前用户 ID（用于知识库范围过滤）
      * @param question       用户问题
      * @return 答案文本分片流
      */
-    public Flux<String> streamChat(UUID conversationId, UUID userId, String question) {
+    public Flux<@NonNull String> streamChat(UUID conversationId, UUID userId, String question) {
         // 1. 落库用户消息
         persist(conversationId, MessageRole.USER, question);
 
@@ -81,7 +82,7 @@ public class RagChatService {
                 .filterExpression("%s == '%s'".formatted(KnowledgeBaseService.META_USER_ID, userId))
                 .build();
         List<Document> docs = vectorStoreProvider.getObject().similaritySearch(request);
-        if (docs == null || docs.isEmpty()) {
+        if (docs.isEmpty()) {
             return "（暂无相关知识库内容）";
         }
         return docs.stream()

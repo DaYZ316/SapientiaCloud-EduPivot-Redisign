@@ -33,7 +33,7 @@ public enum UserRole {
     }
 
     /**
-     * 根据整数码获取枚举值。
+     * 根据整数码获取枚举值
      *
      * @param code 角色码
      * @return 对应的枚举值，未知码返回 null
@@ -48,7 +48,7 @@ public enum UserRole {
     }
 
     /**
-     * 根据整数码获取枚举值（支持包装类型）。
+     * 根据整数码获取枚举值（支持包装类型）
      *
      * @param code 角色码
      * @return 对应的枚举值，null 或未知码返回 null
@@ -58,7 +58,7 @@ public enum UserRole {
     }
 
     /**
-     * 判断是否为管理员。
+     * 判断是否为管理员
      *
      * @return true 如果是管理员
      */
@@ -67,7 +67,7 @@ public enum UserRole {
     }
 
     /**
-     * 判断是否为教师。
+     * 判断是否为教师
      *
      * @return true 如果是教师
      */
@@ -76,7 +76,7 @@ public enum UserRole {
     }
 
     /**
-     * 判断是否为学生。
+     * 判断是否为学生
      *
      * @return true 如果是学生
      */
@@ -85,7 +85,7 @@ public enum UserRole {
     }
 
     /**
-     * 判断是否为教师或管理员。
+     * 判断是否为教师或管理员
      *
      * @return true 如果是教师或管理员
      */

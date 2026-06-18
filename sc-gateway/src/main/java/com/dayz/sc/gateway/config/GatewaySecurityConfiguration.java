@@ -16,9 +16,9 @@ import org.springframework.security.oauth2.server.resource.web.DefaultBearerToke
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * Gateway 安全配置。
+ * Gateway 安全配置
  * <p>
- * 作为系统第一道防线，验证 JWT 并检查 Token 黑名单。
+ * 作为系统第一道防线，验证 JWT 并检查 Token 黑名单
  * 从 sc-auth 的 JWKS 端点获取公钥进行 RS256 验证
  *
  * @author DaYZ
@@ -92,9 +92,9 @@ public class GatewaySecurityConfiguration {
     }
 
     /**
-     * 带黑名单检查的 JwtDecoder。
+     * 带黑名单检查的 JwtDecoder
      * <p>
-     * 优先使用 JWKS URI，回退到 HS256。
+     * 优先使用 JWKS URI，回退到 HS256
      */
     @Bean
     @SuppressWarnings("deprecation")

@@ -19,9 +19,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Stream;
 
 /**
- * 基于 PostgreSQL 和 Redis 缓存的用户账户仓储实现。
+ * 基于 PostgreSQL 和 Redis 缓存的用户账户仓储实现
  * <p>
  * 缓存策略：
  * <ul>
@@ -208,7 +209,7 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
     // ==================== 缓存操作 ====================
 
     /**
-     * 从缓存获取数据。
+     * 从缓存获取数据
      *
      * @return 缓存值、NULL_MARKER（空值标记）、或 null（未命中）
      */
@@ -222,7 +223,7 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
     }
 
     /**
-     * 写入缓存。支持空值缓存（防穿透）和 TTL 随机化（防雪崩）。
+     * 写入缓存支持空值缓存（防穿透）和 TTL 随机化（防雪崩）
      *
      * @param key   缓存 key
      * @param value 数据值（null 表示 DB 中不存在）
@@ -271,7 +272,7 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
         if (cached.isBlank()) {
             return List.of();
         }
-        return List.of(cached.split(",")).stream()
+        return Stream.of(cached.split(","))
                 .map(OauthProvider::valueOf)
                 .toList();
     }
@@ -292,7 +293,7 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
     }
 
     /**
-     * 删除缓存 key。
+     * 删除缓存 key
      */
     private void deleteCached(String key) {
         try {
@@ -303,7 +304,7 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
     }
 
     /**
-     * 生成随机 TTL（防雪崩）。
+     * 生成随机 TTL（防雪崩）
      * TTL = 基础值 + [0, jitter) 随机偏移
      */
     private Duration randomTtl() {
@@ -314,7 +315,7 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
     // ==================== 缓存失效 ====================
 
     /**
-     * 清除用户相关缓存（写操作后调用）。
+     * 清除用户相关缓存（写操作后调用）
      */
     private void evictUserCache(UUID userId, String email) {
         deleteCached(userKey(userId));
@@ -325,7 +326,7 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
     }
 
     /**
-     * 清除 OAuth 身份相关缓存。
+     * 清除 OAuth 身份相关缓存
      */
     private void evictIdentityCache(UserIdentity identity) {
         deleteCached(identityKey(identity.getProvider(), identity.getProviderUserId()));

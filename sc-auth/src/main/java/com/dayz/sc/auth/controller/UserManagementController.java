@@ -75,8 +75,8 @@ public class UserManagementController {
     }
 
     /**
-     * 已登录用户可用：批量获取用户基本信息（displayName, avatarUrl）。
-     * 用于前端论坛、评论等场景展示用户头像和昵称。
+     * 已登录用户可用：批量获取用户基本信息（displayName, avatarUrl）
+     * 用于前端论坛、评论等场景展示用户头像和昵称
      */
     @GetMapping("/basic")
     public ApiResponse<@NonNull List<@NonNull UserBasicInfo>> getUsersBasicInfo(
@@ -87,8 +87,8 @@ public class UserManagementController {
     }
 
     /**
-     * 内部接口：批量获取用户基本信息（displayName, avatarUrl）。
-     * 用于服务间通信，如课程服务获取教师信息。
+     * 内部接口：批量获取用户基本信息（displayName, avatarUrl）
+     * 用于服务间通信，如课程服务获取教师信息
      */
     @GetMapping("/internal/basic")
     public ApiResponse<@NonNull List<@NonNull UserBasicInfo>> getUsersBasicInfoInternal(@RequestParam List<UUID> ids) {
@@ -96,7 +96,7 @@ public class UserManagementController {
     }
 
     /**
-     * 已登录用户可用：按 ID 查看其他用户公开资料。
+     * 已登录用户可用：按 ID 查看其他用户公开资料
      */
     @GetMapping("/{id}")
     public ApiResponse<@NonNull UserProfileVO> getUser(@PathVariable UUID id,

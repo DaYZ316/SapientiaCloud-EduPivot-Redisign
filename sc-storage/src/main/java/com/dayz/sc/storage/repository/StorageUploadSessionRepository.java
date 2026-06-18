@@ -16,7 +16,7 @@ import java.util.UUID;
 public interface StorageUploadSessionRepository {
 
     /**
-     * 根据ID查询上传会话。
+     * 根据ID查询上传会话
      *
      * @param id 会话ID
      * @return 会话实体，可能为空
@@ -24,7 +24,7 @@ public interface StorageUploadSessionRepository {
     Optional<StorageUploadSession> findById(UUID id);
 
     /**
-     * 保存上传会话。
+     * 保存上传会话
      *
      * @param session 会话实体
      * @return 保存后的会话实体
@@ -32,14 +32,14 @@ public interface StorageUploadSessionRepository {
     StorageUploadSession save(StorageUploadSession session);
 
     /**
-     * 更新上传会话。
+     * 更新上传会话
      *
      * @param session 会话实体
      */
     void update(StorageUploadSession session);
 
     /**
-     * 根据对象ID查询上传会话。
+     * 根据对象ID查询上传会话
      *
      * @param objectId 对象ID
      * @return 会话实体，可能为空
@@ -47,7 +47,7 @@ public interface StorageUploadSessionRepository {
     Optional<StorageUploadSession> findByObjectId(UUID objectId);
 
     /**
-     * 查询过期的待处理上传会话。
+     * 查询过期的待处理上传会话
      *
      * @param expiredBefore 过期时间
      * @param limit         限制数量

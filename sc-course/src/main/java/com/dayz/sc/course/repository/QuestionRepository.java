@@ -18,7 +18,7 @@ import java.util.UUID;
 public interface QuestionRepository {
 
     /**
-     * 根据ID查询题目。
+     * 根据ID查询题目
      *
      * @param id 题目ID
      * @return 题目实体，可能为空
@@ -26,28 +26,28 @@ public interface QuestionRepository {
     Optional<Question> findById(UUID id);
 
     /**
-     * 保存题目。
+     * 保存题目
      *
      * @param question 题目实体
      */
     void save(Question question);
 
     /**
-     * 更新题目。
+     * 更新题目
      *
      * @param question 题目实体
      */
     void update(Question question);
 
     /**
-     * 根据ID删除题目。
+     * 根据ID删除题目
      *
      * @param id 题目ID
      */
     void deleteById(UUID id);
 
     /**
-     * 根据题库ID分页查询题目。
+     * 根据题库ID分页查询题目
      *
      * @param questionBankId 题库ID
      * @param page           页码
@@ -57,7 +57,7 @@ public interface QuestionRepository {
     Page<Question> findByQuestionBankId(UUID questionBankId, int page, int size);
 
     /**
-     * 分页查询题目。
+     * 分页查询题目
      *
      * @param page           页码
      * @param size           每页大小
@@ -75,7 +75,7 @@ public interface QuestionRepository {
                            UUID sysUserId);
 
     /**
-     * 统计题库的题目数量。
+     * 统计题库的题目数量
      *
      * @param questionBankId 题库ID
      * @return 题目数量
@@ -83,7 +83,7 @@ public interface QuestionRepository {
     long countByQuestionBankId(UUID questionBankId);
 
     /**
-     * 批量统计题库的题目数量。
+     * 批量统计题库的题目数量
      *
      * @param bankIds 题库ID列表
      * @return 题库ID与题目数量的映射
@@ -91,7 +91,7 @@ public interface QuestionRepository {
     Map<UUID, Long> countByQuestionBankIds(List<UUID> bankIds);
 
     /**
-     * 统计题库的总分。
+     * 统计题库的总分
      *
      * @param questionBankId 题库ID
      * @return 总分

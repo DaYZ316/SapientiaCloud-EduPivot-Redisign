@@ -15,7 +15,7 @@ import java.util.UUID;
 public interface ForumPostRepository {
 
     /**
-     * 根据ID查询论坛帖子。
+     * 根据ID查询论坛帖子
      *
      * @param id 帖子ID
      * @return 帖子实体，可能为空
@@ -23,28 +23,28 @@ public interface ForumPostRepository {
     Optional<ForumPost> findById(UUID id);
 
     /**
-     * 保存论坛帖子。
+     * 保存论坛帖子
      *
      * @param post 帖子实体
      */
     void save(ForumPost post);
 
     /**
-     * 更新论坛帖子。
+     * 更新论坛帖子
      *
      * @param post 帖子实体
      */
     void update(ForumPost post);
 
     /**
-     * 根据ID删除论坛帖子。
+     * 根据ID删除论坛帖子
      *
      * @param id 帖子ID
      */
     void deleteById(UUID id);
 
     /**
-     * 分页查询论坛帖子。
+     * 分页查询论坛帖子
      *
      * @param page     页码
      * @param size     每页大小

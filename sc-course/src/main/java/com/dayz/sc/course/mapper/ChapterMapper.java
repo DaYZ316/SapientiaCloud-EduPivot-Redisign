@@ -17,7 +17,7 @@ import java.util.UUID;
 public interface ChapterMapper extends BaseMapper<Chapter> {
 
     /**
-     * 增加章节浏览次数。
+     * 增加章节浏览次数
      *
      * @param id 章节ID
      * @return 受影响的行数
@@ -26,7 +26,7 @@ public interface ChapterMapper extends BaseMapper<Chapter> {
     int incrementViewCount(UUID id);
 
     /**
-     * 增加章节点赞次数。
+     * 增加章节点赞次数
      *
      * @param id 章节ID
      * @return 受影响的行数
@@ -35,7 +35,7 @@ public interface ChapterMapper extends BaseMapper<Chapter> {
     int incrementLikeCount(UUID id);
 
     /**
-     * 减少章节点赞次数，最小值为0。
+     * 减少章节点赞次数，最小值为0
      *
      * @param id 章节ID
      * @return 受影响的行数

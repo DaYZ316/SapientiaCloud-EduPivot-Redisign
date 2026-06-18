@@ -40,7 +40,7 @@ public record ApiResponse<T>(
     }
 
     /**
-     * 泛型失败响应，供 Feign Fallback 返回非 Void 类型时使用。
+     * 泛型失败响应，供 Feign Fallback 返回非 Void 类型时使用
      */
     public static <T> ApiResponse<T> failOf(ErrorCode errorCode) {
         return new ApiResponse<>(errorCode.code(), errorCode.message(), null, Instant.now());

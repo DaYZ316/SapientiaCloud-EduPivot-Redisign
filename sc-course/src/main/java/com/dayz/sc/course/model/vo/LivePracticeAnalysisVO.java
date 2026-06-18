@@ -6,6 +6,12 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 随堂练习题目统计分析视图对象
+ *
+ * @author DaYZ
+ * @since 2026-06-18
+ */
 public record LivePracticeAnalysisVO(
         @JsonProperty Integer submittedCount,
         @JsonProperty Integer lateSubmittedCount,

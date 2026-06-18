@@ -8,9 +8,9 @@ import org.springframework.data.redis.core.RedisTemplate;
 import java.time.Duration;
 
 /**
- * Refresh Token 管理服务。
+ * Refresh Token 管理服务
  * <p>
- * 基于 Redis 存储，支持创建、验证、轮转和吊销。
+ * 基于 Redis 存储，支持创建、验证、轮转和吊销
  * Key 格式: {@code auth:refresh:{token}} → "userId:role"
  *
  * @author DaYZ
@@ -27,7 +27,7 @@ public record RefreshTokenService(RedisTemplate<String, Object> redisTemplate,
     }
 
     /**
-     * 为用户创建一个新的 Refresh Token。
+     * 为用户创建一个新的 Refresh Token
      *
      * @param userId 用户 ID
      * @param role   用户角色
@@ -43,7 +43,7 @@ public record RefreshTokenService(RedisTemplate<String, Object> redisTemplate,
     }
 
     /**
-     * 验证 Refresh Token 并返回关联的用户 ID。
+     * 验证 Refresh Token 并返回关联的用户 ID
      *
      * @param token Refresh Token
      * @return 用户 ID，如果 token 无效或已过期则返回 null
@@ -60,7 +60,7 @@ public record RefreshTokenService(RedisTemplate<String, Object> redisTemplate,
     }
 
     /**
-     * 从 Refresh Token 中获取用户角色。
+     * 从 Refresh Token 中获取用户角色
      *
      * @param token Refresh Token
      * @return 角色值，如果不存在返回 null
@@ -84,7 +84,7 @@ public record RefreshTokenService(RedisTemplate<String, Object> redisTemplate,
     }
 
     /**
-     * 轮转 Refresh Token：删除旧 token，创建新 token（防重放攻击）。
+     * 轮转 Refresh Token：删除旧 token，创建新 token（防重放攻击）
      *
      * @param oldToken 旧的 Refresh Token
      * @param userId   用户 ID
@@ -111,7 +111,7 @@ public record RefreshTokenService(RedisTemplate<String, Object> redisTemplate,
     }
 
     /**
-     * 吊销指定 Refresh Token。
+     * 吊销指定 Refresh Token
      *
      * @param token Refresh Token
      */
@@ -122,7 +122,7 @@ public record RefreshTokenService(RedisTemplate<String, Object> redisTemplate,
     }
 
     /**
-     * 吊销指定用户的所有 Refresh Token。
+     * 吊销指定用户的所有 Refresh Token
      *
      * @param userId 用户 ID
      */

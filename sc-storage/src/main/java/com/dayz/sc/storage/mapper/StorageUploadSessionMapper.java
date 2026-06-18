@@ -19,7 +19,7 @@ import java.util.UUID;
 public interface StorageUploadSessionMapper extends BaseMapper<StorageUploadSession> {
 
     /**
-     * 批量更新上传会话状态。
+     * 批量更新上传会话状态
      *
      * @param ids    上传会话ID列表
      * @param status 目标状态

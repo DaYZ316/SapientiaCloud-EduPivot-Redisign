@@ -20,7 +20,7 @@ import java.util.UUID;
 public interface StorageObjectMapper extends BaseMapper<StorageObject> {
 
     /**
-     * 批量更新存储对象的删除状态。
+     * 批量更新存储对象的删除状态
      *
      * @param ids       存储对象ID列表
      * @param deleted   删除状态（0=正常, 1=已删除）

@@ -9,10 +9,10 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 从 Gateway 注入的请求头构建的轻量级 Jwt 对象。
+ * 从 Gateway 注入的请求头构建的轻量级 Jwt 对象
  * <p>
  * 供下游服务在信任 Gateway 已完成 JWT 验证的场景下使用，
- * 避免重复进行 RS256 签名验证和 JWKS 公钥获取。
+ * 避免重复进行 RS256 签名验证和 JWKS 公钥获取
  * <p>
  * 仅包含 Gateway 注入的两个声明：{@code sub}（userId）和 {@code role}，
  * 不包含原始 JWT 的其他声明（如 jti、iat 等）
@@ -42,7 +42,7 @@ public class GatewayJwt extends Jwt {
     }
 
     /**
-     * 从请求头值构建 GatewayJwt。
+     * 从请求头值构建 GatewayJwt
      *
      * @param userIdHeader X-User-Id 请求头值
      * @param roleHeader   X-User-Role 请求头值

@@ -24,10 +24,10 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
- * .doc → .docx 文件转换服务。
+ * .doc → .docx 文件转换服务
  * <p>
  * 使用 JODConverter + LibreOffice 进行格式转换，转换结果缓存在 MinIO 的
- * {@code temp/converted/{fileId}.docx} 路径下，避免重复转换。
+ * {@code temp/converted/{fileId}.docx} 路径下，避免重复转换
  *
  * @author DaYZ
  * @since 2026-06-16
@@ -58,7 +58,7 @@ public class DocConversionService {
     }
 
     /**
-     * 将 .doc 文件转换为 .docx 并返回下载 URL。
+     * 将 .doc 文件转换为 .docx 并返回下载 URL
      *
      * @param fileId 原始 .doc 文件的存储对象 ID
      * @return 转换后的 .docx 文件下载 URL

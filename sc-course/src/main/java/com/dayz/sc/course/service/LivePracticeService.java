@@ -38,6 +38,12 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * 随堂练习业务服务
+ *
+ * @author DaYZ
+ * @since 2026-06-18
+ */
 @Service
 @RequiredArgsConstructor
 public class LivePracticeService {
@@ -73,7 +79,7 @@ public class LivePracticeService {
         requirePublished(session);
         requireCourseTeacher(session.getCourseId(), userId, role);
         validatePracticeWindow(request.availableStartAt(), request.availableEndAt());
-        if (Boolean.TRUE.equals(aiGradingRequested(request.createdQuestions()))) {
+        if (aiGradingRequested(request.createdQuestions())) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "AI 判分暂未开放");
         }
 
@@ -362,7 +368,7 @@ public class LivePracticeService {
         List<Enrollment> students = activeStudents(group.getCourseId());
         Map<UUID, UserBasicInfo> userInfoMap = loadUserInfoMap(studentIds(students));
 
-        List<LivePracticeQuestionVO> questionVOs = questions.stream()
+        List<LivePracticeQuestionVO> questionVos = questions.stream()
                 .map(question -> {
                     LivePracticeSubmission mySubmission = submissionsByQuestion.getOrDefault(question.getId(), List.of()).stream()
                             .filter(submission -> submission.getStudentId().equals(userId))
@@ -390,7 +396,7 @@ public class LivePracticeService {
                 questions.size(),
                 submittedStudents,
                 students.size(),
-                questionVOs
+                questionVos
         );
     }
 
@@ -608,7 +614,7 @@ public class LivePracticeService {
         }
     }
 
-    private Boolean aiGradingRequested(List<CreateLivePracticeQuestionRequest> requests) {
+    private boolean aiGradingRequested(List<CreateLivePracticeQuestionRequest> requests) {
         return requests != null && requests.stream().anyMatch(request -> request.aiGradingEnabled() == FLAG_ON);
     }
 

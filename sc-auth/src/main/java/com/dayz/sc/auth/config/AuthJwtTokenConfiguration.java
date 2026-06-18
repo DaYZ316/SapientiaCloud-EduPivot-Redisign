@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 
 /**
- * Auth 服务 JWT token 配置。
+ * Auth 服务 JWT token 配置
  *
  * @author DaYZ
  * @since 2026-06-17

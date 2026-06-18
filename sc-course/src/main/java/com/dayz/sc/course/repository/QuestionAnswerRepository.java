@@ -15,7 +15,7 @@ import java.util.UUID;
 public interface QuestionAnswerRepository {
 
     /**
-     * 根据ID查询题目答案。
+     * 根据ID查询题目答案
      *
      * @param id 答案ID
      * @return 答案实体，可能为空
@@ -23,42 +23,42 @@ public interface QuestionAnswerRepository {
     Optional<QuestionAnswer> findById(UUID id);
 
     /**
-     * 保存题目答案。
+     * 保存题目答案
      *
      * @param answer 答案实体
      */
     void save(QuestionAnswer answer);
 
     /**
-     * 批量保存题目答案。
+     * 批量保存题目答案
      *
      * @param answers 答案列表
      */
     void saveBatch(List<QuestionAnswer> answers);
 
     /**
-     * 更新题目答案。
+     * 更新题目答案
      *
      * @param answer 答案实体
      */
     void update(QuestionAnswer answer);
 
     /**
-     * 根据ID删除题目答案。
+     * 根据ID删除题目答案
      *
      * @param id 答案ID
      */
     void deleteById(UUID id);
 
     /**
-     * 根据题目ID删除所有答案。
+     * 根据题目ID删除所有答案
      *
      * @param questionId 题目ID
      */
     void deleteByQuestionId(UUID questionId);
 
     /**
-     * 根据题目ID查询所有答案。
+     * 根据题目ID查询所有答案
      *
      * @param questionId 题目ID
      * @return 答案列表

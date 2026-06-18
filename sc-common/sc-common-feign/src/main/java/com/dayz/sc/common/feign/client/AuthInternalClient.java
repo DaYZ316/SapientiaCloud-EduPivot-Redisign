@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Auth 服务内部调用客户端。
+ * Auth 服务内部调用客户端
  * <p>
  * 用于服务间通信，获取用户基本信息
  *
@@ -22,7 +22,7 @@ import java.util.UUID;
 public interface AuthInternalClient {
 
     /**
-     * 批量获取用户基本信息（displayName, avatarUrl）。
+     * 批量获取用户基本信息（displayName, avatarUrl）
      *
      * @param ids 用户 ID 列表
      * @return 用户基本信息列表

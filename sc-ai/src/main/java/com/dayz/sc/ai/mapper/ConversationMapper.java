@@ -5,7 +5,7 @@ import com.dayz.sc.ai.model.entity.Conversation;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * 会话 Mapper。
+ * 会话 Mapper
  *
  * @author DaYZ
  * @since 2026-06-16

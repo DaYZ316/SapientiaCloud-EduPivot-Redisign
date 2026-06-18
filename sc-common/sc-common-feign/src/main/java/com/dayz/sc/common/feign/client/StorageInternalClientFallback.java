@@ -28,7 +28,7 @@ public class StorageInternalClientFallback implements StorageInternalClient {
     }
 
     @Override
-    public ApiResponse<String> getDownloadUrl(UUID fileId) {
+    public ApiResponse<@NonNull String> getDownloadUrl(UUID fileId) {
         log.warn("StorageInternalClient fallback: getDownloadUrl({})", fileId);
         return ApiResponse.failOf(ErrorCodes.SERVICE_UNAVAILABLE);
     }

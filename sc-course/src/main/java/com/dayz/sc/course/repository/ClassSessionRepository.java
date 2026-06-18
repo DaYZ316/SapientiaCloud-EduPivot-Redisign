@@ -17,7 +17,7 @@ import java.util.UUID;
 public interface ClassSessionRepository {
 
     /**
-     * 根据ID查询课堂会话。
+     * 根据ID查询课堂会话
      *
      * @param id 课堂会话ID
      * @return 课堂会话实体，可能为空
@@ -25,7 +25,7 @@ public interface ClassSessionRepository {
     Optional<ClassSession> findById(UUID id);
 
     /**
-     * 根据ID查询课堂会话（加锁）。
+     * 根据ID查询课堂会话（加锁）
      *
      * @param id 课堂会话ID
      * @return 课堂会话实体，可能为空
@@ -33,28 +33,28 @@ public interface ClassSessionRepository {
     Optional<ClassSession> findByIdForUpdate(UUID id);
 
     /**
-     * 保存课堂会话。
+     * 保存课堂会话
      *
      * @param session 课堂会话实体
      */
     void save(ClassSession session);
 
     /**
-     * 更新课堂会话。
+     * 更新课堂会话
      *
      * @param session 课堂会话实体
      */
     void update(ClassSession session);
 
     /**
-     * 根据ID删除课堂会话。
+     * 根据ID删除课堂会话
      *
      * @param id 课堂会话ID
      */
     void deleteById(UUID id);
 
     /**
-     * 根据课程ID分页查询课堂会话。
+     * 根据课程ID分页查询课堂会话
      *
      * @param courseId      课程ID
      * @param page          页码
@@ -65,7 +65,7 @@ public interface ClassSessionRepository {
     Page<ClassSession> findByCourseId(UUID courseId, int page, int size, boolean includeDrafts);
 
     /**
-     * 批量统计课程已发布开课数量。
+     * 批量统计课程已发布开课数量
      *
      * @param courseIds 课程ID列表
      * @return 课程ID与已发布开课数量的映射

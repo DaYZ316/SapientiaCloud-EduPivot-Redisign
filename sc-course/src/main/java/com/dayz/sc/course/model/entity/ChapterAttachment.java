@@ -6,7 +6,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.UUID;
 
 /**
- * 存储在 edu_chapter.attachment_urls 中的章节附件元数据。
+ * 存储在 edu_chapter.attachment_urls 中的章节附件元数据
  *
  * @author DaYZ
  * @since 2026-06-18

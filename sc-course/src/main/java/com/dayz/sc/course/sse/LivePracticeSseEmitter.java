@@ -12,6 +12,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * 随堂练习SSE推送管理器
+ *
+ * @author DaYZ
+ * @since 2026-06-18
+ */
 @Slf4j
 @Component
 public class LivePracticeSseEmitter {

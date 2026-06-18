@@ -10,6 +10,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * 随堂练习提交记录实体
+ *
+ * @author DaYZ
+ * @since 2026-06-18
+ */
 @Getter
 @Setter
 @TableName(value = "edu_live_practice_submission", autoResultMap = true)

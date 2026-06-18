@@ -9,6 +9,7 @@ import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.security.support.JwtPrincipalResolver;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -25,7 +26,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 会话管理控制器。
+ * 会话管理控制器
  *
  * @author DaYZ
  * @since 2026-06-16
@@ -38,7 +39,7 @@ public class ConversationController {
     private final ConversationService conversationService;
 
     @PostMapping
-    public ApiResponse<UUID> createConversation(
+    public ApiResponse<@NonNull UUID> createConversation(
             @Valid @RequestBody CreateConversationRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -46,7 +47,7 @@ public class ConversationController {
     }
 
     @GetMapping
-    public ApiResponse<List<ConversationVO>> listConversations(
+    public ApiResponse<@NonNull List<@NonNull ConversationVO>> listConversations(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal Jwt jwt) {
@@ -55,7 +56,7 @@ public class ConversationController {
     }
 
     @GetMapping("/{id}/messages")
-    public ApiResponse<List<ChatMessageVO>> listMessages(
+    public ApiResponse<@NonNull List<@NonNull ChatMessageVO>> listMessages(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
@@ -63,7 +64,7 @@ public class ConversationController {
     }
 
     @PatchMapping("/{id}")
-    public ApiResponse<Void> updateConversation(
+    public ApiResponse<@NonNull Void> updateConversation(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateConversationRequest request,
             @AuthenticationPrincipal Jwt jwt) {
@@ -73,7 +74,7 @@ public class ConversationController {
     }
 
     @DeleteMapping("/{id}")
-    public ApiResponse<Void> deleteConversation(
+    public ApiResponse<@NonNull Void> deleteConversation(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);

@@ -25,7 +25,7 @@ import org.jspecify.annotations.NonNull;
 import java.util.UUID;
 
 /**
- * 通知接口。
+ * 通知接口
  * <p>
  * 角色校验通过 Gateway 传递的 X-User-Role 请求头实现
  *
@@ -41,8 +41,8 @@ public class NotificationController {
     private final NotificationSseEmitter sseEmitter;
 
     /**
-     * 发送通知（仅管理员和教师可调用）。
-     * 角色通过 Gateway 注入的 X-User-Role 请求头获取。
+     * 发送通知（仅管理员和教师可调用）
+     * 角色通过 Gateway 注入的 X-User-Role 请求头获取
      */
     @PostMapping
     @RateLimited
@@ -118,7 +118,7 @@ public class NotificationController {
     }
 
     /**
-     * 撤回通知（仅发送者可操作，对所有接收者生效）。
+     * 撤回通知（仅发送者可操作，对所有接收者生效）
      */
     @DeleteMapping("/{id}/recall")
     @RateLimited

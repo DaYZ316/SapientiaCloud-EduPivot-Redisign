@@ -19,7 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 章节附件元数据 JSONB 类型处理器。
+ * 章节附件元数据 JSONB 类型处理器
  *
  * @author DaYZ
  * @since 2026-06-18

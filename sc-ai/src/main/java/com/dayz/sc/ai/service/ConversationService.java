@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 会话管理业务逻辑。
+ * 会话管理业务逻辑
  *
  * @author DaYZ
  * @since 2026-06-16
@@ -78,7 +78,7 @@ public class ConversationService {
     }
 
     /**
-     * 校验会话归属，返回会话实体；不存在或不属于该用户时抛业务异常。
+     * 校验会话归属，返回会话实体；不存在或不属于该用户时抛业务异常
      */
     public Conversation requireOwnedConversation(UUID conversationId, UUID userId) {
         return conversationRepository.findByIdAndUserId(conversationId, userId)

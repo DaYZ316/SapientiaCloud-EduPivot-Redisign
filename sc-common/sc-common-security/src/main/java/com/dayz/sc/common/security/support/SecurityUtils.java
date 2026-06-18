@@ -11,17 +11,17 @@ import com.dayz.sc.common.model.UserRole;
 public final class SecurityUtils {
 
     /**
-     * 管理员角色代码。
+     * 管理员角色代码
      */
     public static final int ROLE_ADMIN = UserRole.ADMIN.getCode();
 
     /**
-     * 学生角色代码。
+     * 学生角色代码
      */
     public static final int ROLE_STUDENT = UserRole.STUDENT.getCode();
 
     /**
-     * 教师角色代码。
+     * 教师角色代码
      */
     public static final int ROLE_TEACHER = UserRole.TEACHER.getCode();
 
@@ -29,7 +29,7 @@ public final class SecurityUtils {
     }
 
     /**
-     * 判断当前用户是否为管理员。
+     * 判断当前用户是否为管理员
      *
      * @param role 角色代码
      * @return true 如果是管理员
@@ -39,7 +39,7 @@ public final class SecurityUtils {
     }
 
     /**
-     * 判断当前用户是否为教师。
+     * 判断当前用户是否为教师
      *
      * @param role 角色代码
      * @return true 如果是教师
@@ -49,7 +49,7 @@ public final class SecurityUtils {
     }
 
     /**
-     * 判断当前用户是否为学生。
+     * 判断当前用户是否为学生
      *
      * @param role 角色代码
      * @return true 如果是学生
@@ -59,7 +59,7 @@ public final class SecurityUtils {
     }
 
     /**
-     * 判断当前用户是否为教师或管理员。
+     * 判断当前用户是否为教师或管理员
      *
      * @param role 角色代码
      * @return true 如果是教师或管理员

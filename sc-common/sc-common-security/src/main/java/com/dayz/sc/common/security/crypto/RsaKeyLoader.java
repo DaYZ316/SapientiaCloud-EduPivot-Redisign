@@ -24,7 +24,7 @@ public final class RsaKeyLoader {
     }
 
     /**
-     * 从 PEM 格式字符串加载 RSA 私钥。
+     * 从 PEM 格式字符串加载 RSA 私钥
      *
      * @param pem PEM 格式私钥（支持带/不带 PEM 头尾）
      * @return RSAPrivateKey
@@ -42,7 +42,7 @@ public final class RsaKeyLoader {
     }
 
     /**
-     * 从 PEM 格式字符串加载 RSA 公钥。
+     * 从 PEM 格式字符串加载 RSA 公钥
      *
      * @param pem PEM 格式公钥（支持带/不带 PEM 头尾）
      * @return RSAPublicKey

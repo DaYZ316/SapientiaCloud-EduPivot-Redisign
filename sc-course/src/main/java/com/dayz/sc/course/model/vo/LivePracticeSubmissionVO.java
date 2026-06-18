@@ -7,6 +7,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * 随堂练习提交记录视图对象
+ *
+ * @author DaYZ
+ * @since 2026-06-18
+ */
 public record LivePracticeSubmissionVO(
         @JsonProperty UUID id,
         @JsonProperty UUID groupId,

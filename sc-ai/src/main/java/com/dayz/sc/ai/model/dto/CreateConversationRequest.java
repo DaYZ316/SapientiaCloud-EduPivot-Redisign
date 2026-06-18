@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 /**
- * 创建会话请求。
+ * 创建会话请求
  *
  * @author DaYZ
  * @since 2026-06-16

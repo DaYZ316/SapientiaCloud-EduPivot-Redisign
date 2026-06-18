@@ -8,6 +8,12 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.List;
 
+/**
+ * 创建随堂练习题目请求
+ *
+ * @author DaYZ
+ * @since 2026-06-18
+ */
 public record CreateLivePracticeQuestionRequest(
         @NotBlank @Size(max = 500) String questionTitle,
         String questionContent,

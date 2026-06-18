@@ -19,7 +19,7 @@ public record KafkaIdempotencyGuard(StringRedisTemplate redisTemplate) {
     private static final Duration TTL = Duration.ofHours(24);
 
     /**
-     * 尝试获取事件处理权。返回 true 表示该事件首次处理，false 表示重复事件应跳过。
+     * 尝试获取事件处理权返回 true 表示该事件首次处理，false 表示重复事件应跳过
      */
     public boolean tryAcquire(String groupId, UUID eventId) {
         String key = KEY_PREFIX + groupId + ":" + eventId;

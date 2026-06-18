@@ -18,7 +18,7 @@ import java.util.List;
 public interface QuestionAnswerMapper extends BaseMapper<QuestionAnswer> {
 
     /**
-     * 批量插入题目参考答案。
+     * 批量插入题目参考答案
      *
      * @param list 题目参考答案列表
      * @return 受影响的行数

@@ -20,7 +20,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * 后端服务通用 SecurityFilterChain 自动配置。
+ * 后端服务通用 SecurityFilterChain 自动配置
  * <p>
  * 提供两种认证模式：
  * <ul>
@@ -84,21 +84,21 @@ public class SecurityFilterChainAutoConfiguration {
     }
 
     /**
-     * 安全端点配置属性。
+     * 安全端点配置属性
      */
     @Getter
     @Setter
     public static class SecurityEndpointProperties {
         /**
-         * 公共（无需认证）端点列表。
+         * 公共（无需认证）端点列表
          */
         private String[] publicEndpoints = {};
 
         /**
-         * 是否信任 Gateway 注入的 X-User-Id/X-User-Role 请求头。
+         * 是否信任 Gateway 注入的 X-User-Id/X-User-Role 请求头
          * <p>
-         * 启用后跳过 JWT 签名验证，直接从请求头构建用户身份。
-         * 仅当服务仅通过内网 Gateway 访问时启用。
+         * 启用后跳过 JWT 签名验证，直接从请求头构建用户身份
+         * 仅当服务仅通过内网 Gateway 访问时启用
          */
         private boolean trustGatewayHeaders = false;
     }

@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 消息仓储 MyBatis-Plus 实现。
+ * 消息仓储 MyBatis-Plus 实现
  *
  * @author DaYZ
  * @since 2026-06-16

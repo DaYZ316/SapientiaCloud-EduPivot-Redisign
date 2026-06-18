@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Bean;
 import java.util.UUID;
 
 /**
- * 通知服务 MyBatis 自动配置。
+ * 通知服务 MyBatis 自动配置
  * <p>
  * 注册 PostgreSQL UUID 类型处理器
  *

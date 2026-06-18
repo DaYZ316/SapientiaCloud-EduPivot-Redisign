@@ -14,14 +14,14 @@ import java.util.UUID;
 public interface ClassBarrageRepository {
 
     /**
-     * 保存弹幕消息。
+     * 保存弹幕消息
      *
      * @param barrage 弹幕实体
      */
     void save(ClassBarrage barrage);
 
     /**
-     * 根据课堂会话ID分页查询弹幕。
+     * 根据课堂会话ID分页查询弹幕
      *
      * @param sessionId 课堂会话ID
      * @param page      页码

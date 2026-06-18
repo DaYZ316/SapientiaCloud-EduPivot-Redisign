@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 @FeignClient(name = "google-oauth-client", url = "https://oauth2.googleapis.com")
 public interface GoogleOauthClient {
     /**
-     * 使用授权码换取 Google OAuth2 访问令牌。
+     * 使用授权码换取 Google OAuth2 访问令牌
      *
      * @param code         前端获取的 Google OAuth2 授权码
      * @param clientId     Google OAuth2 客户端编号

@@ -9,6 +9,7 @@
         noPostsDesc: '还没有人发帖，来发表第一个帖子吧',
         noComments: '暂无评论',
         noCommentsDesc: '还没有课程评论，来发表第一条评论吧',
+        loadingComments: '正在加载课程评论...',
         loadingReplies: '正在加载回复...',
         postTitle: '帖子标题',
         postContent: '帖子内容',

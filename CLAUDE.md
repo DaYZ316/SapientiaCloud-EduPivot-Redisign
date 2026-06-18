@@ -396,10 +396,15 @@ public record PageResponse<T>(List<T> records, long total, long page, long size)
 
 - 版本格式：`V{YYYYMMDD}{seq}`（如 `V2026061001`）
 - 描述分隔：双下划线 `__` + snake_case 描述
-- 各服务独立历史表（如 `flyway_schema_history_auth`）
+- 各服务独立历史表（如 `flyway_schema_history_auth`），共享同一个 PostgreSQL schema
 - 迁移文件位置：`src/main/resources/db/migration/`
-- 使用 `CREATE TABLE IF NOT EXISTS`、`CREATE INDEX IF NOT EXISTS`
-- 包含 `COMMENT ON TABLE/COLUMN` 注释
+- 各服务只能新增和维护自己的表前缀：`auth_`、`edu_`、`ntf_`、`storage_`、`ai_`
+- 不启用 `out-of-order`；新增迁移版本必须大于该服务已发布的最高版本
+- 不修改、重命名、移动已应用迁移；修复一律新增前向迁移
+- `baseline-on-migrate: true` 仅作为共享 schema + 独立 history 表的首次接入例外，禁止用于掩盖环境错误
+- `repair` 只在 `validate` 明确指出 checksum/deleted/resolved 元数据问题时使用，且必须先备份对应 `flyway_schema_history_*`
+- 新迁移尽量使用 `IF NOT EXISTS` / `IF EXISTS`，复杂迁移包含 `COMMENT ON TABLE/COLUMN` 注释
+- 提交迁移前运行 `python scripts/validate_flyway_migrations.py`
 
 ### 17. 前端规范
 

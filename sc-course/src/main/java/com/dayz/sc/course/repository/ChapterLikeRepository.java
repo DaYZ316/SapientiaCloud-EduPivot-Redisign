@@ -13,7 +13,7 @@ import java.util.UUID;
 public interface ChapterLikeRepository {
 
     /**
-     * 用户点赞章节。
+     * 用户点赞章节
      *
      * @param chapterId 章节ID
      * @param courseId  课程ID
@@ -23,7 +23,7 @@ public interface ChapterLikeRepository {
     boolean like(UUID chapterId, UUID courseId, UUID userId);
 
     /**
-     * 用户取消点赞章节。
+     * 用户取消点赞章节
      *
      * @param chapterId 章节ID
      * @param userId    用户ID
@@ -32,7 +32,7 @@ public interface ChapterLikeRepository {
     boolean unlike(UUID chapterId, UUID userId);
 
     /**
-     * 检查用户是否已点赞指定章节。
+     * 检查用户是否已点赞指定章节
      *
      * @param chapterId 章节ID
      * @param userId    用户ID
@@ -41,7 +41,7 @@ public interface ChapterLikeRepository {
     boolean existsByChapterIdAndUserId(UUID chapterId, UUID userId);
 
     /**
-     * 批量查询用户已点赞的章节ID集合。
+     * 批量查询用户已点赞的章节ID集合
      *
      * @param userId     用户ID
      * @param chapterIds 章节ID集合

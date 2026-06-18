@@ -12,7 +12,7 @@ import java.io.IOException;
 import java.util.*;
 
 /**
- * Gateway 过滤器：从 Spring Security 已认证的 JWT 中提取用户信息，注入请求头传递给下游服务。
+ * Gateway 过滤器：从 Spring Security 已认证的 JWT 中提取用户信息，注入请求头传递给下游服务
  * <p>
  * 注入的请求头：
  * <ul>
@@ -55,7 +55,7 @@ public class UserRoleHeaderFilter implements Filter {
     }
 
     /**
-     * 包装请求，添加额外的请求头。
+     * 包装请求，添加额外的请求头
      */
     private static class HeaderAddingRequestWrapper extends HttpServletRequestWrapper {
         private final Map<String, String> extraHeaders;

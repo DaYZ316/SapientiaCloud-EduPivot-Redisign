@@ -6,18 +6,25 @@
         <h2>{{ t('forum.commentsTitle') }}</h2>
       </div>
     </div>
-    <CourseComments
+    <Suspense>
+      <CourseComments
         :can-comment="canComment"
         :can-manage-course="canManageCourse"
         :course-id="courseId"
         :current-user-id="currentUserId"
-    />
+      />
+      <template #fallback>
+        <div class="comments-loading">
+          {{ t('forum.loadingComments') }}
+        </div>
+      </template>
+    </Suspense>
   </section>
 </template>
 
 <script lang="ts" setup>
+import {defineAsyncComponent} from 'vue'
 import {useI18n} from 'vue-i18n'
-import CourseComments from '@/features/forum/components/CourseComments.vue'
 
 defineProps<{
   course?: { isPublic?: number } | null
@@ -28,6 +35,7 @@ defineProps<{
 }>()
 
 const {t} = useI18n()
+const CourseComments = defineAsyncComponent(() => import('@/features/forum/components/CourseComments.vue'))
 </script>
 
 <style scoped>
@@ -57,6 +65,16 @@ const {t} = useI18n()
   font-size: 28px;
   font-weight: 400;
   line-height: 1.3;
+}
+
+.comments-loading {
+  padding: 42px 24px;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-outline-light);
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  text-align: center;
 }
 
 @media (max-width: 760px) {

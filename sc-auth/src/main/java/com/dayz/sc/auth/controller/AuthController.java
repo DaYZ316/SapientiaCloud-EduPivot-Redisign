@@ -75,9 +75,9 @@ public class AuthController {
     }
 
     /**
-     * 刷新 Access Token。
+     * 刷新 Access Token
      * <p>
-     * 使用 Refresh Token 换取新的 Access Token + 新的 Refresh Token（轮转）。
+     * 使用 Refresh Token 换取新的 Access Token + 新的 Refresh Token（轮转）
      */
     @PostMapping("/refresh")
     @RateLimited(maxRequests = 20)
@@ -115,9 +115,9 @@ public class AuthController {
     }
 
     /**
-     * 登出。
+     * 登出
      * <p>
-     * 将当前 Access Token 加入黑名单，并吊销 Refresh Token。
+     * 将当前 Access Token 加入黑名单，并吊销 Refresh Token
      */
     @PostMapping("/logout")
     @RateLimited

@@ -239,7 +239,7 @@ public class InvitationService {
     }
 
     /**
-     * 批量构建邀请 VO，避免 N+1 查询。
+     * 批量构建邀请 VO，避免 N+1 查询
      */
     private List<CourseInvitationVO> toInvitationVos(List<CourseInvitation> invitations) {
         if (invitations.isEmpty()) {
@@ -294,7 +294,7 @@ public class InvitationService {
     }
 
     /**
-     * 批量获取用户基本信息。
+     * 批量获取用户基本信息
      */
     private Map<UUID, UserBasicInfo> getBasicUserInfoBatch(List<UUID> userIds) {
         try {
@@ -322,7 +322,7 @@ public class InvitationService {
     }
 
     /**
-     * 批量解析封面 URL。
+     * 批量解析封面 URL
      */
     private Map<UUID, String> resolveCoverUrlsBatch(List<UUID> fileIds) {
         try {

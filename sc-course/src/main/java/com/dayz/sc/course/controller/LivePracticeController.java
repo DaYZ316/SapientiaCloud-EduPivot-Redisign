@@ -21,6 +21,12 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * 随堂练习控制器
+ *
+ * @author DaYZ
+ * @since 2026-06-18
+ */
 @RestController
 @RequiredArgsConstructor
 public class LivePracticeController {
@@ -28,7 +34,7 @@ public class LivePracticeController {
     private final LivePracticeService livePracticeService;
 
     @PostMapping("/api/class-sessions/{sessionId}/live-practices")
-    @RateLimited(maxRequests = 10)
+    @RateLimited
     public ApiResponse<@NonNull UUID> createLivePractice(
             @PathVariable UUID sessionId,
             @Valid @RequestBody CreateLivePracticeRequest request,

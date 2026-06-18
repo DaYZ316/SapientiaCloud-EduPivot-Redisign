@@ -15,6 +15,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
+/**
+ * PostgreSQL JSONB类型与LivePracticeAnswerSnapshot列表的类型处理器
+ *
+ * @author DaYZ
+ * @since 2026-06-18
+ */
 @MappedJdbcTypes(JdbcType.OTHER)
 public class PostgresJsonbLivePracticeAnswerSnapshotListTypeHandler extends BaseTypeHandler<List<LivePracticeAnswerSnapshot>> {
 

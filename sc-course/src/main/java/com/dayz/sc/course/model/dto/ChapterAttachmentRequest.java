@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Size;
 import java.util.UUID;
 
 /**
- * 章节附件引用请求。
+ * 章节附件引用请求
  *
  * @author DaYZ
  * @since 2026-06-18

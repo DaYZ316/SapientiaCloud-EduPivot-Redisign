@@ -17,7 +17,7 @@ import java.util.UUID;
 public interface CourseRepository {
 
     /**
-     * 根据ID查询课程。
+     * 根据ID查询课程
      *
      * @param id 课程ID
      * @return 课程实体，可能为空
@@ -25,7 +25,7 @@ public interface CourseRepository {
     Optional<Course> findById(UUID id);
 
     /**
-     * 根据ID查询课程（加锁）。
+     * 根据ID查询课程（加锁）
      *
      * @param id 课程ID
      * @return 课程实体，可能为空
@@ -33,28 +33,28 @@ public interface CourseRepository {
     Optional<Course> findByIdForUpdate(UUID id);
 
     /**
-     * 保存课程。
+     * 保存课程
      *
      * @param course 课程实体
      */
     void save(Course course);
 
     /**
-     * 更新课程。
+     * 更新课程
      *
      * @param course 课程实体
      */
     void update(Course course);
 
     /**
-     * 根据ID删除课程。
+     * 根据ID删除课程
      *
      * @param id 课程ID
      */
     void deleteById(UUID id);
 
     /**
-     * 分页查询课程（自动 count）。
+     * 分页查询课程（自动 count）
      *
      * @param page           页码
      * @param size           每页大小
@@ -73,7 +73,7 @@ public interface CourseRepository {
                          Instant updatedAtStart, Instant updatedAtEnd);
 
     /**
-     * 根据ID列表批量查询课程。
+     * 根据ID列表批量查询课程
      *
      * @param ids 课程ID列表
      * @return 课程列表
@@ -81,7 +81,7 @@ public interface CourseRepository {
     List<Course> findByIds(List<UUID> ids);
 
     /**
-     * 分页查询教师课程（自动 count）。
+     * 分页查询教师课程（自动 count）
      *
      * @param teacherId 教师ID
      * @param role      教师角色

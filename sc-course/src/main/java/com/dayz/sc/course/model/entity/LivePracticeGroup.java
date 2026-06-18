@@ -7,6 +7,12 @@ import lombok.Setter;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * 随堂练习分组实体
+ *
+ * @author DaYZ
+ * @since 2026-06-18
+ */
 @Getter
 @Setter
 @TableName("edu_live_practice_group")

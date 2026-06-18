@@ -15,10 +15,10 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * 从 Gateway 注入的 {@code X-User-Id} 和 {@code X-User-Role} 请求头创建安全上下文。
+ * 从 Gateway 注入的 {@code X-User-Id} 和 {@code X-User-Role} 请求头创建安全上下文
  * <p>
- * 仅当请求来自可信 Gateway（内网）时启用此 Filter。它跳过 JWT 签名验证，
- * 直接将 Gateway 注入的用户信息构建为 {@link GatewayJwt} 并设置到 SecurityContext 中。
+ * 仅当请求来自可信 Gateway（内网）时启用此 Filter，它跳过 JWT 签名验证，
+ * 直接将 Gateway 注入的用户信息构建为 {@link GatewayJwt} 并设置到 SecurityContext 中
  * <p>
  * <b>安全前提：</b>下游服务仅通过内网访问，外部流量必须经过 Gateway
  *

@@ -11,6 +11,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * 随堂练习分组仓储MyBatis-Plus实现
+ *
+ * @author DaYZ
+ * @since 2026-06-18
+ */
 @Repository
 @RequiredArgsConstructor
 public class MybatisLivePracticeGroupRepository implements LivePracticeGroupRepository {

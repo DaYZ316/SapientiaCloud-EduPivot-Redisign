@@ -15,7 +15,7 @@ import java.util.UUID;
 public interface ClassParticipantRepository {
 
     /**
-     * 根据课堂会话ID和用户ID查询参与者。
+     * 根据课堂会话ID和用户ID查询参与者
      *
      * @param sessionId 课堂会话ID
      * @param userId    用户ID
@@ -23,12 +23,25 @@ public interface ClassParticipantRepository {
      */
     Optional<ClassParticipant> findBySessionIdAndUserId(UUID sessionId, UUID userId);
 
+    /**
+     * 根据课堂会话ID查询所有参与者
+     *
+     * @param sessionId 课堂会话ID
+     * @return 参与者列表
+     */
     List<ClassParticipant> findBySessionId(UUID sessionId);
 
+    /**
+     * 根据课堂会话ID和座位索引查询参与者
+     *
+     * @param sessionId 课堂会话ID
+     * @param seatIndex 座位索引
+     * @return 参与者实体，可能为空
+     */
     Optional<ClassParticipant> findBySessionIdAndSeatIndex(UUID sessionId, Integer seatIndex);
 
     /**
-     * 检查用户是否已参与指定课堂会话。
+     * 检查用户是否已参与指定课堂会话
      *
      * @param sessionId 课堂会话ID
      * @param userId    用户ID
@@ -37,18 +50,24 @@ public interface ClassParticipantRepository {
     boolean existsBySessionIdAndUserId(UUID sessionId, UUID userId);
 
     /**
-     * 保存课堂参与者。
+     * 保存课堂参与者
      *
      * @param participant 参与者实体
      */
     void save(ClassParticipant participant);
 
     /**
-     * 更新课堂参与者。
+     * 更新课堂参与者
      *
      * @param participant 参与者实体
      */
     void update(ClassParticipant participant);
 
+    /**
+     * 根据课堂会话ID和用户ID删除参与者
+     *
+     * @param sessionId 课堂会话ID
+     * @param userId    用户ID
+     */
     void deleteBySessionIdAndUserId(UUID sessionId, UUID userId);
 }

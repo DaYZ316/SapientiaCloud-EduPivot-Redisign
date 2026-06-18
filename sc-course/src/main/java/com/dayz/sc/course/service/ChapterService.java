@@ -511,12 +511,16 @@ public class ChapterService {
             String fileName = firstText(attachment.fileName(), fileInfo == null ? null : fileInfo.fileName(), legacyName(attachment.legacyUrl(), i + 1));
             String displayName = firstText(attachment.displayName(), fileName);
             String url = attachment.fileId() == null ? attachment.legacyUrl() : attachmentUrlMap.get(attachment.fileId());
+            Long sizeBytes = attachment.sizeBytes();
+            if (sizeBytes == null && fileInfo != null) {
+                sizeBytes = fileInfo.sizeBytes();
+            }
             result.add(new ChapterAttachmentVO(
                     attachment.fileId(),
                     displayName,
                     fileName,
                     firstTextOrNull(attachment.contentType(), fileInfo == null ? null : fileInfo.contentType()),
-                    attachment.sizeBytes() == null && fileInfo != null ? fileInfo.sizeBytes() : attachment.sizeBytes(),
+                    sizeBytes,
                     url
             ));
         }

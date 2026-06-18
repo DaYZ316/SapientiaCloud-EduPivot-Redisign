@@ -7,6 +7,7 @@ import com.dayz.sc.common.security.ratelimit.RateLimited;
 import com.dayz.sc.common.security.support.JwtPrincipalResolver;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -19,7 +20,7 @@ import reactor.core.publisher.Flux;
 import java.util.UUID;
 
 /**
- * AI 问答控制器（流式 SSE）。
+ * AI 问答控制器（流式 SSE）
  *
  * @author DaYZ
  * @since 2026-06-16
@@ -33,11 +34,11 @@ public class ChatController {
     private final ConversationService conversationService;
 
     /**
-     * 基于知识库的流式问答。返回 text/event-stream，逐片输出答案。
+     * 基于知识库的流式问答返回 text/event-stream，逐片输出答案
      */
     @PostMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @RateLimited(maxRequests = 20, windowSeconds = 60)
-    public Flux<String> chat(
+    @RateLimited(maxRequests = 20)
+    public Flux<@NonNull String> chat(
             @Valid @RequestBody ChatRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
