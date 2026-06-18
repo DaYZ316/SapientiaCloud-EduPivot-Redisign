@@ -95,6 +95,7 @@
                 :key="tab.key"
                 :class="{active: activeTabKey === tab.key}"
                 :to="'/courses/' + courseId + '/' + tab.key"
+                :title="tab.description"
                 class="tab-btn"
             >
               {{ tab.label }}
@@ -444,19 +445,66 @@ const flatChapters = computed(() => flattenChapters(chapterTree.value))
 const firstChapter = computed(() => flatChapters.value.find(chapter => chapter.status === 1) || flatChapters.value[0] || null)
 
 const tabs = computed(() => [
-  {key: 'overview' as const, label: t('courseDetail.overviewTab'), icon: BookOpen, roles: [0, 1, 2]},
-  {key: 'chapters' as const, label: t('courseDetail.chaptersTab'), icon: BookOpen, roles: [0, 1, 2]},
-  {key: 'forums' as const, label: t('courseDetail.discussionTab'), icon: MessageCircle, roles: [0, 1, 2]},
-  {key: 'banks' as const, label: t('courseDetail.practiceTab'), icon: Database, roles: [0, 1, 2]},
+  {
+    key: 'overview' as const,
+    label: t('courseDetail.overviewTab'),
+    description: t('courseDetail.overviewDescription'),
+    icon: BookOpen,
+    roles: [0, 1, 2],
+  },
+  {
+    key: 'chapters' as const,
+    label: t('courseDetail.chaptersTab'),
+    description: t('courseDetail.chaptersDescription'),
+    icon: BookOpen,
+    roles: [0, 1, 2],
+  },
+  {
+    key: 'forums' as const,
+    label: t('courseDetail.discussionTab'),
+    description: t('courseDetail.discussionDescription'),
+    icon: MessageCircle,
+    roles: [0, 1, 2],
+  },
+  {
+    key: 'banks' as const,
+    label: t('courseDetail.practiceTab'),
+    description: t('courseDetail.banksDescription'),
+    icon: Database,
+    roles: [0, 1, 2],
+  },
   {
     key: 'live-practices' as const,
     label: canManageCourse.value ? t('courseDetail.livePractice.teacherTab') : t('courseDetail.livePractice.studentTab'),
+    description: canManageCourse.value
+      ? t('courseDetail.livePractice.teacherDescription')
+      : t('courseDetail.livePractice.studentDescription'),
     icon: ClipboardList,
     roles: [0, 1, 2],
   },
-  {key: 'files' as const, label: t('courseDetail.filesTab'), icon: Database, roles: [0, 1, 2]},
-  {key: 'students' as const, label: t('courseDetail.studentsTab'), icon: Users, roles: [0, 1, 2], requiresViewStudents: true},
-  {key: 'assistants' as const, label: t('courseDetail.assistantsTab'), icon: UserCheck, roles: [0, 1, 2], requiresViewAssistants: true},
+  {
+    key: 'files' as const,
+    label: t('courseDetail.filesTab'),
+    description: t('courseDetail.filesDescription'),
+    icon: Database,
+    roles: [0, 1, 2],
+  },
+  {
+    key: 'students' as const,
+    label: t('courseDetail.studentsTab'),
+    description: t('courseDetail.studentsDescription'),
+    icon: Users,
+    roles: [0, 1, 2],
+    requiresViewStudents: true,
+  },
+  {
+    key: 'assistants' as const,
+    label: t('courseDetail.assistantsTab'),
+    description: t('courseDetail.assistantsDescription'),
+    icon: UserCheck,
+    roles: [0, 1, 2],
+    requiresViewAssistants: true,
+  },
 ])
 const visibleTabs = computed(() => {
   const role = authStore.user?.role ?? 1

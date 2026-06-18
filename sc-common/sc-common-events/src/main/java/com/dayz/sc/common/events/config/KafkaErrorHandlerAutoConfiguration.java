@@ -47,6 +47,16 @@ public class KafkaErrorHandlerAutoConfiguration {
     }
 
     @Bean
+    public NewTopic aiGradingRequestsTopic() {
+        return topic(KafkaTopicConstants.AI_GRADING_REQUESTS);
+    }
+
+    @Bean
+    public NewTopic aiGradingResultsTopic() {
+        return topic(KafkaTopicConstants.AI_GRADING_RESULTS);
+    }
+
+    @Bean
     public NewTopic courseEventsDltTopic() {
         return topic(KafkaTopicConstants.COURSE_EVENTS + KafkaTopicConstants.DLT_SUFFIX);
     }
@@ -54,6 +64,16 @@ public class KafkaErrorHandlerAutoConfiguration {
     @Bean
     public NewTopic userEventsDltTopic() {
         return topic(KafkaTopicConstants.USER_EVENTS + KafkaTopicConstants.DLT_SUFFIX);
+    }
+
+    @Bean
+    public NewTopic aiGradingRequestsDltTopic() {
+        return topic(KafkaTopicConstants.AI_GRADING_REQUESTS + KafkaTopicConstants.DLT_SUFFIX);
+    }
+
+    @Bean
+    public NewTopic aiGradingResultsDltTopic() {
+        return topic(KafkaTopicConstants.AI_GRADING_RESULTS + KafkaTopicConstants.DLT_SUFFIX);
     }
 
     private NewTopic topic(String name) {

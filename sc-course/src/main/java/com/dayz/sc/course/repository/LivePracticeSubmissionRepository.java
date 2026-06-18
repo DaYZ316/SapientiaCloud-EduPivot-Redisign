@@ -14,6 +14,8 @@ import java.util.UUID;
  */
 public interface LivePracticeSubmissionRepository {
 
+    Optional<LivePracticeSubmission> findById(UUID id);
+
     /**
      * 根据分组ID、题目快照ID和学生ID查询提交记录
      *
@@ -30,6 +32,8 @@ public interface LivePracticeSubmissionRepository {
      * @param submission 提交记录实体
      */
     void save(LivePracticeSubmission submission);
+
+    void update(LivePracticeSubmission submission);
 
     /**
      * 根据分组ID查询所有提交记录

@@ -28,6 +28,10 @@ public record LivePracticeSubmissionVO(
         @JsonProperty String submitStatusText,
         @JsonProperty Integer isCorrect,
         @JsonProperty BigDecimal earnedScore,
+        @JsonProperty String aiGradingStatus,
+        @JsonProperty String aiGradingFeedback,
+        @JsonProperty String aiGradingError,
+        @JsonProperty Instant aiGradedAt,
         @JsonProperty Instant submittedAt
 ) {
 }

@@ -45,6 +45,14 @@ public class LivePracticeSubmission {
 
     private BigDecimal earnedScore;
 
+    private String aiGradingStatus;
+
+    private String aiGradingFeedback;
+
+    private String aiGradingError;
+
+    private Instant aiGradedAt;
+
     private Instant submittedAt;
 
     @TableField(fill = FieldFill.INSERT)

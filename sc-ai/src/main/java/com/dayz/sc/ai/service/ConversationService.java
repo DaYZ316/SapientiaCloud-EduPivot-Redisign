@@ -51,7 +51,13 @@ public class ConversationService {
     public List<ChatMessageVO> listMessages(UUID conversationId, UUID userId) {
         requireOwnedConversation(conversationId, userId);
         return messageRepository.findByConversationId(conversationId).stream()
-                .map(m -> new ChatMessageVO(m.getId(), m.getRole(), m.getContent(), m.getCreatedAt()))
+                .map(m -> new ChatMessageVO(
+                        m.getId(),
+                        m.getRole(),
+                        m.getContent(),
+                        m.getMessageType(),
+                        m.getPayload(),
+                        m.getCreatedAt()))
                 .toList();
     }
 

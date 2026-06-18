@@ -4,6 +4,7 @@
       <div>
         <span>{{ t('courseDetail.practiceTab') }}</span>
         <h2>{{ t('questionBank.title') }}</h2>
+        <p>{{ t('courseDetail.banksDescription') }}</p>
       </div>
       <button v-if="canManageCourse" class="btn-add" type="button" @click="showCreateDialog = true">
         <Plus :size="14" stroke-width="2"/>
@@ -266,6 +267,15 @@ async function handleDelete(bank: QuestionBank) {
   font-size: 28px;
   font-weight: 400;
   line-height: 1.3;
+}
+
+.panel-header p {
+  max-width: 62ch;
+  margin: 8px 0 0;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 .btn-add,

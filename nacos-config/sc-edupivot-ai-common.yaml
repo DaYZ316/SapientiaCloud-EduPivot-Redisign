@@ -27,7 +27,7 @@ spring:
       ack-mode: MANUAL_IMMEDIATE
   ai:
     openai:
-      api-key: ${DASHSCOPE_API_KEY}
+      api-key: ${DASHSCOPE_API_KEY:missing-dashscope-key}
       base-url: https://dashscope.aliyuncs.com/compatible-mode
       chat:
         options:

@@ -44,6 +44,6 @@ public class ChatController {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         // 校验会话归属，防止越权写入他人会话
         conversationService.requireOwnedConversation(request.conversationId(), userId);
-        return ragChatService.streamChat(request.conversationId(), userId, request.message());
+        return ragChatService.stream(request, userId);
     }
 }

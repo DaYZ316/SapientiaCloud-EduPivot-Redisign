@@ -4,6 +4,7 @@
       <div>
         <span>{{ t('courseDetail.filesTab') }}</span>
         <h2>{{ t('courseDetail.files') }}</h2>
+        <p>{{ t('courseDetail.filesDescription') }}</p>
       </div>
       <div v-if="canManageCourse" class="header-actions">
         <BaseFileUploader
@@ -163,6 +164,15 @@ async function handleDelete(file: CourseFile) {
   font-size: 28px;
   font-weight: 400;
   line-height: 1.3;
+}
+
+.panel-header p {
+  max-width: 62ch;
+  margin: 8px 0 0;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 .header-actions {

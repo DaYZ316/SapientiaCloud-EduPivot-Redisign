@@ -4,6 +4,7 @@
       <div>
         <span>{{ t('courseDetail.membersTab') }}</span>
         <h2>{{ t('courseDetail.assistantsTab') }}</h2>
+        <p>{{ t('courseDetail.assistantsDescription') }}</p>
       </div>
       <div class="header-right">
         <span class="count-badge">{{ assistantCount }}</span>
@@ -199,6 +200,15 @@ async function handleWithdraw(inv: CourseInvitation) {
   font-size: 28px;
   font-weight: 400;
   line-height: 1.3;
+}
+
+.panel-header p {
+  max-width: 62ch;
+  margin: 8px 0 0;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 .header-right {

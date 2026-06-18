@@ -48,6 +48,11 @@ export const router = createRouter({
                     component: () => import('@/features/notification/views/NotificationsView.vue'),
                 },
                 {
+                    path: 'ai',
+                    name: 'ai-workspace',
+                    component: () => import('@/features/ai/views/AiWorkspaceView.vue'),
+                },
+                {
                     path: 'courses',
                     name: 'courses',
                     component: () => import('@/features/course/views/CoursesView.vue'),

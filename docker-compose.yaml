@@ -299,7 +299,8 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       EDUPIVOT_SECURITY_JWT_JWKS_URI: http://sc-auth:28081/.well-known/jwks.json
-      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-missing-dashscope-key}
+      SPRING_AI_OPENAI_API_KEY: ${DASHSCOPE_API_KEY:-missing-dashscope-key}
       SERVER_PORT: 28086
       TZ: Asia/Shanghai
     ports:

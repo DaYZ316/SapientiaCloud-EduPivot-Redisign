@@ -14,6 +14,9 @@ import java.util.UUID;
  */
 public record ChatRequest(
         @NotNull UUID conversationId,
-        @NotBlank @Size(max = 4000) String message
+        @NotBlank @Size(max = 4000) String message,
+        String agentMode,
+        UUID courseId,
+        GenerationRequest generation
 ) {
 }

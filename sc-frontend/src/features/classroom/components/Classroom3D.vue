@@ -43,6 +43,7 @@ const emit = defineEmits<{
   joined: [participant: ClassParticipant]
   left: []
   exit: []
+  'participants-change': [participants: ClassParticipant[]]
   'loading-progress': [payload: {progress: number; label: string}]
   ready: []
   loadError: [message: string]
@@ -388,6 +389,7 @@ function applySnapshot(participants: ClassParticipant[]) {
   })
   participantsBySeat.value = next
   spriteManagerRef.value?.applySnapshot(Array.from(next.values()))
+  emitParticipantsChange()
 }
 
 function upsertParticipant(participant: ClassParticipant) {
@@ -403,6 +405,7 @@ function upsertParticipant(participant: ClassParticipant) {
   next.set(participant.seatIndex, participant)
   participantsBySeat.value = next
   void spriteManagerRef.value?.upsert(participant)
+  emitParticipantsChange()
 }
 
 function removeParticipant(userId: string, seatIndex?: number | null) {
@@ -420,6 +423,11 @@ function removeParticipant(userId: string, seatIndex?: number | null) {
     spriteManagerRef.value?.removeByUserId(userId)
   }
   participantsBySeat.value = next
+  emitParticipantsChange()
+}
+
+function emitParticipantsChange() {
+  emit('participants-change', Array.from(participantsBySeat.value.values()))
 }
 
 function animate() {

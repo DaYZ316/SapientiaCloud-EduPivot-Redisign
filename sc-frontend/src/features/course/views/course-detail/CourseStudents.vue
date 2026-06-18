@@ -4,6 +4,7 @@
       <div>
         <span>{{ t('courseDetail.membersTab') }}</span>
         <h2>{{ t('courseDetail.studentsTab') }}</h2>
+        <p>{{ t('courseDetail.studentsDescription') }}</p>
       </div>
       <span class="count-badge">{{ total }}</span>
     </div>
@@ -158,6 +159,15 @@ async function handleRemove(student: Enrollment) {
   font-size: 28px;
   font-weight: 400;
   line-height: 1.3;
+}
+
+.panel-header p {
+  max-width: 62ch;
+  margin: 8px 0 0;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 .count-badge {

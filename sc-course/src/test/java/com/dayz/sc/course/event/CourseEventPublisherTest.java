@@ -20,7 +20,10 @@ import java.util.concurrent.CompletableFuture;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 /**
  * CourseEventPublisherTest 相关定义
@@ -195,8 +198,22 @@ class CourseEventPublisherTest {
     @Test
     void publishCourseCreated_shouldSkipWhenKafkaTemplateUnavailable() {
         // Given
-        ObjectProvider<KafkaTemplate<String, Object>> nullProvider = mock(ObjectProvider.class);
-        when(nullProvider.getIfAvailable()).thenReturn(null);
+        ObjectProvider<KafkaTemplate<String, Object>> nullProvider = new ObjectProvider<>() {
+            @Override
+            public KafkaTemplate<String, Object> getObject(Object... args) {
+                return null;
+            }
+
+            @Override
+            public KafkaTemplate<String, Object> getIfAvailable() {
+                return null;
+            }
+
+            @Override
+            public KafkaTemplate<String, Object> getObject() {
+                return null;
+            }
+        };
         CourseEventPublisher publisherWithNullKafka = new CourseEventPublisher(nullProvider);
         Course course = createCourse();
 

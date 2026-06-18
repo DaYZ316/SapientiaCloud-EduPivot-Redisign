@@ -1,5 +1,6 @@
 package com.dayz.sc.course.service;
 
+import com.dayz.sc.common.events.ai.LivePracticeAiGradingRequestedEvent;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.feign.client.AuthInternalClient;
@@ -12,9 +13,11 @@ import com.dayz.sc.course.model.dto.CreateLivePracticeRequest;
 import com.dayz.sc.course.model.dto.QuestionAnswerRequest;
 import com.dayz.sc.course.model.dto.QuestionOptionRequest;
 import com.dayz.sc.course.model.dto.SubmitLivePracticeAnswerRequest;
+import com.dayz.sc.course.event.LivePracticeAiGradingEventPublisher;
 import com.dayz.sc.course.model.entity.*;
 import com.dayz.sc.course.model.enums.ClassParticipantRole;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
+import com.dayz.sc.course.model.enums.LivePracticeAiGradingStatus;
 import com.dayz.sc.course.model.enums.LivePracticeSubmitStatus;
 import com.dayz.sc.course.model.enums.QuestionDifficulty;
 import com.dayz.sc.course.model.enums.QuestionStatus;
@@ -70,6 +73,7 @@ public class LivePracticeService {
     private final QuestionOptionRepository questionOptionRepository;
     private final QuestionAnswerRepository questionAnswerRepository;
     private final AuthInternalClient authInternalClient;
+    private final LivePracticeAiGradingEventPublisher livePracticeAiGradingEventPublisher;
     private final LivePracticeSseEmitter livePracticeSseEmitter;
 
     @Transactional(rollbackFor = Exception.class)
@@ -79,9 +83,6 @@ public class LivePracticeService {
         requirePublished(session);
         requireCourseTeacher(session.getCourseId(), userId, role);
         validatePracticeWindow(request.availableStartAt(), request.availableEndAt());
-        if (aiGradingRequested(request.createdQuestions())) {
-            throw new BusinessException(ErrorCodes.BAD_REQUEST, "AI 判分暂未开放");
-        }
 
         long groupCount = livePracticeGroupRepository.countByClassSessionId(classSessionId);
         if (groupCount >= MAX_GROUPS_PER_CLASS_SESSION) {
@@ -89,7 +90,10 @@ public class LivePracticeService {
         }
 
         List<Question> selectedQuestions = loadSelectedQuestions(request.selectedQuestionIds(), session.getCourseId());
-        List<Question> createdQuestions = createAdHocQuestions(request.createdQuestions(), session.getCourseId(), userId);
+        Map<UUID, Integer> aiGradingFlags = new HashMap<>();
+        selectedQuestions.forEach(question -> aiGradingFlags.put(question.getId(), FLAG_OFF));
+        List<Question> createdQuestions = createAdHocQuestions(
+                request.createdQuestions(), session.getCourseId(), userId, aiGradingFlags);
         List<Question> allQuestions = new ArrayList<>();
         allQuestions.addAll(selectedQuestions);
         allQuestions.addAll(createdQuestions);
@@ -112,7 +116,9 @@ public class LivePracticeService {
 
         List<LivePracticeQuestion> snapshots = new ArrayList<>();
         for (int index = 0; index < allQuestions.size(); index += 1) {
-            snapshots.add(snapshotQuestion(group, session, allQuestions.get(index), index + 1));
+            Question question = allQuestions.get(index);
+            snapshots.add(snapshotQuestion(
+                    group, session, question, index + 1, aiGradingFlags.getOrDefault(question.getId(), FLAG_OFF)));
         }
         livePracticeQuestionRepository.saveBatch(snapshots);
 
@@ -164,6 +170,10 @@ public class LivePracticeService {
         Instant now = Instant.now();
         int submitStatus = resolveSubmitStatus(group, now);
         GradeResult grade = grade(question, request);
+        boolean aiGradingRequired = aiGradingRequired(question);
+        if (aiGradingRequired) {
+            grade = new GradeResult(null, BigDecimal.ZERO);
+        }
 
         LivePracticeSubmission submission = new LivePracticeSubmission();
         submission.setId(UuidV7Generator.generate());
@@ -177,11 +187,17 @@ public class LivePracticeService {
         submission.setSubmitStatus(submitStatus);
         submission.setIsCorrect(grade.isCorrect());
         submission.setEarnedScore(grade.earnedScore());
+        submission.setAiGradingStatus(aiGradingRequired
+                ? LivePracticeAiGradingStatus.PENDING.name()
+                : LivePracticeAiGradingStatus.NOT_REQUIRED.name());
         submission.setSubmittedAt(now);
         try {
             livePracticeSubmissionRepository.save(submission);
         } catch (DataIntegrityViolationException exception) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "This question has already been submitted");
+        }
+        if (aiGradingRequired) {
+            publishAiGradingRequest(submission, question);
         }
 
         return toSubmissionVO(submission, Map.of(userId, new UserBasicInfo(userId, null, null, role)));
@@ -233,7 +249,10 @@ public class LivePracticeService {
         return questions;
     }
 
-    private List<Question> createAdHocQuestions(List<CreateLivePracticeQuestionRequest> requests, UUID courseId, UUID userId) {
+    private List<Question> createAdHocQuestions(List<CreateLivePracticeQuestionRequest> requests,
+                                                UUID courseId,
+                                                UUID userId,
+                                                Map<UUID, Integer> aiGradingFlags) {
         if (requests == null || requests.isEmpty()) {
             return List.of();
         }
@@ -260,6 +279,7 @@ public class LivePracticeService {
             question.setStatus(QuestionStatus.PUBLISHED.getCode());
             questionRepository.save(question);
             saveQuestionChildren(question, request.options(), request.answers());
+            aiGradingFlags.put(question.getId(), aiGradingFlag(request));
             questions.add(question);
         }
         return questions;
@@ -319,7 +339,11 @@ public class LivePracticeService {
         }
     }
 
-    private LivePracticeQuestion snapshotQuestion(LivePracticeGroup group, ClassSession session, Question question, int order) {
+    private LivePracticeQuestion snapshotQuestion(LivePracticeGroup group,
+                                                  ClassSession session,
+                                                  Question question,
+                                                  int order,
+                                                  int aiGradingEnabled) {
         LivePracticeQuestion snapshot = new LivePracticeQuestion();
         snapshot.setId(UuidV7Generator.generate());
         snapshot.setGroupId(group.getId());
@@ -356,7 +380,7 @@ public class LivePracticeService {
                         answer.getSortOrder()
                 ))
                 .toList());
-        snapshot.setAiGradingEnabled(FLAG_OFF);
+        snapshot.setAiGradingEnabled(aiGradingEnabled);
         return snapshot;
     }
 
@@ -509,6 +533,10 @@ public class LivePracticeService {
                 submitStatusText(submission.getSubmitStatus()),
                 submission.getIsCorrect(),
                 submission.getEarnedScore(),
+                submission.getAiGradingStatus(),
+                submission.getAiGradingFeedback(),
+                submission.getAiGradingError(),
+                submission.getAiGradedAt(),
                 submission.getSubmittedAt()
         );
     }
@@ -523,9 +551,7 @@ public class LivePracticeService {
 
     private GradeResult grade(LivePracticeQuestion question, SubmitLivePracticeAnswerRequest request) {
         int questionType = question.getQuestionType();
-        if (questionType != QUESTION_TYPE_SINGLE_CHOICE
-                && questionType != QUESTION_TYPE_MULTI_CHOICE
-                && questionType != QUESTION_TYPE_TRUE_FALSE) {
+        if (!isObjectiveQuestionType(questionType)) {
             return new GradeResult(null, BigDecimal.ZERO);
         }
 
@@ -547,6 +573,52 @@ public class LivePracticeService {
             return new GradeResult(FLAG_OFF, earnedScore);
         }
         return new GradeResult(FLAG_OFF, BigDecimal.ZERO);
+    }
+
+    private void publishAiGradingRequest(LivePracticeSubmission submission, LivePracticeQuestion question) {
+        LivePracticeAiGradingRequestedEvent event = new LivePracticeAiGradingRequestedEvent(
+                UuidV7Generator.generate(),
+                submission.getId(),
+                submission.getGroupId(),
+                submission.getQuestionSnapshotId(),
+                submission.getCourseId(),
+                submission.getClassSessionId(),
+                submission.getStudentId(),
+                question.getQuestionTitle(),
+                question.getQuestionContent(),
+                question.getScore(),
+                Optional.ofNullable(question.getAnswersSnapshot()).orElse(List.of()).stream()
+                        .map(answer -> new LivePracticeAiGradingRequestedEvent.AnswerReference(
+                                answer.answerContent(),
+                                answer.explanation(),
+                                answer.score(),
+                                answer.sortOrder()
+                        ))
+                        .toList(),
+                submission.getTextAnswer(),
+                "LIVE_PRACTICE_AI_GRADING_REQUESTED",
+                Instant.now(),
+                "sc-course"
+        );
+        livePracticeAiGradingEventPublisher.publishRequested(event);
+    }
+
+    private boolean aiGradingRequired(LivePracticeQuestion question) {
+        return Objects.equals(question.getAiGradingEnabled(), FLAG_ON)
+                && !isObjectiveQuestionType(question.getQuestionType());
+    }
+
+    private int aiGradingFlag(CreateLivePracticeQuestionRequest request) {
+        if (!Objects.equals(request.aiGradingEnabled(), FLAG_ON) || isObjectiveQuestionType(request.questionType())) {
+            return FLAG_OFF;
+        }
+        return FLAG_ON;
+    }
+
+    private boolean isObjectiveQuestionType(int questionType) {
+        return questionType == QUESTION_TYPE_SINGLE_CHOICE
+                || questionType == QUESTION_TYPE_MULTI_CHOICE
+                || questionType == QUESTION_TYPE_TRUE_FALSE;
     }
 
     private int resolveSubmitStatus(LivePracticeGroup group, Instant now) {
@@ -612,10 +684,6 @@ public class LivePracticeService {
         if (startAt == null || endAt == null || !endAt.isAfter(startAt)) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Live practice end time must be after start time");
         }
-    }
-
-    private boolean aiGradingRequested(List<CreateLivePracticeQuestionRequest> requests) {
-        return requests != null && requests.stream().anyMatch(request -> request.aiGradingEnabled() == FLAG_ON);
     }
 
     private int flag(Integer value) {

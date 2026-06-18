@@ -6,10 +6,12 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.dayz.sc.ai.config.PostgresJsonbMapTypeHandler;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -20,7 +22,7 @@ import java.util.UUID;
  */
 @Getter
 @Setter
-@TableName("ai_message")
+@TableName(value = "ai_message", autoResultMap = true)
 public class ChatMessage {
 
     @TableId(type = IdType.INPUT)
@@ -34,6 +36,12 @@ public class ChatMessage {
 
     @TableField("content")
     private String content;
+
+    @TableField("message_type")
+    private String messageType;
+
+    @TableField(value = "payload", typeHandler = PostgresJsonbMapTypeHandler.class)
+    private Map<String, Object> payload;
 
     @TableField(fill = FieldFill.INSERT)
     private Instant createdAt;

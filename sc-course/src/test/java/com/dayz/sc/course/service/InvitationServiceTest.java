@@ -81,11 +81,13 @@ class InvitationServiceTest {
         when(courseTeacherRepository.existsByCourseIdAndTeacherId(courseId, inviteeId)).thenReturn(false);
         when(invitationRepository.existsPendingByCourseIdAndInviteeId(courseId, inviteeId)).thenReturn(false);
         when(authInternalClient.getUsersBasicInfo(any()))
-                .thenAnswer(invocation -> ApiResponse.ok(
-                        ((List<UUID>) invocation.getArgument(0)).stream()
+                .thenAnswer(invocation -> {
+                    List<?> userIds = invocation.getArgument(0);
+                    return ApiResponse.ok(userIds.stream()
+                            .map(UUID.class::cast)
                                 .map(id -> new UserBasicInfo(id, "Teacher " + id, null, 2))
-                                .toList()
-                ));
+                            .toList());
+                });
 
         invitationService.invite(new InviteAssistantRequest(courseId, inviteeId, "join us"), primaryTeacherId, 2);
 

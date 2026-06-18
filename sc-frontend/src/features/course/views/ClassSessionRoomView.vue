@@ -25,10 +25,24 @@
         @exit="exitClassroom"
         @loading-progress="handleClassroomProgress"
         @load-error="handleClassroomLoadError"
+        @participants-change="handleParticipantsChange"
         @ready="handleClassroomReady"
     />
 
-    <div v-if="session?.publishedAt" class="classroom-live-practice-actions">
+    <div v-if="session?.publishedAt" class="classroom-tool-actions">
+      <button class="floating-action secondary" type="button" @click="openChapterPreviewPanel">
+        <BookOpen :size="18" stroke-width="1.8"/>
+        章节预览
+      </button>
+      <button class="floating-action secondary" type="button" @click="openSeatedStudentsPanel">
+        <Users :size="18" stroke-width="1.8"/>
+        在线学生
+        <span class="action-count">{{ seatedStudentCount }}</span>
+      </button>
+      <button class="floating-action secondary" type="button" @click="openAiSummaryPanel">
+        <Sparkles :size="18" stroke-width="1.8"/>
+        AI 总结
+      </button>
       <button class="floating-action" type="button" @click="openLivePracticePanel">
         <ClipboardList :size="18" stroke-width="1.8"/>
         {{ isTeacher ? '发布练习' : '随堂练习' }}
@@ -43,6 +57,24 @@
         @close="closeLivePracticePanel"
     />
 
+    <ChapterPreviewPanel
+        v-if="session?.publishedAt && showChapterPreviewPanel"
+        :session="session"
+        @close="closeChapterPreviewPanel"
+    />
+
+    <SeatedStudentsPanel
+        v-if="session?.publishedAt && showSeatedStudentsPanel"
+        :participants="seatedParticipants"
+        :session="session"
+        @close="closeSeatedStudentsPanel"
+    />
+
+    <AiLiveSummaryPanel
+        v-if="session?.publishedAt && showAiSummaryPanel"
+        @close="closeAiSummaryPanel"
+    />
+
     <CourseEntryTransition
         v-if="showEntryTransition"
         :label="classroomProgressLabel"
@@ -55,16 +87,19 @@
 import {computed, onMounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
-import {CircleAlert, ClipboardList} from 'lucide-vue-next'
+import {BookOpen, CircleAlert, ClipboardList, Sparkles, Users} from 'lucide-vue-next'
 
 import {getClassSession} from '@/features/course/api/classSession'
 import {getCourse} from '@/features/course/api/course'
-import type {ClassSession} from '@/features/course/types/classSession'
+import type {ClassParticipant, ClassSession} from '@/features/course/types/classSession'
 import type {CourseDetail} from '@/features/course/types/course'
+import AiLiveSummaryPanel from '@/features/ai/components/AiLiveSummaryPanel.vue'
 import Classroom3D from '@/features/classroom/components/Classroom3D.vue'
+import ChapterPreviewPanel from '@/features/classroom/components/ChapterPreviewPanel.vue'
 import CourseEntryTransition from '@/features/course/components/CourseEntryTransition.vue'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import LivePracticePanel from '@/features/live-practice/components/LivePracticePanel.vue'
+import SeatedStudentsPanel from '@/features/classroom/components/SeatedStudentsPanel.vue'
 
 const {t} = useI18n()
 const route = useRoute()
@@ -81,9 +116,16 @@ const classroomLoadFailed = ref(false)
 const classroomProgress = ref(0)
 const classroomProgressLabel = ref('\u6b63\u5728\u83b7\u53d6\u8bfe\u5802\u4fe1\u606f')
 const showLivePracticePanel = ref(false)
+const showChapterPreviewPanel = ref(false)
+const showSeatedStudentsPanel = ref(false)
+const showAiSummaryPanel = ref(false)
 const initialPracticeGroupId = ref<string | null>(null)
+const seatedParticipants = ref<ClassParticipant[]>([])
 const showEntryTransition = computed(() =>
     loading.value || Boolean(session.value?.publishedAt && !classroomReady.value && !classroomLoadFailed.value),
+)
+const seatedStudentCount = computed(() =>
+    seatedParticipants.value.filter(participant => participant.role === 1 && participant.seatIndex != null).length,
 )
 
 onMounted(() => {
@@ -145,6 +187,7 @@ function handleClassroomReady() {
 }
 
 function openLivePracticePanel() {
+  closeSidePanels()
   initialPracticeGroupId.value = typeof route.query.practice === 'string' ? route.query.practice : null
   showLivePracticePanel.value = true
 }
@@ -152,6 +195,44 @@ function openLivePracticePanel() {
 function closeLivePracticePanel() {
   showLivePracticePanel.value = false
   initialPracticeGroupId.value = null
+}
+
+function openChapterPreviewPanel() {
+  closeSidePanels()
+  showChapterPreviewPanel.value = true
+}
+
+function closeChapterPreviewPanel() {
+  showChapterPreviewPanel.value = false
+}
+
+function openSeatedStudentsPanel() {
+  closeSidePanels()
+  showSeatedStudentsPanel.value = true
+}
+
+function closeSeatedStudentsPanel() {
+  showSeatedStudentsPanel.value = false
+}
+
+function openAiSummaryPanel() {
+  closeSidePanels()
+  showAiSummaryPanel.value = true
+}
+
+function closeAiSummaryPanel() {
+  showAiSummaryPanel.value = false
+}
+
+function closeSidePanels() {
+  closeLivePracticePanel()
+  closeChapterPreviewPanel()
+  closeSeatedStudentsPanel()
+  closeAiSummaryPanel()
+}
+
+function handleParticipantsChange(participants: ClassParticipant[]) {
+  seatedParticipants.value = participants
 }
 
 function handleClassroomLoadError() {
@@ -226,11 +307,15 @@ function backToCourse() {
   line-height: 1.6;
 }
 
-.classroom-live-practice-actions {
+.classroom-tool-actions {
   position: fixed;
   right: 24px;
   bottom: 24px;
   z-index: 1800;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .floating-action {
@@ -248,5 +333,36 @@ function backToCourse() {
   font-family: var(--font-label);
   font-size: 14px;
   box-shadow: 0 14px 32px rgba(15, 23, 42, 0.22);
+}
+
+.floating-action.secondary {
+  background: rgba(8, 13, 27, 0.86);
+  border-color: rgb(255 255 255 / 18%);
+  color: #f8fafc;
+}
+
+.action-count {
+  display: inline-grid;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 14%);
+  color: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .classroom-tool-actions {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+  }
+
+  .floating-action {
+    flex: 1 1 120px;
+  }
 }
 </style>

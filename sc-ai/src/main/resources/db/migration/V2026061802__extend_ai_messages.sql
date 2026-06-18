@@ -1,0 +1,6 @@
+ALTER TABLE ai_message
+    ADD COLUMN IF NOT EXISTS message_type VARCHAR(32) NOT NULL DEFAULT 'TEXT',
+    ADD COLUMN IF NOT EXISTS payload JSONB;
+
+COMMENT ON COLUMN ai_message.message_type IS '消息类型 TEXT/QUESTION_SET/PAPER/GRADING_RESULT';
+COMMENT ON COLUMN ai_message.payload IS 'AI 结构化消息载荷';

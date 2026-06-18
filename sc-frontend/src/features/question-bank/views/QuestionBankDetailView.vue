@@ -28,6 +28,8 @@
       </div>
     </div>
 
+    <AiQuestionToolsPanel v-if="isTeacher"/>
+
     <div v-if="loading" class="loading-list">
       <div v-for="i in 6" :key="i" class="skeleton-row shimmer"></div>
     </div>
@@ -369,6 +371,7 @@ import {
   updateQuestion
 } from '@/features/question-bank/api/questionBank'
 import type {Question, QuestionBank} from '@/features/question-bank/types/questionBank'
+import AiQuestionToolsPanel from '@/features/ai/components/AiQuestionToolsPanel.vue'
 import BaseNumberStepper from '@/shared/components/BaseNumberStepper.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import {useAuthStore} from '@/features/auth/stores/auth'

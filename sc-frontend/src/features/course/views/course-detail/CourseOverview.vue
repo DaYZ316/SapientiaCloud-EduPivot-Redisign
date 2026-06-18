@@ -1,7 +1,9 @@
 <template>
   <section class="tab-panel">
     <section class="instructor-biography">
-      <h2>Instructor Biography</h2>
+      <span class="section-kicker">{{ t('courseDetail.overviewTab') }}</span>
+      <h2>{{ t('courseDetail.instructorBiography') }}</h2>
+      <p class="section-description">{{ t('courseDetail.overviewDescription') }}</p>
       <div class="instructor-row">
         <UserAvatarLink
             :avatar-url="course.teacherAvatar"
@@ -49,12 +51,31 @@ const actionDescription = computed(() => {
 }
 
 .instructor-biography h2 {
-  margin: 0;
+  margin: 6px 0 0;
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: 22px;
   font-weight: 400;
   line-height: 1.3;
+}
+
+.section-kicker {
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.section-description {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 .instructor-row {

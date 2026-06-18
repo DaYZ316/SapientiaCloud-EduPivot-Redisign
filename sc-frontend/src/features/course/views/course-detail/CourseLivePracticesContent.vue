@@ -9,7 +9,7 @@
         </p>
       </div>
       <button
-        class="text-button"
+        class="btn-secondary refresh-button"
         type="button"
         @click="loadData"
       >
@@ -29,7 +29,7 @@
     >
       <p>{{ t('courseDetail.livePractice.loadFailed') }}</p>
       <button
-        class="text-button"
+        class="btn-secondary"
         type="button"
         @click="loadData"
       >
@@ -59,20 +59,43 @@
           <article
             v-for="group in sessionGroup.groups"
             :key="group.id"
-            class="group-card is-clickable"
-            role="button"
-            tabindex="0"
-            @click="openGroupDetail(group.id)"
-            @keydown.enter="openGroupDetail(group.id)"
+            class="group-card"
           >
             <div class="group-header">
-              <div>
-                <span>{{ t('courseDetail.livePractice.groupOrder', {order: group.publishOrder}) }} · {{ formatDateTime(group.publishedAt) }}</span>
-                <h4>{{ group.title }}</h4>
+              <button
+                class="group-toggle"
+                type="button"
+                :aria-expanded="expandedGroupIds.has(group.id)"
+                :aria-label="groupToggleLabel(group.id)"
+                @click="toggleGroup(group.id)"
+              >
+                <ChevronRight
+                  class="toggle-icon"
+                  :class="{expanded: expandedGroupIds.has(group.id)}"
+                  :size="18"
+                  stroke-width="2"
+                />
+                <span class="group-main">
+                  <span>{{ t('courseDetail.livePractice.groupOrder', {order: group.publishOrder}) }} · {{ formatDateTime(group.publishedAt) }}</span>
+                  <strong>{{ group.title }}</strong>
+                </span>
+              </button>
+              <div class="group-summary">
+                <span>{{ t('courseDetail.livePractice.questionCount', {count: group.totalQuestions}) }}</span>
+                <strong>{{ group.submittedStudents }}/{{ group.totalStudents }}</strong>
+                <button
+                  class="btn-secondary compact"
+                  type="button"
+                  @click="openGroupDetail(group.id)"
+                >
+                  {{ t('courseDetail.livePractice.viewDetail') }}
+                </button>
               </div>
-              <strong>{{ group.submittedStudents }}/{{ group.totalStudents }}</strong>
             </div>
-            <div class="question-list">
+            <div
+              v-if="expandedGroupIds.has(group.id)"
+              class="question-list"
+            >
               <article
                 v-for="question in group.questions || []"
                 :key="question.id"
@@ -102,6 +125,12 @@
                   >{{ label }} {{ count }}</span>
                 </div>
               </article>
+              <div
+                v-if="!group.questions?.length"
+                class="empty-list"
+              >
+                {{ t('courseDetail.livePractice.emptyQuestions') }}
+              </div>
             </div>
           </article>
         </div>
@@ -129,31 +158,74 @@
             <h3>{{ sessionTitle(sessionGroup.classSessionId) }}</h3>
             <p>{{ sessionTimeRange(sessionGroup.classSessionId) }}</p>
           </div>
-          <strong>{{ t('courseDetail.livePractice.questionCount', {count: sessionGroup.items.length}) }}</strong>
+          <strong>{{ t('courseDetail.livePractice.groupCount', {count: sessionGroup.groups.length}) }}</strong>
         </header>
 
         <div class="workbook-items">
           <article
-            v-for="item in sessionGroup.items"
-            :key="item.question.id"
-            class="workbook-card is-clickable"
-            role="button"
-            tabindex="0"
-            @click="openGroupDetail(item.groupId)"
-            @keydown.enter="openGroupDetail(item.groupId)"
+            v-for="group in sessionGroup.groups"
+            :key="group.groupId"
+            class="workbook-card"
           >
             <div class="workbook-meta">
-              <span>{{ t('courseDetail.livePractice.groupOrder', {order: item.publishOrder}) }} · {{ item.groupTitle }}</span>
-              <strong :class="statusClass(item.submitStatus)">{{ submitStatusLabel(item.submitStatus) }}</strong>
+              <button
+                class="group-toggle"
+                type="button"
+                :aria-expanded="expandedGroupIds.has(group.groupId)"
+                :aria-label="groupToggleLabel(group.groupId)"
+                @click="toggleGroup(group.groupId)"
+              >
+                <ChevronRight
+                  class="toggle-icon"
+                  :class="{expanded: expandedGroupIds.has(group.groupId)}"
+                  :size="18"
+                  stroke-width="2"
+                />
+                <span class="group-main">
+                  <span>{{ t('courseDetail.livePractice.groupOrder', {order: group.publishOrder}) }}</span>
+                  <strong>{{ group.groupTitle }}</strong>
+                </span>
+              </button>
+              <div class="group-summary">
+                <span>{{ t('courseDetail.livePractice.questionCount', {count: group.items.length}) }}</span>
+                <span>{{ t('courseDetail.livePractice.deadlineAt', {time: formatDateTime(group.availableEndAt)}) }}</span>
+                <button
+                  class="btn-secondary compact"
+                  type="button"
+                  @click="openGroupDetail(group.groupId)"
+                >
+                  {{ t('courseDetail.livePractice.viewDetail') }}
+                </button>
+              </div>
             </div>
-            <h3>{{ item.question.questionTitle }}</h3>
-            <p v-if="item.question.questionContent">
-              {{ item.question.questionContent }}
-            </p>
-            <div class="metric-row">
-              <span>{{ t('courseDetail.livePractice.deadlineAt', {time: formatDateTime(item.availableEndAt)}) }}</span>
-              <span>{{ t('courseDetail.livePractice.scorePoints', {score: item.question.score}) }}</span>
-              <span v-if="item.submission">{{ t('courseDetail.livePractice.earnedScore', {score: item.submission.earnedScore}) }}</span>
+
+            <div
+              v-if="expandedGroupIds.has(group.groupId)"
+              class="workbook-question-list"
+            >
+              <article
+                v-for="item in group.items"
+                :key="item.question.id"
+                class="question-card"
+              >
+                <div class="workbook-meta">
+                  <span>{{ item.question.questionOrder }}. {{ item.question.questionTitle }}</span>
+                  <strong :class="statusClass(item.submitStatus)">{{ submitStatusLabel(item.submitStatus) }}</strong>
+                </div>
+                <p v-if="item.question.questionContent">
+                  {{ item.question.questionContent }}
+                </p>
+                <div class="metric-row">
+                  <span>{{ t('courseDetail.livePractice.scorePoints', {score: item.question.score}) }}</span>
+                  <span v-if="item.submission">{{ t('courseDetail.livePractice.earnedScore', {score: item.submission.earnedScore}) }}</span>
+                </div>
+              </article>
+              <div
+                v-if="!group.items.length"
+                class="empty-list"
+              >
+                {{ t('courseDetail.livePractice.emptyQuestions') }}
+              </div>
             </div>
           </article>
         </div>
@@ -169,6 +241,7 @@
 </template>
 
 <script lang="ts" setup>
+import {ChevronRight} from 'lucide-vue-next'
 import {computed, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
@@ -190,6 +263,7 @@ const loadFailed = ref(false)
 const teacherGroups = ref<LivePracticeGroup[]>([])
 const workbookItems = ref<LivePracticeWorkbookItem[]>([])
 const classSessions = ref<ClassSession[]>([])
+const expandedGroupIds = ref<Set<string>>(new Set())
 
 const classSessionMap = computed(() => new Map(classSessions.value.map(session => [session.id, session])))
 const teacherSessionGroups = computed(() => groupTeacherPractices(teacherGroups.value))
@@ -261,14 +335,38 @@ function groupTeacherPractices(groups: LivePracticeGroup[]) {
 }
 
 function groupWorkbookItems(items: LivePracticeWorkbookItem[]) {
-  const buckets = new Map<string, LivePracticeWorkbookItem[]>()
+  const buckets = new Map<string, Map<string, WorkbookGroup>>()
   items.forEach(item => {
-    buckets.set(item.classSessionId, [...(buckets.get(item.classSessionId) || []), item])
+    let groups = buckets.get(item.classSessionId)
+    if (!groups) {
+      groups = new Map()
+      buckets.set(item.classSessionId, groups)
+    }
+    const existing = groups.get(item.groupId)
+    if (existing) {
+      existing.items.push(item)
+      return
+    }
+    groups.set(item.groupId, {
+      groupId: item.groupId,
+      groupTitle: item.groupTitle,
+      publishOrder: item.publishOrder,
+      availableEndAt: item.availableEndAt,
+      items: [item],
+    })
   })
-  return Array.from(buckets, ([classSessionId, values]) => ({
+  return Array.from(buckets, ([classSessionId, groups]) => ({
     classSessionId,
-    items: values,
+    groups: Array.from(groups.values()),
   }))
+}
+
+interface WorkbookGroup {
+  groupId: string
+  groupTitle: string
+  publishOrder: number
+  availableEndAt: string
+  items: LivePracticeWorkbookItem[]
 }
 
 function sessionTitle(classSessionId: string) {
@@ -305,6 +403,22 @@ function submitStatusLabel(status?: number | null) {
   return t('courseDetail.livePractice.statusNotSubmitted')
 }
 
+function toggleGroup(groupId: string) {
+  const next = new Set(expandedGroupIds.value)
+  if (next.has(groupId)) {
+    next.delete(groupId)
+  } else {
+    next.add(groupId)
+  }
+  expandedGroupIds.value = next
+}
+
+function groupToggleLabel(groupId: string) {
+  return expandedGroupIds.value.has(groupId)
+    ? t('courseDetail.livePractice.collapseGroup')
+    : t('courseDetail.livePractice.expandGroup')
+}
+
 function openGroupDetail(groupId: string) {
   void router.push({
     name: 'course-live-practice-detail',
@@ -324,14 +438,41 @@ function openGroupDetail(groupId: string) {
 
 .panel-header {
   display: flex;
-  align-items: end;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 18px;
-  padding-bottom: 18px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--color-outline-light);
 }
 
-.panel-header span,
+.panel-header span {
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.panel-header h2 {
+  margin: 6px 0 0;
+  color: var(--color-on-surface);
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.panel-header p {
+  max-width: 62ch;
+  margin: 8px 0 0;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
 .session-header span,
 .group-header span,
 .workbook-meta span {
@@ -341,15 +482,6 @@ function openGroupDetail(groupId: string) {
   letter-spacing: 0.05em;
 }
 
-.panel-header h2 {
-  margin: 8px 0;
-  color: var(--color-on-surface);
-  font-family: var(--font-heading);
-  font-size: clamp(32px, 4vw, 44px);
-  font-weight: 400;
-}
-
-.panel-header p,
 .session-header p,
 .question-card p,
 .workbook-card p {
@@ -364,7 +496,8 @@ function openGroupDetail(groupId: string) {
 .teacher-groups,
 .workbook-list,
 .workbook-items,
-.question-list {
+.question-list,
+.workbook-question-list {
   display: grid;
   gap: 14px;
 }
@@ -397,22 +530,6 @@ function openGroupDetail(groupId: string) {
   border: 1px solid var(--color-outline-light);
 }
 
-.is-clickable {
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
-}
-
-.is-clickable:hover,
-.is-clickable:focus-visible {
-  background: var(--color-surface-container);
-  border-color: var(--color-outline);
-  outline: none;
-}
-
-.is-clickable:active {
-  transform: translateY(1px);
-}
-
 .group-header,
 .workbook-meta,
 .metric-row,
@@ -427,14 +544,64 @@ function openGroupDetail(groupId: string) {
   justify-content: space-between;
 }
 
+.group-toggle {
+  display: flex;
+  flex: 1 1 280px;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.group-toggle:focus-visible {
+  outline: 2px solid var(--color-outline);
+  outline-offset: 4px;
+}
+
+.toggle-icon {
+  flex: 0 0 auto;
+  color: var(--color-muted);
+  transition: transform 0.18s ease;
+}
+
+.toggle-icon.expanded {
+  transform: rotate(90deg);
+}
+
+.group-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.group-main strong {
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.group-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .session-header h3,
-.group-header h4,
 .workbook-card h3,
 .question-card h5 {
   margin: 0;
   color: var(--color-on-surface);
   font-family: var(--font-body);
-  font-size: 18px;
+  font-size: 15px;
+  font-weight: 800;
 }
 
 .session-header h3 {
@@ -446,11 +613,11 @@ function openGroupDetail(groupId: string) {
 }
 
 .session-header strong,
-.group-header strong {
+.group-summary strong {
   color: var(--color-on-surface);
-  font-family: var(--font-heading);
-  font-size: 28px;
-  font-weight: 400;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 800;
 }
 
 .metric-row,
@@ -462,7 +629,8 @@ function openGroupDetail(groupId: string) {
 
 .metric-row span,
 .option-counts span,
-.workbook-meta strong {
+.workbook-meta > strong,
+.group-summary span {
   padding: 4px 8px;
   background: var(--color-surface-container);
   border: 1px solid var(--color-outline-light);
@@ -484,20 +652,42 @@ function openGroupDetail(groupId: string) {
   color: var(--color-muted);
 }
 
-.text-button {
-  min-height: 36px;
-  padding: 0 12px;
-  background: transparent;
-  border: 1px solid var(--color-outline-light);
+.btn-secondary.compact {
+  min-height: 30px;
+  padding: 7px 12px;
+}
+
+.refresh-button {
+  min-height: 38px;
+  padding: 0 14px;
+  border-color: var(--color-outline-light);
+  border-radius: var(--radius-sm);
   color: var(--color-on-surface);
-  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.refresh-button:hover {
+  background: var(--color-surface-container-high);
+  border-color: var(--color-outline);
+  color: var(--color-on-surface);
+}
+
+.empty-list {
+  padding: 12px;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-light);
 }
 
 @media (max-width: 720px) {
   .panel-header,
   .session-header,
   .group-header,
-  .workbook-meta {
+  .workbook-meta,
+  .group-summary {
     align-items: flex-start;
     flex-direction: column;
   }

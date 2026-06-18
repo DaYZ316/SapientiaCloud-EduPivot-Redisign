@@ -24,6 +24,11 @@ public class MybatisLivePracticeSubmissionRepository implements LivePracticeSubm
     private final LivePracticeSubmissionMapper livePracticeSubmissionMapper;
 
     @Override
+    public Optional<LivePracticeSubmission> findById(UUID id) {
+        return Optional.ofNullable(livePracticeSubmissionMapper.selectById(id));
+    }
+
+    @Override
     public Optional<LivePracticeSubmission> findByGroupIdAndQuestionSnapshotIdAndStudentId(UUID groupId, UUID questionSnapshotId, UUID studentId) {
         LambdaQueryWrapper<LivePracticeSubmission> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(LivePracticeSubmission::getGroupId, groupId);
@@ -35,6 +40,11 @@ public class MybatisLivePracticeSubmissionRepository implements LivePracticeSubm
     @Override
     public void save(LivePracticeSubmission submission) {
         livePracticeSubmissionMapper.insert(submission);
+    }
+
+    @Override
+    public void update(LivePracticeSubmission submission) {
+        livePracticeSubmissionMapper.updateById(submission);
     }
 
     @Override

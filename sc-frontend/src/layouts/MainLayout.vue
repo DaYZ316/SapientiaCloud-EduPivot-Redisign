@@ -186,6 +186,7 @@
         <router-view/>
       </div>
     </main>
+    <GlobalAiDrawer v-if="!isFullscreenPage"/>
   </div>
 </template>
 
@@ -206,6 +207,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  Sparkles,
   UserCircle,
   Users,
 } from 'lucide-vue-next'
@@ -214,6 +216,7 @@ import {useUnreadCount} from '@/shared/composables/useUnreadCount'
 import {useRecentCourses} from '@/shared/composables/useRecentCourses'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {useUiPreferencesStore} from '@/features/settings/stores/uiPreferences'
+import GlobalAiDrawer from '@/features/ai/components/GlobalAiDrawer.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -246,6 +249,7 @@ const brandLogoSrc = computed(() =>
 const navItems = computed(() => [
   {path: '/dashboard', label: t('common.navigation.dashboard'), icon: LayoutDashboard},
   {path: '/courses', label: t('common.navigation.courses'), icon: BookOpen},
+  {path: '/ai', label: 'AI', icon: Sparkles},
   ...(authStore.user?.role === 1
       ? [{path: '/my-enrollments', label: t('common.navigation.myEnrollments'), icon: GraduationCap}]
       : []),
