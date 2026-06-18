@@ -1,7 +1,7 @@
 package com.dayz.sc.course.model.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.dayz.sc.course.config.PostgresJsonbStringListTypeHandler;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -51,10 +51,10 @@ public class Question {
     @TableField("estimated_time")
     private Integer estimatedTime;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = PostgresJsonbStringListTypeHandler.class)
     private List<String> tags;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = PostgresJsonbStringListTypeHandler.class)
     private List<String> imageUrls;
 
     @TableField("allow_partial_credit")

@@ -1,4 +1,18 @@
-﻿export interface Chapter {
+export interface ChapterAttachment {
+    fileId: string | null
+    displayName: string
+    fileName: string
+    contentType: string | null
+    sizeBytes: number | null
+    url: string | null
+}
+
+export interface ChapterAttachmentRequest {
+    fileId: string
+    displayName?: string
+}
+
+export interface Chapter {
     id: string
     courseId: string
     teacherId: string
@@ -6,7 +20,7 @@
     parentChapterId: string | null
     description: string | null
     content: string | null
-    attachmentUrls: string[] | null
+    attachments: ChapterAttachment[] | null
     sortOrder: number
     status: number
     viewCount: number
@@ -30,6 +44,7 @@ export interface CreateChapterRequest {
     parentChapterId?: string | null
     description?: string
     content?: string
+    attachments?: ChapterAttachmentRequest[]
     sortOrder?: number
     status?: number
 }
@@ -39,6 +54,7 @@ export interface UpdateChapterRequest {
     parentChapterId?: string | null
     description?: string
     content?: string
+    attachments?: ChapterAttachmentRequest[]
     sortOrder?: number
     status?: number
 }

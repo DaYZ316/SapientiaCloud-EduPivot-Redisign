@@ -10,12 +10,15 @@ import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.common.util.PageUtils;
 import com.dayz.sc.common.util.UuidV7Generator;
+import com.dayz.sc.course.model.dto.ChapterAttachmentRequest;
 import com.dayz.sc.course.model.dto.ChapterPageRequest;
 import com.dayz.sc.course.model.dto.CreateChapterRequest;
 import com.dayz.sc.course.model.dto.UpdateChapterRequest;
 import com.dayz.sc.course.model.entity.Chapter;
+import com.dayz.sc.course.model.entity.ChapterAttachment;
 import com.dayz.sc.course.model.enums.ChapterStatus;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
+import com.dayz.sc.course.model.vo.ChapterAttachmentVO;
 import com.dayz.sc.course.model.vo.ChapterInteractionVO;
 import com.dayz.sc.course.model.vo.ChapterVO;
 import com.dayz.sc.course.repository.ChapterLikeRepository;
@@ -29,6 +32,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.util.*;
@@ -52,6 +56,9 @@ public class ChapterService {
     private static final String STORAGE_FILE_SRC_PREFIX = "sc-storage-file:";
     private static final String FORUM_IMAGE_USAGE = "FORUM_IMAGE";
     private static final String COURSE_SCOPE_TYPE = "COURSE";
+    private static final String COURSE_FILE_USAGE = "COURSE_FILE";
+    private static final String COURSE_PUBLIC_FILE_USAGE = "COURSE_PUBLIC_FILE";
+    private static final String COURSE_PRIVATE_FILE_USAGE = "COURSE_PRIVATE_FILE";
     private static final String READY_STATUS = "READY";
     private static final long CHAPTER_IMAGE_MAX_SIZE_BYTES = 5L * 1024 * 1024;
     private static final Pattern IMG_TAG_PATTERN = Pattern.compile("<img\\b[^>]*>", Pattern.CASE_INSENSITIVE);
@@ -71,6 +78,8 @@ public class ChapterService {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "章节名称已存在");
         }
         validateChapterImages(request.courseId(), request.content());
+        List<ChapterAttachment> attachments = normalizeChapterAttachments(request.courseId(), request.attachments());
+        int status = request.status() == null ? ChapterStatus.DRAFT.getCode() : ChapterStatus.fromCode(request.status()).getCode();
 
         Chapter chapter = new Chapter();
         chapter.setCourseId(request.courseId());
@@ -79,9 +88,9 @@ public class ChapterService {
         chapter.setParentChapterId(request.parentChapterId());
         chapter.setDescription(request.description());
         chapter.setContent(normalizeChapterImageSources(request.content()));
-        chapter.setAttachmentUrls(request.attachmentUrls());
+        chapter.setAttachments(attachments);
         chapter.setSortOrder(request.sortOrder());
-        chapter.setStatus(ChapterStatus.DRAFT.getCode());
+        chapter.setStatus(status);
         chapter.setViewCount(0L);
         chapter.setLikeCount(0L);
         chapter.setId(UuidV7Generator.generate());
@@ -112,8 +121,8 @@ public class ChapterService {
             validateChapterImages(chapter.getCourseId(), request.content());
             chapter.setContent(normalizeChapterImageSources(request.content()));
         }
-        if (request.attachmentUrls() != null) {
-            chapter.setAttachmentUrls(request.attachmentUrls());
+        if (request.attachments() != null) {
+            chapter.setAttachments(normalizeChapterAttachments(chapter.getCourseId(), request.attachments()));
         }
         if (request.sortOrder() != null) {
             chapter.setSortOrder(request.sortOrder());
@@ -146,7 +155,10 @@ public class ChapterService {
         }
         boolean likedByMe = userId != null && chapterLikeRepository.existsByChapterIdAndUserId(chapterId, userId);
         Map<UUID, String> imageUrlMap = loadImageUrlMap(extractChapterImageIds(chapter.getContent()));
-        return toChapterVO(chapter, null, likedByMe, imageUrlMap);
+        List<UUID> attachmentIds = extractChapterAttachmentIds(chapter.getAttachments());
+        Map<UUID, String> attachmentUrlMap = loadStorageUrlMap(attachmentIds);
+        Map<UUID, StorageObjectInfo> attachmentInfoMap = loadStorageInfoMap(attachmentIds);
+        return toChapterVO(chapter, null, likedByMe, imageUrlMap, attachmentUrlMap, attachmentInfoMap);
     }
 
     public ChapterVO getChapter(UUID chapterId, @Nullable UUID userId) {
@@ -165,8 +177,14 @@ public class ChapterService {
                 .flatMap(chapter -> extractChapterImageIds(chapter.getContent()).stream())
                 .distinct()
                 .toList());
+        List<UUID> attachmentIds = chapters.stream()
+                .flatMap(chapter -> extractChapterAttachmentIds(chapter.getAttachments()).stream())
+                .distinct()
+                .toList();
+        Map<UUID, String> attachmentUrlMap = loadStorageUrlMap(attachmentIds);
+        Map<UUID, StorageObjectInfo> attachmentInfoMap = loadStorageInfoMap(attachmentIds);
         List<ChapterVO> voList = chapters.stream()
-                .map(ch -> toChapterVO(ch, null, false, imageUrlMap))
+                .map(ch -> toChapterVO(ch, null, false, imageUrlMap, attachmentUrlMap, attachmentInfoMap))
                 .toList();
 
         return new PageResponse<>(voList, result.getTotal(), page, size);
@@ -270,7 +288,7 @@ public class ChapterService {
     private void validateChapterImages(UUID courseId, String content) {
         validateImageTags(content);
         for (UUID fileId : extractChapterImageIds(content)) {
-            StorageObjectInfo file = requireStorageFile(fileId);
+            StorageObjectInfo file = requireStorageFile(fileId, "Invalid chapter image");
             if (!READY_STATUS.equals(file.status())
                     || !FORUM_IMAGE_USAGE.equals(file.usage())
                     || !COURSE_SCOPE_TYPE.equals(file.scopeType())
@@ -342,12 +360,54 @@ public class ChapterService {
         return null;
     }
 
-    private StorageObjectInfo requireStorageFile(UUID fileId) {
+    private StorageObjectInfo requireStorageFile(UUID fileId, String invalidMessage) {
         ApiResponse<@NonNull StorageObjectInfo> response = storageInternalClient.getFile(fileId);
         if (response == null || response.code() != ErrorCodes.SUCCESS.code() || response.data() == null) {
-            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid chapter image");
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, invalidMessage);
         }
         return response.data();
+    }
+
+    private List<ChapterAttachment> normalizeChapterAttachments(UUID courseId, @Nullable List<ChapterAttachmentRequest> requests) {
+        if (requests == null) {
+            return null;
+        }
+        if (requests.isEmpty()) {
+            return List.of();
+        }
+
+        List<ChapterAttachment> attachments = new ArrayList<>(requests.size());
+        for (ChapterAttachmentRequest request : requests) {
+            StorageObjectInfo file = requireStorageFile(request.fileId(), "Invalid chapter attachment");
+            validateChapterAttachment(file, courseId);
+            String displayName = StringUtils.hasText(request.displayName())
+                    ? request.displayName().trim()
+                    : file.fileName();
+            attachments.add(new ChapterAttachment(
+                    file.id(),
+                    displayName,
+                    file.fileName(),
+                    file.contentType(),
+                    file.sizeBytes(),
+                    null
+            ));
+        }
+        return attachments;
+    }
+
+    private void validateChapterAttachment(StorageObjectInfo file, UUID courseId) {
+        if (!READY_STATUS.equals(file.status())
+                || !isAllowedCourseFileUsage(file.usage())
+                || !COURSE_SCOPE_TYPE.equals(file.scopeType())
+                || !courseId.equals(file.scopeId())) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Invalid chapter attachment");
+        }
+    }
+
+    private boolean isAllowedCourseFileUsage(String usage) {
+        return COURSE_FILE_USAGE.equals(usage)
+                || COURSE_PUBLIC_FILE_USAGE.equals(usage)
+                || COURSE_PRIVATE_FILE_USAGE.equals(usage);
     }
 
     private List<UUID> extractChapterImageIds(String content) {
@@ -380,14 +440,32 @@ public class ChapterService {
     }
 
     private Map<UUID, String> loadImageUrlMap(List<UUID> imageIds) {
-        if (imageIds.isEmpty()) {
+        return loadStorageUrlMap(imageIds);
+    }
+
+    private Map<UUID, String> loadStorageUrlMap(List<UUID> fileIds) {
+        if (fileIds.isEmpty()) {
             return Map.of();
         }
-        ApiResponse<@NonNull Map<@NonNull UUID, @NonNull String>> response = storageInternalClient.getUrls(imageIds);
+        ApiResponse<@NonNull Map<@NonNull UUID, @NonNull String>> response = storageInternalClient.getUrls(fileIds);
         if (response == null || response.code() != ErrorCodes.SUCCESS.code() || response.data() == null) {
             return Map.of();
         }
         return response.data();
+    }
+
+    private Map<UUID, StorageObjectInfo> loadStorageInfoMap(List<UUID> fileIds) {
+        if (fileIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, StorageObjectInfo> result = new HashMap<>(fileIds.size());
+        for (UUID fileId : fileIds) {
+            ApiResponse<@NonNull StorageObjectInfo> response = storageInternalClient.getFile(fileId);
+            if (response != null && response.code() == ErrorCodes.SUCCESS.code() && response.data() != null) {
+                result.put(fileId, response.data());
+            }
+        }
+        return result;
     }
 
     private String resolveChapterImageUrls(String content, Map<UUID, String> imageUrlMap) {
@@ -409,6 +487,74 @@ public class ChapterService {
         return result.toString();
     }
 
+    private List<UUID> extractChapterAttachmentIds(@Nullable List<ChapterAttachment> attachments) {
+        if (attachments == null || attachments.isEmpty()) {
+            return List.of();
+        }
+        return attachments.stream()
+                .map(ChapterAttachment::fileId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+    }
+
+    private List<ChapterAttachmentVO> resolveChapterAttachments(@Nullable List<ChapterAttachment> attachments,
+                                                                Map<UUID, String> attachmentUrlMap,
+                                                                Map<UUID, StorageObjectInfo> attachmentInfoMap) {
+        if (attachments == null) {
+            return null;
+        }
+        List<ChapterAttachmentVO> result = new ArrayList<>(attachments.size());
+        for (int i = 0; i < attachments.size(); i++) {
+            ChapterAttachment attachment = attachments.get(i);
+            StorageObjectInfo fileInfo = attachment.fileId() == null ? null : attachmentInfoMap.get(attachment.fileId());
+            String fileName = firstText(attachment.fileName(), fileInfo == null ? null : fileInfo.fileName(), legacyName(attachment.legacyUrl(), i + 1));
+            String displayName = firstText(attachment.displayName(), fileName);
+            String url = attachment.fileId() == null ? attachment.legacyUrl() : attachmentUrlMap.get(attachment.fileId());
+            result.add(new ChapterAttachmentVO(
+                    attachment.fileId(),
+                    displayName,
+                    fileName,
+                    firstTextOrNull(attachment.contentType(), fileInfo == null ? null : fileInfo.contentType()),
+                    attachment.sizeBytes() == null && fileInfo != null ? fileInfo.sizeBytes() : attachment.sizeBytes(),
+                    url
+            ));
+        }
+        return result;
+    }
+
+    private String firstText(String... values) {
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value.trim();
+            }
+        }
+        return "Attachment";
+    }
+
+    private String firstTextOrNull(String... values) {
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value.trim();
+            }
+        }
+        return null;
+    }
+
+    private String legacyName(@Nullable String url, int index) {
+        if (!StringUtils.hasText(url)) {
+            return "Attachment " + index;
+        }
+        String normalized = url;
+        int queryIndex = normalized.indexOf('?');
+        if (queryIndex >= 0) {
+            normalized = normalized.substring(0, queryIndex);
+        }
+        int slashIndex = normalized.lastIndexOf('/');
+        String name = slashIndex >= 0 ? normalized.substring(slashIndex + 1) : normalized;
+        return StringUtils.hasText(name) ? name : "Attachment " + index;
+    }
+
     private List<ChapterVO> buildChapterTree(List<Chapter> allChapters, @Nullable UUID userId) {
         Map<UUID, List<Chapter>> childrenMap = allChapters.stream()
                 .filter(ch -> ch.getParentChapterId() != null)
@@ -425,37 +571,62 @@ public class ChapterService {
                 .flatMap(chapter -> extractChapterImageIds(chapter.getContent()).stream())
                 .distinct()
                 .toList());
+        List<UUID> attachmentIds = allChapters.stream()
+                .flatMap(chapter -> extractChapterAttachmentIds(chapter.getAttachments()).stream())
+                .distinct()
+                .toList();
+        Map<UUID, String> attachmentUrlMap = loadStorageUrlMap(attachmentIds);
+        Map<UUID, StorageObjectInfo> attachmentInfoMap = loadStorageInfoMap(attachmentIds);
         return allChapters.stream()
                 .filter(ch -> ch.getParentChapterId() == null)
-                .map(ch -> toChapterVO(ch, childrenMap, finalLikedChapterIds.contains(ch.getId()), finalLikedChapterIds, imageUrlMap))
+                .map(ch -> toChapterVO(ch, childrenMap, finalLikedChapterIds.contains(ch.getId()), finalLikedChapterIds, imageUrlMap, attachmentUrlMap, attachmentInfoMap))
                 .toList();
     }
 
     private ChapterVO toChapterVO(Chapter chapter, Map<UUID, List<Chapter>> childrenMap, Set<UUID> likedChapterIds) {
-        return toChapterVO(chapter, childrenMap, likedChapterIds.contains(chapter.getId()), likedChapterIds, Map.of());
+        return toChapterVO(chapter, childrenMap, likedChapterIds.contains(chapter.getId()), likedChapterIds, Map.of(), Map.of(), Map.of());
     }
 
     private ChapterVO toChapterVO(Chapter chapter, @Nullable Map<UUID, List<Chapter>> childrenMap, boolean likedByMe) {
-        return toChapterVO(chapter, childrenMap, likedByMe, Set.of(), Map.of());
+        return toChapterVO(chapter, childrenMap, likedByMe, Set.of(), Map.of(), Map.of(), Map.of());
     }
 
     private ChapterVO toChapterVO(Chapter chapter,
                                   @Nullable Map<UUID, List<Chapter>> childrenMap,
                                   boolean likedByMe,
                                   Map<UUID, String> imageUrlMap) {
-        return toChapterVO(chapter, childrenMap, likedByMe, Set.of(), imageUrlMap);
+        return toChapterVO(chapter, childrenMap, likedByMe, Set.of(), imageUrlMap, Map.of(), Map.of());
+    }
+
+    private ChapterVO toChapterVO(Chapter chapter,
+                                  @Nullable Map<UUID, List<Chapter>> childrenMap,
+                                  boolean likedByMe,
+                                  Map<UUID, String> imageUrlMap,
+                                  Map<UUID, String> attachmentUrlMap) {
+        return toChapterVO(chapter, childrenMap, likedByMe, Set.of(), imageUrlMap, attachmentUrlMap, Map.of());
+    }
+
+    private ChapterVO toChapterVO(Chapter chapter,
+                                  @Nullable Map<UUID, List<Chapter>> childrenMap,
+                                  boolean likedByMe,
+                                  Map<UUID, String> imageUrlMap,
+                                  Map<UUID, String> attachmentUrlMap,
+                                  Map<UUID, StorageObjectInfo> attachmentInfoMap) {
+        return toChapterVO(chapter, childrenMap, likedByMe, Set.of(), imageUrlMap, attachmentUrlMap, attachmentInfoMap);
     }
 
     private ChapterVO toChapterVO(Chapter chapter,
                                   @Nullable Map<UUID, List<Chapter>> childrenMap,
                                   boolean likedByMe,
                                   Set<UUID> likedChapterIds,
-                                  Map<UUID, String> imageUrlMap) {
+                                  Map<UUID, String> imageUrlMap,
+                                  Map<UUID, String> attachmentUrlMap,
+                                  Map<UUID, StorageObjectInfo> attachmentInfoMap) {
         List<ChapterVO> children = null;
         if (childrenMap != null) {
             List<Chapter> childChapters = childrenMap.getOrDefault(chapter.getId(), List.of());
             children = childChapters.stream()
-                    .map(ch -> toChapterVO(ch, childrenMap, likedChapterIds.contains(ch.getId()), likedChapterIds, imageUrlMap))
+                    .map(ch -> toChapterVO(ch, childrenMap, likedChapterIds.contains(ch.getId()), likedChapterIds, imageUrlMap, attachmentUrlMap, attachmentInfoMap))
                     .toList();
         }
 
@@ -467,7 +638,7 @@ public class ChapterService {
                 chapter.getParentChapterId(),
                 chapter.getDescription(),
                 resolveChapterImageUrls(chapter.getContent(), imageUrlMap),
-                chapter.getAttachmentUrls(),
+                resolveChapterAttachments(chapter.getAttachments(), attachmentUrlMap, attachmentInfoMap),
                 chapter.getSortOrder(),
                 chapter.getStatus(),
                 chapter.getViewCount(),

@@ -17,20 +17,30 @@
       <div v-if="chapter.content" class="content-html" v-html="chapter.content"></div>
       <div v-else class="content-placeholder">{{ t('chapter.noContent') }}</div>
 
-      <section v-if="chapter.attachmentUrls && chapter.attachmentUrls.length" id="chapter-attachments"
+      <section v-if="chapter.attachments && chapter.attachments.length" id="chapter-attachments"
                class="attachments-section">
         <h3>{{ t('chapter.attachments') }}</h3>
         <div class="attachment-list">
+          <router-link
+              v-for="attachment in storageAttachments"
+              :key="attachment.fileId"
+              :to="{ name: 'file-preview', query: { fileId: attachment.fileId, fileName: attachment.fileName || attachment.displayName } }"
+              class="attachment-item"
+          >
+            <FileDown :size="16"/>
+            <span>{{ attachment.displayName || attachment.fileName }}</span>
+            <small v-if="attachment.sizeBytes">{{ formatFileSize(attachment.sizeBytes) }}</small>
+          </router-link>
           <a
-              v-for="(url, index) in chapter.attachmentUrls"
-              :key="index"
-              :href="url"
+              v-for="(attachment, index) in legacyAttachments"
+              :key="attachment.url || index"
+              :href="attachment.url || '#'"
               class="attachment-item"
               rel="noopener noreferrer"
               target="_blank"
           >
             <FileDown :size="16"/>
-            <span>{{ t('chapter.download') }} {{ index + 1 }}</span>
+            <span>{{ attachment.displayName || attachment.fileName || `${t('chapter.attachments')} ${index + 1}` }}</span>
           </a>
         </div>
       </section>
@@ -52,11 +62,12 @@
 </template>
 
 <script lang="ts" setup>
+import {computed} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {Eye, FileDown, FileText, Heart} from 'lucide-vue-next'
-import type {Chapter} from '@/features/course/types/chapter'
+import type {Chapter, ChapterAttachment} from '@/features/course/types/chapter'
 
-defineProps<{
+const props = defineProps<{
   chapter: Chapter | null
 }>()
 
@@ -65,6 +76,18 @@ defineEmits<{
 }>()
 
 const {t} = useI18n()
+const storageAttachments = computed(() => props.chapter?.attachments?.filter(hasFileId) || [])
+const legacyAttachments = computed(() => props.chapter?.attachments?.filter(attachment => !attachment.fileId && attachment.url) || [])
+
+function hasFileId(attachment: ChapterAttachment): attachment is ChapterAttachment & { fileId: string } {
+  return Boolean(attachment.fileId)
+}
+
+function formatFileSize(sizeBytes: number) {
+  if (sizeBytes < 1024) return `${sizeBytes} B`
+  if (sizeBytes < 1024 * 1024) return `${Math.round(sizeBytes / 1024)} KB`
+  return `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`
+}
 </script>
 
 <style scoped>
@@ -253,6 +276,19 @@ const {t} = useI18n()
   font-family: var(--font-body);
   font-size: 13px;
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.attachment-item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-item small {
+  margin-left: auto;
+  color: var(--color-muted);
+  font-size: 12px;
 }
 
 .attachment-item:hover {

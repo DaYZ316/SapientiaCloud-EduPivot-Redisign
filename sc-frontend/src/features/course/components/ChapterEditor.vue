@@ -38,6 +38,33 @@
           />
         </div>
 
+        <div class="field">
+          <label>{{ t('chapter.attachments') }}</label>
+          <BaseFileUploader
+              :button-label="t('chapter.uploadAttachment')"
+              :scope-id="courseId"
+              scope-type="COURSE"
+              usage="COURSE_FILE"
+              @error="handleAttachmentUploadError"
+              @uploaded="handleAttachmentUploaded"
+          />
+          <div v-if="formAttachments.length" class="attachment-editor-list">
+            <div
+                v-for="attachment in formAttachments"
+                :key="attachment.fileId || attachment.url || attachment.displayName"
+                class="attachment-editor-item"
+            >
+              <FileText :size="16" stroke-width="1.8"/>
+              <span class="attachment-editor-name">{{ attachment.displayName || attachment.fileName }}</span>
+              <span v-if="attachment.sizeBytes" class="attachment-editor-size">{{ formatFileSize(attachment.sizeBytes) }}</span>
+              <button :title="t('chapter.removeAttachment')" type="button" @click="removeAttachment(attachment)">
+                <Trash2 :size="14" stroke-width="1.8"/>
+              </button>
+            </div>
+          </div>
+          <p v-else class="attachment-empty-hint">{{ t('chapter.noAttachmentsHint') }}</p>
+        </div>
+
         <div class="field-row">
           <div class="field">
             <label>{{ t('chapter.status') }}</label>
@@ -61,13 +88,16 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, reactive, watch} from 'vue'
+import {computed, reactive, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {X} from 'lucide-vue-next'
+import {FileText, Trash2, X} from 'lucide-vue-next'
 import BaseNumberStepper from '@/shared/components/BaseNumberStepper.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import BaseTextEditor from '@/shared/components/BaseTextEditor.vue'
-import type {Chapter, CreateChapterRequest, UpdateChapterRequest} from '@/features/course/types/chapter'
+import BaseFileUploader from '@/shared/components/BaseFileUploader.vue'
+import type {Chapter, ChapterAttachment, CreateChapterRequest, UpdateChapterRequest} from '@/features/course/types/chapter'
+import type {FileAsset} from '@/features/storage/types/storage'
+import {getStorageFile} from '@/features/storage/api/storage'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
 const props = defineProps<{
@@ -84,7 +114,7 @@ const emit = defineEmits<{
 
 const {t} = useI18n()
 
-const isEditing = !!props.chapter
+const isEditing = computed(() => Boolean(props.chapter))
 
 const form = reactive({
   chapterName: '',
@@ -93,6 +123,8 @@ const form = reactive({
   status: 0,
   sortOrder: 0,
 })
+const formAttachments = ref<ChapterAttachment[]>([])
+const attachmentsTouched = ref(false)
 
 const CHAPTER_IMAGE_MAX_SIZE_MB = 5
 const CHAPTER_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -111,33 +143,45 @@ const imageUploadOptions = computed(() => ({
 }))
 
 watch(
-    () => props.visible,
-    (val) => {
-      if (val && props.chapter) {
-        form.chapterName = props.chapter.chapterName
-        form.description = props.chapter.description || ''
-        form.content = props.chapter.content || ''
-        form.status = props.chapter.status
-        form.sortOrder = props.chapter.sortOrder
-      } else if (val) {
-        form.chapterName = ''
-        form.description = ''
-        form.content = ''
-        form.status = 0
-        form.sortOrder = 0
-      }
+    () => [props.visible, props.chapter?.id, props.parentChapterId],
+    () => {
+      if (!props.visible) return
+      resetForm()
     },
 )
 
+function resetForm() {
+  if (props.chapter) {
+    form.chapterName = props.chapter.chapterName
+    form.description = props.chapter.description || ''
+    form.content = props.chapter.content || ''
+    form.status = props.chapter.status
+    form.sortOrder = props.chapter.sortOrder
+    formAttachments.value = [...(props.chapter.attachments || [])]
+  } else {
+    form.chapterName = ''
+    form.description = ''
+    form.content = ''
+    form.status = 0
+    form.sortOrder = 0
+    formAttachments.value = []
+  }
+  attachmentsTouched.value = false
+}
+
 function handleSave() {
   if (props.chapter) {
-    emit('save', {
+    const data: UpdateChapterRequest = {
       chapterName: form.chapterName,
       description: form.description || undefined,
       content: form.content || undefined,
       status: form.status,
       sortOrder: form.sortOrder,
-    } as UpdateChapterRequest)
+    }
+    if (attachmentsTouched.value) {
+      data.attachments = attachmentRequests()
+    }
+    emit('save', data)
   } else {
     emit('save', {
       courseId: props.courseId,
@@ -145,6 +189,7 @@ function handleSave() {
       parentChapterId: props.parentChapterId || null,
       description: form.description || undefined,
       content: form.content || undefined,
+      attachments: attachmentRequests(),
       status: form.status,
       sortOrder: form.sortOrder,
     } as CreateChapterRequest)
@@ -165,6 +210,52 @@ function validateImageFile(file: File) {
 
 function handleUploadError() {
   notify.error(t('chapter.imageUploadFailed'))
+}
+
+async function handleAttachmentUploaded(asset: FileAsset) {
+  let file = asset
+  try {
+    file = await getStorageFile(asset.id)
+  } catch {
+    file = asset
+  }
+  attachmentsTouched.value = true
+  formAttachments.value = [
+    ...formAttachments.value,
+    {
+      fileId: file.id,
+      displayName: file.fileName,
+      fileName: file.fileName,
+      contentType: file.contentType,
+      sizeBytes: file.sizeBytes,
+      url: file.url,
+    },
+  ]
+  notify.success(t('chapter.attachmentUploaded'))
+}
+
+function handleAttachmentUploadError() {
+  notify.error(t('chapter.attachmentUploadFailed'))
+}
+
+function removeAttachment(attachment: ChapterAttachment) {
+  attachmentsTouched.value = true
+  formAttachments.value = formAttachments.value.filter(item => item !== attachment)
+}
+
+function attachmentRequests() {
+  return formAttachments.value
+      .filter(attachment => Boolean(attachment.fileId))
+      .map(attachment => ({
+        fileId: attachment.fileId as string,
+        displayName: attachment.displayName || attachment.fileName,
+      }))
+}
+
+function formatFileSize(sizeBytes: number) {
+  if (sizeBytes < 1024) return `${sizeBytes} B`
+  if (sizeBytes < 1024 * 1024) return `${Math.round(sizeBytes / 1024)} KB`
+  return `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`
 }
 </script>
 
@@ -309,6 +400,61 @@ function handleUploadError() {
   color: var(--color-on-surface);
   font-family: var(--font-body);
   font-size: 14px;
+}
+
+.attachment-editor-list {
+  display: grid;
+  gap: 8px;
+}
+
+.attachment-editor-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 10px;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-on-surface);
+}
+
+.attachment-editor-name {
+  overflow: hidden;
+  font-family: var(--font-body);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-editor-size,
+.attachment-empty-hint {
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 12px;
+}
+
+.attachment-empty-hint {
+  margin: 0;
+}
+
+.attachment-editor-item button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.attachment-editor-item button:hover {
+  background: var(--color-surface-container-high);
+  color: #ef4444;
 }
 
 .editor-footer {

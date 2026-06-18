@@ -4,52 +4,91 @@ import {ClassRoomSize} from '@/features/course/types/classSession'
 import {getRoomSpec} from '@/features/classroom/types/classroom'
 
 const LARGE_SEATS_PER_DESK = 4
-const CLOCKWISE_RIGHT_ANGLE = -Math.PI / 2
+const DEFAULT_ROOM_DIMENSIONS = {x: 18, z: 20}
+const MEDIUM_COLUMNS = 8
+const LARGE_DESK_COLUMNS = 4
+const XLARGE_FIRST_RING_SEATS = 16
 
-export function getDeskPosition(roomSize: number, deskIndex: number): THREE.Vector3 {
+export interface RoomPlanDimensions {
+    x: number | null
+    z: number | null
+}
+
+export function getDeskPosition(
+    roomSize: number,
+    deskIndex: number,
+    dimensions: RoomPlanDimensions = DEFAULT_ROOM_DIMENSIONS,
+): THREE.Vector3 {
     switch (roomSize) {
         case ClassRoomSize.SMALL:
             return gridPosition(deskIndex, 4, 1.75, 1.75, 2.4, 0.4)
         case ClassRoomSize.MEDIUM:
-            return gridPosition(deskIndex, 8, 2.05, 1.9, 0, 6)
+            return middleDeskPosition(deskIndex, dimensions)
         case ClassRoomSize.LARGE:
-            return gridPosition(deskIndex, 4, 6, 2.25, 0, 9)
+            return largeDeskPosition(deskIndex, dimensions)
         case ClassRoomSize.XLARGE:
-            return fanPosition(deskIndex)
+            return extraLargeDeskPosition(deskIndex)
         default:
             return gridPosition(deskIndex, 3, 1.75, 1.75, 0, 2.5)
     }
 }
 
-export function getSeatPosition(roomSize: number, seatIndex: number): THREE.Vector3 {
+export function getSeatPosition(
+    roomSize: number,
+    seatIndex: number,
+    dimensions: RoomPlanDimensions = DEFAULT_ROOM_DIMENSIONS,
+): THREE.Vector3 {
     if (roomSize === ClassRoomSize.LARGE) {
         const deskIndex = Math.floor(seatIndex / LARGE_SEATS_PER_DESK)
         const seatInDesk = seatIndex % LARGE_SEATS_PER_DESK
-        const position = getDeskPosition(roomSize, deskIndex)
-        const offsets = [-1.35, -0.45, 0.45, 1.35]
-        position.x += offsets[seatInDesk] ?? 0
-        position.y += 1.3
-        position.z += 0.35
+        const position = getDeskPosition(roomSize, deskIndex, dimensions)
+        const modelWidth = 4
+        const seatSpacing = modelWidth / (LARGE_SEATS_PER_DESK + 1)
+        const leftOffset = -modelWidth / 2
+        position.x += leftOffset + seatSpacing * (seatInDesk + 1) - 0.1
+        position.y += 3.4
+        position.z += 0.4
         return position
     }
 
-    const position = getDeskPosition(roomSize, seatIndex)
-    position.y += roomSize === ClassRoomSize.XLARGE ? 1 : 1.05
+    const position = getDeskPosition(roomSize, seatIndex, dimensions)
+    if (roomSize === ClassRoomSize.MEDIUM) {
+        position.x += 0.4
+        position.y += 1.6
+        position.z -= 0.2
+        return position
+    }
+    if (roomSize === ClassRoomSize.XLARGE) {
+        position.y += 1.4
+        position.z -= 1
+        return position
+    }
+    position.y += 1.05
     position.z += roomSize === ClassRoomSize.SMALL ? 0.25 : 0
     return position
 }
 
-export function getAllSeatPositions(roomSize: number): THREE.Vector3[] {
+export function getAllSeatPositions(
+    roomSize: number,
+    dimensions: RoomPlanDimensions = DEFAULT_ROOM_DIMENSIONS,
+): THREE.Vector3[] {
     const spec = getRoomSpec(roomSize)
-    return Array.from({length: spec.seatCount}, (_, index) => getSeatPosition(roomSize, index))
+    return Array.from({length: spec.seatCount}, (_, index) => getSeatPosition(roomSize, index, dimensions))
 }
 
-export function getDeskYaw(roomSize: number, deskIndex: number): number {
-    if (roomSize !== ClassRoomSize.XLARGE) {
-        return Math.PI / 2 + CLOCKWISE_RIGHT_ANGLE
+export function getDeskYaw(
+    roomSize: number,
+    deskIndex: number,
+    dimensions: RoomPlanDimensions = DEFAULT_ROOM_DIMENSIONS,
+): number {
+    if (roomSize === ClassRoomSize.SMALL) {
+        return 0
     }
-    const position = getDeskPosition(roomSize, deskIndex)
-    return Math.atan2(-position.x, 8 - position.z) + CLOCKWISE_RIGHT_ANGLE
+    if (roomSize !== ClassRoomSize.XLARGE) {
+        return Math.PI / 2
+    }
+    const position = getDeskPosition(roomSize, deskIndex, dimensions)
+    return Math.atan2(-position.x, 10 - position.z) + Math.PI * 1.5
 }
 
 function gridPosition(
@@ -68,17 +107,66 @@ function gridPosition(
     return new THREE.Vector3(x, y, z)
 }
 
-function fanPosition(index: number): THREE.Vector3 {
+function middleDeskPosition(index: number, dimensions: RoomPlanDimensions): THREE.Vector3 {
+    const safeX = (dimensions.x && dimensions.x > 0 ? dimensions.x : 20) - 2
+    const safeZ = dimensions.z && dimensions.z > 0 ? dimensions.z : 15
+    const columnIndex = index % MEDIUM_COLUMNS
+    const rowIndex = Math.floor(index / MEDIUM_COLUMNS)
+
+    return new THREE.Vector3(
+        safeX / 2 - safeX / MEDIUM_COLUMNS * (0.5 + columnIndex),
+        0,
+        safeZ / 2 - 1.8 * rowIndex - 5,
+    )
+}
+
+function largeDeskPosition(index: number, dimensions: RoomPlanDimensions): THREE.Vector3 {
+    const width = dimensions.x && dimensions.x > 0 ? dimensions.x : 20
+    const depth = dimensions.z && dimensions.z > 0 ? dimensions.z : 30
+    const rowIndex = Math.floor(index / LARGE_DESK_COLUMNS)
+    const columnIndex = index % LARGE_DESK_COLUMNS
+    const segmentCount = 10
+    const segmentWidth = width / segmentCount
+    const deskCenterSegments = [0, 3, 5, 8]
+    const centerSegment = deskCenterSegments[columnIndex] ?? deskCenterSegments[deskCenterSegments.length - 1]
+    const halfWidth = width / 2
+    const halfDepth = depth / 2
+    const startZ = halfDepth - 8.4
+    const backZ = -halfDepth
+    const z = Math.max(startZ - rowIndex * 2, backZ)
+
+    return new THREE.Vector3(
+        -halfWidth + centerSegment * segmentWidth + segmentWidth / 2,
+        -0.8 + rowIndex * 0.18,
+        z,
+    )
+}
+
+function extraLargeDeskPosition(index: number): THREE.Vector3 {
     const ring = findFanRing(index)
     const firstIndex = fanRingStart(ring)
-    const indexInRing = index - firstIndex
+    let indexInRing = index - firstIndex + 1
     const count = fanRingCount(ring)
-    const radius = 10.5 + ring * 2.05
-    const angleSpan = THREE.MathUtils.degToRad(112)
-    const start = Math.PI / 2 + angleSpan / 2
-    const step = count > 1 ? angleSpan / (count - 1) : 0
-    const angle = start - step * indexInRing
-    return new THREE.Vector3(Math.cos(angle) * radius, ring * 0.25, 8 - Math.sin(angle) * radius)
+    const radius = 11.8 + (ring / 9) * (29.6 - 11.8)
+    const angleSpanDeg = 110
+    const angleStart = THREE.MathUtils.degToRad(180 - (180 - angleSpanDeg) / 2)
+    const angleStep = THREE.MathUtils.degToRad(angleSpanDeg) / (count + 1)
+    const angleMedium = angleStart - (THREE.MathUtils.degToRad(angleSpanDeg) / 13) * 7
+    let angle = angleStart
+
+    indexInRing -= 0.5
+    if (indexInRing <= count / 2) {
+        angle = angleStart - angleStep * indexInRing
+    } else {
+        indexInRing -= count / 2
+        angle = angleMedium - angleStep * indexInRing
+    }
+
+    return new THREE.Vector3(
+        Math.cos(angle) * radius,
+        0.8 + ring * 0.6,
+        -Math.sin(angle) * radius + 10,
+    )
 }
 
 function findFanRing(index: number): number {
@@ -100,5 +188,5 @@ function fanRingStart(ring: number): number {
 }
 
 function fanRingCount(ring: number): number {
-    return 16 + ring * 2
+    return XLARGE_FIRST_RING_SEATS + ring * 2
 }

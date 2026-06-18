@@ -163,11 +163,11 @@
           <div class="editor-heading">
             <h3>{{ panelTitle }}</h3>
             <div class="form-actions">
-              <button v-if="!isPreviewing" :disabled="submitting" class="btn-add primary" type="submit">
+              <button v-if="canManageCourse && !isPreviewing" :disabled="submitting" class="btn-add primary" type="submit">
                 {{ submitting ? t('courseDetail.saving') : t('courseDetail.save') }}
               </button>
               <button
-                  v-if="editingSession"
+                  v-if="canManageCourse && editingSession"
                   :disabled="busySessionId === editingSession.id"
                   class="btn-secondary"
                   type="button"
@@ -517,7 +517,7 @@ async function loadSessions() {
     }
     if (editingId) {
       const nextEditing = sessions.value.find(session => session.id === editingId) || null
-      if (nextEditing && isDraft(nextEditing)) {
+      if (nextEditing && isDraft(nextEditing) && props.canManageCourse) {
         editingSession.value = nextEditing
         fillFormFromSession(nextEditing)
       } else {
@@ -560,6 +560,7 @@ function resetForm() {
 }
 
 function openCreate() {
+  if (!props.canManageCourse) return
   previewSession.value = null
   editingSession.value = null
   resetForm()
@@ -590,6 +591,7 @@ function fillFormFromSession(session: ClassSession) {
 }
 
 async function handleSubmit() {
+  if (!props.canManageCourse) return
   const title = form.title.trim()
   if (!title) {
     errorMessage.value = t('courseDetail.classSession.titleRequired')
@@ -645,6 +647,7 @@ async function handleSubmit() {
 }
 
 async function handlePublish(session: ClassSession) {
+  if (!props.canManageCourse) return
   if (!(await confirmDialog({message: t('courseDetail.classSession.confirmPublish')}))) return
   busySessionId.value = session.id
   try {
@@ -665,6 +668,7 @@ async function handlePublish(session: ClassSession) {
 }
 
 async function handleDelete(session: ClassSession) {
+  if (!props.canManageCourse) return
   if (!(await confirmDialog({message: t('courseDetail.classSession.confirmDelete'), confirmVariant: 'danger'}))) return
   busySessionId.value = session.id
   try {

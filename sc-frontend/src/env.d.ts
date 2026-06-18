@@ -13,3 +13,54 @@ interface ImportMetaEnv {
 interface ImportMeta {
     readonly env: ImportMetaEnv
 }
+
+declare module '@vue-office/pdf/lib/v3/vue-office-pdf.mjs' {
+    import type {DefineComponent} from 'vue'
+
+    const component: DefineComponent<{
+        src: string | ArrayBuffer | Blob
+        rerender?: () => unknown
+        staticFileUrl?: string
+        requestOptions?: unknown
+        options?: unknown
+        getScale?: () => number
+        setScale?: (value: number) => void
+    }>
+
+    export default component
+}
+
+declare module '@vue-office/docx/lib/v3/vue-office-docx.mjs' {
+    import type {DefineComponent} from 'vue'
+
+    const component: DefineComponent<{
+        src: string | ArrayBuffer | Blob
+    }>
+
+    export default component
+}
+
+declare module '@vue-office/excel/lib/v3/vue-office-excel.mjs' {
+    import type {DefineComponent} from 'vue'
+
+    const component: DefineComponent<{
+        src: string | ArrayBuffer | Blob
+    }>
+
+    export default component
+}
+
+declare module '@vue-office/pptx/lib/v3/vue-office-pptx.mjs' {
+    import type {DefineComponent} from 'vue'
+
+    const component: DefineComponent<{
+        src: string | ArrayBuffer | Blob
+        requestOptions?: unknown
+        options?: {
+            width?: number
+            height?: number
+        }
+    }>
+
+    export default component
+}

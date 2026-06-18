@@ -2,10 +2,10 @@
   <div aria-live="polite" class="course-entry-transition" role="status">
     <canvas ref="canvasRef" aria-hidden="true" class="shader-canvas"></canvas>
     <div class="loading-content">
-      <div class="percentage"></div>
+      <div class="percentage">{{ Math.round(clampedProgress) }}%</div>
       <div class="progress-wrap">
         <div class="progress-track">
-          <div class="progress-fill"></div>
+          <div class="progress-fill" :style="{width: `${clampedProgress}%`}"></div>
         </div>
         <div class="loading-label">{{ label }}</div>
       </div>
@@ -14,14 +14,22 @@
 </template>
 
 <script lang="ts" setup>
-import {onBeforeUnmount, onMounted, ref} from 'vue'
+import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   label?: string
+  progress?: number
 }>(), {
   label: 'LOADING CLASSROOM',
+  progress: 0,
 })
 
+const clampedProgress = computed(() => {
+  if (!Number.isFinite(props.progress)) {
+    return 0
+  }
+  return Math.min(Math.max(props.progress, 0), 100)
+})
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 let animationFrame = 0
 let resizeObserver: ResizeObserver | null = null
@@ -228,12 +236,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-@property --num {
-  syntax: '<integer>';
-  initial-value: 0;
-  inherits: false;
-}
-
 .course-entry-transition {
   position: fixed;
   inset: 0;
@@ -264,16 +266,10 @@ onBeforeUnmount(() => {
 .percentage {
   margin-bottom: 32px;
   color: #ffffff;
-  counter-reset: num var(--num);
   font-family: var(--font-heading);
   font-size: clamp(56px, 12vw, 72px);
   font-weight: 700;
   line-height: 1.1;
-  animation: counter 2s ease-out forwards;
-}
-
-.percentage::after {
-  content: counter(num) '%';
 }
 
 .progress-wrap {
@@ -296,7 +292,7 @@ onBeforeUnmount(() => {
   inset: 0 auto 0 0;
   width: 0;
   background: #ffffff;
-  animation: load 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  transition: width 160ms ease-out;
 }
 
 .loading-label {
@@ -304,8 +300,9 @@ onBeforeUnmount(() => {
   font-family: var(--font-label);
   font-size: 12px;
   font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.1em;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-align: center;
 }
 
 :global(:root[data-theme='light']) .course-entry-transition {
@@ -328,30 +325,9 @@ onBeforeUnmount(() => {
   color: #000000;
 }
 
-@keyframes load {
-  from {
-    width: 0;
-  }
-
-  to {
-    width: 100%;
-  }
-}
-
-@keyframes counter {
-  from {
-    --num: 0;
-  }
-
-  to {
-    --num: 100;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .percentage,
   .progress-fill {
-    animation-duration: 600ms;
+    transition-duration: 0ms;
   }
 }
 </style>

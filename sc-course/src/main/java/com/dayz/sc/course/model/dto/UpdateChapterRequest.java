@@ -1,5 +1,6 @@
 package com.dayz.sc.course.model.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 
@@ -17,7 +18,7 @@ public record UpdateChapterRequest(
         UUID parentChapterId,
         @Size(max = 2000) String description,
         String content,
-        List<String> attachmentUrls,
+        List<@Valid ChapterAttachmentRequest> attachments,
         @Min(0) Integer sortOrder,
         Integer status
 ) {

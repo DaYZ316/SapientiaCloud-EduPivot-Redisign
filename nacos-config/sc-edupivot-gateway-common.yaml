@@ -6,6 +6,10 @@ spring:
     virtual:
       enabled: true
 
+logging:
+  level:
+    com.alibaba.nacos.plugin: WARN
+
 management:
   endpoints:
     web:

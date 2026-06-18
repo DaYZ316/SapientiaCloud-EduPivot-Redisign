@@ -79,6 +79,7 @@
             </dl>
 
             <button
+                v-if="showPrimaryAction"
                 :disabled="primaryActionDisabled"
                 class="primary-action hero-action"
                 type="button"
@@ -258,6 +259,7 @@ import {
   ArrowLeft,
   BookOpen,
   CalendarDays,
+  ClipboardList,
   Clock,
   Database,
   DoorOpen,
@@ -290,7 +292,7 @@ import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {recordCourseVisit} from '@/shared/composables/useRecentCourses'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 
-type TabKey = 'overview' | 'chapters' | 'forums' | 'banks' | 'files' | 'students' | 'assistants'
+type TabKey = 'overview' | 'chapters' | 'forums' | 'banks' | 'live-practices' | 'files' | 'students' | 'assistants'
 type TeacherInfo = NonNullable<CourseDetail['teacherInfos']>[number]
 const DETAIL_PAGE_SIZE = 10
 
@@ -332,6 +334,7 @@ const courseCoverFallbackUrl = '/assets/course-cover-default.png'
 
 const isAdmin = computed(() => authStore.user?.role === 0)
 const isStudent = computed(() => authStore.user?.role === 1)
+const isTeacher = computed(() => authStore.user?.role === 2)
 const isPublished = computed(() => course.value?.status === 1)
 const canEditCourseStatus = computed(() => {
   const userId = authStore.user?.id
@@ -366,10 +369,14 @@ const canAccessCourseContent = computed(() => {
   return canManageCourse.value || Boolean(course.value?.enrolled) || isPublicPublishedCourse.value
 })
 const canEnterClassSessions = computed(() => {
+  if (isTeacher.value) return canManageCourse.value
   return canManageCourse.value || Boolean(course.value?.enrolled)
 })
 const canViewStudents = computed(() => canManageCourse.value || isPublicCourse.value)
 const canViewAssistants = computed(() => canManageCourse.value || isPublicCourse.value)
+const showPrimaryAction = computed(() => {
+  return showEnrollButton.value || canEnterClassSessions.value || !isTeacher.value
+})
 
 const assistantOnlyInfos = computed<TeacherInfo[]>(() => {
   if (!course.value?.teacherInfos) return []
@@ -441,6 +448,12 @@ const tabs = computed(() => [
   {key: 'chapters' as const, label: t('courseDetail.chaptersTab'), icon: BookOpen, roles: [0, 1, 2]},
   {key: 'forums' as const, label: t('courseDetail.discussionTab'), icon: MessageCircle, roles: [0, 1, 2]},
   {key: 'banks' as const, label: t('courseDetail.practiceTab'), icon: Database, roles: [0, 1, 2]},
+  {
+    key: 'live-practices' as const,
+    label: canManageCourse.value ? '练习' : '练习册',
+    icon: ClipboardList,
+    roles: [0, 1, 2],
+  },
   {key: 'files' as const, label: t('courseDetail.filesTab'), icon: Database, roles: [0, 1, 2]},
   {key: 'students' as const, label: t('courseDetail.studentsTab'), icon: Users, roles: [0, 1, 2], requiresViewStudents: true},
   {key: 'assistants' as const, label: t('courseDetail.assistantsTab'), icon: UserCheck, roles: [0, 1, 2], requiresViewAssistants: true},
@@ -467,6 +480,8 @@ const activeListPage = computed(() => {
   switch (activeTabKey.value) {
     case 'banks':
       return banksPage.value
+    case 'live-practices':
+      return 1
     case 'files':
       return filesPage.value
     case 'students':
@@ -480,6 +495,8 @@ const activeListTotal = computed(() => {
   switch (activeTabKey.value) {
     case 'banks':
       return banksTotal.value
+    case 'live-practices':
+      return 0
     case 'files':
       return filesTotal.value
     case 'students':
@@ -707,6 +724,8 @@ async function ensureActiveTabData() {
     case 'banks':
       if (!banksLoaded.value && !banksLoading.value) await reloadBanks()
       break
+    case 'live-practices':
+      break
     case 'files':
       if (!filesLoaded.value && !filesLoading.value) await reloadFiles()
       break
@@ -726,6 +745,8 @@ async function reloadActiveTabData() {
       break
     case 'banks':
       await reloadBanks()
+      break
+    case 'live-practices':
       break
     case 'files':
       await reloadFiles()

@@ -185,19 +185,18 @@ public class ClassSessionService {
         ClassSession session = classSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
         ensurePublished(session);
-        boolean isTeacher = isCourseTeacher(session.getCourseId(), userId, role);
-        if (isTeacher) {
-            ClassParticipant participant = ensureParticipant(session, userId, ClassParticipantRole.TEACHER, null,
-                    valueOrZero(request.x()), valueOrZero(request.y()), valueOrZero(request.z()));
-            return toParticipantVO(participant, loadUserInfoMap(List.of(participant.getUserId())));
-        }
         if (!SecurityUtils.isStudent(role) || !isStudentEnrolled(session.getCourseId(), userId)) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
         int seatIndex = validateSeatIndex(session.getRoomSize(), request.seatIndex());
+        ClassParticipant existing = classParticipantRepository.findBySessionIdAndUserId(sessionId, userId)
+                .orElse(null);
+        if (existing != null && Integer.valueOf(seatIndex).equals(existing.getSeatIndex())) {
+            return toParticipantVO(existing, loadUserInfoMap(List.of(existing.getUserId())));
+        }
         ensureSeatAvailable(sessionId, seatIndex, userId);
         try {
-            ClassParticipant participant = ensureParticipant(session, userId, ClassParticipantRole.STUDENT, seatIndex,
+            ClassParticipant participant = saveStudentSeat(session, existing, userId, seatIndex,
                     valueOrZero(request.x()), valueOrZero(request.y()), valueOrZero(request.z()));
             ClassParticipantVO vo = toParticipantVO(participant, loadUserInfoMap(List.of(participant.getUserId())));
             seatSyncWebSocketHub.broadcastUpsert(sessionId, vo);
@@ -300,6 +299,32 @@ public class ClassSessionService {
         if (!joined(sessionId, userId)) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
+    }
+
+    private ClassParticipant saveStudentSeat(ClassSession session, ClassParticipant existing, UUID userId,
+                                             Integer seatIndex, BigDecimal x, BigDecimal y, BigDecimal z) {
+        if (existing != null) {
+            existing.setRole(ClassParticipantRole.STUDENT.getCode());
+            existing.setSeatIndex(seatIndex);
+            existing.setX(x);
+            existing.setY(y);
+            existing.setZ(z);
+            classParticipantRepository.update(existing);
+            return existing;
+        }
+
+        ClassParticipant participant = new ClassParticipant();
+        participant.setId(UuidV7Generator.generate());
+        participant.setSessionId(session.getId());
+        participant.setUserId(userId);
+        participant.setRole(ClassParticipantRole.STUDENT.getCode());
+        participant.setSeatIndex(seatIndex);
+        participant.setX(x);
+        participant.setY(y);
+        participant.setZ(z);
+        participant.setJoinedAt(Instant.now());
+        classParticipantRepository.save(participant);
+        return participant;
     }
 
     private ClassParticipant ensureParticipant(ClassSession session, UUID userId, ClassParticipantRole role,

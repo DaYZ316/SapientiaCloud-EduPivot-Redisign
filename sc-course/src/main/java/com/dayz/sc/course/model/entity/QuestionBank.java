@@ -1,7 +1,7 @@
 package com.dayz.sc.course.model.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.dayz.sc.course.config.PostgresJsonbStringListTypeHandler;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -33,7 +33,7 @@ public class QuestionBank {
 
     private Integer bankType;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = PostgresJsonbStringListTypeHandler.class)
     private List<String> tags;
 
     private Integer difficulty;

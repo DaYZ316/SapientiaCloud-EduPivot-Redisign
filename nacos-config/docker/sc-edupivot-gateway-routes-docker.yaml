@@ -33,6 +33,10 @@
               uri: lb://sc-course
               predicates:
                 - Path=/api/class-sessions/**
+            - id: course-live-practices-route
+              uri: lb://sc-course
+              predicates:
+                - Path=/api/live-practices/**
             - id: course-chapters-route
               uri: lb://sc-course
               predicates:

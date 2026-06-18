@@ -21,7 +21,7 @@ public record ChapterVO(
         @JsonProperty("parentChapterId") @Nullable UUID parentChapterId,
         @JsonProperty("description") @Nullable String description,
         @JsonProperty("content") @Nullable String content,
-        @JsonProperty("attachmentUrls") @Nullable List<String> attachmentUrls,
+        @JsonProperty("attachments") @Nullable List<ChapterAttachmentVO> attachments,
         @JsonProperty("sortOrder") int sortOrder,
         @JsonProperty("status") int status,
         @JsonProperty("viewCount") long viewCount,

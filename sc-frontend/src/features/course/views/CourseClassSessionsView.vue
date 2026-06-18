@@ -59,9 +59,6 @@ const canManageCourse = computed(() => {
   if (!userId || !course.value) return isAdmin.value
   return isAdmin.value || course.value.teacherId === userId || Boolean(course.value.teacherIds?.includes(userId))
 })
-const canEnterClassSessions = computed(() => {
-  return canManageCourse.value || Boolean(course.value?.enrolled)
-})
 
 watch(() => route.query.create, (value) => {
   if (value === '1') classSessionCreateRequestKey.value += 1
@@ -74,9 +71,6 @@ async function loadCourse() {
   try {
     const courseData = await getCourse(courseId)
     course.value = courseData
-    if (!canEnterClassSessions.value) {
-      await router.replace({name: 'course-overview', params: {id: courseId}})
-    }
   } finally {
     loading.value = false
   }

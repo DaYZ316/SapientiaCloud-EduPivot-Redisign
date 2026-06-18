@@ -183,16 +183,25 @@
 
           <div class="resource-block">
             <span>{{ t('chapter.resources') }}</span>
-            <template v-if="selectedChapter?.attachmentUrls?.length">
+            <template v-if="selectedAttachments.length">
+              <router-link
+                  v-for="attachment in storageAttachments"
+                  :key="attachment.fileId"
+                  :to="{ name: 'file-preview', query: { fileId: attachment.fileId, fileName: attachment.fileName || attachment.displayName } }"
+              >
+                <FileText :size="14" stroke-width="1.8"/>
+                <span>{{ attachment.displayName || attachment.fileName }}</span>
+                <small v-if="attachment.sizeBytes">{{ formatFileSize(attachment.sizeBytes) }}</small>
+              </router-link>
               <a
-                  v-for="(url, index) in selectedChapter.attachmentUrls"
-                  :key="url"
-                  :href="url"
+                  v-for="(attachment, index) in legacyAttachments"
+                  :key="attachment.url || index"
+                  :href="attachment.url || '#'"
                   rel="noopener noreferrer"
                   target="_blank"
               >
                 <FileText :size="14" stroke-width="1.8"/>
-                {{ t('chapter.attachments') }} {{ index + 1 }}
+                <span>{{ attachment.displayName || attachment.fileName || `${t('chapter.attachments')} ${index + 1}` }}</span>
               </a>
             </template>
             <p v-else>{{ t('chapter.noAttachmentsHint') }}</p>
@@ -258,7 +267,7 @@
 import {computed, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {BookOpen, ChevronLeft, ChevronRight, FileText, Pencil, Plus, Trash2,} from 'lucide-vue-next'
-import type {Chapter} from '@/features/course/types/chapter'
+import type {Chapter, ChapterAttachment} from '@/features/course/types/chapter'
 
 const props = defineProps<{
   chapterTree: Chapter[]
@@ -307,6 +316,13 @@ const selectedDescription = computed(() => {
   if (!selectedChapter.value) return t('chapter.selectLessonHint')
   return selectedChapter.value.description || t('chapter.noDescriptionHint')
 })
+const selectedAttachments = computed(() => selectedChapter.value?.attachments || [])
+const storageAttachments = computed(() => selectedAttachments.value.filter(hasFileId))
+const legacyAttachments = computed(() => selectedAttachments.value.filter(attachment => !attachment.fileId && attachment.url))
+
+function hasFileId(attachment: ChapterAttachment): attachment is ChapterAttachment & { fileId: string } {
+  return Boolean(attachment.fileId)
+}
 
 watch(flatChapters, (chapters) => {
   if (chapters.length === 0) {
@@ -375,6 +391,12 @@ function formatPublishDate(chapter: Chapter) {
 
 function formatIndex(index: number) {
   return String(index).padStart(2, '0')
+}
+
+function formatFileSize(sizeBytes: number) {
+  if (sizeBytes < 1024) return `${sizeBytes} B`
+  if (sizeBytes < 1024 * 1024) return `${Math.round(sizeBytes / 1024)} KB`
+  return `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`
 }
 </script>
 
@@ -610,6 +632,8 @@ function formatIndex(index: number) {
 
 .chapter-section-head:hover + .chapter-section-actions,
 .chapter-section-head:focus-visible + .chapter-section-actions,
+.chapter-section-actions:hover,
+.chapter-section-actions:focus-within,
 .lesson-row-wrap:hover .lesson-actions,
 .lesson-row-wrap:focus-within .lesson-actions {
   opacity: 1;
@@ -887,6 +911,19 @@ function formatIndex(index: number) {
   font-size: 13px;
   text-decoration: none;
   transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.resource-block a span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-block a small {
+  margin-left: auto;
+  color: var(--color-muted);
+  font-size: 11px;
 }
 
 .resource-block a:hover {

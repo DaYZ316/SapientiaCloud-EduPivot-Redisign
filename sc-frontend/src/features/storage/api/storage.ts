@@ -18,6 +18,13 @@ export function completeUpload(objectId: string) {
     })
 }
 
+export function getStorageFile(fileId: string) {
+    return request<FileAsset>({
+        method: 'GET',
+        url: `/api/storage/files/${fileId}`,
+    })
+}
+
 export function getDownloadUrl(fileId: string) {
     return request<DownloadUrlResponse>({
         method: 'GET',

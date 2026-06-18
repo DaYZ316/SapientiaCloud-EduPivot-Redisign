@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import base64
 import json
 import os
 import re
@@ -89,6 +90,24 @@ def config_files(config_dir: Path) -> list[tuple[str, str, Path]]:
     return files
 
 
+def env_value(var_name: str, default: str) -> str:
+    value = os.environ.get(var_name)
+    if value:
+        return format_env_value(var_name, value)
+    if var_name == "JWT_PRIVATE_KEY":
+        encoded_private_key = os.environ.get("JWT_PRIVATE_KEY_B64", "").strip()
+        if encoded_private_key:
+            value = base64.b64decode(encoded_private_key).decode("utf-8")
+            return format_env_value(var_name, value)
+    return default
+
+
+def format_env_value(var_name: str, value: str) -> str:
+    if var_name == "JWT_PRIVATE_KEY":
+        return value.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\\n")
+    return value
+
+
 def substitute_env_vars(content: str) -> str:
     """将 ${VAR} 和 ${VAR:default} 替换为环境变量值。"""
     def replacer(match: re.Match) -> str:
@@ -97,7 +116,7 @@ def substitute_env_vars(content: str) -> str:
             var_name, default = var_expr.split(":", 1)
         else:
             var_name, default = var_expr, ""
-        return os.environ.get(var_name.strip(), default)
+        return env_value(var_name.strip(), default)
     return re.sub(r"\$\{([^}]+)}", replacer, content)
 
 

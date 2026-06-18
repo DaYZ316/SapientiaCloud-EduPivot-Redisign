@@ -140,7 +140,7 @@ function flattenChapters(chapters: Chapter[]): Chapter[] {
 
 const flatChapters = computed(() => flattenChapters(chapterTree.value))
 const currentIndex = computed(() => flatChapters.value.findIndex(item => item.id === chapterId.value))
-const attachmentCount = computed(() => chapter.value?.attachmentUrls?.length || 0)
+const attachmentCount = computed(() => chapter.value?.attachments?.length || 0)
 const statusLabel = computed(() => chapter.value?.status === 1 ? t('chapter.published') : t('chapter.draft'))
 const chapterPosition = computed(() => {
   if (currentIndex.value < 0 || flatChapters.value.length === 0) return '-'

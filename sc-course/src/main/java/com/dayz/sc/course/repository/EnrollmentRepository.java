@@ -67,6 +67,8 @@ public interface EnrollmentRepository {
      */
     Page<Enrollment> findByCourseId(UUID courseId, int page, int size);
 
+    List<Enrollment> findActiveOrCompletedByCourseId(UUID courseId);
+
     /**
      * 统计课程的活跃选课人数。
      *

@@ -10,6 +10,7 @@ import com.dayz.sc.auth.repository.UserAccountRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
@@ -66,6 +67,7 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
     private final UserMapper userMapper;
     private final UserIdentityMapper userIdentityMapper;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final StringRedisTemplate stringRedisTemplate;
 
     // ==================== 读操作 ====================
 
@@ -140,15 +142,9 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
         String cacheKey = providersKey(userId);
 
         // 1. 查缓存
-        Object cached = getFromCache(cacheKey);
-        if (NULL_MARKER.equals(cached)) {
-            return List.of();
-        }
-        if (cached instanceof List<?> list && !list.isEmpty()
-                && list.getFirst() instanceof OauthProvider) {
-            @SuppressWarnings("unchecked")
-            List<OauthProvider> providers = (List<OauthProvider>) list;
-            return providers;
+        Optional<List<OauthProvider>> cachedProviders = getProvidersFromCache(cacheKey);
+        if (cachedProviders.isPresent()) {
+            return cachedProviders.get();
         }
 
         // 2. 查 DB
@@ -160,7 +156,7 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
                 .toList();
 
         // 3. 写缓存
-        putToCache(cacheKey, providers.isEmpty() ? null : providers);
+        putProvidersToCache(cacheKey, providers);
         return providers;
     }
 
@@ -243,6 +239,55 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
             }
         } catch (RuntimeException e) {
             log.warn("Redis 写入失败: key={}", key, e);
+        }
+    }
+
+    private Optional<List<OauthProvider>> getProvidersFromCache(String key) {
+        String cached;
+        try {
+            cached = stringRedisTemplate.opsForValue().get(key);
+        } catch (RuntimeException e) {
+            log.warn("Redis providers read failed, fallback to DB: key={}", key, e);
+            return Optional.empty();
+        }
+
+        if (cached == null) {
+            return Optional.empty();
+        }
+        if (NULL_MARKER.equals(cached)) {
+            return Optional.of(List.of());
+        }
+
+        try {
+            return Optional.of(parseProviders(cached));
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid Redis providers cache, evicting: key={}", key);
+            deleteCached(key);
+            return Optional.empty();
+        }
+    }
+
+    private List<OauthProvider> parseProviders(String cached) {
+        if (cached.isBlank()) {
+            return List.of();
+        }
+        return List.of(cached.split(",")).stream()
+                .map(OauthProvider::valueOf)
+                .toList();
+    }
+
+    private void putProvidersToCache(String key, List<OauthProvider> providers) {
+        try {
+            if (providers.isEmpty()) {
+                stringRedisTemplate.opsForValue().set(key, NULL_MARKER, NULL_CACHE_TTL);
+                return;
+            }
+            String cached = String.join(",", providers.stream()
+                    .map(OauthProvider::name)
+                    .toList());
+            stringRedisTemplate.opsForValue().set(key, cached, randomTtl());
+        } catch (RuntimeException e) {
+            log.warn("Redis providers write failed: key={}", key, e);
         }
     }
 

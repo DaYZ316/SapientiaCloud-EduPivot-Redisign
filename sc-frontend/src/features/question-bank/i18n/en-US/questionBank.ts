@@ -55,6 +55,7 @@
         questionList: 'Question List',
         noMatchFilter: 'No questions match the current filter',
         questionPreview: 'Question Preview',
+        showAnswer: 'Show Answer',
         estimatedMinutes: 'Est. {n} min',
         viewCount: '{n} views',
         questionStem: 'Question',

@@ -1,5 +1,5 @@
 <template>
-  <div class="file-preview-page">
+  <div ref="previewPageRef" class="file-preview-page">
     <header class="page-header">
       <div class="page-header-row">
         <div>
@@ -10,6 +10,17 @@
           <button :title="t('filePreview.back')" class="btn-back" @click="goBack">
             <ArrowLeft :size="18" :stroke-width="1.5"/>
             <span>{{ t('filePreview.back') }}</span>
+          </button>
+          <button
+              v-if="fileCategory === 'ppt' && fileUrl"
+              :disabled="loading || converting"
+              :title="t('filePreview.slideshow')"
+              class="btn-present"
+              type="button"
+              @click="openSlideshow"
+          >
+            <MonitorPlay :size="18" :stroke-width="1.5"/>
+            <span>{{ t('filePreview.slideshow') }}</span>
           </button>
           <button v-if="fileUrl" :disabled="downloading" class="btn-download" @click="downloadFile">
             <Download :size="18" :stroke-width="1.5"/>
@@ -61,7 +72,8 @@
       <VuePptx
           v-else-if="fileCategory === 'ppt'"
           :src="fileUrl"
-          @on-error="handleLoadError"
+          @error="handleLoadError"
+          @rendered="handlePptRendered"
       />
 
       <!-- Image -->
@@ -106,20 +118,94 @@
         </button>
       </div>
     </main>
+
+    <div
+        v-if="slideshowOpen"
+        ref="slideshowOverlayRef"
+        :aria-label="t('filePreview.slideshow')"
+        :class="{'ppt-slideshow-overlay-fullscreen': slideshowFullscreen}"
+        class="ppt-slideshow-overlay"
+        role="region"
+        @click="handleSlideshowClick"
+        @contextmenu.prevent="handleSlideshowContextMenu"
+    >
+      <div v-if="!slideshowFullscreen" class="ppt-slideshow-topbar">
+        <span class="ppt-slideshow-title">{{ fileName }}</span>
+        <span class="ppt-slideshow-counter">
+            {{ t('filePreview.slideshowCounter', {current: slideshowCurrentSlide, total: slideshowDisplayedTotal}) }}
+          </span>
+        <button
+            :aria-label="t('filePreview.slideshowFullscreen')"
+            :title="t('filePreview.slideshowFullscreen')"
+            class="ppt-slideshow-action"
+            type="button"
+            @click.stop="enterSlideshowFullscreen"
+            @contextmenu.stop.prevent
+        >
+          <Maximize2 :size="18" :stroke-width="1.6"/>
+        </button>
+        <button
+            :aria-label="t('filePreview.slideshowExit')"
+            :title="t('filePreview.slideshowExit')"
+            class="ppt-slideshow-action"
+            type="button"
+            @click.stop="closeSlideshow"
+            @contextmenu.stop.prevent
+        >
+          <X :size="20" :stroke-width="1.6"/>
+        </button>
+      </div>
+
+      <div ref="slideshowViewerRef" class="ppt-slideshow-stage">
+        <VuePptx
+            :key="slideshowRenderKey"
+            :options="slideshowOptions"
+            :src="fileUrl"
+            @error="handleSlideshowError"
+            @rendered="handleSlideshowRendered"
+        />
+        <div v-if="slideshowLoading" class="ppt-slideshow-loading">
+          <div class="spinner"></div>
+          <p>{{ t('filePreview.slideshowLoading') }}</p>
+        </div>
+      </div>
+
+      <div
+          v-if="showSlideshowHint && !slideshowFullscreen"
+          class="ppt-slideshow-hint"
+          @click.stop
+          @contextmenu.stop.prevent
+      >
+        <p>{{ t('filePreview.slideshowHint') }}</p>
+        <label class="ppt-slideshow-hint-option">
+          <input v-model="slideshowHintDismissed" type="checkbox" @change="saveSlideshowHintPreference">
+          <span>{{ t('filePreview.slideshowDoNotShowAgain') }}</span>
+        </label>
+      </div>
+    </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, ref} from 'vue'
+import {computed, nextTick, onBeforeUnmount, onMounted, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
-import {AlertCircle, ArrowLeft, Download, FileQuestion, Music2} from 'lucide-vue-next'
-import VuePdf from '@vue-office/pdf'
-import VueDocx from '@vue-office/docx'
-import '@vue-office/docx/lib/index.css'
-import VueExcel from '@vue-office/excel'
-import '@vue-office/excel/lib/index.css'
-import VuePptx from '@vue-office/pptx'
+import {
+  AlertCircle,
+  ArrowLeft,
+  Download,
+  FileQuestion,
+  Maximize2,
+  MonitorPlay,
+  Music2,
+  X,
+} from 'lucide-vue-next'
+import VuePdf from '@vue-office/pdf/lib/v3/vue-office-pdf.mjs'
+import VueDocx from '@vue-office/docx/lib/v3/vue-office-docx.mjs'
+import '@vue-office/docx/lib/v3/index.css'
+import VueExcel from '@vue-office/excel/lib/v3/vue-office-excel.mjs'
+import '@vue-office/excel/lib/v3/index.css'
+import VuePptx from '@vue-office/pptx/lib/v3/vue-office-pptx.mjs'
 import {convertFile, getDownloadUrl} from '@/features/storage/api/storage'
 import {marked} from 'marked'
 
@@ -138,6 +224,32 @@ const textContent = ref('')
 const markdownHtml = ref('')
 const downloading = ref(false)
 const converting = ref(false)
+const pptSlideTotal = ref(0)
+const pptAspectRatio = ref(16 / 9)
+const slideshowOpen = ref(false)
+const slideshowLoading = ref(false)
+const slideshowFullscreen = ref(false)
+const slideshowCurrentSlide = ref(1)
+const slideshowSlideTotal = ref(0)
+const slideshowRenderKey = ref(0)
+const showSlideshowHint = ref(false)
+const slideshowHintDismissed = ref(false)
+const previewPageRef = ref<HTMLElement | null>(null)
+const slideshowOverlayRef = ref<HTMLElement | null>(null)
+const slideshowViewerRef = ref<HTMLElement | null>(null)
+const slideshowOptions = ref({
+  width: 960,
+  height: 540,
+})
+
+type PptxRenderPayload = {
+  slides?: unknown[]
+  width?: number
+  height?: number
+}
+
+const SLIDESHOW_HINT_STORAGE_KEY = 'file-preview.ppt-slideshow-hint-dismissed'
+let slideshowHintTimer: number | undefined
 
 /** 是否为旧版 .doc 格式（需要服务端转换） */
 const isLegacyDoc = computed(() => {
@@ -228,11 +340,225 @@ const fileTypeLabel = computed(() => {
   return t(key)
 })
 
+const slideshowDisplayedTotal = computed(() => {
+  return slideshowSlideTotal.value || pptSlideTotal.value || 1
+})
+
+const canGoPreviousSlide = computed(() => {
+  return slideshowCurrentSlide.value > 1
+})
+
+const canGoNextSlide = computed(() => {
+  return slideshowCurrentSlide.value < slideshowDisplayedTotal.value
+})
+
 function handleLoadError() {
   loading.value = false
   error.value = t('filePreview.previewFailed')
 }
 
+function getPptSlideCount(payload: PptxRenderPayload): number {
+  return Array.isArray(payload.slides) ? payload.slides.length : 0
+}
+
+function updatePptMetadata(payload: PptxRenderPayload) {
+  const slideCount = getPptSlideCount(payload)
+  if (slideCount > 0) {
+    pptSlideTotal.value = slideCount
+  }
+
+  if (payload.width && payload.height) {
+    pptAspectRatio.value = payload.width / payload.height
+  }
+}
+
+function handlePptRendered(payload: PptxRenderPayload) {
+  updatePptMetadata(payload)
+  loading.value = false
+}
+
+function updateSlideshowSize() {
+  const bounds = slideshowOverlayRef.value?.getBoundingClientRect() || previewPageRef.value?.getBoundingClientRect()
+  const routeWidth = bounds?.width || window.innerWidth
+  const routeHeight = bounds?.height || window.innerHeight
+  const maxWidth = Math.max(320, routeWidth)
+  const maxHeight = Math.max(240, routeHeight)
+  const width = Math.min(maxWidth, Math.floor(maxHeight * pptAspectRatio.value))
+  const height = Math.floor(width / pptAspectRatio.value)
+
+  slideshowOptions.value = {
+    width,
+    height,
+  }
+}
+
+function updateSlideshowSlideVisibility() {
+  const viewer = slideshowViewerRef.value
+  if (!viewer) return
+
+  const slides = Array.from(viewer.querySelectorAll<HTMLElement>('.pptx-preview-slide-wrapper'))
+  if (slides.length === 0) return
+
+  slideshowSlideTotal.value = slides.length
+  slideshowCurrentSlide.value = Math.min(slideshowCurrentSlide.value, slides.length)
+
+  slides.forEach((slide, index) => {
+    slide.style.display = index === slideshowCurrentSlide.value - 1 ? 'block' : 'none'
+    slide.style.margin = '0 auto'
+  })
+
+  const wrapper = viewer.querySelector<HTMLElement>('.pptx-preview-wrapper')
+  if (wrapper) {
+    wrapper.scrollTop = 0
+  }
+}
+
+function loadSlideshowHintPreference() {
+  slideshowHintDismissed.value = localStorage.getItem(SLIDESHOW_HINT_STORAGE_KEY) === 'true'
+}
+
+function saveSlideshowHintPreference() {
+  if (slideshowHintDismissed.value) {
+    localStorage.setItem(SLIDESHOW_HINT_STORAGE_KEY, 'true')
+  } else {
+    localStorage.removeItem(SLIDESHOW_HINT_STORAGE_KEY)
+  }
+}
+
+function clearSlideshowHintTimer() {
+  if (slideshowHintTimer === undefined) return
+  window.clearTimeout(slideshowHintTimer)
+  slideshowHintTimer = undefined
+}
+
+function startSlideshowHintTimer() {
+  clearSlideshowHintTimer()
+  showSlideshowHint.value = !slideshowHintDismissed.value
+  if (!showSlideshowHint.value) return
+
+  slideshowHintTimer = window.setTimeout(() => {
+    showSlideshowHint.value = false
+    slideshowHintTimer = undefined
+  }, 4500)
+}
+
+async function showSlideshowSlide(slide: number) {
+  const total = slideshowDisplayedTotal.value
+  slideshowCurrentSlide.value = Math.min(Math.max(slide, 1), total)
+  await nextTick()
+  updateSlideshowSlideVisibility()
+}
+
+function goPreviousSlide() {
+  if (!canGoPreviousSlide.value) return
+  showSlideshowSlide(slideshowCurrentSlide.value - 1)
+}
+
+function goNextSlide() {
+  if (!canGoNextSlide.value) return
+  showSlideshowSlide(slideshowCurrentSlide.value + 1)
+}
+
+function openSlideshow() {
+  if (fileCategory.value !== 'ppt' || !fileUrl.value || loading.value || converting.value || slideshowOpen.value) return
+
+  updateSlideshowSize()
+  slideshowCurrentSlide.value = 1
+  slideshowSlideTotal.value = pptSlideTotal.value
+  slideshowLoading.value = true
+  slideshowRenderKey.value += 1
+  slideshowOpen.value = true
+  startSlideshowHintTimer()
+
+  window.addEventListener('keydown', handleSlideshowKeydown)
+  window.addEventListener('resize', handleSlideshowResize)
+  document.addEventListener('fullscreenchange', handleFullscreenChange)
+}
+
+function closeSlideshow() {
+  if (!slideshowOpen.value) return
+
+  slideshowOpen.value = false
+  slideshowLoading.value = false
+  slideshowFullscreen.value = false
+  showSlideshowHint.value = false
+  clearSlideshowHintTimer()
+  window.removeEventListener('keydown', handleSlideshowKeydown)
+  window.removeEventListener('resize', handleSlideshowResize)
+  document.removeEventListener('fullscreenchange', handleFullscreenChange)
+}
+
+function handleSlideshowRendered(payload: PptxRenderPayload) {
+  updatePptMetadata(payload)
+  slideshowSlideTotal.value = getPptSlideCount(payload) || slideshowSlideTotal.value || 1
+  slideshowLoading.value = false
+  nextTick(updateSlideshowSlideVisibility)
+}
+
+function handleSlideshowError() {
+  slideshowLoading.value = false
+  closeSlideshow()
+  handleLoadError()
+}
+
+function handleSlideshowClick() {
+  goNextSlide()
+}
+
+function handleSlideshowContextMenu() {
+  goPreviousSlide()
+}
+
+async function enterSlideshowFullscreen() {
+  try {
+    await slideshowOverlayRef.value?.requestFullscreen()
+    slideshowFullscreen.value = true
+    updateSlideshowSize()
+    slideshowRenderKey.value += 1
+    slideshowLoading.value = true
+  } catch {
+    // Fullscreen requires browser permission and may be denied.
+  }
+}
+
+function handleFullscreenChange() {
+  const isSlideshowFullscreen = document.fullscreenElement === slideshowOverlayRef.value
+  if (slideshowFullscreen.value === isSlideshowFullscreen) return
+
+  slideshowFullscreen.value = isSlideshowFullscreen
+  updateSlideshowSize()
+  slideshowRenderKey.value += 1
+  slideshowLoading.value = true
+}
+
+function handleSlideshowKeydown(event: KeyboardEvent) {
+  if (!slideshowOpen.value) return
+
+  if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
+    event.preventDefault()
+    goPreviousSlide()
+  } else if (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ') {
+    event.preventDefault()
+    goNextSlide()
+  } else if (event.key === 'Home') {
+    event.preventDefault()
+    showSlideshowSlide(1)
+  } else if (event.key === 'End') {
+    event.preventDefault()
+    showSlideshowSlide(slideshowDisplayedTotal.value)
+  } else if (event.key === 'Escape') {
+    event.preventDefault()
+    closeSlideshow()
+  }
+}
+
+function handleSlideshowResize() {
+  if (!slideshowOpen.value) return
+
+  updateSlideshowSize()
+  slideshowRenderKey.value += 1
+  slideshowLoading.value = true
+}
 
 function goBack() {
   if (window.history.length > 1) {
@@ -306,6 +632,8 @@ async function initPreview() {
   error.value = ''
   textContent.value = ''
   markdownHtml.value = ''
+  pptSlideTotal.value = 0
+  slideshowSlideTotal.value = 0
 
   try {
     fileUrl.value = await resolveFileUrl()
@@ -361,16 +689,24 @@ async function initPreview() {
 }
 
 onMounted(() => {
+  loadSlideshowHintPreference()
   initPreview()
+})
+
+onBeforeUnmount(() => {
+  closeSlideshow()
+  clearSlideshowHintTimer()
 })
 </script>
 
 <style scoped>
 .file-preview-page {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: calc(100vh - 60px);
   background: var(--color-surface-canvas);
+  overflow: hidden;
 }
 
 .page-header {
@@ -432,6 +768,30 @@ onMounted(() => {
 
 .btn-back:hover {
   background: var(--color-surface-container);
+}
+
+.btn-present {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-card);
+  color: var(--color-on-surface);
+  font-family: var(--font-label);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-present:hover {
+  background: var(--color-surface-container);
+}
+
+.btn-present:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-download {
@@ -592,6 +952,150 @@ onMounted(() => {
 /* PDF container override */
 .preview-content :deep(.vue-pdf-container) {
   height: 100%;
+}
+
+/* PPTX slideshow */
+.ppt-slideshow-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: #050505;
+  color: #fff;
+}
+
+.ppt-slideshow-overlay-fullscreen {
+  padding: 0;
+}
+
+.ppt-slideshow-topbar {
+  position: absolute;
+  top: 16px;
+  left: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  font-family: var(--font-label);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.ppt-slideshow-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ppt-slideshow-counter {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.ppt-slideshow-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.ppt-slideshow-action:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.ppt-slideshow-action {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.ppt-slideshow-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.ppt-slideshow-stage :deep(.vue-office-pptx),
+.ppt-slideshow-stage :deep(.vue-office-pptx-main) {
+  width: 100%;
+  height: 100%;
+}
+
+.ppt-slideshow-stage :deep(.pptx-preview-wrapper) {
+  overflow: hidden !important;
+}
+
+.ppt-slideshow-stage :deep(.pptx-preview-slide-wrapper) {
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.4);
+}
+
+.ppt-slideshow-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: #050505;
+  color: rgba(255, 255, 255, 0.76);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+.ppt-slideshow-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  max-width: min(640px, calc(100% - 48px));
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-sm);
+  background: rgba(18, 18, 18, 0.88);
+  color: rgba(255, 255, 255, 0.88);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  transform: translateX(-50%);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.32);
+}
+
+.ppt-slideshow-hint p {
+  margin: 0;
+}
+
+.ppt-slideshow-hint-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-family: var(--font-label);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.ppt-slideshow-hint-option input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--color-primary);
 }
 
 /* ========== Markdown Whitey Theme (System Tokens) ========== */
@@ -822,8 +1326,21 @@ onMounted(() => {
   }
 
   .btn-back span,
+  .btn-present span,
   .btn-download span {
     display: none;
+  }
+
+  .ppt-slideshow-topbar {
+    left: 14px;
+    right: 14px;
+  }
+
+  .ppt-slideshow-hint {
+    bottom: 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
 
   .audio-wrapper {

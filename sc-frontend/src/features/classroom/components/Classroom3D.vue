@@ -28,10 +28,12 @@ import {useAuthStore} from '@/features/auth/stores/auth'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import {getClassroomModelRoute} from '@/features/classroom/composables/useModelRouter'
 import {getAllSeatPositions, getDeskPosition} from '@/features/classroom/composables/useSeatLayout'
+import {computeCameraPositionsBySize, getCameraTarget, type ClassroomDimensions} from '@/features/classroom/composables/useCameraGroup'
 import {ModelInstanceManager} from '@/features/classroom/composables/ModelInstanceManager'
 import {SeatSpriteManager} from '@/features/classroom/composables/SeatSpriteManager'
 import {createClassroomInteraction, type ClassroomInteractionControls} from '@/features/classroom/composables/useClassroomInteraction'
 import {getRoomSpec, type SeatSyncMessage} from '@/features/classroom/types/classroom'
+import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 
 const props = defineProps<{
   session: ClassSession
@@ -40,6 +42,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   joined: [participant: ClassParticipant]
   left: []
+  exit: []
+  'loading-progress': [payload: {progress: number; label: string}]
   ready: []
   loadError: [message: string]
 }>()
@@ -50,6 +54,7 @@ const authStore = useAuthStore()
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const loading = ref(true)
 const loadError = ref('')
+const seatActionPending = ref(false)
 const participantsBySeat = ref(new Map<number, ClassParticipant>())
 
 const sceneRef = shallowRef<THREE.Scene | null>(null)
@@ -58,6 +63,9 @@ const rendererRef = shallowRef<THREE.WebGLRenderer | null>(null)
 const controlsRef = shallowRef<OrbitControls | null>(null)
 const interactionRef = shallowRef<ClassroomInteractionControls | null>(null)
 const spriteManagerRef = shallowRef<SeatSpriteManager | null>(null)
+const exitDoorRef = shallowRef<THREE.Group | null>(null)
+const classroomDimensions = ref<ClassroomDimensions>({x: null, y: null, z: null})
+const classroomCameraBounds = shallowRef<THREE.Box3 | null>(null)
 
 let frameId = 0
 let resizeObserver: ResizeObserver | null = null
@@ -66,10 +74,34 @@ let reconnectTimer = 0
 let destroyed = false
 const modelInstanceManager = new ModelInstanceManager()
 const deskInstancedMeshes: THREE.InstancedMesh[] = []
+const targetBeforeClamp = new THREE.Vector3()
+const targetAfterClamp = new THREE.Vector3()
+const targetClampDelta = new THREE.Vector3()
+const cameraAfterClamp = new THREE.Vector3()
+const EXIT_LABEL_TEXT = '\u9000\u51fa\u6559\u5ba4 \u2192'
+const DOOR_NAME = '\u95e8'
+const LOADING_LABELS = {
+  resolvingSession: '\u6b63\u5728\u83b7\u53d6\u8bfe\u5802\u4fe1\u606f',
+  checkingAccess: '\u6b63\u5728\u6821\u9a8c\u8bfe\u7a0b\u8bbf\u95ee\u6743\u9650',
+  preparingScene: '\u6b63\u5728\u521d\u59cb\u5316 WebGL \u753b\u5e03\u4e0e\u955c\u5934',
+  loadingAssetsWithTextures: '\u6b63\u5728\u5e76\u884c\u52a0\u8f7d\u6559\u5ba4\u573a\u666f\uff08\u5899\u9762\u3001\u5730\u677f\u4e0e\u8bb2\u53f0\uff09\u3001\u5b66\u751f\u684c\u6905\u6a21\u578b\u4e0e\u6750\u8d28\u7eb9\u7406',
+  loadingAssetsWithoutTextures: '\u6b63\u5728\u5e76\u884c\u52a0\u8f7d\u6559\u5ba4\u573a\u666f\uff08\u5899\u9762\u3001\u5730\u677f\u4e0e\u8bb2\u53f0\uff09\u4e0e\u5b66\u751f\u684c\u6905\u6a21\u578b',
+  applyingMaterials: '\u6b63\u5728\u5e94\u7528\u6559\u5ba4\u548c\u684c\u6905\u6750\u8d28',
+  arrangingDesks: '\u6b63\u5728\u6309\u6559\u5ba4\u89c4\u683c\u6446\u653e\u684c\u6905',
+  seatMarkers: '\u6b63\u5728\u751f\u6210\u5ea7\u4f4d\u6807\u8bb0\u4e0e\u5934\u50cf\u56fe\u5c42',
+  interactions: '\u6b63\u5728\u7ed1\u5b9a\u5ea7\u4f4d\u70b9\u51fb\u548c\u9000\u51fa\u95e8\u4ea4\u4e92',
+  ready: '\u5373\u5c06\u8fdb\u5165\u6559\u5ba4',
+}
 
 const roomSpec = computed(() => getRoomSpec(props.session.roomSize))
 const currentUserId = computed(() => authStore.user?.id || '')
 const canSit = computed(() => authStore.user?.role === 1)
+const currentParticipant = computed(() => {
+  if (!currentUserId.value) {
+    return null
+  }
+  return Array.from(participantsBySeat.value.values()).find((participant) => participant.userId === currentUserId.value) || null
+})
 
 onMounted(async () => {
   await nextTick()
@@ -92,6 +124,10 @@ onUnmounted(() => {
   for (const mesh of deskInstancedMeshes) {
     sceneRef.value?.remove(mesh)
   }
+  if (exitDoorRef.value) {
+    sceneRef.value?.remove(exitDoorRef.value)
+    disposeObject(exitDoorRef.value)
+  }
   modelInstanceManager.dispose(deskInstancedMeshes)
   rendererRef.value?.dispose()
 })
@@ -102,14 +138,14 @@ async function setupScene() {
   }
   loading.value = true
   loadError.value = ''
+  emitLoadingProgress(10, LOADING_LABELS.preparingScene)
   try {
     const canvas = canvasRef.value
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(0x0b1020)
     scene.fog = new THREE.Fog(0x0b1020, 22, 72)
 
-    const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 120)
-    positionCamera(camera, props.session.roomSize)
+    const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
 
     const renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: false, preserveDrawingBuffer: true})
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -118,7 +154,7 @@ async function setupScene() {
 
     const controls = new OrbitControls(camera, canvas)
     controls.enableDamping = true
-    controls.target.copy(getCameraTarget(props.session.roomSize))
+    controls.target.copy(getCameraTarget(classroomDimensions.value))
     controls.maxPolarAngle = Math.PI * 0.54
     controls.minDistance = 1
     controls.maxDistance = props.session.roomSize === ClassRoomSize.XLARGE ? 32 : 18
@@ -137,11 +173,16 @@ async function setupScene() {
     resizeRenderer()
     resizeObserver = new ResizeObserver(resizeRenderer)
     resizeObserver.observe(canvas.parentElement || canvas)
+    emitLoadingProgress(15, LOADING_LABELS.preparingScene)
 
-    await loadModels(scene)
+    await loadModels(scene, camera, controls)
+    emitLoadingProgress(92, LOADING_LABELS.seatMarkers)
     setupSprites(scene)
+    emitLoadingProgress(95, LOADING_LABELS.interactions)
     setupInteractions(canvas, camera, scene)
+    emitLoadingProgress(98, LOADING_LABELS.interactions)
     animate()
+    emitLoadingProgress(100, LOADING_LABELS.ready)
     emit('ready')
   } catch (error) {
     const message = error instanceof Error ? error.message : t('courseDetail.classSession.modelLoadFailed')
@@ -152,16 +193,33 @@ async function setupScene() {
   }
 }
 
-async function loadModels(scene: THREE.Scene) {
+async function loadModels(scene: THREE.Scene, camera: THREE.PerspectiveCamera, controls: OrbitControls) {
   const route = getClassroomModelRoute(props.session.roomSize)
+  const assetLoadingLabel = route.classroom.texture || route.desk.texture
+      ? LOADING_LABELS.loadingAssetsWithTextures
+      : LOADING_LABELS.loadingAssetsWithoutTextures
+  const progress = createAssetProgressReporter(15, 90, [
+    {key: 'classroom', weight: 4},
+    {key: 'desk', weight: 3},
+    ...(route.classroom.texture ? [{key: 'classroomTexture', weight: 1}] : []),
+    ...(route.desk.texture ? [{key: 'deskTexture', weight: 1}] : []),
+  ], assetLoadingLabel)
   const [classroom, desk, classroomTexture, deskTexture] = await Promise.all([
-    loadGltf(route.classroom.model),
-    loadGltf(route.desk.model),
-    loadTexture(route.classroom.texture),
-    loadTexture(route.desk.texture),
+    loadGltf(route.classroom.model, progress.track('classroom')),
+    loadGltf(route.desk.model, progress.track('desk')),
+    loadTexture(route.classroom.texture, route.classroom.texture ? progress.track('classroomTexture') : undefined),
+    loadTexture(route.desk.texture, route.desk.texture ? progress.track('deskTexture') : undefined),
   ])
 
+  emitLoadingProgress(90, LOADING_LABELS.applyingMaterials)
   applyTexture(classroom.scene, classroomTexture)
+  classroom.scene.position.set(0, 0, 0)
+  classroom.scene.rotation.y = props.session.roomSize === ClassRoomSize.SMALL ? 0 : Math.PI / 2
+  classroom.scene.updateMatrixWorld(true)
+  const classroomBounds = measureClassroomBounds(classroom.scene)
+  classroomDimensions.value = measureClassroomDimensions(classroomBounds)
+  classroomCameraBounds.value = createCameraBounds(classroomBounds)
+  applyCameraPreset(camera, controls)
   classroom.scene.traverse((child) => {
     if (child instanceof THREE.Mesh) {
       child.castShadow = true
@@ -169,10 +227,12 @@ async function loadModels(scene: THREE.Scene) {
     }
   })
   scene.add(classroom.scene)
+  setupExitDoor(scene, classroom.scene, classroomBounds)
 
+  emitLoadingProgress(91, LOADING_LABELS.arrangingDesks)
   const instancedMeshes = modelInstanceManager.createInstancedMeshes(desk.scene, roomSpec.value.deskInstanceCount, deskTexture)
   modelInstanceManager.setInstanceMatrices(instancedMeshes, props.session.roomSize, roomSpec.value.deskInstanceCount, (index) =>
-      getDeskPosition(props.session.roomSize, index),
+      getDeskPosition(props.session.roomSize, index, classroomDimensions.value),
   )
   instancedMeshes.forEach((mesh) => {
     deskInstancedMeshes.push(mesh)
@@ -181,7 +241,7 @@ async function loadModels(scene: THREE.Scene) {
 }
 
 function setupSprites(scene: THREE.Scene) {
-  const manager = new SeatSpriteManager(scene, getAllSeatPositions(props.session.roomSize))
+  const manager = new SeatSpriteManager(scene, getAllSeatPositions(props.session.roomSize, classroomDimensions.value))
   spriteManagerRef.value = manager
   manager.applySnapshot(Array.from(participantsBySeat.value.values()))
 }
@@ -193,9 +253,12 @@ function setupInteractions(canvas: HTMLCanvasElement, camera: THREE.PerspectiveC
     scene,
     instancedMeshes: deskInstancedMeshes,
     roomSize: props.session.roomSize,
+    dimensions: classroomDimensions.value,
+    exitTarget: exitDoorRef.value,
     onHover: () => undefined,
     onClick: handleSeatClick,
     onContextMenu: handleSeatContextMenu,
+    onExit: () => emit('exit'),
   })
 }
 
@@ -208,17 +271,25 @@ async function loadInitialParticipants() {
 }
 
 async function handleSeatClick(seatIndex: number) {
-  if (!canSit.value) {
-    notify.warn(t('courseDetail.classSession.studentOnlySeat'))
+  if (seatActionPending.value || !canSit.value || !currentUserId.value) {
     return
   }
   const occupied = participantsBySeat.value.get(seatIndex)
-  if (occupied && occupied.userId !== currentUserId.value) {
-    notify.warn(t('courseDetail.classSession.seatOccupied'))
+  if (occupied) {
     return
   }
-  const position = getAllSeatPositions(props.session.roomSize)[seatIndex]
+  seatActionPending.value = true
   try {
+    const message = currentParticipant.value
+        ? t('courseDetail.classSession.confirmChangeSeat')
+        : t('courseDetail.classSession.confirmSitSeat')
+    if (!(await confirmDialog({message}))) {
+      return
+    }
+    if (participantsBySeat.value.get(seatIndex)) {
+      return
+    }
+    const position = getAllSeatPositions(props.session.roomSize, classroomDimensions.value)[seatIndex]
     const participant = await joinClassSession(props.session.id, {
       seatIndex,
       x: round(position.x),
@@ -230,21 +301,36 @@ async function handleSeatClick(seatIndex: number) {
     notify.success(t('courseDetail.classSession.sitSuccess'))
   } catch {
     notify.error(t('courseDetail.classSession.sitFailed'))
+  } finally {
+    seatActionPending.value = false
   }
 }
 
 async function handleSeatContextMenu(seatIndex: number) {
+  if (seatActionPending.value) {
+    return
+  }
   const participant = participantsBySeat.value.get(seatIndex)
   if (!participant || participant.userId !== currentUserId.value) {
     return
   }
+  seatActionPending.value = true
   try {
+    if (!(await confirmDialog({message: t('courseDetail.classSession.confirmStandSeat')}))) {
+      return
+    }
+    const currentSeatParticipant = participantsBySeat.value.get(seatIndex)
+    if (!currentSeatParticipant || currentSeatParticipant.userId !== currentUserId.value) {
+      return
+    }
     await leaveClassSessionSeat(props.session.id)
-    removeParticipant(participant.userId, participant.seatIndex)
+    removeParticipant(currentSeatParticipant.userId, currentSeatParticipant.seatIndex)
     emit('left')
     notify.success(t('courseDetail.classSession.standSuccess'))
   } catch {
     notify.error(t('courseDetail.classSession.standFailed'))
+  } finally {
+    seatActionPending.value = false
   }
 }
 
@@ -341,9 +427,14 @@ function animate() {
     return
   }
   frameId = requestAnimationFrame(animate)
-  controlsRef.value?.update()
-  spriteManagerRef.value?.updateCameraFacing(cameraRef.value)
-  rendererRef.value.render(sceneRef.value, cameraRef.value)
+  const camera = cameraRef.value
+  const controls = controlsRef.value
+  controls?.update()
+  if (controls) {
+    keepCameraInsideClassroom(camera, controls)
+  }
+  spriteManagerRef.value?.updateCameraFacing(camera)
+  rendererRef.value.render(sceneRef.value, camera)
 }
 
 function resizeRenderer() {
@@ -358,45 +449,246 @@ function resizeRenderer() {
   cameraRef.value.updateProjectionMatrix()
 }
 
-function positionCamera(camera: THREE.PerspectiveCamera, roomSize: number) {
-  if (roomSize === ClassRoomSize.XLARGE) {
-    camera.position.set(0, 3.2, -13.5)
-    return
-  }
-  if (roomSize === ClassRoomSize.LARGE) {
-    camera.position.set(0, 2.1, -8.5)
-    return
-  }
-  if (roomSize === ClassRoomSize.MEDIUM) {
-    camera.position.set(0, 1.65, -5.2)
-    return
-  }
-  camera.position.set(0, 1.55, -2.4)
+function measureClassroomBounds(classroom: THREE.Object3D) {
+  return new THREE.Box3().setFromObject(classroom)
 }
 
-function getCameraTarget(roomSize: number) {
-  if (roomSize === ClassRoomSize.XLARGE) {
-    return new THREE.Vector3(0, 2.4, 4)
-  }
-  if (roomSize === ClassRoomSize.LARGE) {
-    return new THREE.Vector3(0, 1.35, 5.2)
-  }
-  if (roomSize === ClassRoomSize.MEDIUM) {
-    return new THREE.Vector3(0, 1.2, 2.8)
-  }
-  return new THREE.Vector3(0, 1.05, 1.5)
+function measureClassroomDimensions(box: THREE.Box3): ClassroomDimensions {
+  const size = new THREE.Vector3()
+  box.getSize(size)
+  return {x: size.x, y: size.y, z: size.z}
 }
 
-function loadGltf(path: string) {
+function setupExitDoor(scene: THREE.Scene, classroom: THREE.Object3D, bounds: THREE.Box3) {
+  const group = new THREE.Group()
+  group.name = 'exit_door'
+
+  const anchor = findDoorAnchor(classroom, bounds)
+  group.position.copy(anchor.position)
+  group.quaternion.copy(anchor.quaternion)
+
+  const labelTexture = createExitLabelTexture()
+  const labelMaterial = new THREE.SpriteMaterial({
+    map: labelTexture,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+  })
+  const label = new THREE.Sprite(labelMaterial)
+  label.name = 'exit_door_label'
+  label.position.set(0, 1.35, 0)
+  label.scale.set(2.2, 0.68, 1)
+  group.add(label)
+
+  const targetGeometry = new THREE.BoxGeometry(2.6, 3.2, 0.8)
+  targetGeometry.translate(0, 1.2, 0)
+  const targetMaterial = new THREE.MeshBasicMaterial({
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    colorWrite: false,
+  })
+  const target = new THREE.Mesh(targetGeometry, targetMaterial)
+  target.name = 'exit_door_target'
+  group.add(target)
+
+  scene.add(group)
+  exitDoorRef.value = group
+}
+
+function findDoorAnchor(classroom: THREE.Object3D, bounds: THREE.Box3) {
+  const doorBounds = new THREE.Box3()
+  const meshBounds = new THREE.Box3()
+  const doorCenter = new THREE.Vector3()
+  classroom.traverse((child) => {
+    if (!(child instanceof THREE.Mesh) || !isDoorObject(child)) {
+      return
+    }
+    meshBounds.setFromObject(child)
+    if (!meshBounds.isEmpty()) {
+      doorBounds.union(meshBounds)
+    }
+  })
+
+  if (!doorBounds.isEmpty()) {
+    doorBounds.getCenter(doorCenter)
+    return {
+      position: new THREE.Vector3(doorCenter.x, Math.max(bounds.min.y, doorBounds.min.y), doorCenter.z),
+      quaternion: faceRoomCenter(doorCenter),
+    }
+  }
+
+  const size = new THREE.Vector3()
+  bounds.getSize(size)
+  const fallbackPosition = new THREE.Vector3(0, bounds.min.y, bounds.max.z - Math.max(size.z * 0.04, 0.35))
+  return {
+    position: fallbackPosition,
+    quaternion: faceRoomCenter(fallbackPosition),
+  }
+}
+
+function isDoorObject(object: THREE.Object3D) {
+  return object.name.includes(DOOR_NAME) || object.name.toLowerCase().includes('door')
+}
+
+function faceRoomCenter(position: THREE.Vector3) {
+  const quaternion = new THREE.Quaternion()
+  const direction = new THREE.Vector3(-position.x, 0, -position.z)
+  if (direction.lengthSq() < 0.001) {
+    return quaternion
+  }
+  return quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction.normalize())
+}
+
+function createExitLabelTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 512
+  canvas.height = 160
+  const context = canvas.getContext('2d')
+  if (context) {
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    context.lineWidth = 8
+    context.strokeStyle = 'rgba(15, 23, 42, 0.82)'
+    context.font = '700 58px sans-serif'
+    context.textAlign = 'center'
+    context.textBaseline = 'middle'
+    context.strokeText(EXIT_LABEL_TEXT, canvas.width / 2, canvas.height / 2 + 3)
+    context.fillStyle = '#ffffff'
+    context.fillText(EXIT_LABEL_TEXT, canvas.width / 2, canvas.height / 2 + 3)
+  }
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.minFilter = THREE.LinearFilter
+  texture.magFilter = THREE.LinearFilter
+  texture.needsUpdate = true
+  return texture
+}
+
+function createCameraBounds(classroomBounds: THREE.Box3) {
+  const bounds = classroomBounds.clone()
+  const size = new THREE.Vector3()
+  classroomBounds.getSize(size)
+  const horizontalInset = Math.min(Math.max(Math.min(size.x, size.z) * 0.035, 0.25), Math.max(Math.min(size.x, size.z) / 2 - 0.05, 0))
+  const bottomInset = Math.min(Math.max(size.y * 0.08, 0.6), Math.max(size.y / 2 - 0.05, 0))
+  const topInset = Math.min(Math.max(size.y * 0.12, 0.8), Math.max(size.y / 2 - 0.05, 0))
+  bounds.min.x += horizontalInset
+  bounds.max.x -= horizontalInset
+  bounds.min.z += horizontalInset
+  bounds.max.z -= horizontalInset
+  bounds.min.y += bottomInset
+  bounds.max.y -= topInset
+  return bounds
+}
+
+function keepCameraInsideClassroom(camera: THREE.PerspectiveCamera, controls: OrbitControls) {
+  const bounds = classroomCameraBounds.value
+  if (!bounds) {
+    return
+  }
+  targetBeforeClamp.copy(controls.target)
+  bounds.clampPoint(targetBeforeClamp, targetAfterClamp)
+  if (!targetBeforeClamp.equals(targetAfterClamp)) {
+    targetClampDelta.subVectors(targetAfterClamp, targetBeforeClamp)
+    controls.target.copy(targetAfterClamp)
+    camera.position.add(targetClampDelta)
+  }
+  bounds.clampPoint(camera.position, cameraAfterClamp)
+  if (!camera.position.equals(cameraAfterClamp)) {
+    camera.position.copy(cameraAfterClamp)
+  }
+}
+
+function applyCameraPreset(camera: THREE.PerspectiveCamera, controls: OrbitControls) {
+  const front = computeCameraPositionsBySize(classroomDimensions.value, props.session.roomSize).front
+  camera.position.set(front.position.x, front.position.y, front.position.z)
+  camera.setRotationFromEuler(front.initialRotation)
+  controls.target.copy(getCameraTarget(classroomDimensions.value))
+  controls.update()
+  keepCameraInsideClassroom(camera, controls)
+}
+
+interface AssetProgressItem {
+  key: string
+  weight: number
+}
+
+function emitLoadingProgress(progress: number, label: string) {
+  if (!Number.isFinite(progress)) {
+    return
+  }
+  emit('loading-progress', {
+    progress: Math.min(Math.max(progress, 0), 100),
+    label,
+  })
+}
+
+function createAssetProgressReporter(start: number, end: number, items: AssetProgressItem[], label: string) {
+  const validItems = items.filter((item) => Number.isFinite(item.weight) && item.weight > 0)
+  const weights = new Map(validItems.map((item) => [item.key, item.weight]))
+  const loadedByKey = new Map(validItems.map((item) => [item.key, 0]))
+  const totalWeight = validItems.reduce((sum, item) => sum + item.weight, 0)
+
+  function report() {
+    if (totalWeight <= 0) {
+      emitLoadingProgress(end, LOADING_LABELS.applyingMaterials)
+      return
+    }
+    let weightedLoaded = 0
+    for (const [key, weight] of weights.entries()) {
+      weightedLoaded += (loadedByKey.get(key) ?? 0) * weight
+    }
+    emitLoadingProgress(start + (end - start) * (weightedLoaded / totalWeight), label)
+  }
+
+  return {
+    track: (key: string) => (event?: ProgressEvent<EventTarget>) => {
+      if (!event) {
+        loadedByKey.set(key, 1)
+        report()
+        return
+      }
+      const total = event?.total ?? 0
+      const loaded = event?.loaded ?? 0
+      if (!Number.isFinite(total) || !Number.isFinite(loaded) || total <= 0) {
+        report()
+        return
+      }
+      loadedByKey.set(key, Math.min(loaded / total, 1))
+      report()
+    },
+  }
+}
+
+function loadGltf(path: string, onProgress?: (event?: ProgressEvent<EventTarget>) => void) {
   const loader = new GLTFLoader()
-  return loader.loadAsync(path)
+  return new Promise<Awaited<ReturnType<GLTFLoader['loadAsync']>>>((resolve, reject) => {
+    loader.load(
+        path,
+        (gltf) => {
+          onProgress?.()
+          resolve(gltf)
+        },
+        onProgress,
+        reject,
+    )
+  })
 }
 
-async function loadTexture(path?: string) {
+async function loadTexture(path?: string, onProgress?: (event?: ProgressEvent<EventTarget>) => void) {
   if (!path) {
     return null
   }
-  const texture = await new THREE.TextureLoader().loadAsync(path)
+  const texture = await new Promise<THREE.Texture>((resolve, reject) => {
+    new THREE.TextureLoader().load(
+        path,
+        (loadedTexture) => {
+          onProgress?.()
+          resolve(loadedTexture)
+        },
+        onProgress,
+        reject,
+    )
+  })
   texture.colorSpace = THREE.SRGBColorSpace
   texture.flipY = false
   return texture
@@ -414,6 +706,33 @@ function applyTexture(root: THREE.Object3D, texture: THREE.Texture | null) {
       })
     }
   })
+}
+
+function disposeObject(object: THREE.Object3D) {
+  const geometries = new Set<THREE.BufferGeometry>()
+  const materials = new Set<THREE.Material>()
+  const textures = new Set<THREE.Texture>()
+
+  object.traverse((child) => {
+    if (child instanceof THREE.Mesh || child instanceof THREE.Sprite) {
+      if (child instanceof THREE.Mesh) {
+        geometries.add(child.geometry)
+      }
+      const material = child.material
+      const materialList = Array.isArray(material) ? material : [material]
+      materialList.forEach((item) => {
+        materials.add(item)
+        const map = item instanceof THREE.SpriteMaterial || item instanceof THREE.MeshBasicMaterial ? item.map : null
+        if (map) {
+          textures.add(map)
+        }
+      })
+    }
+  })
+
+  geometries.forEach((geometry) => geometry.dispose())
+  materials.forEach((material) => material.dispose())
+  textures.forEach((texture) => texture.dispose())
 }
 
 function buildSeatSocketUrl(token: string) {

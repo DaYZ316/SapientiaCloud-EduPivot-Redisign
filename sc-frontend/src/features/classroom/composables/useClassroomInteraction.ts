@@ -1,17 +1,20 @@
 import * as THREE from 'three'
 
 import {ClassRoomSize} from '@/features/course/types/classSession'
-import {getDeskPosition, getDeskYaw} from '@/features/classroom/composables/useSeatLayout'
+import {getDeskPosition, getDeskYaw, type RoomPlanDimensions} from '@/features/classroom/composables/useSeatLayout'
 
 export interface ClassroomInteractionOptions {
     canvas: HTMLCanvasElement
     camera: THREE.Camera
     scene: THREE.Scene
     instancedMeshes: THREE.InstancedMesh[]
+    exitTarget?: THREE.Object3D | null
     roomSize: number
+    dimensions?: RoomPlanDimensions
     onHover: (seatIndex: number | null, event: MouseEvent) => void
     onClick: (seatIndex: number) => void
     onContextMenu: (seatIndex: number) => void
+    onExit?: () => void
 }
 
 export interface ClassroomInteractionControls {
@@ -23,22 +26,33 @@ interface SeatHit {
     deskIndex: number
 }
 
+const DRAG_CLICK_THRESHOLD_PX = 5
+const DRAG_CLICK_THRESHOLD_SQUARED = DRAG_CLICK_THRESHOLD_PX * DRAG_CLICK_THRESHOLD_PX
+
 export function createClassroomInteraction(options: ClassroomInteractionOptions): ClassroomInteractionControls {
     const raycaster = new THREE.Raycaster()
     const pointer = new THREE.Vector2()
     const metrics = getDeskInteractionMetrics(options.instancedMeshes)
     const highlight = createDeskHighlight(metrics)
-    const targets = createInteractionTargets(options.roomSize, options.instancedMeshes[0]?.count ?? 0, metrics)
+    const targets = createInteractionTargets(options.roomSize, options.instancedMeshes[0]?.count ?? 0, metrics, options.dimensions)
     let hoveredSeat: number | null = null
+    let pointerDownX = 0
+    let pointerDownY = 0
+    let leftPointerDown = false
+    let suppressNextClick = false
 
     options.scene.add(highlight)
     options.scene.add(targets)
 
-    function detectSeat(event: MouseEvent): SeatHit | null {
+    function updateRaycaster(event: MouseEvent) {
         const rect = options.canvas.getBoundingClientRect()
         pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
         pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
         raycaster.setFromCamera(pointer, options.camera)
+    }
+
+    function detectSeat(event: MouseEvent): SeatHit | null {
+        updateRaycaster(event)
 
         const hit = raycaster.intersectObjects(targets.children, false)[0]
         if (!hit) {
@@ -54,13 +68,21 @@ export function createClassroomInteraction(options: ClassroomInteractionOptions)
         return {seatIndex, deskIndex}
     }
 
+    function detectExit(event: MouseEvent) {
+        if (!options.exitTarget || !options.onExit) {
+            return false
+        }
+        updateRaycaster(event)
+        return raycaster.intersectObject(options.exitTarget, true).length > 0
+    }
+
     function updateHighlight(hit: SeatHit | null) {
         if (!hit) {
             highlight.visible = false
             return
         }
-        const position = getDeskPosition(options.roomSize, hit.deskIndex)
-        const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, getDeskYaw(options.roomSize, hit.deskIndex), 0))
+        const position = getDeskPosition(options.roomSize, hit.deskIndex, options.dimensions)
+        const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, getDeskYaw(options.roomSize, hit.deskIndex, options.dimensions), 0))
         highlight.position.copy(position)
         highlight.quaternion.copy(quaternion)
         highlight.visible = true
@@ -69,7 +91,8 @@ export function createClassroomInteraction(options: ClassroomInteractionOptions)
     function handleMove(event: MouseEvent) {
         const hit = detectSeat(event)
         const seatIndex = hit?.seatIndex ?? null
-        options.canvas.style.cursor = seatIndex == null ? 'default' : 'pointer'
+        const exitHit = seatIndex == null && detectExit(event)
+        options.canvas.style.cursor = seatIndex == null && !exitHit ? 'default' : 'pointer'
         if (seatIndex !== hoveredSeat) {
             hoveredSeat = seatIndex
             updateHighlight(hit)
@@ -77,7 +100,43 @@ export function createClassroomInteraction(options: ClassroomInteractionOptions)
         options.onHover(seatIndex, event)
     }
 
+    function handlePointerDown(event: PointerEvent) {
+        if (event.button !== 0) {
+            return
+        }
+        leftPointerDown = true
+        suppressNextClick = false
+        pointerDownX = event.clientX
+        pointerDownY = event.clientY
+    }
+
+    function handlePointerMove(event: PointerEvent) {
+        if (!leftPointerDown || suppressNextClick) {
+            return
+        }
+        const deltaX = event.clientX - pointerDownX
+        const deltaY = event.clientY - pointerDownY
+        if (deltaX * deltaX + deltaY * deltaY > DRAG_CLICK_THRESHOLD_SQUARED) {
+            suppressNextClick = true
+        }
+    }
+
+    function handlePointerUp() {
+        leftPointerDown = false
+    }
+
     function handleClick(event: MouseEvent) {
+        if (suppressNextClick) {
+            event.preventDefault()
+            event.stopPropagation()
+            suppressNextClick = false
+            return
+        }
+        if (detectExit(event)) {
+            event.preventDefault()
+            options.onExit?.()
+            return
+        }
         const hit = detectSeat(event)
         if (hit) {
             options.onClick(hit.seatIndex)
@@ -99,17 +158,25 @@ export function createClassroomInteraction(options: ClassroomInteractionOptions)
         options.onHover(null, event)
     }
 
+    options.canvas.addEventListener('pointerdown', handlePointerDown)
     options.canvas.addEventListener('mousemove', handleMove)
     options.canvas.addEventListener('click', handleClick)
     options.canvas.addEventListener('contextmenu', handleContextMenu)
     options.canvas.addEventListener('mouseleave', handleLeave)
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerUp)
 
     return {
         dispose: () => {
+            options.canvas.removeEventListener('pointerdown', handlePointerDown)
             options.canvas.removeEventListener('mousemove', handleMove)
             options.canvas.removeEventListener('click', handleClick)
             options.canvas.removeEventListener('contextmenu', handleContextMenu)
             options.canvas.removeEventListener('mouseleave', handleLeave)
+            window.removeEventListener('pointermove', handlePointerMove)
+            window.removeEventListener('pointerup', handlePointerUp)
+            window.removeEventListener('pointercancel', handlePointerUp)
             options.canvas.style.cursor = 'default'
             options.scene.remove(highlight)
             options.scene.remove(targets)
@@ -151,12 +218,17 @@ function getDeskInteractionMetrics(instancedMeshes: THREE.InstancedMesh[]): Desk
             Math.max(proxySize.y, 0.4),
             Math.max(proxySize.z, 0.4),
         ),
-        seatMinX: bounds.min.x,
-        seatWidth: Math.max(proxySize.x, 0.4),
+        seatMinX: bounds.min.z,
+        seatWidth: Math.max(proxySize.z, 0.4),
     }
 }
 
-function createInteractionTargets(roomSize: number, count: number, metrics: DeskInteractionMetrics) {
+function createInteractionTargets(
+    roomSize: number,
+    count: number,
+    metrics: DeskInteractionMetrics,
+    dimensions?: RoomPlanDimensions,
+) {
     const group = new THREE.Group()
     const geometry = new THREE.BoxGeometry(metrics.proxySize.x + 0.12, metrics.proxySize.y + 0.12, metrics.proxySize.z + 0.12)
     geometry.translate(metrics.proxyCenter.x, metrics.proxyCenter.y, metrics.proxyCenter.z)
@@ -169,8 +241,8 @@ function createInteractionTargets(roomSize: number, count: number, metrics: Desk
 
     for (let index = 0; index < count; index += 1) {
         const target = new THREE.Mesh(geometry, material)
-        target.position.copy(getDeskPosition(roomSize, index))
-        target.quaternion.setFromEuler(new THREE.Euler(0, getDeskYaw(roomSize, index), 0))
+        target.position.copy(getDeskPosition(roomSize, index, dimensions))
+        target.quaternion.setFromEuler(new THREE.Euler(0, getDeskYaw(roomSize, index, dimensions), 0))
         target.userData.deskIndex = index
         group.add(target)
     }
@@ -261,7 +333,7 @@ function getBaseMatrix(mesh: THREE.InstancedMesh) {
 
 function largeSeatOffset(point: THREE.Vector3, object: THREE.Object3D, metrics: DeskInteractionMetrics) {
     const localPoint = object.worldToLocal(point.clone())
-    const normalized = THREE.MathUtils.clamp((localPoint.x - metrics.seatMinX) / metrics.seatWidth, 0, 0.999)
+    const normalized = THREE.MathUtils.clamp((localPoint.z - metrics.seatMinX) / metrics.seatWidth, 0, 0.999)
     return Math.floor(normalized * 4)
 }
 

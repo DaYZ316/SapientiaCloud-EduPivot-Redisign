@@ -1,7 +1,7 @@
 package com.dayz.sc.course.model.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.dayz.sc.course.config.PostgresJsonbChapterAttachmentListTypeHandler;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -17,7 +17,7 @@ import java.util.UUID;
  */
 @Getter
 @Setter
-@TableName("edu_chapter")
+@TableName(value = "edu_chapter", autoResultMap = true)
 public class Chapter {
 
     @TableId(type = IdType.INPUT)
@@ -35,8 +35,8 @@ public class Chapter {
 
     private String content;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
-    private List<String> attachmentUrls;
+    @TableField(value = "attachment_urls", typeHandler = PostgresJsonbChapterAttachmentListTypeHandler.class)
+    private List<ChapterAttachment> attachments;
 
     private Integer sortOrder;
 

@@ -5,7 +5,6 @@ spring:
   flyway:
     table: flyway_schema_history_notification
     baseline-on-migrate: true
-    out-of-order: true
   threads:
     virtual:
       enabled: true
@@ -22,6 +21,11 @@ spring:
         spring.json.trusted.packages: "com.dayz.sc.common.events.*"
     listener:
       ack-mode: MANUAL_IMMEDIATE
+
+logging:
+  level:
+    org.apache.kafka.common.config.AbstractConfig: WARN
+    com.alibaba.nacos.plugin: WARN
 
 management:
   endpoints:

@@ -3,6 +3,7 @@
   <SessionExpiredDialog/>
   <GlobalConfirmDialog/>
   <GlobalNotification/>
+  <LivePracticePopup/>
 </template>
 
 <script lang="ts" setup>
@@ -14,6 +15,7 @@ import {useUiPreferencesStore} from '@/features/settings/stores/uiPreferences'
 import GlobalConfirmDialog from '@/shared/components/GlobalConfirmDialog.vue'
 import GlobalNotification from '@/shared/components/GlobalNotification.vue'
 import SessionExpiredDialog from '@/shared/components/SessionExpiredDialog.vue'
+import LivePracticePopup from '@/features/live-practice/components/LivePracticePopup.vue'
 
 const authStore = useAuthStore()
 const uiPreferences = useUiPreferencesStore()

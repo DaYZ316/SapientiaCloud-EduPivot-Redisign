@@ -1,7 +1,7 @@
 package com.dayz.sc.course.model.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.dayz.sc.course.config.PostgresJsonbUuidListTypeHandler;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -28,7 +28,7 @@ public class PracticeAnswer {
 
     private UUID questionId;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = PostgresJsonbUuidListTypeHandler.class)
     private List<UUID> selectedOptionIds;
 
     private String textAnswer;

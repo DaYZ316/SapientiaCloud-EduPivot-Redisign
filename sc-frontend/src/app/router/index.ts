@@ -63,6 +63,11 @@ export const router = createRouter({
                     component: () => import('@/features/course/views/CourseClassSessionsView.vue'),
                 },
                 {
+                    path: 'courses/:courseId/live-practices/:groupId',
+                    name: 'course-live-practice-detail',
+                    component: () => import('@/features/course/views/CourseLivePracticeDetailView.vue'),
+                },
+                {
                     path: 'courses/:id',
                     component: () => import('@/features/course/views/CourseDetailView.vue'),
                     children: [
@@ -89,6 +94,11 @@ export const router = createRouter({
                             path: 'banks',
                             name: 'course-banks',
                             component: () => import('@/features/course/views/course-detail/CourseBanks.vue'),
+                        },
+                        {
+                            path: 'live-practices',
+                            name: 'course-live-practices',
+                            component: () => import('@/features/course/views/course-detail/CourseLivePractices.vue'),
                         },
                         {
                             path: 'files',

@@ -1,5 +1,6 @@
 package com.dayz.sc.course.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.feign.client.AuthInternalClient;
 import com.dayz.sc.course.model.dto.CreateClassBarrageRequest;
@@ -24,6 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -118,6 +120,42 @@ class ClassSessionServiceTest {
     }
 
     @Test
+    void createSession_shouldRejectStudent() {
+        UUID studentId = UUID.randomUUID();
+
+        assertThatThrownBy(() -> classSessionService.createSession(new CreateClassSessionRequest(
+                UUID.randomUUID(),
+                "Intro live",
+                "hello",
+                Instant.now().plusSeconds(3600),
+                Instant.now().plusSeconds(7200),
+                1
+        ), studentId, 1))
+                .isInstanceOf(BusinessException.class);
+        verify(classSessionRepository, never()).save(any());
+    }
+
+    @Test
+    void listByCourse_shouldAllowEnrolledStudentWithoutDrafts() {
+        UUID courseId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        ClassSession session = session(UUID.randomUUID(), Instant.now());
+        session.setCourseId(courseId);
+        Page<ClassSession> page = new Page<>(1, 10);
+        page.setRecords(List.of(session));
+        page.setTotal(1);
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(course(courseId, UUID.randomUUID())));
+        when(enrollmentRepository.findByCourseIdAndStudentId(courseId, studentId))
+                .thenReturn(Optional.of(enrollment(studentId, EnrollmentStatus.ACTIVE.getCode())));
+        when(classSessionRepository.findByCourseId(courseId, 1, 10, false)).thenReturn(page);
+
+        var result = classSessionService.listByCourse(courseId, 1, 10, studentId, 1);
+
+        assertThat(result.records()).hasSize(1);
+        verify(classSessionRepository).findByCourseId(courseId, 1, 10, false);
+    }
+
+    @Test
     void joinSession_shouldRejectDraft() {
         UUID sessionId = UUID.randomUUID();
         UUID studentId = UUID.randomUUID();
@@ -142,6 +180,43 @@ class ClassSessionServiceTest {
                 new UpdateClassSessionRequest("New title", null, null, null, null), teacherId, 2))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("Published class sessions cannot be changed");
+    }
+
+    @Test
+    void updateSession_shouldRejectStudent() {
+        UUID sessionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        ClassSession session = session(sessionId, null);
+        when(classSessionRepository.findByIdForUpdate(sessionId)).thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> classSessionService.updateSession(sessionId,
+                new UpdateClassSessionRequest("New title", null, null, null, null), studentId, 1))
+                .isInstanceOf(BusinessException.class);
+        verify(classSessionRepository, never()).update(any());
+    }
+
+    @Test
+    void publishSession_shouldRejectStudent() {
+        UUID sessionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        ClassSession session = session(sessionId, null);
+        when(classSessionRepository.findByIdForUpdate(sessionId)).thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> classSessionService.publishSession(sessionId, studentId, 1))
+                .isInstanceOf(BusinessException.class);
+        verify(classSessionRepository, never()).update(any());
+    }
+
+    @Test
+    void deleteSession_shouldRejectStudent() {
+        UUID sessionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        ClassSession session = session(sessionId, Instant.now());
+        when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> classSessionService.deleteSession(sessionId, studentId, 1))
+                .isInstanceOf(BusinessException.class);
+        verify(classSessionRepository, never()).deleteById(any());
     }
 
     @Test
@@ -178,6 +253,79 @@ class ClassSessionServiceTest {
         assertThat(participantCaptor.getValue().getX()).isEqualByComparingTo("12.50");
         assertThat(participantCaptor.getValue().getY()).isEqualByComparingTo("9.25");
         assertThat(participantCaptor.getValue().getZ()).isEqualByComparingTo("0");
+        verify(seatSyncWebSocketHub).broadcastUpsert(eq(sessionId), any());
+    }
+
+    @Test
+    void joinSession_shouldMoveStudentToEmptySeat_whenAlreadySeated() {
+        UUID sessionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        ClassSession session = session(sessionId, Instant.now());
+        ClassParticipant existing = participant(sessionId, studentId, 2);
+        when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(enrollmentRepository.findByCourseIdAndStudentId(session.getCourseId(), studentId))
+                .thenReturn(Optional.of(enrollment(studentId, EnrollmentStatus.ACTIVE.getCode())));
+        when(classParticipantRepository.findBySessionIdAndUserId(sessionId, studentId)).thenReturn(Optional.of(existing));
+        when(classParticipantRepository.findBySessionIdAndSeatIndex(sessionId, 6)).thenReturn(Optional.empty());
+
+        classSessionService.joinSession(sessionId,
+                new JoinClassSessionRequest(new BigDecimal("3.50"), new BigDecimal("4.25"), BigDecimal.ONE, 6), studentId, 1);
+
+        verify(classParticipantRepository).update(participantCaptor.capture());
+        assertThat(participantCaptor.getValue().getSeatIndex()).isEqualTo(6);
+        assertThat(participantCaptor.getValue().getX()).isEqualByComparingTo("3.50");
+        assertThat(participantCaptor.getValue().getY()).isEqualByComparingTo("4.25");
+        assertThat(participantCaptor.getValue().getZ()).isEqualByComparingTo("1");
+        verify(seatSyncWebSocketHub).broadcastUpsert(eq(sessionId), any());
+    }
+
+    @Test
+    void joinSession_shouldReturnExistingParticipant_whenStudentSelectsOwnSeat() {
+        UUID sessionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        ClassSession session = session(sessionId, Instant.now());
+        ClassParticipant existing = participant(sessionId, studentId, 5);
+        when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(enrollmentRepository.findByCourseIdAndStudentId(session.getCourseId(), studentId))
+                .thenReturn(Optional.of(enrollment(studentId, EnrollmentStatus.ACTIVE.getCode())));
+        when(classParticipantRepository.findBySessionIdAndUserId(sessionId, studentId)).thenReturn(Optional.of(existing));
+
+        var participant = classSessionService.joinSession(sessionId,
+                new JoinClassSessionRequest(BigDecimal.TEN, BigDecimal.TEN, BigDecimal.TEN, 5), studentId, 1);
+
+        assertThat(participant.id()).isEqualTo(existing.getId());
+        verify(classParticipantRepository, never()).update(any());
+        verify(classParticipantRepository, never()).save(any());
+        verifyNoInteractions(seatSyncWebSocketHub);
+    }
+
+    @Test
+    void joinSession_shouldRejectTeacher() {
+        UUID sessionId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        ClassSession session = session(sessionId, Instant.now());
+        when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> classSessionService.joinSession(sessionId,
+                new JoinClassSessionRequest(BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ZERO, 1), teacherId, 2))
+                .isInstanceOf(BusinessException.class);
+        verify(classParticipantRepository, never()).save(any());
+        verify(classParticipantRepository, never()).update(any());
+    }
+
+    @Test
+    void joinSession_shouldRejectUnenrolledStudent() {
+        UUID sessionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        ClassSession session = session(sessionId, Instant.now());
+        when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(enrollmentRepository.findByCourseIdAndStudentId(session.getCourseId(), studentId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> classSessionService.joinSession(sessionId,
+                new JoinClassSessionRequest(BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ZERO, 1), studentId, 1))
+                .isInstanceOf(BusinessException.class);
+        verify(classParticipantRepository, never()).save(any());
+        verify(classParticipantRepository, never()).update(any());
     }
 
     @Test
@@ -193,6 +341,7 @@ class ClassSessionServiceTest {
         when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
         when(enrollmentRepository.findByCourseIdAndStudentId(session.getCourseId(), studentId))
                 .thenReturn(Optional.of(enrollment(studentId, EnrollmentStatus.ACTIVE.getCode())));
+        when(classParticipantRepository.findBySessionIdAndUserId(sessionId, studentId)).thenReturn(Optional.empty());
         when(classParticipantRepository.findBySessionIdAndSeatIndex(sessionId, 8)).thenReturn(Optional.of(occupied));
 
         assertThatThrownBy(() -> classSessionService.joinSession(sessionId,
@@ -301,5 +450,19 @@ class ClassSessionServiceTest {
         enrollment.setStudentId(studentId);
         enrollment.setStatus(status);
         return enrollment;
+    }
+
+    private ClassParticipant participant(UUID sessionId, UUID userId, Integer seatIndex) {
+        ClassParticipant participant = new ClassParticipant();
+        participant.setId(UUID.randomUUID());
+        participant.setSessionId(sessionId);
+        participant.setUserId(userId);
+        participant.setRole(1);
+        participant.setSeatIndex(seatIndex);
+        participant.setX(BigDecimal.ONE);
+        participant.setY(BigDecimal.ONE);
+        participant.setZ(BigDecimal.ZERO);
+        participant.setJoinedAt(Instant.now());
+        return participant;
     }
 }

@@ -113,6 +113,10 @@
                 <span class="section-label">{{ t('questionBank.questionPreview') }}</span>
                 <h2>{{ selectedQuestion.questionTitle }}</h2>
               </div>
+              <label class="answer-switch">
+                <input v-model="showAnswer" type="checkbox"/>
+                <span>{{ t('questionBank.showAnswer') }}</span>
+              </label>
             </div>
 
             <div class="preview-meta">
@@ -130,14 +134,14 @@
               <p>{{ selectedQuestion.questionContent || selectedQuestion.questionTitle }}</p>
             </section>
 
-            <section class="preview-section">
+            <section v-if="selectedQuestionHasOptions" class="preview-section">
               <h3>{{ t('questionBank.options') }}</h3>
               <p v-if="selectedQuestionLoading" class="muted-text">{{ t('questionBank.loadingDetail') }}</p>
               <div v-else-if="selectedQuestion.options?.length" class="option-list">
                 <div
                     v-for="option in selectedQuestion.options"
                     :key="option.id"
-                    :class="{correct: option.isCorrect === 1}"
+                    :class="{correct: showAnswer && option.isCorrect === 1}"
                     class="option-row"
                 >
                   <span class="option-label">{{ option.optionLabel }}</span>
@@ -147,7 +151,7 @@
               <p v-else class="muted-text">{{ t('questionBank.noOptions') }}</p>
             </section>
 
-            <section class="preview-section">
+            <section v-if="showAnswer" class="preview-section">
               <h3>{{ t('questionBank.correctAnswer') }}</h3>
               <p v-if="selectedQuestionLoading" class="muted-text">{{ t('questionBank.loadingDetail') }}</p>
               <div v-else-if="answerItems.length" class="answer-list">
@@ -158,7 +162,7 @@
               <p v-else class="muted-text">{{ t('questionBank.noAnswer') }}</p>
             </section>
 
-            <section class="preview-section">
+            <section v-if="showAnswer" class="preview-section">
               <h3>{{ t('questionBank.explanation') }}</h3>
               <p>{{ explanationText }}</p>
             </section>
@@ -406,6 +410,7 @@ const keyword = ref('')
 const activeFilter = ref<FilterKey>('all')
 const showQuestionEditor = ref(false)
 const editingQuestionId = ref<string | null>(null)
+const showAnswer = ref(false)
 
 const isAdmin = computed(() => authStore.user?.role === 0)
 const isTeacher = computed(() => authStore.user?.role === 2 || isAdmin.value)
@@ -475,6 +480,10 @@ const selectedQuestion = computed(() =>
 )
 
 const selectedQuestionLoading = computed(() => detailLoadingQuestionId.value === selectedQuestionId.value)
+const selectedQuestionHasOptions = computed(() => {
+  const question = selectedQuestion.value
+  return question ? [0, 1, 2].includes(question.questionType) : false
+})
 const isOptionQuestion = computed(() => [0, 1, 2].includes(newQuestion.value.questionType))
 const isAnswerQuestion = computed(() => [3, 4].includes(newQuestion.value.questionType))
 const canEditOptions = computed(() => newQuestion.value.questionType !== 2)
@@ -1249,6 +1258,25 @@ async function handleDeleteQuestion() {
   font-weight: 400;
   line-height: 1.25;
   text-wrap: pretty;
+}
+
+.answer-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.answer-switch input {
+  accent-color: var(--color-primary);
 }
 
 .preview-meta {

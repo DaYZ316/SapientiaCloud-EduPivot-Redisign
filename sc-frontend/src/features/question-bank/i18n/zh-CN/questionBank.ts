@@ -55,6 +55,7 @@
         questionList: '题目列表',
         noMatchFilter: '没有匹配当前筛选的题目',
         questionPreview: '题目预览',
+        showAnswer: '显示答案',
         estimatedMinutes: '预计 {n} 分钟',
         viewCount: '{n} 次浏览',
         questionStem: '题干',
