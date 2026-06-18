@@ -1,0 +1,111 @@
+server:
+  port: 28086
+
+spring:
+  flyway:
+    table: flyway_schema_history_ai
+    baseline-on-migrate: true
+    out-of-order: true
+  threads:
+    virtual:
+      enabled: true
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: sc-ai
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.dayz.sc.common.events.*"
+    listener:
+      ack-mode: MANUAL_IMMEDIATE
+  ai:
+    openai:
+      api-key: ${DASHSCOPE_API_KEY}
+      base-url: https://dashscope.aliyuncs.com/compatible-mode
+      chat:
+        options:
+          model: qwen-plus
+      embedding:
+        options:
+          model: text-embedding-v3
+    vectorstore:
+      redis:
+        initialize-schema: true
+        index-name: edupivot-ai-idx
+        prefix: "edupivot:ai:vec:"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db,redis,diskSpace
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://zipkin:9411/api/v2/spans}
+
+springdoc:
+  api-docs:
+    enabled: true
+  packages-to-scan: com.dayz.sc.ai
+  paths-to-match: /api/**
+  writer-with-order-by-keys: true
+
+scalar:
+  enabled: true
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      storageInternal:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        sliding-window-size: 10
+        sliding-window-type: COUNT_BASED
+        permitted-number-of-calls-in-half-open-state: 3
+        register-health-indicator: true
+
+edupivot:
+  security:
+    trust-gateway-headers: true
+    jwt:
+      jwks-uri: http://sc-auth:28081/.well-known/jwks.json
+    public-endpoints:
+      - /actuator/health
+      - /actuator/health/liveness
+      - /actuator/health/readiness
+      - /doc.html
+      - /scalar
+      - /scalar.js
+      - /scalar/**
+      - /swagger-ui.html
+      - /swagger-ui/**
+      - /webjars/**
+      - /v3/api-docs
+      - /v3/api-docs/**
+      - /v3/api-docs.yaml
+      - /error
+  ai:
+    rag:
+      top-k: 4
+      similarity-threshold: 0.5
+    knowledge-base:
+      chunk-size: 800

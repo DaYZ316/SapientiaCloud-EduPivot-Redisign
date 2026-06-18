@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -88,8 +89,20 @@ def config_files(config_dir: Path) -> list[tuple[str, str, Path]]:
     return files
 
 
+def substitute_env_vars(content: str) -> str:
+    """将 ${VAR} 和 ${VAR:default} 替换为环境变量值。"""
+    def replacer(match: re.Match) -> str:
+        var_expr = match.group(1)
+        if ":" in var_expr:
+            var_name, default = var_expr.split(":", 1)
+        else:
+            var_name, default = var_expr, ""
+        return os.environ.get(var_name.strip(), default)
+    return re.sub(r"\$\{([^}]+)}", replacer, content)
+
+
 def publish_config(base_url: str, token: str, group: str, data_id: str, path: Path) -> None:
-    content = path.read_text(encoding="utf-8")
+    content = substitute_env_vars(path.read_text(encoding="utf-8"))
     app_name = APP_NAMES.get(data_id, "sc-edupivot")
     response = post_form(
         f"{base_url}/nacos/v1/cs/configs",

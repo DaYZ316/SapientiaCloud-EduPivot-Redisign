@@ -1,0 +1,139 @@
+package com.dayz.sc.ai.service;
+
+import com.dayz.sc.ai.config.AiProperties;
+import com.dayz.sc.ai.model.entity.KnowledgeDoc;
+import com.dayz.sc.ai.model.enums.DocStatus;
+import com.dayz.sc.ai.model.vo.KnowledgeDocVO;
+import com.dayz.sc.ai.repository.KnowledgeDocRepository;
+import com.dayz.sc.common.error.BusinessException;
+import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.feign.client.StorageInternalClient;
+import com.dayz.sc.common.feign.dto.StorageObjectInfo;
+import com.dayz.sc.common.response.ApiResponse;
+import com.dayz.sc.common.util.UuidV7Generator;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.reader.tika.TikaDocumentReader;
+import org.springframework.ai.transformer.splitter.TokenTextSplitter;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.core.io.UrlResource;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.net.URI;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * 知识库管理：拉取 sc-storage 文件 → Tika 解析 → 切分 → 写入向量库。
+ *
+ * @author DaYZ
+ * @since 2026-06-16
+ */
+@Slf4j
+@Service
+public class KnowledgeBaseService {
+
+    /** 向量库文档元数据键：所属用户。 */
+    public static final String META_USER_ID = "userId";
+    /** 向量库文档元数据键：所属知识库文档。 */
+    public static final String META_DOC_ID = "docId";
+
+    private final KnowledgeDocRepository knowledgeDocRepository;
+    private final StorageInternalClient storageInternalClient;
+    private final ObjectProvider<VectorStore> vectorStoreProvider;
+    private final AiProperties aiProperties;
+
+    /**
+     * vectorStore 以 {@link ObjectProvider} 延迟获取：避免在缺少 API Key 时因向量库
+     * schema 初始化（需调用 embedding）而拖垮整个服务启动。
+     */
+    public KnowledgeBaseService(KnowledgeDocRepository knowledgeDocRepository,
+                                StorageInternalClient storageInternalClient,
+                                ObjectProvider<VectorStore> vectorStoreProvider,
+                                AiProperties aiProperties) {
+        this.knowledgeDocRepository = knowledgeDocRepository;
+        this.storageInternalClient = storageInternalClient;
+        this.vectorStoreProvider = vectorStoreProvider;
+        this.aiProperties = aiProperties;
+    }
+
+    /**
+     * 同步入库：拉取文件、解析、切分、向量化并写入。返回文档记录 ID。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public UUID ingest(UUID storageObjectId, UUID userId) {
+        StorageObjectInfo info = unwrap(storageInternalClient.getFile(storageObjectId));
+        String downloadUrl = unwrap(storageInternalClient.getDownloadUrl(storageObjectId));
+
+        KnowledgeDoc doc = new KnowledgeDoc();
+        doc.setId(UuidV7Generator.generate());
+        doc.setUserId(userId);
+        doc.setStorageObjectId(storageObjectId);
+        doc.setFilename(info.fileName());
+        doc.setStatus(DocStatus.PENDING.name());
+        doc.setChunkCount(0);
+        knowledgeDocRepository.save(doc);
+
+        try {
+            List<Document> chunks = parseAndSplit(downloadUrl);
+            for (Document chunk : chunks) {
+                chunk.getMetadata().put(META_USER_ID, userId.toString());
+                chunk.getMetadata().put(META_DOC_ID, doc.getId().toString());
+            }
+            vectorStoreProvider.getObject().add(chunks);
+
+            doc.setChunkCount(chunks.size());
+            doc.setStatus(DocStatus.INDEXED.name());
+            knowledgeDocRepository.update(doc);
+            return doc.getId();
+        } catch (Exception e) {
+            log.error("知识库文档入库失败 docId={}, storageObjectId={}", doc.getId(), storageObjectId, e);
+            doc.setStatus(DocStatus.FAILED.name());
+            doc.setErrorMessage(e.getMessage());
+            knowledgeDocRepository.update(doc);
+            throw new BusinessException(ErrorCodes.AI_DOCUMENT_PROCESS_FAILED);
+        }
+    }
+
+    public List<KnowledgeDocVO> list(UUID userId, int page, int size) {
+        return knowledgeDocRepository.findByUserId(userId, page, size).stream()
+                .map(d -> new KnowledgeDocVO(
+                        d.getId(),
+                        d.getFilename(),
+                        d.getStatus(),
+                        d.getChunkCount() == null ? 0 : d.getChunkCount(),
+                        d.getCreatedAt()))
+                .toList();
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void delete(UUID docId, UUID userId) {
+        KnowledgeDoc doc = knowledgeDocRepository.findByIdAndUserId(docId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.AI_KNOWLEDGE_DOC_NOT_FOUND));
+        // 删除向量库中该文档的所有切片
+        vectorStoreProvider.getObject().delete("%s == '%s'".formatted(META_DOC_ID, docId));
+        doc.setDeletedAt(Instant.now());
+        knowledgeDocRepository.update(doc);
+        knowledgeDocRepository.deleteByIdAndUserId(docId, userId);
+    }
+
+    private List<Document> parseAndSplit(String downloadUrl) throws Exception {
+        UrlResource resource = new UrlResource(URI.create(downloadUrl));
+        TikaDocumentReader reader = new TikaDocumentReader(resource);
+        List<Document> documents = reader.get();
+        TokenTextSplitter splitter = TokenTextSplitter.builder()
+                .withChunkSize(aiProperties.getKnowledgeBase().getChunkSize())
+                .build();
+        return splitter.apply(documents);
+    }
+
+    private <T> T unwrap(ApiResponse<T> response) {
+        if (response == null || response.code() != 0 || response.data() == null) {
+            throw new BusinessException(ErrorCodes.STORAGE_OBJECT_NOT_FOUND);
+        }
+        return response.data();
+    }
+}
