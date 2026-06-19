@@ -22,7 +22,8 @@
           <span>{{ t('myEnrollments.filter') }}</span>
         </button>
         <div class="student-chip">
-          <img :src="studentAvatarSrc" :alt="t('myEnrollments.student.avatarAlt')"/>
+          <img v-if="authStore.user?.avatarUrl" :src="authStore.user.avatarUrl" :alt="t('myEnrollments.student.avatarAlt')"/>
+          <span v-else class="student-chip__avatar">{{ studentInitials }}</span>
           <span>{{ authStore.user?.displayName || t('myEnrollments.student.defaultName') }}</span>
         </div>
       </div>
@@ -229,6 +230,7 @@ import {dropCourse, getMyEnrollments} from '@/features/course/api/course'
 import type {Enrollment} from '@/features/course/types/course'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {notify} from '@/shared/composables/useGlobalNotification'
+import {getAvatarInitials} from '@/shared/utils/avatar'
 
 interface CourseWorkspaceItem {
   id: string
@@ -371,7 +373,7 @@ const resumeCourse = computed(() => courseItems.value[0] ?? {
   recentActivity: t('myEnrollments.student.resumeEmptyActivity'),
 })
 
-const studentAvatarSrc = computed(() => authStore.user?.avatarUrl || '/assets/avatar-student-default.png')
+const studentInitials = computed(() => getAvatarInitials(authStore.user?.displayName))
 
 function findCourseTitle(index: number): string {
   return courseItems.value[index]?.title || getFallbackCourse(index).title
@@ -608,10 +610,24 @@ onMounted(() => {
   color: var(--color-on-surface);
 }
 
-.student-chip img {
+.student-chip img,
+.student-chip__avatar {
   width: 30px;
   height: 30px;
+}
+
+.student-chip img {
   object-fit: cover;
+}
+
+.student-chip__avatar {
+  display: grid;
+  place-items: center;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .course-stats {

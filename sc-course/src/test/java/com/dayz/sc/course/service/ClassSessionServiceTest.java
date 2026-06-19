@@ -136,6 +136,47 @@ class ClassSessionServiceTest {
     }
 
     @Test
+    void createSession_shouldAllowExactlyTwoHours() {
+        UUID courseId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        Instant startAt = Instant.now().plusSeconds(3600);
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(course(courseId, teacherId)));
+        when(courseTeacherRepository.existsByCourseIdAndTeacherId(courseId, teacherId)).thenReturn(true);
+
+        classSessionService.createSession(new CreateClassSessionRequest(
+                courseId,
+                "Intro live",
+                "hello",
+                startAt,
+                startAt.plusSeconds(7200),
+                1
+        ), teacherId, 2);
+
+        verify(classSessionRepository).save(any());
+    }
+
+    @Test
+    void createSession_shouldRejectDurationOverTwoHours() {
+        UUID courseId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        Instant startAt = Instant.now().plusSeconds(3600);
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(course(courseId, teacherId)));
+        when(courseTeacherRepository.existsByCourseIdAndTeacherId(courseId, teacherId)).thenReturn(true);
+
+        assertThatThrownBy(() -> classSessionService.createSession(new CreateClassSessionRequest(
+                courseId,
+                "Intro live",
+                "hello",
+                startAt,
+                startAt.plusSeconds(7201),
+                1
+        ), teacherId, 2))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Class session duration cannot exceed 2 hours");
+        verify(classSessionRepository, never()).save(any());
+    }
+
+    @Test
     void listByCourse_shouldAllowEnrolledStudentWithoutDrafts() {
         UUID courseId = UUID.randomUUID();
         UUID studentId = UUID.randomUUID();

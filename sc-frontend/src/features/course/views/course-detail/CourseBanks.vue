@@ -11,7 +11,12 @@
         {{ t('courseDetail.newBank') }}
       </button>
     </div>
-    <div v-if="banks.length === 0" class="empty-tab">
+    <CourseTabLoadingSkeleton
+        v-if="loading"
+        :actions="canManageCourse ? 2 : isStudent && canAccessCourseContent ? 1 : 0"
+        :count="4"
+    />
+    <div v-else-if="banks.length === 0" class="empty-tab">
       <Database :size="28" stroke-width="1.4"/>
       <h3>{{ t('courseDetail.noBanksTitle') }}</h3>
       <p>{{ t('questionBank.noBanks') }}</p>
@@ -119,6 +124,7 @@ import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import BasePagination from '@/shared/components/BasePagination.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
+import CourseTabLoadingSkeleton from '@/features/course/components/CourseTabLoadingSkeleton.vue'
 import type {CourseDetail} from '@/features/course/types/course'
 import type {QuestionBank} from '@/features/question-bank/types/questionBank'
 
@@ -410,9 +416,6 @@ async function handleDelete(bank: QuestionBank) {
   align-content: center;
   gap: 10px;
   padding: 42px 24px;
-  background: var(--color-surface-card);
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
   color: var(--color-muted);
   text-align: center;
 }

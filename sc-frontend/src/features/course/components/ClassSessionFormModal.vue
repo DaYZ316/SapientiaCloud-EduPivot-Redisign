@@ -110,6 +110,7 @@ const emit = defineEmits<{
 
 const {t} = useI18n()
 const errorMessage = ref('')
+const MAX_SESSION_DURATION_MS = 2 * 60 * 60 * 1000
 
 const form = reactive({
   title: '',
@@ -162,6 +163,10 @@ function handleSubmit() {
   }
   if (endDate <= startDate) {
     errorMessage.value = t('courseDetail.classSession.endAfterStart')
+    return
+  }
+  if (endDate.getTime() - startDate.getTime() > MAX_SESSION_DURATION_MS) {
+    errorMessage.value = t('courseDetail.classSession.durationTooLong')
     return
   }
 

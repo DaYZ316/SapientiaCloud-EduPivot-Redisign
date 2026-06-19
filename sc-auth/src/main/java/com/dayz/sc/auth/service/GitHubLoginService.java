@@ -22,6 +22,7 @@ import com.dayz.sc.common.security.service.JwtTokenService;
 import com.dayz.sc.common.security.token.RefreshTokenService;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cloud.client.circuitbreaker.NoFallbackAvailableException;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -68,7 +69,7 @@ public class GitHubLoginService {
                     redirectUri,
                     normalize(request.codeVerifier())
             );
-        } catch (FeignException ex) {
+        } catch (FeignException | NoFallbackAvailableException ex) {
             throw new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED, "GitHub 授权码换取令牌失败");
         }
 
@@ -81,7 +82,7 @@ public class GitHubLoginService {
         GitHubUserResponse userInfo;
         try {
             userInfo = gitHubUserClient.getUser(authorization, GITHUB_JSON, gitHubOauthProperties.getApiVersion());
-        } catch (FeignException ex) {
+        } catch (FeignException | NoFallbackAvailableException ex) {
             throw new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED, "GitHub 用户信息读取失败");
         }
         if (userInfo == null || userInfo.id() == null) {
@@ -113,6 +114,8 @@ public class GitHubLoginService {
             if (ex.status() != HTTP_FORBIDDEN && ex.status() != HTTP_NOT_FOUND) {
                 throw new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED, "GitHub 邮箱信息读取失败");
             }
+        } catch (NoFallbackAvailableException ex) {
+            throw new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED, "GitHub 邮箱信息读取失败");
         }
 
         return selectEmail(emails)

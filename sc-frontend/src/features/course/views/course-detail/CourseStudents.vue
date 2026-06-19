@@ -8,7 +8,13 @@
       </div>
       <span class="count-badge">{{ total }}</span>
     </div>
-    <div v-if="students.length === 0" class="empty-tab">
+    <CourseTabLoadingSkeleton
+        v-if="loading"
+        :actions="canManageCourse ? 2 : 1"
+        :count="4"
+        avatar
+    />
+    <div v-else-if="students.length === 0" class="empty-tab">
       <Users :size="28" stroke-width="1.4"/>
       <h3>{{ t('courseDetail.noStudentsTitle') }}</h3>
       <p>{{ t('courseDetail.noStudents') }}</p>
@@ -72,6 +78,7 @@ import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import BasePagination from '@/shared/components/BasePagination.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
+import CourseTabLoadingSkeleton from '@/features/course/components/CourseTabLoadingSkeleton.vue'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 import type {Enrollment} from '@/features/course/types/course'
 
@@ -291,9 +298,6 @@ async function handleRemove(student: Enrollment) {
   align-content: center;
   gap: 10px;
   padding: 42px 24px;
-  background: var(--color-surface-card);
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
   color: var(--color-muted);
   text-align: center;
 }

@@ -54,9 +54,9 @@
       <div class="right-column">
         <!-- Profile Card -->
         <div class="card profile-card">
-          <div class="profile-avatar">
+          <div :class="{ 'profile-avatar--image': Boolean(authStore.user?.avatarUrl) }" class="profile-avatar">
             <img v-if="authStore.user?.avatarUrl" :src="authStore.user.avatarUrl" alt="Avatar"/>
-            <img v-else :src="defaultAvatarSrc" alt="Avatar"/>
+            <span v-else>{{ avatarInitials }}</span>
           </div>
           <h3 class="profile-name">{{ authStore.user?.displayName ?? 'User' }}</h3>
           <p class="profile-email">{{ authStore.user?.email ?? '-' }}</p>
@@ -93,20 +93,12 @@ import {computed} from 'vue'
 import {useI18n} from 'vue-i18n'
 
 import {useAuthStore} from '@/features/auth/stores/auth'
+import {getAvatarInitials} from '@/shared/utils/avatar'
 
 const {t} = useI18n()
 const authStore = useAuthStore()
 
-const defaultAvatarSrc = computed(() => {
-  switch (authStore.user?.role) {
-    case 0:
-      return '/assets/avatar-admin-default.png'
-    case 2:
-      return '/assets/avatar-teacher-default.png'
-    default:
-      return '/assets/avatar-student-default.png'
-  }
-})
+const avatarInitials = computed(() => getAvatarInitials(authStore.user?.displayName))
 
 const recentNotifications: { id: string; type: string; title: string; time: string; isRead: boolean }[] = []
 
@@ -326,9 +318,17 @@ function getNotificationIcon(type: string) {
   place-items: center;
   border-radius: 50%;
   overflow: hidden;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.profile-avatar--image {
   background: var(--color-surface-canvas);
   color: var(--color-on-surface);
-  margin-bottom: 16px;
 }
 
 .profile-avatar img {

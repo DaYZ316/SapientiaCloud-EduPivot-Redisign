@@ -44,7 +44,7 @@
         readingProgress: '阅读进度',
         discussionArea: '讨论区',
         jumpToAttachments: '查看附件',
-        likeLesson: '赞同课时',
+        likeLesson: '赞同',
         liked: '已赞同',
         createdAt: '创建时间',
         updatedAt: '更新时间',

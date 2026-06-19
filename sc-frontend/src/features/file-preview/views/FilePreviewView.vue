@@ -187,7 +187,7 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, nextTick, onBeforeUnmount, onMounted, ref} from 'vue'
+import {computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
 import {
@@ -200,14 +200,18 @@ import {
   Music2,
   X,
 } from 'lucide-vue-next'
-import VuePdf from '@vue-office/pdf/lib/v3/vue-office-pdf.mjs'
-import VueDocx from '@vue-office/docx/lib/v3/vue-office-docx.mjs'
-import '@vue-office/docx/lib/v3/index.css'
-import VueExcel from '@vue-office/excel/lib/v3/vue-office-excel.mjs'
-import '@vue-office/excel/lib/v3/index.css'
-import VuePptx from '@vue-office/pptx/lib/v3/vue-office-pptx.mjs'
 import {convertFile, getDownloadUrl} from '@/features/storage/api/storage'
-import {marked} from 'marked'
+
+const VuePdf = defineAsyncComponent(() => import('@vue-office/pdf/lib/v3/vue-office-pdf.mjs'))
+const VueDocx = defineAsyncComponent(async () => {
+  await import('@vue-office/docx/lib/v3/index.css')
+  return (await import('@vue-office/docx/lib/v3/vue-office-docx.mjs')).default
+})
+const VueExcel = defineAsyncComponent(async () => {
+  await import('@vue-office/excel/lib/v3/index.css')
+  return (await import('@vue-office/excel/lib/v3/vue-office-excel.mjs')).default
+})
+const VuePptx = defineAsyncComponent(() => import('@vue-office/pptx/lib/v3/vue-office-pptx.mjs'))
 
 const route = useRoute()
 const router = useRouter()
@@ -618,6 +622,7 @@ async function loadMarkdownFile() {
     const resp = await fetch(fileUrl.value)
     if (!resp.ok) throw new Error(resp.statusText)
     const raw = await resp.text()
+    const {marked} = await import('marked')
     markdownHtml.value = await marked.parse(raw)
     loading.value = false
   } catch {

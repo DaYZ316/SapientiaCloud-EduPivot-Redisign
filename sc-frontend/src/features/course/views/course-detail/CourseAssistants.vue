@@ -16,7 +16,10 @@
     </div>
 
     <!-- 待处理邀�?-->
-    <div v-if="canManageAssistants && !isAdmin && pendingInvitations.length > 0" class="pending-section">
+    <div
+        v-if="!loading && !pendingLoading && canManageAssistants && !isAdmin && pendingInvitations.length > 0"
+        class="pending-section"
+    >
       <h4>{{ t('courseDetail.pendingInvitations') }}</h4>
       <div class="invitation-list">
         <div v-for="inv in pendingInvitations" :key="inv.id" class="invitation-item">
@@ -43,7 +46,13 @@
       </div>
     </div>
 
-    <div v-if="assistantCount === 0 && pendingInvitations.length === 0" class="empty-tab">
+    <CourseTabLoadingSkeleton
+        v-if="loading || pendingLoading"
+        :actions="0"
+        :count="4"
+        avatar
+    />
+    <div v-else-if="assistantCount === 0 && pendingInvitations.length === 0" class="empty-tab">
       <UserCheck :size="28" stroke-width="1.4"/>
       <h3>{{ t('courseDetail.noAssistantsTitle') }}</h3>
       <p>{{ t('courseDetail.noAssistants') }}</p>
@@ -96,6 +105,7 @@ import {getSentInvitations, withdrawInvitation} from '@/features/course/api/invi
 import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import BasePagination from '@/shared/components/BasePagination.vue'
+import CourseTabLoadingSkeleton from '@/features/course/components/CourseTabLoadingSkeleton.vue'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 import InviteAssistantModal from '@/features/course/components/InviteAssistantModal.vue'
 import type {CourseDetail} from '@/features/course/types/course'
@@ -107,6 +117,7 @@ const props = defineProps<{
   courseId: string
   course: CourseDetail
   assistants: TeacherInfo[]
+  loading?: boolean
   canManageCourse?: boolean
   canManageAssistants?: boolean
   isAdmin?: boolean
@@ -124,6 +135,7 @@ const MEMBER_PAGE_SIZE = 10
 const currentPage = ref(1)
 
 const pendingInvitations = ref<CourseInvitation[]>([])
+const pendingLoading = ref(false)
 
 const assistantCount = computed(() => props.assistants.length)
 const totalPages = computed(() => Math.max(1, Math.ceil(assistantCount.value / MEMBER_PAGE_SIZE)))
@@ -143,11 +155,14 @@ onMounted(loadPendingInvitations)
 
 async function loadPendingInvitations() {
   if (!props.canManageCourse || props.isAdmin) return
+  pendingLoading.value = true
   try {
     const resp = await getSentInvitations({status: 0, size: 100})
     pendingInvitations.value = (resp.records || []).filter(inv => inv.courseId === props.courseId)
   } catch {
     pendingInvitations.value = []
+  } finally {
+    pendingLoading.value = false
   }
 }
 
@@ -355,9 +370,6 @@ async function handleWithdraw(inv: CourseInvitation) {
   align-content: center;
   gap: 10px;
   padding: 42px 24px;
-  background: var(--color-surface-card);
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
   color: var(--color-muted);
   text-align: center;
 }

@@ -43,16 +43,16 @@
         <Sparkles :size="18" stroke-width="1.8"/>
         AI 总结
       </button>
-      <button class="floating-action" type="button" @click="openLivePracticePanel">
+      <button v-if="canUseLivePracticePanel" class="floating-action" type="button" @click="openLivePracticePanel">
         <ClipboardList :size="18" stroke-width="1.8"/>
-        {{ isTeacher ? '发布练习' : '随堂练习' }}
+        {{ canManageSessionCourse ? '发布练习' : '随堂练习' }}
       </button>
     </div>
 
     <LivePracticePanel
-        v-if="session?.publishedAt && showLivePracticePanel"
+        v-if="session?.publishedAt && canUseLivePracticePanel && showLivePracticePanel"
         :initial-group-id="initialPracticeGroupId"
-        :is-teacher="isTeacher || isAdmin"
+        :is-teacher="canManageSessionCourse"
         :session="session"
         @close="closeLivePracticePanel"
     />
@@ -84,7 +84,7 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, ref} from 'vue'
+import {computed, defineAsyncComponent, onMounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
 import {BookOpen, CircleAlert, ClipboardList, Sparkles, Users} from 'lucide-vue-next'
@@ -93,13 +93,14 @@ import {getClassSession} from '@/features/course/api/classSession'
 import {getCourse} from '@/features/course/api/course'
 import type {ClassParticipant, ClassSession} from '@/features/course/types/classSession'
 import type {CourseDetail} from '@/features/course/types/course'
-import AiLiveSummaryPanel from '@/features/ai/components/AiLiveSummaryPanel.vue'
-import Classroom3D from '@/features/classroom/components/Classroom3D.vue'
-import ChapterPreviewPanel from '@/features/classroom/components/ChapterPreviewPanel.vue'
 import CourseEntryTransition from '@/features/course/components/CourseEntryTransition.vue'
 import {useAuthStore} from '@/features/auth/stores/auth'
-import LivePracticePanel from '@/features/live-practice/components/LivePracticePanel.vue'
-import SeatedStudentsPanel from '@/features/classroom/components/SeatedStudentsPanel.vue'
+
+const AiLiveSummaryPanel = defineAsyncComponent(() => import('@/features/ai/components/AiLiveSummaryPanel.vue'))
+const Classroom3D = defineAsyncComponent(() => import('@/features/classroom/components/Classroom3D.vue'))
+const ChapterPreviewPanel = defineAsyncComponent(() => import('@/features/classroom/components/ChapterPreviewPanel.vue'))
+const LivePracticePanel = defineAsyncComponent(() => import('@/features/live-practice/components/LivePracticePanel.vue'))
+const SeatedStudentsPanel = defineAsyncComponent(() => import('@/features/classroom/components/SeatedStudentsPanel.vue'))
 
 const {t} = useI18n()
 const route = useRoute()
@@ -111,6 +112,7 @@ const isAdmin = computed(() => authStore.user?.role === 0)
 const isTeacher = computed(() => authStore.user?.role === 2)
 const loading = ref(true)
 const session = ref<ClassSession | null>(null)
+const course = ref<CourseDetail | null>(null)
 const classroomReady = ref(false)
 const classroomLoadFailed = ref(false)
 const classroomProgress = ref(0)
@@ -127,6 +129,13 @@ const showEntryTransition = computed(() =>
 const seatedStudentCount = computed(() =>
     seatedParticipants.value.filter(participant => participant.role === 1 && participant.seatIndex != null).length,
 )
+const canManageSessionCourse = computed(() => {
+  const userId = authStore.user?.id
+  if (isAdmin.value) return true
+  if (!userId || !course.value) return false
+  return course.value.teacherId === userId || Boolean(course.value.teacherIds?.includes(userId))
+})
+const canUseLivePracticePanel = computed(() => !isTeacher.value || canManageSessionCourse.value)
 
 onMounted(() => {
   void loadSession()
@@ -146,8 +155,9 @@ async function loadSession() {
       await router.replace({name: 'course-overview', params: {id: sessionData.courseId}})
       return
     }
+    course.value = courseData
     session.value = sessionData
-    if (typeof route.query.practice === 'string') {
+    if (typeof route.query.practice === 'string' && canUseLivePracticePanel.value) {
       initialPracticeGroupId.value = route.query.practice
       showLivePracticePanel.value = true
     }
@@ -187,6 +197,7 @@ function handleClassroomReady() {
 }
 
 function openLivePracticePanel() {
+  if (!canUseLivePracticePanel.value) return
   closeSidePanels()
   initialPracticeGroupId.value = typeof route.query.practice === 'string' ? route.query.practice : null
   showLivePracticePanel.value = true

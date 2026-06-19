@@ -1,27 +1,44 @@
 name: sc-edupivot
 
+x-java-service: &java-service
+  build:
+    context: .
+    dockerfile: deploy/artifact/java-runtime.Dockerfile
+    args:
+      JAVA_RUNTIME_IMAGE: ${JAVA_RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
+  image: sc-edupivot-java-runtime:latest
+  restart: unless-stopped
+  working_dir: /app
+  networks:
+    - sc-edupivot-net
+
+x-java-env: &java-env
+  SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+  NACOS_SERVER_ADDR: nacos:8848
+  NACOS_USERNAME: ${NACOS_USERNAME}
+  NACOS_PASSWORD: ${NACOS_PASSWORD}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  REDIS_PASSWORD: ${REDIS_PASSWORD}
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  TZ: Asia/Shanghai
+  JAVA_OPTS: ${JAVA_OPTS:-}
+
 services:
   sc-frontend:
-    build:
-      context: .
-      dockerfile: sc-frontend/Dockerfile
-      args:
-        NODE_IMAGE: ${FRONTEND_NODE_IMAGE:-node:22-alpine}
-        NGINX_IMAGE: ${FRONTEND_NGINX_IMAGE:-nginx:1.27-alpine}
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
-        VITE_GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
-        VITE_GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-}
-        VITE_GITHUB_SCOPE: ${GITHUB_SCOPE:-}
-        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-        VITE_GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
-    image: sc-frontend:latest
+    image: ${FRONTEND_NGINX_IMAGE:-nginx:1.27-alpine}
     container_name: SC-Frontend
     restart: unless-stopped
     depends_on:
       sc-gateway:
         condition: service_healthy
     ports:
-      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${EDUPIVOT_FRONTEND_PORT:-18080}:80"
+      - "${EDUPIVOT_HTTP_PORT:-80}:80"
+      - "${EDUPIVOT_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./frontend/dist:/usr/share/nginx/html:ro
+      - ./deploy/artifact/frontend-nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${EDUPIVOT_SSL_CERT_DIR:-/etc/nginx/cert}:/etc/nginx/cert:ro
     networks:
       - sc-edupivot-net
 
@@ -61,15 +78,8 @@ services:
       - sc-edupivot-net
 
   sc-auth:
-    build:
-      context: .
-      dockerfile: sc-auth/Dockerfile
-      args:
-        MAVEN_IMAGE: ${MAVEN_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
-        RUNTIME_IMAGE: ${RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
-    image: sc-auth:latest
+    <<: *java-service
     container_name: SC-Auth
-    restart: unless-stopped
     depends_on:
       nacos:
         condition: service_healthy
@@ -82,15 +92,8 @@ services:
       kafka:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
-      NACOS_SERVER_ADDR: nacos:8848
-      NACOS_USERNAME: ${NACOS_USERNAME}
-      NACOS_PASSWORD: ${NACOS_PASSWORD}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      <<: *java-env
       REDIS_HOST: redis
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_PRIVATE_KEY_B64: ${JWT_PRIVATE_KEY_B64}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
@@ -98,28 +101,22 @@ services:
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI}
-      TZ: Asia/Shanghai
+    volumes:
+      - ./jars/sc-auth.jar:/app/app.jar:ro
     ports:
-      - "${EDUPIVOT_AUTH_PORT:-28081}:28081"
+      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${EDUPIVOT_AUTH_PORT:-28081}:28081"
+    command: >
+      sh -c 'if [ -n "$$JWT_PRIVATE_KEY_B64" ]; then export JWT_PRIVATE_KEY="$$(printf "%s" "$$JWT_PRIVATE_KEY_B64" | base64 -d)"; fi; exec java $$JAVA_OPTS -jar /app/app.jar'
     healthcheck:
       test: [ "CMD-SHELL", "curl -fsS http://localhost:28081/actuator/health/liveness || exit 1" ]
-      interval: 30s
+      interval: 15s
       timeout: 5s
-      retries: 3
-      start_period: 40s
-    networks:
-      - sc-edupivot-net
+      retries: 20
+      start_period: 60s
 
   sc-notification:
-    build:
-      context: .
-      dockerfile: sc-notification/Dockerfile
-      args:
-        MAVEN_IMAGE: ${MAVEN_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
-        RUNTIME_IMAGE: ${RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
-    image: sc-notification:latest
+    <<: *java-service
     container_name: SC-Notification
-    restart: unless-stopped
     depends_on:
       nacos:
         condition: service_healthy
@@ -134,37 +131,24 @@ services:
       sc-auth:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
-      NACOS_SERVER_ADDR: nacos:8848
-      NACOS_USERNAME: ${NACOS_USERNAME}
-      NACOS_PASSWORD: ${NACOS_PASSWORD}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      <<: *java-env
       REDIS_HOST: redis
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      TZ: Asia/Shanghai
+    volumes:
+      - ./jars/sc-notification.jar:/app/app.jar:ro
     ports:
-      - "${EDUPIVOT_NOTIFICATION_PORT:-28082}:28082"
+      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${EDUPIVOT_NOTIFICATION_PORT:-28082}:28082"
+    command: >
+      sh -c 'exec java $$JAVA_OPTS -jar /app/app.jar'
     healthcheck:
       test: [ "CMD-SHELL", "curl -fsS http://localhost:28082/actuator/health/liveness || exit 1" ]
-      interval: 30s
+      interval: 15s
       timeout: 5s
-      retries: 3
-      start_period: 40s
-    networks:
-      - sc-edupivot-net
+      retries: 20
+      start_period: 60s
 
   sc-course:
-    build:
-      context: .
-      dockerfile: sc-course/Dockerfile
-      args:
-        MAVEN_IMAGE: ${MAVEN_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
-        RUNTIME_IMAGE: ${RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
-    image: sc-course:latest
+    <<: *java-service
     container_name: SC-Course
-    restart: unless-stopped
     depends_on:
       nacos:
         condition: service_healthy
@@ -179,10 +163,8 @@ services:
       sc-auth:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
-      NACOS_SERVER_ADDR: nacos:8848
-      NACOS_USERNAME: ${NACOS_USERNAME}
-      NACOS_PASSWORD: ${NACOS_PASSWORD}
+      <<: *java-env
+      REDIS_HOST: redis
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
@@ -191,35 +173,24 @@ services:
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
       SPRING_DATA_REDIS_DATABASE: 0
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       EDUPIVOT_SECURITY_JWT_JWKS_URI: http://sc-auth:28081/.well-known/jwks.json
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      REDIS_HOST: redis
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
       SERVER_PORT: 28084
-      TZ: Asia/Shanghai
+    volumes:
+      - ./jars/sc-course.jar:/app/app.jar:ro
     ports:
-      - "${EDUPIVOT_COURSE_PORT:-28084}:28084"
+      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${EDUPIVOT_COURSE_PORT:-28084}:28084"
+    command: >
+      sh -c 'exec java $$JAVA_OPTS -jar /app/app.jar'
     healthcheck:
       test: [ "CMD-SHELL", "curl -fsS http://localhost:28084/actuator/health/liveness || exit 1" ]
-      interval: 30s
+      interval: 15s
       timeout: 5s
-      retries: 3
-      start_period: 40s
-    networks:
-      - sc-edupivot-net
+      retries: 20
+      start_period: 60s
 
   sc-storage:
-    build:
-      context: .
-      dockerfile: sc-storage/Dockerfile
-      args:
-        MAVEN_IMAGE: ${MAVEN_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
-        RUNTIME_IMAGE: ${RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
-    image: sc-storage:latest
+    <<: *java-service
     container_name: SC-Storage
-    restart: unless-stopped
     depends_on:
       nacos:
         condition: service_healthy
@@ -238,41 +209,28 @@ services:
       sc-course:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
-      NACOS_SERVER_ADDR: nacos:8848
-      NACOS_USERNAME: ${NACOS_USERNAME}
-      NACOS_PASSWORD: ${NACOS_PASSWORD}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      <<: *java-env
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_EXTERNAL_ENDPOINT: ${MINIO_EXTERNAL_ENDPOINT:-http://localhost:9000}
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       EDUPIVOT_SECURITY_JWT_JWKS_URI: http://sc-auth:28081/.well-known/jwks.json
       SERVER_PORT: 28085
-      TZ: Asia/Shanghai
+    volumes:
+      - ./jars/sc-storage.jar:/app/app.jar:ro
     ports:
-      - "${EDUPIVOT_STORAGE_PORT:-28085}:28085"
+      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${EDUPIVOT_STORAGE_PORT:-28085}:28085"
+    command: >
+      sh -c 'exec java $$JAVA_OPTS -jar /app/app.jar'
     healthcheck:
       test: [ "CMD-SHELL", "curl -fsS http://localhost:28085/actuator/health/liveness || exit 1" ]
-      interval: 30s
+      interval: 15s
       timeout: 5s
-      retries: 3
-      start_period: 40s
-    networks:
-      - sc-edupivot-net
+      retries: 20
+      start_period: 60s
 
   sc-ai:
-    build:
-      context: .
-      dockerfile: sc-ai/Dockerfile
-      args:
-        MAVEN_IMAGE: ${MAVEN_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
-        RUNTIME_IMAGE: ${RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
-    image: sc-ai:latest
+    <<: *java-service
     container_name: SC-AI
-    restart: unless-stopped
     depends_on:
       nacos:
         condition: service_healthy
@@ -289,41 +247,28 @@ services:
       sc-storage:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
-      NACOS_SERVER_ADDR: nacos:8848
-      NACOS_USERNAME: ${NACOS_USERNAME}
-      NACOS_PASSWORD: ${NACOS_PASSWORD}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      <<: *java-env
       REDIS_HOST: redis
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       EDUPIVOT_SECURITY_JWT_JWKS_URI: http://sc-auth:28081/.well-known/jwks.json
       DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-missing-dashscope-key}
       SPRING_AI_OPENAI_API_KEY: ${DASHSCOPE_API_KEY:-missing-dashscope-key}
       SERVER_PORT: 28086
-      TZ: Asia/Shanghai
+    volumes:
+      - ./jars/sc-ai.jar:/app/app.jar:ro
     ports:
-      - "${EDUPIVOT_AI_PORT:-28086}:28086"
+      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${EDUPIVOT_AI_PORT:-28086}:28086"
+    command: >
+      sh -c 'exec java $$JAVA_OPTS -jar /app/app.jar'
     healthcheck:
       test: [ "CMD-SHELL", "curl -fsS http://localhost:28086/actuator/health/liveness || exit 1" ]
-      interval: 30s
+      interval: 15s
       timeout: 5s
-      retries: 3
-      start_period: 40s
-    networks:
-      - sc-edupivot-net
+      retries: 20
+      start_period: 60s
 
   sc-gateway:
-    build:
-      context: .
-      dockerfile: sc-gateway/Dockerfile
-      args:
-        MAVEN_IMAGE: ${MAVEN_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
-        RUNTIME_IMAGE: ${RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
-    image: sc-gateway:latest
+    <<: *java-service
     container_name: SC-Gateway
-    restart: unless-stopped
     depends_on:
       nacos:
         condition: service_healthy
@@ -354,16 +299,19 @@ services:
       SPRING_DATA_REDIS_DATABASE: 0
       EDUPIVOT_SECURITY_JWT_JWKS_URI: http://sc-auth:28081/.well-known/jwks.json
       TZ: Asia/Shanghai
+      JAVA_OPTS: ${JAVA_OPTS:-}
     ports:
       - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${EDUPIVOT_GATEWAY_PORT:-39080}:${EDUPIVOT_GATEWAY_PORT:-39080}"
+    volumes:
+      - ./jars/sc-gateway.jar:/app/app.jar:ro
+    command: >
+      sh -c 'exec java $$JAVA_OPTS -jar /app/app.jar'
     healthcheck:
       test: [ "CMD-SHELL", "curl -fsS http://localhost:39080/actuator/health/liveness || exit 1" ]
-      interval: 30s
+      interval: 15s
       timeout: 5s
-      retries: 3
-      start_period: 40s
-    networks:
-      - sc-edupivot-net
+      retries: 20
+      start_period: 60s
 
   nacos:
     image: nacos/nacos-server:v3.1.0
@@ -394,10 +342,10 @@ services:
         --db.url.0=jdbc:postgresql://postgres:5432/${NACOS_POSTGRES_DB}?tcpKeepAlive=true&reWriteBatchedInserts=true&ApplicationName=nacos_java
       TZ: Asia/Shanghai
     ports:
-      - "${NACOS_PORT}:8848"
-      - "${NACOS_GRPC_PORT}:9848"
-      - "${NACOS_RAFT_PORT}:9849"
-      - "${NACOS_CONSOLE_PORT}:8080"
+      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${NACOS_PORT}:8848"
+      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${NACOS_GRPC_PORT}:9848"
+      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${NACOS_RAFT_PORT}:9849"
+      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${NACOS_CONSOLE_PORT}:8080"
     volumes:
       - ./nacos-plugins:/home/nacos/plugins:ro
       - nacos-data:/home/nacos/data
@@ -421,7 +369,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       TZ: Asia/Shanghai
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${POSTGRES_PORT}:5432"
     volumes:
       - ./postgres-init:/docker-entrypoint-initdb.d:ro
       - postgres-data:/var/lib/postgresql/data
@@ -441,7 +389,7 @@ services:
       REDIS_ARGS: "--appendonly yes --requirepass ${REDIS_PASSWORD}"
       TZ: Asia/Shanghai
     ports:
-      - "${REDIS_PORT}:6379"
+      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${REDIS_PORT}:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -457,7 +405,7 @@ services:
     container_name: SC-Zipkin
     restart: unless-stopped
     ports:
-      - "${ZIPKIN_PORT:-9411}:9411"
+      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${ZIPKIN_PORT:-9411}:9411"
     environment:
       STORAGE_TYPE: mem
     networks:
@@ -478,7 +426,7 @@ services:
       KAFKA_LOG_RETENTION_HOURS: 168
       TZ: Asia/Shanghai
     ports:
-      - "${KAFKA_PORT:-9092}:9092"
+      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${KAFKA_PORT:-9092}:9092"
     volumes:
       - kafka-data:/var/lib/kafka/data
     healthcheck:
@@ -500,8 +448,8 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       TZ: Asia/Shanghai
     ports:
-      - "${MINIO_API_PORT}:9000"
-      - "${MINIO_CONSOLE_PORT}:9001"
+      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${MINIO_API_PORT}:9000"
+      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${MINIO_CONSOLE_PORT}:9001"
     volumes:
       - minio-data:/data
     healthcheck:

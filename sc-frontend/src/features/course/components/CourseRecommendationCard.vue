@@ -13,11 +13,13 @@
           @click.prevent="navigateToTeacher"
       >
         <img
+            v-if="course.teacherAvatar && !teacherAvatarFailed"
             :alt="teacherName"
-            :src="teacherAvatar"
+            :src="course.teacherAvatar"
             class="teacher-avatar"
-            @error="useFallbackImage($event, TEACHER_AVATAR_FALLBACK)"
+            @error="teacherAvatarFailed = true"
         />
+        <span v-else class="teacher-avatar teacher-avatar--fallback">{{ teacherInitials }}</span>
         <span>{{ teacherName }}</span>
       </a>
     </figure>
@@ -62,16 +64,16 @@
 </template>
 
 <script lang="ts" setup>
-import {computed} from 'vue'
+import {computed, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import {ArrowRight} from 'lucide-vue-next'
 
 import {useAuthStore} from '@/features/auth/stores/auth'
+import {getAvatarInitials} from '@/shared/utils/avatar'
 import type {Course} from '@/features/course/types/course'
 
 const COURSE_COVER_FALLBACK = '/assets/course-cover-default.png'
-const TEACHER_AVATAR_FALLBACK = '/assets/avatar-teacher-default.png'
 
 const props = defineProps<{
   course: Course
@@ -86,8 +88,9 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const coverSrc = computed(() => props.course.coverUrl || COURSE_COVER_FALLBACK)
-const teacherAvatar = computed(() => props.course.teacherAvatar || TEACHER_AVATAR_FALLBACK)
 const teacherName = computed(() => props.course.teacherName || t('courseDetail.unknownTeacher'))
+const teacherInitials = computed(() => getAvatarInitials(teacherName.value))
+const teacherAvatarFailed = ref(false)
 
 const statusLabel = computed(() => {
   const map: Record<number, string> = {
@@ -139,6 +142,10 @@ const capacityLabel = computed(() => {
   return `${props.course.currentStudents} / ${t('courses.card.unlimited')}`
 })
 const updatedLabel = computed(() => formatDate(props.course.updatedAt || props.course.createdAt))
+
+watch(() => props.course.teacherAvatar, () => {
+  teacherAvatarFailed.value = false
+})
 
 function formatDate(dateStr?: string | null): string {
   if (!dateStr) {
@@ -283,9 +290,23 @@ function useFallbackImage(event: Event, fallback: string) {
   width: 30px;
   height: 30px;
   flex: 0 0 auto;
-  object-fit: cover;
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.teacher-chip img.teacher-avatar {
+  object-fit: cover;
+}
+
+.teacher-chip .teacher-avatar--fallback {
+  display: grid;
+  place-items: center;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .teacher-chip span {

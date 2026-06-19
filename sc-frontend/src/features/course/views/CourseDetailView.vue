@@ -34,47 +34,59 @@
 
             <dl class="metadata-grid">
               <div class="metadata-item">
-                <dt>{{ t('courseDetail.level') }}</dt>
-                <dd>
-                  <School :size="16" stroke-width="1.7"/>
-                  {{ levelLabel }}
-                </dd>
+                <dt>
+                  <span class="metadata-icon">
+                    <School :size="16" stroke-width="1.7"/>
+                  </span>
+                  <span>{{ t('courseDetail.level') }}</span>
+                </dt>
+                <dd>{{ levelLabel }}</dd>
               </div>
               <div class="metadata-item">
-                <dt>{{ t('courseDetail.totalClassHours') }}</dt>
-                <dd>
-                  <Clock :size="16" stroke-width="1.7"/>
-                  {{ totalClassHoursLabel }}
-                </dd>
+                <dt>
+                  <span class="metadata-icon">
+                    <Clock :size="16" stroke-width="1.7"/>
+                  </span>
+                  <span>{{ t('courseDetail.totalClassHours') }}</span>
+                </dt>
+                <dd>{{ totalClassHoursLabel }}</dd>
               </div>
               <div class="metadata-item">
-                <dt>{{ t('courseDetail.access') }}</dt>
-                <dd>
-                  <Globe v-if="course.isPublic === 1" :size="16" stroke-width="1.7"/>
-                  <LockKeyhole v-else :size="16" stroke-width="1.7"/>
-                  {{ visibilityLabel }}
-                </dd>
+                <dt>
+                  <span class="metadata-icon">
+                    <Globe v-if="course.isPublic === 1" :size="16" stroke-width="1.7"/>
+                    <LockKeyhole v-else :size="16" stroke-width="1.7"/>
+                  </span>
+                  <span>{{ t('courseDetail.access') }}</span>
+                </dt>
+                <dd>{{ visibilityLabel }}</dd>
               </div>
               <div class="metadata-item">
-                <dt>{{ t('courseDetail.format') }}</dt>
-                <dd>
-                  <DoorOpen :size="16" stroke-width="1.7"/>
-                  {{ courseTypeLabel || t('courseDetail.toBeArranged') }}
-                </dd>
+                <dt>
+                  <span class="metadata-icon">
+                    <DoorOpen :size="16" stroke-width="1.7"/>
+                  </span>
+                  <span>{{ t('courseDetail.format') }}</span>
+                </dt>
+                <dd>{{ courseTypeLabel || t('courseDetail.toBeArranged') }}</dd>
               </div>
               <div class="metadata-item">
-                <dt>{{ t('courseDetail.semester') }}</dt>
-                <dd>
-                  <CalendarDays :size="16" stroke-width="1.7"/>
-                  {{ course.semester || t('courseDetail.toBeArranged') }}
-                </dd>
+                <dt>
+                  <span class="metadata-icon">
+                    <CalendarDays :size="16" stroke-width="1.7"/>
+                  </span>
+                  <span>{{ t('courseDetail.semester') }}</span>
+                </dt>
+                <dd>{{ course.semester || t('courseDetail.toBeArranged') }}</dd>
               </div>
               <div class="metadata-item">
-                <dt>{{ t('courseDetail.location') }}</dt>
-                <dd>
-                  <MapPin :size="16" stroke-width="1.7"/>
-                  {{ course.location || t('courseDetail.toBeArranged') }}
-                </dd>
+                <dt>
+                  <span class="metadata-icon">
+                    <MapPin :size="16" stroke-width="1.7"/>
+                  </span>
+                  <span>{{ t('courseDetail.location') }}</span>
+                </dt>
+                <dd>{{ course.location || t('courseDetail.toBeArranged') }}</dd>
               </div>
             </dl>
 
@@ -346,6 +358,9 @@ const canManageCourse = computed(() => {
   if (!userId || !course.value) return isAdmin.value
   return isAdmin.value || course.value.teacherId === userId || Boolean(course.value.teacherIds?.includes(userId))
 })
+const canViewLivePractices = computed(() => {
+  return !isTeacher.value || canManageCourse.value
+})
 const canManageAssistants = computed(() => {
   const userId = authStore.user?.id
   if (!userId || !course.value) return isAdmin.value
@@ -481,6 +496,7 @@ const tabs = computed(() => [
       : t('courseDetail.livePractice.studentDescription'),
     icon: ClipboardList,
     roles: [0, 1, 2],
+    requiresViewLivePractices: true,
   },
   {
     key: 'files' as const,
@@ -509,6 +525,7 @@ const tabs = computed(() => [
 const visibleTabs = computed(() => {
   const role = authStore.user?.role ?? 1
   return tabs.value.filter(tab => tab.roles.includes(role)
+      && (!tab.requiresViewLivePractices || canViewLivePractices.value)
       && (!tab.requiresViewStudents || canViewStudents.value)
       && (!tab.requiresViewAssistants || canViewAssistants.value))
 })
@@ -1071,40 +1088,61 @@ function useFallbackImage(event: Event, fallback: string) {
 .metadata-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin: 16px 0 0;
+  gap: 0;
+  overflow: hidden;
+  margin: 18px 0 0;
   padding: 0;
-}
-
-.metadata-item {
-  min-width: 0;
-  padding: 12px;
-  background: var(--color-surface-container);
+  background: color-mix(in srgb, var(--color-surface-container) 68%, transparent);
   border: 1px solid var(--color-outline-light);
   border-radius: var(--radius-sm);
 }
 
+.metadata-item {
+  min-width: 0;
+  min-height: 76px;
+  padding: 15px 16px;
+  background: transparent;
+  border-right: 1px solid var(--color-outline-light);
+  border-bottom: 1px solid var(--color-outline-light);
+}
+
+.metadata-item:nth-child(3n) {
+  border-right: 0;
+}
+
+.metadata-item:nth-last-child(-n + 3) {
+  border-bottom: 0;
+}
+
+.metadata-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--color-muted);
+}
+
 .metadata-item dt {
-  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
 }
 
 .metadata-item dd {
-  display: flex;
-  align-items: center;
-  gap: 6px;
   min-width: 0;
-  margin: 0;
-  overflow: hidden;
+  margin: 7px 0 0 28px;
   color: var(--color-on-surface);
   font-family: var(--font-body);
   font-size: 14px;
   font-weight: 500;
   line-height: 1.4;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
 }
 
-.metadata-item svg {
+.metadata-icon svg {
   flex: 0 0 auto;
 }
 
@@ -1567,6 +1605,20 @@ function useFallbackImage(event: Event, fallback: string) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .metadata-item,
+  .metadata-item:nth-child(3n) {
+    border-right: 1px solid var(--color-outline-light);
+    border-bottom: 1px solid var(--color-outline-light);
+  }
+
+  .metadata-item:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .metadata-item:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
   .hero-action {
     width: 100%;
   }
@@ -1579,6 +1631,18 @@ function useFallbackImage(event: Event, fallback: string) {
 @media (max-width: 520px) {
   .metadata-grid {
     grid-template-columns: 1fr;
+  }
+
+  .metadata-item,
+  .metadata-item:nth-child(2n),
+  .metadata-item:nth-child(3n),
+  .metadata-item:nth-last-child(-n + 2) {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-outline-light);
+  }
+
+  .metadata-item:last-child {
+    border-bottom: 0;
   }
 
   .assistant-row,

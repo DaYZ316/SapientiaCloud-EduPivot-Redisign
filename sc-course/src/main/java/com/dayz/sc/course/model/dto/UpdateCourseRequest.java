@@ -21,7 +21,7 @@ public record UpdateCourseRequest(
         UUID coverFileId,
         UUID teacherId,
         List<UUID> assistantIds,
-        @Size(max = 20) String semester,
+        @Size(max = 64) String semester,
         @Size(max = 100) String location,
         Integer courseType,
         @Min(0) @Max(1) Integer isPublic,

@@ -41,7 +41,8 @@
             <span>{{ t('courses.createCourse') }}</span>
           </button>
           <div class="student-chip">
-            <img :src="teacherAvatarSrc" :alt="t('myEnrollments.teacher.avatarAlt')" />
+            <img v-if="authStore.user?.avatarUrl" :src="authStore.user.avatarUrl" :alt="t('myEnrollments.teacher.avatarAlt')" />
+            <span v-else class="student-chip__avatar">{{ teacherInitials }}</span>
             <span>{{ authStore.user?.displayName || t('myEnrollments.teacher.defaultName') }}</span>
           </div>
         </div>
@@ -321,149 +322,15 @@
       @created="submitCourse"
     />
 
-    <!-- Edit Course Modal -->
-    <Teleport to="body">
-      <div v-if="showEditModal" class="modal-overlay">
-        <div class="modal modal-lg course-editor-modal">
-          <div class="modal-header">
-            <h2>{{ t('courses.modal.editTitle') }}</h2>
-            <button class="btn-close" @click="closeEditModal">
-              <X :size="20" />
-            </button>
-          </div>
-          <form class="modal-body course-editor-form" @submit.prevent="submitEditCourse">
-            <section class="editor-section">
-              <div class="editor-section-heading">
-                <span>01</span>
-                <h3>{{ t('courses.modal.sections.basic') }}</h3>
-              </div>
-              <div class="editor-grid basic-editor-grid">
-                <div class="basic-fields">
-                  <div class="form-group">
-                    <label>{{ t('courses.modal.titleLabel') }}</label>
-                    <input
-                      v-model="editForm.title"
-                      class="input-field"
-                      type="text"
-                      :placeholder="t('courses.modal.titlePlaceholder')"
-                      required
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label>{{ t('courses.modal.descriptionLabel') }}</label>
-                    <textarea
-                      v-model="editForm.description"
-                      class="input-field"
-                      :placeholder="t('courses.modal.descriptionPlaceholder')"
-                      rows="4"
-                    ></textarea>
-                  </div>
-                </div>
-                <div class="form-group basic-cover-field">
-                  <label>{{ t('courses.modal.coverUrlLabel') }}</label>
-                  <BaseImageUploader
-                    v-model="editForm.coverFileId"
-                    usage="COURSE_COVER"
-                    scope-type="COURSE"
-                    :scope-id="editingCourse?.id"
-                    :preview-url="editForm.coverUrl"
-                    :button-label="t('courses.modal.uploadCover')"
-                    :uploaded-button-label="t('courses.modal.changeCover')"
-                    :uploaded-preview-label="t('courses.modal.changeCover')"
-                    uploaded-behavior="replace"
-                    :allow-remove="false"
-                    :help-text="t('courses.modal.coverUrlPlaceholder')"
-                    size="cover"
-                    @uploaded="handleEditCoverUploaded"
-                    @error="notify.error"
-                    @removed="clearEditCover"
-                  />
-                </div>
-                <div class="basic-field-row">
-                  <div class="form-group">
-                    <label>{{ t('courses.modal.levelLabel') }}</label>
-                    <BaseSelect
-                      v-model="editForm.level"
-                      class="modal-select-control"
-                      :options="courseLevelOptions"
-                      min-width="100%"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label>{{ t('courses.modal.visibilityLabel') }} *</label>
-                    <BaseSelect
-                      v-model="editForm.isPublic"
-                      class="modal-select-control"
-                      :options="courseVisibilityOptions"
-                      disabled
-                      min-width="100%"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label>{{ t('courses.modal.maxStudentsLabel') }}</label>
-                    <BaseNumberStepper v-model="editForm.maxStudents" :min="0" />
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section class="editor-section">
-              <div class="editor-section-heading">
-                <span>02</span>
-                <h3>{{ t('courses.modal.sections.publishing') }}</h3>
-              </div>
-              <div class="editor-grid editor-grid-3">
-                <div v-if="canEditCourseStatus" class="form-group">
-                  <label>{{ t('courses.modal.statusLabel') }}</label>
-                  <BaseSelect
-                    v-model="editForm.status"
-                    class="modal-select-control"
-                    :options="courseStatusOptions"
-                    min-width="100%"
-                  />
-                </div>
-                <div class="form-group">
-                  <label>{{ t('courses.modal.courseTypeLabel') }}</label>
-                  <BaseSelect
-                    v-model="editForm.courseType"
-                    class="modal-select-control"
-                    :options="courseTypeOptions"
-                    min-width="100%"
-                  />
-                </div>
-                <div class="form-group">
-                  <label>{{ t('courses.modal.semesterLabel') }}</label>
-                  <input
-                    v-model="editForm.semester"
-                    class="input-field"
-                    type="text"
-                    :placeholder="t('courses.modal.semesterPlaceholder')"
-                  />
-                </div>
-                <div class="form-group editor-span-2">
-                  <label>{{ t('courses.modal.locationLabel') }}</label>
-                  <input
-                    v-model="editForm.location"
-                    class="input-field"
-                    type="text"
-                    :placeholder="t('courses.modal.locationPlaceholder')"
-                  />
-                </div>
-              </div>
-            </section>
-
-            <div class="modal-footer editor-footer">
-              <button type="button" class="btn-secondary" @click="closeEditModal">
-                {{ t('courses.modal.cancel') }}
-              </button>
-              <button type="submit" class="btn-primary" :disabled="submitting">
-                {{ submitting ? t('courses.modal.saving') : t('courses.modal.update') }}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </Teleport>
+    <CourseFormModal
+      :visible="showEditModal"
+      mode="edit"
+      :course="editingCourse"
+      :can-edit-course-status="canEditCourseStatus"
+      :submitting="submitting"
+      @close="closeEditModal"
+      @updated="submitEditCourse"
+    />
 
     <BaseConfirmDialog
       :visible="showDeleteModal"
@@ -490,7 +357,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -510,11 +377,10 @@ import CourseFormModal from '@/features/course/components/CourseFormModal.vue'
 import CourseManagementTable from '@/features/course/components/CourseManagementTable.vue'
 import BaseConfirmDialog from '@/shared/components/BaseConfirmDialog.vue'
 import BaseDateRangeFilter from '@/shared/components/BaseDateRangeFilter.vue'
-import BaseImageUploader from '@/shared/components/BaseImageUploader.vue'
-import BaseNumberStepper from '@/shared/components/BaseNumberStepper.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import { notify } from '@/shared/composables/useGlobalNotification'
 import InviteAssistantModal from '@/features/course/components/InviteAssistantModal.vue'
+import { getAvatarInitials } from '@/shared/utils/avatar'
 
 import { createCourse, deleteCourse, getCourses, getTeacherCourses, updateCourse } from '@/features/course/api/course'
 import { useAuthStore } from '@/features/auth/stores/auth'
@@ -524,7 +390,6 @@ import type {
   TeacherCourseRole,
   UpdateCourseRequest,
 } from '@/features/course/types/course'
-import type { FileAsset } from '@/features/storage/types/storage'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -593,28 +458,6 @@ const statusFilterOptions = computed<SelectOption[]>(() => [
   { label: t('courses.status.archived'), value: 2 },
 ])
 
-const courseLevelOptions = computed<SelectOption[]>(() => [
-  { label: t('courses.level.beginner'), value: 1 },
-  { label: t('courses.level.intermediate'), value: 2 },
-  { label: t('courses.level.advanced'), value: 3 },
-])
-
-const courseStatusOptions = computed<SelectOption[]>(() => [
-  { label: t('courses.status.draft'), value: 0 },
-  { label: t('courses.status.published'), value: 1 },
-  { label: t('courses.status.archived'), value: 2 },
-])
-
-const courseTypeOptions = computed<SelectOption[]>(() => [
-  { label: t('courses.courseType.required'), value: 0 },
-  { label: t('courses.courseType.elective'), value: 1 },
-])
-
-const courseVisibilityOptions = computed<SelectOption[]>(() => [
-  { label: t('courses.visibility.private'), value: 0 },
-  { label: t('courses.visibility.public'), value: 1 },
-])
-
 const hasDateFilters = computed(() =>
   Boolean(createdAtStart.value || createdAtEnd.value || updatedAtStart.value || updatedAtEnd.value),
 )
@@ -628,19 +471,6 @@ const showCreateModal = ref(false)
 // Edit course (admin / teacher)
 const showEditModal = ref(false)
 const editingCourse = ref<Course | null>(null)
-const editForm = reactive({
-  title: '',
-  description: '',
-  level: 1,
-  coverUrl: '',
-  coverFileId: '',
-  semester: '',
-  location: '',
-  courseType: 0,
-  isPublic: 0,
-  maxStudents: 0,
-  status: 0,
-})
 
 // Delete course (admin / teacher)
 const showDeleteModal = ref(false)
@@ -674,7 +504,7 @@ const teacherRoleDescription = computed(() =>
     : t('myEnrollments.teacher.primaryDescription'),
 )
 
-const teacherAvatarSrc = computed(() => authStore.user?.avatarUrl || '/assets/avatar-teacher-default.png')
+const teacherInitials = computed(() => getAvatarInitials(authStore.user?.displayName))
 
 const teacherCourseItems = computed<TeacherCourseWorkspaceItem[]>(() =>
   courses.value.map((course) => {
@@ -943,17 +773,6 @@ async function submitCourse(request: CreateCourseRequest) {
 
 function editCourse(course: Course) {
   editingCourse.value = course
-  editForm.title = course.title
-  editForm.description = course.description || ''
-  editForm.level = course.level
-  editForm.coverUrl = course.coverUrl || ''
-  editForm.coverFileId = course.coverFileId || ''
-  editForm.semester = course.semester || ''
-  editForm.location = course.location || ''
-  editForm.courseType = course.courseType ?? 0
-  editForm.isPublic = course.isPublic ?? 0
-  editForm.maxStudents = course.maxStudents
-  editForm.status = course.status
   showEditModal.value = true
 }
 
@@ -962,33 +781,10 @@ function closeEditModal() {
   editingCourse.value = null
 }
 
-function handleEditCoverUploaded(asset: FileAsset) {
-  editForm.coverFileId = asset.id
-  editForm.coverUrl = asset.url || ''
-}
-
-function clearEditCover() {
-  editForm.coverFileId = ''
-  editForm.coverUrl = ''
-}
-
-async function submitEditCourse() {
+async function submitEditCourse(request: UpdateCourseRequest) {
   if (!editingCourse.value) return
-  if (!editForm.title) return
   submitting.value = true
   try {
-    const request: UpdateCourseRequest = {
-      title: editForm.title,
-      description: editForm.description || undefined,
-      level: editForm.level,
-      coverUrl: editForm.coverFileId ? undefined : editForm.coverUrl || undefined,
-      coverFileId: editForm.coverFileId || undefined,
-      semester: editForm.semester || undefined,
-      location: editForm.location || undefined,
-      courseType: editForm.courseType,
-      maxStudents: editForm.maxStudents,
-      status: canEditCourseStatus.value ? editForm.status : undefined,
-    }
     await updateCourse(editingCourse.value.id, request)
     closeEditModal()
     notify.success(t('courses.alert.updateSuccess'))
@@ -1199,10 +995,24 @@ onMounted(() => {
   color: var(--color-on-surface);
 }
 
-.my-courses-page .student-chip img {
+.my-courses-page .student-chip img,
+.my-courses-page .student-chip__avatar {
   width: 30px;
   height: 30px;
+}
+
+.my-courses-page .student-chip img {
   object-fit: cover;
+}
+
+.my-courses-page .student-chip__avatar {
+  display: grid;
+  place-items: center;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .my-courses-page .teacher-course-tabs {
@@ -2109,228 +1919,6 @@ onMounted(() => {
   gap: 4px;
 }
 
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--color-overlay);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  z-index: 1000;
-}
-
-.modal {
-  background: var(--color-surface-card);
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-lg);
-  width: 100%;
-  max-width: 400px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.16);
-  max-height: calc(100dvh - 48px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.modal-lg {
-  max-width: 560px;
-}
-
-.course-editor-modal {
-  max-width: 920px;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px 28px 0;
-}
-
-.modal-header h2 {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: 24px;
-  font-weight: 400;
-  color: var(--color-on-surface);
-}
-
-.btn-close {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--color-muted);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-close:hover {
-  background: var(--color-surface-canvas);
-  color: var(--color-on-surface);
-}
-
-.modal-body {
-  padding: 24px 28px;
-  overflow-y: auto;
-}
-
-.course-editor-form {
-  padding: 0;
-}
-
-.editor-section {
-  padding: 28px;
-  border-top: 1px solid var(--color-outline-light);
-}
-
-.editor-section:first-child {
-  border-top: 0;
-}
-
-.editor-section-heading {
-  display: flex;
-  align-items: baseline;
-  gap: 18px;
-  margin-bottom: 22px;
-}
-
-.editor-section-heading span {
-  font-family: var(--font-label);
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--color-outline);
-}
-
-.editor-section-heading h3 {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: 28px;
-  font-weight: 400;
-  color: var(--color-on-surface);
-}
-
-.editor-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 24px;
-  row-gap: 4px;
-}
-
-.editor-grid-3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.editor-span-2 {
-  grid-column: span 2;
-}
-
-.editor-grid:not(.basic-editor-grid) > .form-group:has(.base-image-uploader) {
-  grid-column: span 2;
-}
-
-.basic-editor-grid {
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
-  column-gap: 28px;
-  row-gap: 24px;
-  align-items: start;
-}
-
-.basic-fields {
-  display: grid;
-  gap: 18px;
-  min-width: 0;
-}
-
-.basic-field-row {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: minmax(150px, 0.85fr) minmax(190px, 1fr) minmax(190px, 1fr);
-  column-gap: 18px;
-  row-gap: 18px;
-  align-items: end;
-}
-
-.basic-fields > .form-group,
-.basic-field-row > .form-group,
-.basic-cover-field {
-  margin-bottom: 0;
-}
-
-.basic-editor-grid > .basic-cover-field {
-  grid-column: auto;
-}
-
-.basic-cover-field {
-  display: grid;
-  align-content: start;
-  gap: 10px;
-}
-
-.basic-cover-field > label {
-  margin-bottom: 0;
-}
-
-.basic-cover-field :deep(.base-image-uploader),
-.basic-cover-field :deep(.base-image-uploader-actions),
-.basic-cover-field :deep(.base-image-uploader-preview) {
-  width: 100%;
-}
-
-.basic-cover-field :deep(.base-image-uploader-field) {
-  gap: 12px;
-}
-
-.basic-cover-field :deep(.base-image-uploader-actions) {
-  display: none;
-}
-
-.basic-cover-field :deep(.base-image-uploader-preview) {
-  max-width: none;
-}
-
-.basic-cover-field :deep(.base-image-uploader-action.primary) {
-  min-width: 116px;
-}
-
-.basic-cover-field :deep(.size-cover .base-image-uploader-preview) {
-  width: 100%;
-  max-width: none;
-}
-
-.modal-footer.editor-footer {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
-  padding: 16px 28px 20px;
-  background: var(--color-surface-card);
-  border-top: 1px solid var(--color-outline-light);
-}
-
-.modal-body p {
-  margin: 0;
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 14px;
-  color: var(--color-on-surface);
-  line-height: 1.6;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 0 28px 24px;
-  flex-shrink: 0;
-}
-
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -2358,161 +1946,6 @@ onMounted(() => {
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-/* Form */
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--color-on-surface);
-}
-
-.form-group .input-field {
-  width: 100%;
-  padding: 12px 0;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--login-field-border);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: 16px;
-  font-weight: 400;
-  line-height: 1.5;
-  color: var(--login-text);
-  outline: none;
-  transition: border-color 0.2s;
-  box-sizing: border-box;
-}
-
-.form-group .input-field:focus {
-  border-bottom-color: var(--login-text);
-}
-
-.form-group .input-field::placeholder {
-  color: var(--login-muted);
-}
-
-.form-group textarea.input-field {
-  resize: vertical;
-  min-height: 108px;
-  padding: 14px 16px;
-  background: var(--color-surface-canvas);
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-md);
-  line-height: 1.6;
-  box-shadow: none;
-}
-
-.form-group textarea.input-field:hover:not(:disabled) {
-  border-color: var(--color-outline-variant);
-}
-
-.form-group textarea.input-field:focus {
-  background: var(--color-surface-card);
-  border-color: var(--color-on-surface);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-on-surface) 8%, transparent);
-}
-
-.form-group textarea.input-field:focus:hover {
-  border-color: var(--color-on-surface);
-}
-
-.form-group :deep(.modal-select-control) {
-  width: 100%;
-  min-width: 0;
-}
-
-.form-group :deep(.modal-select-control .base-select-trigger) {
-  min-height: 49px;
-  padding: 0;
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid var(--login-field-border);
-  border-radius: var(--radius-sm);
-  font-size: 16px;
-  font-weight: 400;
-  color: var(--color-on-surface);
-  box-shadow: none;
-}
-
-.form-group :deep(.modal-select-control .base-select-trigger:hover),
-.form-group :deep(.modal-select-control.open .base-select-trigger) {
-  background: transparent;
-  border-bottom-color: var(--color-on-surface);
-  box-shadow: 0 1px 0 var(--color-on-surface);
-}
-
-.form-group :deep(.modal-select-control .base-select-menu) {
-  top: calc(100% + 8px);
-  left: 0;
-  right: auto;
-  min-width: 100%;
-  margin-top: 0;
-  padding: 6px;
-  background: var(--color-surface-card);
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-md);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
-}
-
-.form-group :deep(.modal-select-control .base-select-option) {
-  min-height: 38px;
-  font-size: 15px;
-}
-
-.form-group :deep(.modal-select-control .base-select-option:hover),
-.form-group :deep(.modal-select-control .base-select-option.selected) {
-  background: var(--color-surface-container);
-}
-
-.btn-secondary,
-.btn-danger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 14px 28px;
-  border-radius: var(--radius-sm);
-  font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 14px;
-  font-weight: 400;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary {
-  background: transparent;
-  border: 1px solid var(--color-on-surface);
-  color: var(--color-on-surface);
-}
-
-.btn-secondary:hover {
-  background: var(--color-on-surface);
-  color: var(--color-on-primary);
-}
-
-.btn-danger {
-  background: var(--color-error);
-  color: #fff;
-  border: none;
-}
-
-.btn-danger:hover:not(:disabled) {
-  background: var(--color-on-surface);
-  color: var(--color-on-primary);
 }
 
 @media (max-width: 1180px) {
@@ -2631,15 +2064,6 @@ onMounted(() => {
 
   .page-header h1 {
     font-size: 32px;
-  }
-
-  .form-row {
-    grid-template-columns: 1fr;
-  }
-
-  .basic-editor-grid,
-  .basic-field-row {
-    grid-template-columns: 1fr;
   }
 
   .filter-bar {

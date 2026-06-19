@@ -156,6 +156,7 @@ export default {
         titleRequired: 'Enter a class title',
         timeRequired: 'Select both start and end time',
         endAfterStart: 'End time must be after start time',
+        durationTooLong: 'Class sessions cannot be longer than 2 hours',
         loading: 'Loading class sessions',
         loadFailed: 'Failed to load class sessions',
         retry: 'Retry',

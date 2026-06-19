@@ -156,6 +156,7 @@ export default {
         titleRequired: '请填写课堂标题',
         timeRequired: '请选择开始时间和结束时间',
         endAfterStart: '结束时间必须晚于开始时间',
+        durationTooLong: '开课时间区间不能超过 2 小时',
         loading: '正在加载开课记录',
         loadFailed: '开课记录加载失败',
         retry: '重试',

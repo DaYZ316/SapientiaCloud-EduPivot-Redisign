@@ -545,6 +545,11 @@ function formatDate(dateStr?: string | null) {
   color: var(--color-on-primary);
 }
 
+:global(:root[data-theme='light']) .rail-actions .primary-rail-action:hover:not(:disabled),
+:global(:root[data-theme='light']) .rail-actions .primary-rail-action:focus-visible:not(:disabled) {
+  color: var(--color-on-surface);
+}
+
 .skeleton-panel {
   display: flex;
   min-height: 320px;

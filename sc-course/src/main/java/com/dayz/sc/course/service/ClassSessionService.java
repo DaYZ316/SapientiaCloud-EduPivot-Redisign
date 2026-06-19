@@ -36,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -57,6 +58,7 @@ public class ClassSessionService {
     private static final int MEDIUM_SEAT_COUNT = 64;
     private static final int LARGE_SEAT_COUNT = 160;
     private static final int XLARGE_SEAT_COUNT = 250;
+    private static final Duration MAX_SESSION_DURATION = Duration.ofHours(2);
 
     private final ClassSessionRepository classSessionRepository;
     private final ClassParticipantRepository classParticipantRepository;
@@ -437,6 +439,9 @@ public class ClassSessionService {
     private void validateTimeRange(Instant startAt, Instant endAt) {
         if (startAt == null || endAt == null || !endAt.isAfter(startAt)) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Class session end time must be after start time");
+        }
+        if (Duration.between(startAt, endAt).compareTo(MAX_SESSION_DURATION) > 0) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Class session duration cannot exceed 2 hours");
         }
     }
 

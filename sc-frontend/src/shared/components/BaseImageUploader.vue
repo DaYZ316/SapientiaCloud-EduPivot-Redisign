@@ -19,13 +19,18 @@
               type="button"
               @click="openPicker"
           >
-            <img v-if="displayUrl" :alt="alt" :src="displayUrl"/>
-            <span v-if="displayUrl && hasUploadedImage && currentPreviewLabel"
-                  class="base-image-uploader-preview-overlay">
-              <UploadCloud :size="18" stroke-width="1.8"/>
-              <span>{{ currentPreviewLabel }}</span>
+            <template v-if="displayUrl">
+              <img :alt="alt" :src="displayUrl"/>
+              <span v-if="hasUploadedImage && currentPreviewLabel"
+                    class="base-image-uploader-preview-overlay">
+                <UploadCloud :size="18" stroke-width="1.8"/>
+                <span>{{ currentPreviewLabel }}</span>
+              </span>
+            </template>
+            <span v-else-if="fallbackLabel" class="base-image-uploader-avatar-fallback">
+              {{ fallbackLabel }}
             </span>
-            <span v-if="!displayUrl" class="base-image-uploader-placeholder">
+            <span v-else class="base-image-uploader-placeholder">
               <ImageIcon :size="24" stroke-width="1.7"/>
               <span>{{ currentButtonLabel }}</span>
             </span>
@@ -136,6 +141,7 @@ const props = withDefaults(defineProps<{
   scopeId?: string | null
   previewUrl?: string | null
   fallbackUrl?: string | null
+  fallbackLabel?: string | null
   alt?: string
   buttonLabel?: string
   uploadedButtonLabel?: string
@@ -153,6 +159,7 @@ const props = withDefaults(defineProps<{
   scopeId: null,
   previewUrl: '',
   fallbackUrl: '',
+  fallbackLabel: '',
   alt: 'Uploaded image',
   buttonLabel: 'Upload image',
   uploadedButtonLabel: '',
@@ -511,6 +518,19 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string) {
   font-family: var(--font-label);
   font-size: 12px;
   font-weight: 700;
+}
+
+.base-image-uploader-avatar-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: var(--font-heading);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .base-image-uploader-badge {

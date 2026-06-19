@@ -58,8 +58,7 @@
 
     <!-- Infinite Scroll Sentinel -->
     <div ref="sentinelRef" class="scroll-sentinel">
-      <div v-if="loading" class="loading-spinner"></div>
-      <span v-else-if="!hasMore && courses.length > 0" class="no-more-text"></span>
+      <span v-if="!loading && !hasMore && courses.length > 0" class="no-more-text"></span>
     </div>
 
   </div>
@@ -350,21 +349,6 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   padding: 32px 0;
-}
-
-.loading-spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid var(--color-outline-light);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .no-more-text {

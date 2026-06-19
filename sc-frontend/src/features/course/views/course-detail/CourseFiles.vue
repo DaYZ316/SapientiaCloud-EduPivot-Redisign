@@ -17,7 +17,12 @@
         />
       </div>
     </div>
-    <div v-if="files.length === 0" class="empty-tab">
+    <CourseTabLoadingSkeleton
+        v-if="loading"
+        :actions="canManageCourse ? 1 : 0"
+        :count="4"
+    />
+    <div v-else-if="files.length === 0" class="empty-tab">
       <FolderOpen :size="28" stroke-width="1.4"/>
       <h3>{{ t('courseDetail.noFilesTitle') }}</h3>
       <p>{{ t('chapter.noAttachments') }}</p>
@@ -75,6 +80,7 @@ import {bindCourseFile, deleteCourseFile} from '@/features/course/api/course'
 import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import BasePagination from '@/shared/components/BasePagination.vue'
+import CourseTabLoadingSkeleton from '@/features/course/components/CourseTabLoadingSkeleton.vue'
 import type {CourseFile} from '@/features/course/types/course'
 import type {FileAsset} from '@/features/storage/types/storage'
 import BaseFileUploader from '@/shared/components/BaseFileUploader.vue'
@@ -272,9 +278,6 @@ async function handleDelete(file: CourseFile) {
   align-content: center;
   gap: 10px;
   padding: 42px 24px;
-  background: var(--color-surface-card);
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
   color: var(--color-muted);
   text-align: center;
 }

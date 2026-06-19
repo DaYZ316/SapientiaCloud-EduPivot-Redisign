@@ -161,7 +161,9 @@
       <aside v-else-if="canManageCourse || previewSession" class="session-editor-panel">
         <form class="session-form" @submit.prevent="handleSubmit">
           <div class="editor-heading">
-            <h3 :title="panelTitle">{{ panelTitle }}</h3>
+            <div class="editor-title-block">
+              <h3 :title="panelTitle">{{ panelTitle }}</h3>
+            </div>
             <div class="form-actions">
               <button v-if="canManageCourse && !isPreviewing" :disabled="submitting" class="btn-add primary" type="submit">
                 {{ submitting ? t('courseDetail.saving') : t('courseDetail.save') }}
@@ -732,6 +734,7 @@ function formatDateTime(value?: string | null) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
   return new Intl.DateTimeFormat(String(locale.value), {
+    year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -1142,11 +1145,17 @@ function normalizedRoomSize(value: number) {
 
 .editor-heading {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 14px;
-  align-items: center;
-  padding: 18px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: flex-start;
+  padding: 20px 18px 18px;
   border-bottom: 1px solid var(--color-outline-light);
+}
+
+.editor-title-block {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
 }
 
 .editor-heading h3 {
@@ -1158,12 +1167,19 @@ function normalizedRoomSize(value: number) {
   font-size: 32px;
   font-weight: 400;
   line-height: 1.15;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-wrap: balance;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .loading-editor {
   pointer-events: none;
+}
+
+.loading-editor .editor-heading {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
 }
 
 .loading-editor .skeleton-line.index {
@@ -1476,8 +1492,16 @@ textarea.input-field:focus {
 
 .form-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  flex-wrap: nowrap;
   gap: 10px;
+}
+
+.form-actions .btn-add,
+.form-actions .btn-secondary {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .empty-tab,
@@ -1534,6 +1558,7 @@ textarea.input-field:focus {
 @media (max-width: 760px) {
   .workspace-header,
   .session-item,
+  .editor-heading,
   .form-grid,
   .room-spec-grid {
     grid-template-columns: 1fr;

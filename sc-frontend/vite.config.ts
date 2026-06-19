@@ -25,5 +25,13 @@ export default defineConfig(({mode}) => {
                 },
             },
         },
+        build: {
+            chunkSizeWarningLimit: 3000,
+            rolldownOptions: {
+                output: {
+                    codeSplitting: true,
+                },
+            },
+        },
     }
 })

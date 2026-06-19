@@ -31,7 +31,7 @@ spring:
       base-url: https://dashscope.aliyuncs.com/compatible-mode
       chat:
         options:
-          model: qwen-plus
+          model: qwen3.7-plus
       embedding:
         options:
           model: text-embedding-v3

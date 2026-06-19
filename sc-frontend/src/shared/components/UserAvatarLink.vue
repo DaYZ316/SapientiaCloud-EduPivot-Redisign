@@ -5,10 +5,10 @@
       class="user-avatar-link"
       v-bind="linkable ? { to: { name: 'user-profile', params: { userId } } } : {}"
       @click.stop
-  >
+    >
     <div class="user-avatar-link__avatar">
       <img v-if="avatarUrl" :alt="displayName || 'User'" :src="avatarUrl"/>
-      <img v-else :alt="displayName || 'User'" :src="defaultAvatarSrc"/>
+      <span v-else>{{ avatarInitials }}</span>
     </div>
     <span v-if="showName" class="user-avatar-link__name">{{ displayName || 'User' }}</span>
   </component>
@@ -16,6 +16,8 @@
 
 <script lang="ts" setup>
 import {computed} from 'vue'
+
+import {getAvatarInitials} from '@/shared/utils/avatar'
 
 const props = withDefaults(defineProps<{
   userId: string
@@ -31,16 +33,7 @@ const props = withDefaults(defineProps<{
   linkable: true,
 })
 
-const defaultAvatarSrc = computed(() => {
-  switch (props.role) {
-    case 0:
-      return '/assets/avatar-admin-default.png'
-    case 2:
-      return '/assets/avatar-teacher-default.png'
-    default:
-      return '/assets/avatar-student-default.png'
-  }
-})
+const avatarInitials = computed(() => getAvatarInitials(props.displayName))
 </script>
 
 <style scoped>
@@ -63,8 +56,11 @@ const defaultAvatarSrc = computed(() => {
   place-items: center;
   overflow: hidden;
   border-radius: 50%;
-  background: var(--color-surface-container-high);
+  background: var(--color-primary);
   border: 1px solid var(--color-outline-light);
+  color: var(--color-on-primary);
+  font-family: var(--font-heading);
+  font-weight: 700;
   flex-shrink: 0;
 }
 
@@ -72,6 +68,10 @@ const defaultAvatarSrc = computed(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.user-avatar-link__avatar span {
+  line-height: 1;
 }
 
 .user-avatar-link__name {
@@ -87,6 +87,7 @@ const defaultAvatarSrc = computed(() => {
 .user-avatar-link--tiny .user-avatar-link__avatar {
   width: 24px;
   height: 24px;
+  font-size: 10px;
 }
 
 .user-avatar-link--tiny .user-avatar-link__name {
@@ -97,6 +98,7 @@ const defaultAvatarSrc = computed(() => {
 .user-avatar-link--small .user-avatar-link__avatar {
   width: 32px;
   height: 32px;
+  font-size: 12px;
 }
 
 .user-avatar-link--small .user-avatar-link__name {
@@ -107,6 +109,7 @@ const defaultAvatarSrc = computed(() => {
 .user-avatar-link--medium .user-avatar-link__avatar {
   width: 42px;
   height: 42px;
+  font-size: 16px;
 }
 
 .user-avatar-link--medium .user-avatar-link__name {
@@ -117,6 +120,7 @@ const defaultAvatarSrc = computed(() => {
 .user-avatar-link--large .user-avatar-link__avatar {
   width: 48px;
   height: 48px;
+  font-size: 18px;
 }
 
 .user-avatar-link--large .user-avatar-link__name {
@@ -127,6 +131,7 @@ const defaultAvatarSrc = computed(() => {
 .user-avatar-link--xl .user-avatar-link__avatar {
   width: 64px;
   height: 64px;
+  font-size: 24px;
 }
 
 .user-avatar-link--xl .user-avatar-link__name {

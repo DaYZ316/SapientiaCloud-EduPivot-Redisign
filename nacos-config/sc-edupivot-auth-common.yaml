@@ -17,6 +17,14 @@ spring:
     openfeign:
       circuitbreaker:
         enabled: true
+      client:
+        config:
+          github-oauth-client:
+            connect-timeout: 5000
+            read-timeout: 15000
+          github-user-client:
+            connect-timeout: 5000
+            read-timeout: 15000
 
 logging:
   level:
@@ -60,6 +68,14 @@ resilience4j:
         failure-rate-threshold: 50
         wait-duration-in-open-state: 30s
         sliding-window-size: 10
+  timelimiter:
+    instances:
+      GitHubOauthClientexchangeCodeStringStringStringStringStringString:
+        timeout-duration: 15s
+      GitHubUserClientgetUserStringStringString:
+        timeout-duration: 15s
+      GitHubUserClientlistEmailsStringStringStringintint:
+        timeout-duration: 15s
 
 edupivot:
   security:

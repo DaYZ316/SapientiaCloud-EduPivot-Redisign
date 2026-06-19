@@ -19,9 +19,8 @@
 
     <div
       v-if="loading"
-      class="state-block"
     >
-      {{ t('courseDetail.livePractice.loading') }}
+      <CourseTabLoadingSkeleton :count="2" variant="practice"/>
     </div>
     <div
       v-else-if="loadFailed"
@@ -137,7 +136,7 @@
       </section>
       <div
         v-if="teacherGroups.length === 0"
-        class="state-block"
+        class="empty-practice"
       >
         {{ t('courseDetail.livePractice.emptyTeacher') }}
       </div>
@@ -232,7 +231,7 @@
       </section>
       <div
         v-if="workbookItems.length === 0"
-        class="state-block"
+        class="empty-practice"
       >
         {{ t('courseDetail.livePractice.emptyStudent') }}
       </div>
@@ -246,6 +245,7 @@ import {computed, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 
+import CourseTabLoadingSkeleton from '@/features/course/components/CourseTabLoadingSkeleton.vue'
 import {getCourseClassSessions} from '@/features/course/api/classSession'
 import type {ClassSession} from '@/features/course/types/classSession'
 import {getLivePracticeWorkbook, getTeacherLivePractices} from '@/features/live-practice/api/livePractice'
@@ -528,6 +528,20 @@ function openGroupDetail(groupId: string) {
   padding: 16px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
+}
+
+.empty-practice {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  padding: 42px 24px;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.55;
+  text-align: center;
 }
 
 .group-header,

@@ -26,7 +26,7 @@
                   :alt="t('settings.profile')"
                   :button-label="t('settings.changeAvatar')"
                   :disabled="!authStore.user?.id"
-                  :fallback-url="defaultAvatarSrc"
+                  :fallback-label="avatarInitials"
                   :help-text="t('settings.avatarHelp')"
                   :preview-url="avatarPreviewUrl"
                   :scope-id="authStore.user?.id"
@@ -180,6 +180,7 @@ import {useAuthStore} from '@/features/auth/stores/auth'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import type {FileAsset} from '@/features/storage/types/storage'
 import type {OauthProvider, UpdateUserRequest} from '@/features/user/types/user'
+import {getAvatarInitials} from '@/shared/utils/avatar'
 
 const authStore = useAuthStore()
 const {t} = useI18n()
@@ -207,16 +208,7 @@ const passwordForm = reactive({
 
 const linkedProviders = computed(() => new Set(authStore.user?.linkedProviders ?? []))
 
-const defaultAvatarSrc = computed(() => {
-  switch (authStore.user?.role) {
-    case 0:
-      return '/assets/avatar-admin-default.png'
-    case 2:
-      return '/assets/avatar-teacher-default.png'
-    default:
-      return '/assets/avatar-student-default.png'
-  }
-})
+const avatarInitials = computed(() => getAvatarInitials(profileForm.displayName))
 const connectedAccounts = computed(() => [
   {name: 'Google', provider: 'GOOGLE' as OauthProvider, icon: markRaw(Chrome)},
   {name: 'GitHub', provider: 'GITHUB' as OauthProvider, icon: markRaw(Github)},

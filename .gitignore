@@ -1,6 +1,8 @@
 HELP.md
 target/
 .env
+deploy_artifact.local.bat
+.deploy/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

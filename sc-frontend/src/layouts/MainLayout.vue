@@ -36,9 +36,9 @@
             <span v-if="unreadCount > 0" class="notification-badge"></span>
           </button>
           <div class="user-menu" @click="showUserMenu = !showUserMenu">
-            <div class="user-avatar">
+            <div :class="{ 'user-avatar--image': Boolean(authStore.user?.avatarUrl) }" class="user-avatar">
               <img v-if="authStore.user?.avatarUrl" :src="authStore.user.avatarUrl" alt="Avatar"/>
-              <img v-else :src="defaultAvatarSrc" alt="Avatar"/>
+              <span v-else>{{ avatarInitials }}</span>
             </div>
             <span class="user-name">{{ authStore.user?.displayName || 'User' }}</span>
             <ChevronDown :size="16" stroke-width="1.8"/>
@@ -139,9 +139,9 @@
           <span v-if="unreadCount > 0" class="notification-badge"></span>
         </button>
         <div class="user-menu side-user-menu" @click="showUserMenu = !showUserMenu">
-          <div class="user-avatar">
+          <div :class="{ 'user-avatar--image': Boolean(authStore.user?.avatarUrl) }" class="user-avatar">
             <img v-if="authStore.user?.avatarUrl" :src="authStore.user.avatarUrl" alt="Avatar"/>
-            <img v-else :src="defaultAvatarSrc" alt="Avatar"/>
+            <span v-else>{{ avatarInitials }}</span>
           </div>
           <span class="user-name">{{ authStore.user?.displayName || 'User' }}</span>
           <ChevronDown :size="16" stroke-width="1.8"/>
@@ -217,6 +217,7 @@ import {useRecentCourses} from '@/shared/composables/useRecentCourses'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {useUiPreferencesStore} from '@/features/settings/stores/uiPreferences'
 import GlobalAiDrawer from '@/features/ai/components/GlobalAiDrawer.vue'
+import {getAvatarInitials} from '@/shared/utils/avatar'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -230,16 +231,7 @@ const {unreadCount, start: startUnreadCount, stop: stopUnreadCount} = useUnreadC
 const isAdmin = computed(() => authStore.user?.role === 0)
 const isTeacher = computed(() => authStore.user?.role === 2)
 
-const defaultAvatarSrc = computed(() => {
-  switch (authStore.user?.role) {
-    case 0:
-      return '/assets/avatar-admin-default.png'
-    case 2:
-      return '/assets/avatar-teacher-default.png'
-    default:
-      return '/assets/avatar-student-default.png'
-  }
-})
+const avatarInitials = computed(() => getAvatarInitials(authStore.user?.displayName))
 const brandLogoSrc = computed(() =>
     uiPreferences.resolvedTheme === 'dark'
         ? '/assets/project-logo-dark.png'
@@ -433,6 +425,14 @@ async function handleLogout() {
   place-items: center;
   border-radius: 50%;
   overflow: hidden;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.user-avatar--image {
   background: var(--color-surface-canvas);
   color: var(--color-on-surface);
 }
