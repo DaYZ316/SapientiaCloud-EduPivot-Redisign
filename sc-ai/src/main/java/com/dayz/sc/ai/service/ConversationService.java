@@ -29,13 +29,19 @@ public class ConversationService {
 
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
+    private final ChatVectorMemoryService chatVectorMemoryService;
 
     @Transactional(rollbackFor = Exception.class)
     public UUID createConversation(CreateConversationRequest request, UUID userId) {
+        return createConversation(request.title(), userId);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public UUID createConversation(String title, UUID userId) {
         Conversation conversation = new Conversation();
         conversation.setId(UuidV7Generator.generate());
         conversation.setUserId(userId);
-        conversation.setTitle(request.title());
+        conversation.setTitle(title);
         conversation.setPinned(0);
         conversation.setFavorited(0);
         conversationRepository.save(conversation);
@@ -77,8 +83,16 @@ public class ConversationService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+    public void updateConversationTitle(UUID conversationId, String title, UUID userId) {
+        Conversation conversation = requireOwnedConversation(conversationId, userId);
+        conversation.setTitle(title);
+        conversationRepository.update(conversation);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
     public void deleteConversation(UUID conversationId, UUID userId) {
         requireOwnedConversation(conversationId, userId);
+        chatVectorMemoryService.deleteConversationMemory(conversationId, userId);
         messageRepository.deleteByConversationId(conversationId);
         conversationRepository.deleteByIdAndUserId(conversationId, userId);
     }

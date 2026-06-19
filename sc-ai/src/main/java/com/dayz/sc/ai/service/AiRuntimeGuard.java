@@ -22,11 +22,11 @@ public class AiRuntimeGuard {
 
     public void requireConfigured() {
         if (!isConfigured()) {
-            throw new BusinessException(ErrorCodes.BAD_REQUEST, "AI service is not configured: DASHSCOPE_API_KEY is missing");
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, missingKeyMessage());
         }
     }
 
     public String missingKeyMessage() {
-        return "AI service is not configured: DASHSCOPE_API_KEY is missing.";
+        return "AI 服务暂时不可用，请稍后再试或联系管理员。";
     }
 }

@@ -2,8 +2,8 @@ import {computed, ref} from 'vue'
 import {defineStore} from 'pinia'
 
 import {
-  createConversation,
   deleteConversation,
+  deleteKnowledgeDoc,
   ingestKnowledgeDoc,
   listConversationMessages,
   listConversations,
@@ -11,14 +11,48 @@ import {
   streamChat,
   updateConversation,
 } from '@/features/ai/api/ai'
-import type {AiContext, ChatMessage, Conversation, KnowledgeDoc} from '@/features/ai/types/ai'
+import type {
+  AiAgentMode,
+  AiChatContextInfo,
+  AiContext,
+  ChatMessage,
+  Conversation,
+  GenerationRequest,
+  KnowledgeDoc,
+} from '@/features/ai/types/ai'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
-function createLocalMessage(role: 'USER' | 'ASSISTANT', content: string): ChatMessage {
+interface SendMessageOptions {
+  agentMode?: AiAgentMode
+  courseId?: string
+  generation?: GenerationRequest
+}
+
+interface LoadConversationsOptions {
+  silent?: boolean
+  page?: number
+  append?: boolean
+}
+
+const STREAM_FLUSH_INTERVAL_MS = 18
+const CONVERSATION_PAGE_SIZE = 20
+
+function messageTypeForMode(mode?: AiAgentMode) {
+  if (mode === 'QUESTION') return 'QUESTION_SET'
+  if (mode === 'PAPER') return 'PAPER'
+  return 'TEXT'
+}
+
+function createLocalMessage(
+  role: 'USER' | 'ASSISTANT',
+  content: string,
+  messageType = 'TEXT',
+): ChatMessage {
   return {
     id: `local-${role.toLowerCase()}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     role,
     content,
+    messageType,
     createdAt: new Date().toISOString(),
     pending: role === 'ASSISTANT',
   }
@@ -28,14 +62,22 @@ export const useAiStore = defineStore('ai', () => {
   const conversations = ref<Conversation[]>([])
   const messages = ref<ChatMessage[]>([])
   const knowledgeDocs = ref<KnowledgeDoc[]>([])
+  const latestChatContext = ref<AiChatContextInfo | null>(null)
   const activeConversationId = ref<string | null>(null)
   const context = ref<AiContext>({sourceRoute: '/'})
   const loadingConversations = ref(false)
+  const loadingMoreConversations = ref(false)
   const loadingMessages = ref(false)
   const loadingKnowledgeDocs = ref(false)
+  const conversationsLoaded = ref(false)
+  const conversationPage = ref(1)
+  const hasMoreConversations = ref(true)
   const streaming = ref(false)
   const streamError = ref('')
   const abortController = ref<AbortController | null>(null)
+  const draftConversationOpen = ref(false)
+  let streamFlushTimer: number | null = null
+  let activeStreamBuffer: ReturnType<typeof createDisplayStreamBuffer> | null = null
 
   const activeConversation = computed(() =>
     conversations.value.find((conversation) => conversation.id === activeConversationId.value) || null,
@@ -48,21 +90,82 @@ export const useAiStore = defineStore('ai', () => {
     }),
   )
 
+  const latestArtifact = computed(() =>
+    [...messages.value]
+      .reverse()
+      .find((message) => message.role.toLowerCase() !== 'user' && message.messageType && message.messageType !== 'TEXT') || null,
+  )
+
+  function upsertConversationSummary(conversation: Pick<Conversation, 'id' | 'title'>) {
+    const existing = conversations.value.find((item) => item.id === conversation.id)
+    if (existing) {
+      existing.title = conversation.title
+      existing.updatedAt = new Date().toISOString()
+      return
+    }
+    const now = new Date().toISOString()
+    conversations.value.unshift({
+      id: conversation.id,
+      title: conversation.title,
+      pinned: false,
+      favorited: false,
+      createdAt: now,
+      updatedAt: now,
+    })
+  }
+
   function setContext(nextContext: AiContext) {
     context.value = nextContext
   }
 
-  async function loadConversations() {
-    loadingConversations.value = true
+  async function loadConversations(options: LoadConversationsOptions = {}) {
+    const page = options.page ?? 1
+    if (!options.silent) {
+      loadingConversations.value = true
+    }
     try {
-      conversations.value = await listConversations()
-      if (!activeConversationId.value && conversations.value.length > 0) {
+      const nextConversations = await listConversations(page, CONVERSATION_PAGE_SIZE)
+      conversations.value = options.append
+        ? appendConversations(conversations.value, nextConversations)
+        : nextConversations
+      conversationPage.value = page
+      hasMoreConversations.value = nextConversations.length === CONVERSATION_PAGE_SIZE
+      conversationsLoaded.value = true
+      if (!options.append && !draftConversationOpen.value && !activeConversationId.value && conversations.value.length > 0) {
         activeConversationId.value = sortedConversations.value[0].id
         await loadMessages(activeConversationId.value)
       }
     } finally {
-      loadingConversations.value = false
+      if (!options.silent) {
+        loadingConversations.value = false
+      }
     }
+  }
+
+  async function loadMoreConversations() {
+    if (loadingMoreConversations.value || !hasMoreConversations.value) return
+
+    loadingMoreConversations.value = true
+    try {
+      await loadConversations({
+        append: true,
+        page: conversationPage.value + 1,
+        silent: true,
+      })
+    } finally {
+      loadingMoreConversations.value = false
+    }
+  }
+
+  function appendConversations(current: Conversation[], next: Conversation[]) {
+    const existingIds = new Set(current.map((conversation) => conversation.id))
+    return current.concat(next.filter((conversation) => !existingIds.has(conversation.id)))
+  }
+
+  async function ensureConversationsLoaded() {
+    if (conversationsLoaded.value) return
+
+    await loadConversations()
   }
 
   async function loadMessages(conversationId = activeConversationId.value) {
@@ -72,6 +175,7 @@ export const useAiStore = defineStore('ai', () => {
     }
     loadingMessages.value = true
     try {
+      draftConversationOpen.value = false
       activeConversationId.value = conversationId
       messages.value = await listConversationMessages(conversationId)
     } finally {
@@ -79,58 +183,81 @@ export const useAiStore = defineStore('ai', () => {
     }
   }
 
-  async function ensureConversation() {
-    if (activeConversationId.value) return activeConversationId.value
-    const title = context.value.courseId ? '课程助手' : 'Celestial Hub'
-    const id = await createConversation({title})
-    await loadConversations()
-    activeConversationId.value = id
+  function openNewConversationDraft() {
+    draftConversationOpen.value = true
+    activeConversationId.value = null
     messages.value = []
-    return id
+    streamError.value = ''
   }
 
-  async function startConversation(title = 'Celestial Hub') {
-    const id = await createConversation({title})
-    await loadConversations()
-    activeConversationId.value = id
-    messages.value = []
-    return id
-  }
-
-  async function sendMessage(content: string) {
+  async function sendMessage(content: string, options: SendMessageOptions = {}) {
     const message = content.trim()
     if (!message || streaming.value) return
 
-    const conversationId = await ensureConversation()
+    let conversationId = activeConversationId.value
     const userMessage = createLocalMessage('USER', message)
-    const assistantMessage = createLocalMessage('ASSISTANT', '')
+    const assistantMessage = createLocalMessage('ASSISTANT', '', messageTypeForMode(options.agentMode))
 
     messages.value.push(userMessage, assistantMessage)
     streaming.value = true
     streamError.value = ''
+    latestChatContext.value = null
     abortController.value?.abort()
     abortController.value = new AbortController()
+    const streamBuffer = createDisplayStreamBuffer(assistantMessage)
+    activeStreamBuffer = streamBuffer
 
     try {
       await streamChat(
-        {conversationId, message},
+        {
+          ...(conversationId ? {conversationId} : {}),
+          message,
+          ...(options.agentMode ? {agentMode: options.agentMode} : {}),
+          ...(options.courseId ? {courseId: options.courseId} : {}),
+          ...(options.generation ? {generation: options.generation} : {}),
+        },
         {
           signal: abortController.value.signal,
           onChunk(chunk) {
-            assistantMessage.content += chunk
+            streamBuffer.enqueue(chunk)
+          },
+          onContext(contextInfo) {
+            latestChatContext.value = contextInfo
+          },
+          onConversation(conversation) {
+            conversationId = conversation.id
+            activeConversationId.value = conversation.id
+            draftConversationOpen.value = false
+            upsertConversationSummary(conversation)
           },
           onError(error) {
             streamError.value = error.message
           },
         },
       )
-      assistantMessage.pending = false
-      await loadConversations()
+      await streamBuffer.drain()
+      patchLocalMessage(assistantMessage.id, {pending: false})
+      await loadConversations({silent: true})
+      if (conversationId) {
+        activeConversationId.value = conversationId
+      }
+      if (assistantMessage.messageType !== 'TEXT' && conversationId) {
+        await loadMessages(conversationId)
+      }
     } catch (error) {
-      assistantMessage.pending = false
-      assistantMessage.failed = true
-      streamError.value = error instanceof Error ? error.message : 'AI response failed'
+      streamBuffer.clear()
+      const errorMessage = error instanceof Error ? error.message : 'AI response failed'
+      patchLocalMessage(assistantMessage.id, {
+        content: errorMessage,
+        failed: true,
+        pending: false,
+      })
+      streamError.value = errorMessage
     } finally {
+      streamBuffer.clear()
+      if (activeStreamBuffer === streamBuffer) {
+        activeStreamBuffer = null
+      }
       streaming.value = false
       abortController.value = null
     }
@@ -139,11 +266,85 @@ export const useAiStore = defineStore('ai', () => {
   function stopStreaming() {
     abortController.value?.abort()
     abortController.value = null
+    activeStreamBuffer?.clear()
+    activeStreamBuffer = null
+    if (streamFlushTimer) {
+      window.clearInterval(streamFlushTimer)
+      streamFlushTimer = null
+    }
     streaming.value = false
+  }
+
+  function patchLocalMessage(messageId: string, patch: Partial<ChatMessage>) {
+    const message = messages.value.find((item) => item.id === messageId)
+    if (!message) return
+
+    Object.assign(message, patch)
+  }
+
+  function appendLocalMessageContent(messageId: string, content: string) {
+    const message = messages.value.find((item) => item.id === messageId)
+    if (!message) return
+
+    message.content += content
+  }
+
+  function createDisplayStreamBuffer(message: ChatMessage) {
+    let buffer = ''
+    let drainResolve: (() => void) | null = null
+
+    function flush() {
+      if (!buffer) {
+        if (drainResolve) {
+          drainResolve()
+          drainResolve = null
+        }
+        return
+      }
+
+      const take = Math.min(buffer.length, buffer.startsWith('\n') ? 1 : 3)
+      appendLocalMessageContent(message.id, buffer.slice(0, take))
+      buffer = buffer.slice(take)
+    }
+
+    function ensureTimer() {
+      if (streamFlushTimer) return
+      streamFlushTimer = window.setInterval(flush, STREAM_FLUSH_INTERVAL_MS)
+    }
+
+    return {
+      enqueue(chunk: string) {
+        buffer += chunk
+        flush()
+        ensureTimer()
+      },
+      drain() {
+        if (!buffer) return Promise.resolve()
+
+        ensureTimer()
+        return new Promise<void>((resolve) => {
+          drainResolve = resolve
+        })
+      },
+      clear() {
+        buffer = ''
+        drainResolve?.()
+        drainResolve = null
+        if (streamFlushTimer) {
+          window.clearInterval(streamFlushTimer)
+          streamFlushTimer = null
+        }
+      },
+    }
   }
 
   async function togglePinned(conversation: Conversation) {
     await updateConversation(conversation.id, {pinned: !conversation.pinned})
+    await loadConversations()
+  }
+
+  async function toggleFavorited(conversation: Conversation) {
+    await updateConversation(conversation.id, {favorited: !conversation.favorited})
     await loadConversations()
   }
 
@@ -167,7 +368,12 @@ export const useAiStore = defineStore('ai', () => {
 
   async function ingestDoc(storageObjectId: string) {
     await ingestKnowledgeDoc({storageObjectId})
-    notify.success('文档已提交入库')
+    notify.success('Document submitted to the AI knowledge base')
+    await loadKnowledgeDocs()
+  }
+
+  async function removeKnowledgeDoc(docId: string) {
+    await deleteKnowledgeDoc(docId)
     await loadKnowledgeDocs()
   }
 
@@ -175,24 +381,33 @@ export const useAiStore = defineStore('ai', () => {
     conversations,
     messages,
     knowledgeDocs,
+    latestChatContext,
     activeConversationId,
     activeConversation,
     context,
     loadingConversations,
+    loadingMoreConversations,
     loadingMessages,
     loadingKnowledgeDocs,
+    conversationsLoaded,
+    hasMoreConversations,
     streaming,
     streamError,
     sortedConversations,
+    latestArtifact,
     setContext,
+    ensureConversationsLoaded,
     loadConversations,
+    loadMoreConversations,
     loadMessages,
-    startConversation,
+    openNewConversationDraft,
     sendMessage,
     stopStreaming,
     togglePinned,
+    toggleFavorited,
     removeConversation,
     loadKnowledgeDocs,
     ingestDoc,
+    removeKnowledgeDoc,
   }
 })

@@ -17,6 +17,7 @@ import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.tika.TikaDocumentReader;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
@@ -41,11 +42,15 @@ public class KnowledgeBaseService {
     public static final String META_USER_ID = "userId";
     /** 向量库文档元数据键：所属知识库文档 */
     public static final String META_DOC_ID = "docId";
+    public static final String META_SOURCE_TYPE = "sourceType";
+    public static final String META_SOURCE_TYPE_KNOWLEDGE_DOC = "KNOWLEDGE_DOC";
 
     private final KnowledgeDocRepository knowledgeDocRepository;
     private final StorageInternalClient storageInternalClient;
     private final ObjectProvider<@NonNull VectorStore> vectorStoreProvider;
     private final AiProperties aiProperties;
+    private final String vectorIndexName;
+    private final String vectorPrefix;
 
     /**
      * vectorStore 以 {@link ObjectProvider} 延迟获取：避免在缺少 API Key 时因向量库
@@ -54,11 +59,15 @@ public class KnowledgeBaseService {
     public KnowledgeBaseService(KnowledgeDocRepository knowledgeDocRepository,
                                 StorageInternalClient storageInternalClient,
                                 ObjectProvider<@NonNull VectorStore> vectorStoreProvider,
-                                AiProperties aiProperties) {
+                                AiProperties aiProperties,
+                                @Value("${spring.ai.vectorstore.redis.index-name:edupivot-ai-idx}") String vectorIndexName,
+                                @Value("${spring.ai.vectorstore.redis.prefix:edupivot:ai:vec:}") String vectorPrefix) {
         this.knowledgeDocRepository = knowledgeDocRepository;
         this.storageInternalClient = storageInternalClient;
         this.vectorStoreProvider = vectorStoreProvider;
         this.aiProperties = aiProperties;
+        this.vectorIndexName = vectorIndexName;
+        this.vectorPrefix = vectorPrefix;
     }
 
     /**
@@ -83,12 +92,15 @@ public class KnowledgeBaseService {
             for (Document chunk : chunks) {
                 chunk.getMetadata().put(META_USER_ID, userId.toString());
                 chunk.getMetadata().put(META_DOC_ID, doc.getId().toString());
+                chunk.getMetadata().put(META_SOURCE_TYPE, META_SOURCE_TYPE_KNOWLEDGE_DOC);
             }
             vectorStoreProvider.getObject().add(chunks);
 
             doc.setChunkCount(chunks.size());
             doc.setStatus(DocStatus.INDEXED.name());
             knowledgeDocRepository.update(doc);
+            log.info("AI knowledge document indexed docId={} storageObjectId={} chunkCount={} vectorIndex={} vectorPrefix={}",
+                    doc.getId(), storageObjectId, chunks.size(), vectorIndexName, vectorPrefix);
             return doc.getId();
         } catch (Exception e) {
             log.error("知识库文档入库失败 docId={}, storageObjectId={}", doc.getId(), storageObjectId, e);
@@ -115,7 +127,8 @@ public class KnowledgeBaseService {
         KnowledgeDoc doc = knowledgeDocRepository.findByIdAndUserId(docId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.AI_KNOWLEDGE_DOC_NOT_FOUND));
         // 删除向量库中该文档的所有切片
-        vectorStoreProvider.getObject().delete("%s == '%s'".formatted(META_DOC_ID, docId));
+        vectorStoreProvider.getObject().delete("%s == '%s' && %s == '%s' && %s == '%s'"
+                .formatted(META_SOURCE_TYPE, META_SOURCE_TYPE_KNOWLEDGE_DOC, META_DOC_ID, docId, META_USER_ID, userId));
         doc.setDeletedAt(Instant.now());
         knowledgeDocRepository.update(doc);
         knowledgeDocRepository.deleteByIdAndUserId(docId, userId);

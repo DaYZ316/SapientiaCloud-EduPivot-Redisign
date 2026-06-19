@@ -8,7 +8,10 @@ import com.dayz.sc.common.security.support.JwtPrincipalResolver;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -38,12 +41,18 @@ public class ChatController {
      */
     @PostMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @RateLimited(maxRequests = 20)
-    public Flux<@NonNull String> chat(
+    public ResponseEntity<Flux<@NonNull ServerSentEvent<String>>> chat(
             @Valid @RequestBody ChatRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         // 校验会话归属，防止越权写入他人会话
-        conversationService.requireOwnedConversation(request.conversationId(), userId);
-        return ragChatService.stream(request, userId);
+        if (request.conversationId() != null) {
+            conversationService.requireOwnedConversation(request.conversationId(), userId);
+        }
+        return ResponseEntity.ok()
+                .contentType(MediaType.TEXT_EVENT_STREAM)
+                .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-transform")
+                .header("X-Accel-Buffering", "no")
+                .body(ragChatService.stream(request, userId));
     }
 }

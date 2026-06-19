@@ -1,6 +1,7 @@
 package com.dayz.sc.ai.config;
 
 import com.dayz.sc.ai.service.KnowledgeBaseService;
+import com.dayz.sc.ai.service.ChatVectorMemoryService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -69,7 +70,12 @@ public class AiConfig {
                 .prefix(prefix)
                 .metadataFields(
                         RedisVectorStore.MetadataField.tag(KnowledgeBaseService.META_USER_ID),
-                        RedisVectorStore.MetadataField.tag(KnowledgeBaseService.META_DOC_ID))
+                        RedisVectorStore.MetadataField.tag(KnowledgeBaseService.META_DOC_ID),
+                        RedisVectorStore.MetadataField.tag(KnowledgeBaseService.META_SOURCE_TYPE),
+                        RedisVectorStore.MetadataField.tag(ChatVectorMemoryService.META_CONVERSATION_ID),
+                        RedisVectorStore.MetadataField.tag(ChatVectorMemoryService.META_USER_MESSAGE_ID),
+                        RedisVectorStore.MetadataField.tag(ChatVectorMemoryService.META_ASSISTANT_MESSAGE_ID),
+                        RedisVectorStore.MetadataField.tag(ChatVectorMemoryService.META_COURSE_ID))
                 .initializeSchema(true)
                 .build();
     }

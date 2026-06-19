@@ -51,15 +51,18 @@ public class AiGradingService {
 
     private String callModel(LivePracticeAiGradingRequestedEvent event) throws JsonProcessingException {
         String prompt = """
-                You are an education grading assistant. Grade the student's subjective answer.
-                Return valid JSON only, no markdown fence:
+                你是教育批改助手，请批改学生的主观题答案。
+                请只返回合法 JSON，不要使用 markdown 代码块：
                 {"score": 0, "isCorrect": false, "feedback": "brief feedback"}
+                feedback 字段会直接展示给学生和教师。
+                feedback 请使用学生作答语言，并采用自然的课堂反馈表达。
+                不要在 feedback 中提到后端字段、ID、JSON、API、RAG、vector store、embedding、payload、messageType、DashScope、Kafka、Redis 或 SSE。
 
-                Max score: %s
-                Question title: %s
-                Question content: %s
-                Reference answers JSON: %s
-                Student answer: %s
+                满分：%s
+                题目标题：%s
+                题目内容：%s
+                参考答案 JSON：%s
+                学生答案：%s
                 """.formatted(
                 valueOrZero(event.score()),
                 Objects.toString(event.questionTitle(), ""),

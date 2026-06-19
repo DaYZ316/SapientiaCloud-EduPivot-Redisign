@@ -1,5 +1,6 @@
 package com.dayz.sc.ai.service;
 
+import com.dayz.sc.ai.config.AiProperties;
 import com.dayz.sc.ai.model.dto.ChatRequest;
 import com.dayz.sc.ai.model.enums.AiAgentMode;
 import com.dayz.sc.ai.model.enums.AiMessageType;
@@ -16,6 +17,7 @@ import java.util.Map;
 public class AiAgentService {
 
     private final ChatClient chatClient;
+    private final AiProperties aiProperties;
     private final AiRuntimeGuard aiRuntimeGuard;
     private final PlatformDataTool platformDataTool;
     private final QuestionGenerationService questionGenerationService;
@@ -37,18 +39,13 @@ public class AiAgentService {
                     "message", aiRuntimeGuard.missingKeyMessage()
             ));
         }
-        String prompt = """
-                You are the SapientiaCloud EduPivot teaching assistant.
-                Answer using only the current user's authorized platform context and general teaching reasoning.
-                If context is insufficient, say so.
-
-                User question:
-                %s
-
-                Authorized platform context:
-                %s
-                """.formatted(request.message(), platformDataTool.summarize(context));
-        String content = chatClient.prompt().user(prompt).call().content();
+        String systemPrompt = aiProperties.getChat().getCourseSystemPrompt()
+                .replace("{context}", platformDataTool.summarize(context));
+        String content = chatClient.prompt()
+                .system(systemPrompt)
+                .user(request.message())
+                .call()
+                .content();
         return new AiAgentResult(content, AiMessageType.TEXT, Map.of(
                 "courseCount", context.courses().size(),
                 "chapterCount", context.chapters().size(),

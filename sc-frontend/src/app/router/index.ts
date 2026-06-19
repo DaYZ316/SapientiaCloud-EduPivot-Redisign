@@ -53,6 +53,11 @@ export const router = createRouter({
                     component: () => import('@/features/ai/views/AiWorkspaceView.vue'),
                 },
                 {
+                    path: 'ai/history',
+                    name: 'ai-history',
+                    component: () => import('@/features/ai/views/AiHistoryView.vue'),
+                },
+                {
                     path: 'courses',
                     name: 'courses',
                     component: () => import('@/features/course/views/CoursesView.vue'),

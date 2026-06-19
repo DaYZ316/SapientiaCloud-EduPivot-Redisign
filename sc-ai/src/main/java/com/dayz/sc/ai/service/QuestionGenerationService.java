@@ -71,8 +71,8 @@ public class QuestionGenerationService {
 
     private String callModel(String userMessage, GenerationRequest request, AiCourseContext context, boolean paper) {
         String prompt = """
-                You are an education assessment assistant. Generate valid JSON only, no markdown fence.
-                Top-level JSON shape:
+                你是教育测评助手。请只返回合法 JSON，不要使用 markdown 代码块。
+                顶层 JSON 结构如下：
                 {
                   "title": "string",
                   "type": "question_set or paper",
@@ -89,12 +89,15 @@ public class QuestionGenerationService {
                     }
                   ]
                 }
-                Question type codes: 0 single choice, 1 multi choice, 2 true/false, 3 fill blank, 4 short answer, 5 mixed.
-                Use the user's language. Keep answers and explanations concise.
-                Mode: %s
-                User request: %s
-                Generation request JSON: %s
-                Platform context:
+                题型编码：0 单选题，1 多选题，2 判断题，3 填空题，4 简答题，5 混合题。
+                请使用用户的语言。答案和解析保持简洁。
+                所有展示给用户的标题、题干、答案和解析都必须使用自然的课堂语言。
+                不要在用户可见内容中提到后端字段、ID、JSON、API、RAG、vector store、embedding、payload、messageType、DashScope、Kafka、Redis 或 SSE。
+                生成模式：%s
+                用户需求：%s
+                生成参数 JSON：
+                %s
+                平台课程资料：
                 %s
                 """.formatted(
                 paper ? "paper" : "question_set",

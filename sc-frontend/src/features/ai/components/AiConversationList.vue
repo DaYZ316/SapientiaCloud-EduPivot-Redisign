@@ -65,12 +65,8 @@ onMounted(async () => {
   }
 })
 
-async function newConversation() {
-  try {
-    await aiStore.startConversation('Celestial Hub')
-  } catch {
-    notify.error('创建 AI 会话失败')
-  }
+function newConversation() {
+  aiStore.openNewConversationDraft()
 }
 
 function formatTime(value: string) {

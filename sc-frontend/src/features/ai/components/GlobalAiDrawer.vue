@@ -1,18 +1,12 @@
 <template>
   <Teleport to="body">
-    <button
+    <AiTrailLauncher
+      ref="launcherRef"
       v-if="!open"
-      class="ai-launcher"
-      title="打开 AI 教学助手"
-      type="button"
+      :interactive="!launcherLocked"
+      aria-label="打开 AI 教学助手"
       @click="openDrawer"
-    >
-      <Sparkles
-        :size="20"
-        stroke-width="1.8"
-      />
-      <span>AI</span>
-    </button>
+    />
 
     <div
       v-if="open"
@@ -41,7 +35,7 @@
             />
           </button>
         </div>
-        <AiChatSurface
+        <AiChatPanel
           :show-header="false"
           title="全局助手"
         />
@@ -51,23 +45,26 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, ref, watch} from 'vue'
+import {computed, nextTick, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
-import {Sparkles, X} from 'lucide-vue-next'
+import {X} from 'lucide-vue-next'
 
-import AiChatSurface from '@/features/ai/components/AiChatSurface.vue'
+import AiChatPanel from '@/features/ai/components/AiChatPanel.vue'
+import AiTrailLauncher from '@/features/ai/components/AiTrailLauncher.vue'
 import {useAiStore} from '@/features/ai/stores/ai'
 
 const route = useRoute()
 const aiStore = useAiStore()
 const open = ref(false)
+const launcherLocked = ref(false)
+const launcherRef = ref<InstanceType<typeof AiTrailLauncher> | null>(null)
 
 const routeContext = computed(() => {
   const params = route.params
   const routeName = typeof route.name === 'string' ? route.name : ''
   const questionBankId = routeName === 'question-bank-detail' || routeName === 'question-bank-practice'
-      ? stringParam(params.id)
-      : undefined
+    ? stringParam(params.id)
+    : undefined
   return {
     sourceRoute: route.fullPath,
     courseId: stringParam(params.courseId) || (questionBankId ? undefined : stringParam(params.id)),
@@ -92,30 +89,29 @@ function closeDrawer() {
 function stringParam(value: unknown) {
   return typeof value === 'string' ? value : undefined
 }
+
+async function playLauncherCenterTransition() {
+  launcherLocked.value = true
+  if (open.value) {
+    open.value = false
+    await nextTick()
+  }
+
+  return launcherRef.value?.playCenterTransition() ?? Promise.resolve()
+}
+
+function finishLauncherCenterTransition() {
+  launcherLocked.value = false
+  launcherRef.value?.finishCenterTransition()
+}
+
+defineExpose({
+  finishLauncherCenterTransition,
+  playLauncherCenterTransition,
+})
 </script>
 
 <style scoped>
-.ai-launcher {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 1900;
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 0 14px;
-  background: var(--color-primary);
-  border: 1px solid var(--color-primary);
-  border-radius: var(--radius-sm);
-  color: var(--color-on-primary);
-  cursor: pointer;
-  font-family: var(--font-label);
-  font-size: 13px;
-  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.22);
-}
-
 .drawer-layer {
   position: fixed;
   inset: 0;
@@ -137,7 +133,7 @@ function stringParam(value: unknown) {
   right: 16px;
   bottom: 16px;
   display: flex;
-  width: min(440px, calc(100vw - 32px));
+  width: min(520px, calc(100vw - 32px));
   flex-direction: column;
   overflow: hidden;
   background: var(--color-surface-card);
@@ -160,8 +156,6 @@ function stringParam(value: unknown) {
   color: var(--color-muted);
   font-family: var(--font-label);
   font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .drawer-topbar h2 {
@@ -183,12 +177,11 @@ function stringParam(value: unknown) {
   cursor: pointer;
 }
 
-@media (max-width: 640px) {
-  .ai-launcher {
-    right: 16px;
-    bottom: 16px;
-  }
+.ai-drawer :deep(.ai-chat-panel) {
+  border: 0;
+}
 
+@media (max-width: 640px) {
   .ai-drawer {
     inset: auto 0 0;
     width: 100vw;

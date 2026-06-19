@@ -1,20 +1,27 @@
 <template>
   <div
       :class="[
-      `layout-${uiPreferences.layoutMode}`,
-      { 'sidebar-collapsed': uiPreferences.isSidebarLayout && uiPreferences.sidebarCollapsed },
+      layoutShellClass,
+      { 'sidebar-collapsed': isCollapsibleSidebar && uiPreferences.sidebarCollapsed },
+      { 'layout-ai-mode': isAiPage },
       { 'layout-fullscreen': isFullscreenPage },
     ]"
       class="layout"
   >
     <!-- Top Navigation Bar -->
-    <header v-if="!isFullscreenPage && !uiPreferences.isSidebarLayout" class="top-nav">
+    <header v-if="!isFullscreenPage && !isSidebarShell" class="top-nav">
       <div class="nav-container">
         <!-- Logo -->
-        <router-link class="nav-logo" to="/dashboard">
+        <button
+            :aria-label="modeSwitchAriaLabel"
+            :disabled="isSwitchingAiMode"
+            class="nav-logo mode-switch"
+            type="button"
+            @click="toggleAiMode"
+        >
           <img :src="brandLogoSrc" alt="" class="brand-mark"/>
-          <span>SapientiaCloud</span>
-        </router-link>
+          <span>{{ modeSwitchLabel }}</span>
+        </button>
 
         <!-- Nav Links -->
         <nav class="nav-links">
@@ -80,58 +87,70 @@
     </header>
 
     <!-- Side Navigation Bar -->
-    <aside v-else-if="!isFullscreenPage" aria-label="Primary navigation" class="side-nav">
+    <aside v-else-if="!isFullscreenPage && isSidebarShell" aria-label="Primary navigation" class="side-nav">
       <div class="side-nav-header">
-        <router-link class="nav-logo side-logo" to="/dashboard">
+        <button
+            :aria-label="modeSwitchAriaLabel"
+            :disabled="isSwitchingAiMode"
+            class="nav-logo side-logo mode-switch"
+            type="button"
+            @click="toggleAiMode"
+        >
           <img :src="brandLogoSrc" alt="" class="brand-mark"/>
-          <span>SapientiaCloud</span>
-        </router-link>
+          <span>{{ modeSwitchLabel }}</span>
+        </button>
         <button
             :aria-label="uiPreferences.sidebarCollapsed ? t('common.layout.expandSidebar') : t('common.layout.collapseSidebar')"
             class="btn-icon sidebar-collapse-btn"
             type="button"
             @click="uiPreferences.toggleSidebarCollapsed"
         >
-          <PanelLeftOpen v-if="uiPreferences.sidebarCollapsed" :size="19" stroke-width="1.8"/>
-          <PanelLeftClose v-else :size="19" stroke-width="1.8"/>
+          <PanelLeftOpen v-if="uiPreferences.sidebarCollapsed" :size="22" stroke-width="1.8"/>
+          <PanelLeftClose v-else :size="22" stroke-width="1.8"/>
         </button>
       </div>
 
-      <nav class="side-nav-links">
-        <router-link
-            v-for="item in navItems"
-            :key="item.path"
-            :aria-label="uiPreferences.sidebarCollapsed ? item.label : undefined"
-            :title="uiPreferences.sidebarCollapsed ? item.label : undefined"
-            :to="item.path"
-            class="side-nav-link"
-        >
-          <component :is="item.icon" :size="18" stroke-width="1.8"/>
-          <span>{{ item.label }}</span>
-        </router-link>
-      </nav>
-
-      <div v-if="recentCourses.length > 0" class="side-recent-section">
-        <div class="side-recent-header">
-          <Clock :size="14" stroke-width="1.8"/>
-          <span>{{ t('common.navigation.recentCourses') }}</span>
-        </div>
-        <nav class="side-recent-links">
+      <template v-if="isAiPage">
+        <AiSourcePanel class="side-ai-panel"/>
+      </template>
+      <template v-else>
+        <nav class="side-nav-links">
           <router-link
-              v-for="item in recentCourses"
-              :key="item.id"
-              :title="uiPreferences.sidebarCollapsed ? item.title : undefined"
-              :to="`/courses/${item.id}`"
-              class="side-recent-link"
+              v-for="item in navItems"
+              :key="item.path"
+              :aria-label="uiPreferences.sidebarCollapsed ? item.label : undefined"
+              :title="uiPreferences.sidebarCollapsed ? item.label : undefined"
+              :to="item.path"
+              class="side-nav-link"
           >
-            <div v-if="item.coverUrl" class="recent-cover">
-              <img :src="item.coverUrl" alt=""/>
-            </div>
-            <BookOpen v-else :size="16" stroke-width="1.8"/>
-            <span class="recent-title">{{ item.title }}</span>
+            <component :is="item.icon" :size="18" stroke-width="1.8"/>
+            <span>{{ item.label }}</span>
           </router-link>
         </nav>
-      </div>
+
+        <div v-if="recentCourses.length > 0" class="side-recent-section">
+          <div class="side-recent-header">
+            <Clock :size="14" stroke-width="1.8"/>
+            <span>{{ t('common.navigation.recentCourses') }}</span>
+          </div>
+          <nav class="side-recent-links">
+            <router-link
+                v-for="item in recentCourses"
+                :key="item.id"
+                :title="uiPreferences.sidebarCollapsed ? item.title : undefined"
+                :to="`/courses/${item.id}`"
+                class="side-recent-link"
+            >
+              <div v-if="item.coverUrl" class="recent-cover">
+                <img :src="item.coverUrl" alt=""/>
+              </div>
+              <BookOpen v-else :size="16" stroke-width="1.8"/>
+              <span class="recent-title">{{ item.title }}</span>
+            </router-link>
+          </nav>
+        </div>
+
+      </template>
 
       <div class="side-nav-footer">
         <button :class="{ active: isNotificationsPage }" class="btn-icon" @click="$router.push('/notifications')">
@@ -186,12 +205,24 @@
         <router-view/>
       </div>
     </main>
-    <GlobalAiDrawer v-if="!isFullscreenPage"/>
+    <GlobalAiDrawer
+      v-if="!isFullscreenPage && !isAiPage"
+      ref="globalAiDrawerRef"
+    />
+    <AiTrailLauncher
+      v-if="aiReturnLauncherVisible"
+      ref="aiReturnLauncherRef"
+      :interactive="false"
+      aria-hidden="true"
+      start-at-center
+      tabindex="-1"
+    />
+    <AiModeTransitionOverlay ref="aiModeTransitionOverlayRef"/>
   </div>
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, onUnmounted, ref} from 'vue'
+import {computed, nextTick, onMounted, onUnmounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import {
@@ -207,7 +238,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
-  Sparkles,
   UserCircle,
   Users,
 } from 'lucide-vue-next'
@@ -216,16 +246,34 @@ import {useUnreadCount} from '@/shared/composables/useUnreadCount'
 import {useRecentCourses} from '@/shared/composables/useRecentCourses'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {useUiPreferencesStore} from '@/features/settings/stores/uiPreferences'
+import {useAiStore} from '@/features/ai/stores/ai'
 import GlobalAiDrawer from '@/features/ai/components/GlobalAiDrawer.vue'
+import AiTrailLauncher from '@/features/ai/components/AiTrailLauncher.vue'
+import AiModeTransitionOverlay from '@/features/ai/components/AiModeTransitionOverlay.vue'
+import AiSourcePanel from '@/features/ai/components/AiSourcePanel.vue'
 import {getAvatarInitials} from '@/shared/utils/avatar'
+
+type GlobalAiDrawerInstance = InstanceType<typeof GlobalAiDrawer>
+type AiTrailLauncherInstance = InstanceType<typeof AiTrailLauncher>
+type AiModeTransitionOverlayInstance = InstanceType<typeof AiModeTransitionOverlay>
+
+function preloadAiWorkspace() {
+  return import('@/features/ai/views/AiWorkspaceView.vue')
+}
 
 const router = useRouter()
 const authStore = useAuthStore()
 const uiPreferences = useUiPreferencesStore()
+const aiStore = useAiStore()
 const {t} = useI18n()
 const {recentCourses} = useRecentCourses()
 
 const showUserMenu = ref(false)
+const isSwitchingAiMode = ref(false)
+const aiReturnLauncherVisible = ref(false)
+const globalAiDrawerRef = ref<GlobalAiDrawerInstance | null>(null)
+const aiReturnLauncherRef = ref<AiTrailLauncherInstance | null>(null)
+const aiModeTransitionOverlayRef = ref<AiModeTransitionOverlayInstance | null>(null)
 const {unreadCount, start: startUnreadCount, stop: stopUnreadCount} = useUnreadCount()
 
 const isAdmin = computed(() => authStore.user?.role === 0)
@@ -237,11 +285,21 @@ const brandLogoSrc = computed(() =>
         ? '/assets/project-logo-dark.png'
         : '/assets/project-logo-light.png',
 )
+const isAiPage = computed(() => {
+    const routeName = router.currentRoute.value.name
+    return routeName === 'ai-workspace' || routeName === 'ai-history'
+})
+const isSidebarShell = computed(() => uiPreferences.isSidebarLayout || isAiPage.value)
+const isCollapsibleSidebar = computed(() => isSidebarShell.value)
+const layoutShellClass = computed(() => isSidebarShell.value ? 'layout-sidebar' : 'layout-topbar')
+const modeSwitchLabel = computed(() => isAiPage.value ? t('common.brand.title') : t('common.navigation.ai'))
+const modeSwitchAriaLabel = computed(() =>
+    isAiPage.value ? t('common.layout.switchToApp') : t('common.layout.switchToAi'),
+)
 
 const navItems = computed(() => [
   {path: '/dashboard', label: t('common.navigation.dashboard'), icon: LayoutDashboard},
   {path: '/courses', label: t('common.navigation.courses'), icon: BookOpen},
-  {path: '/ai', label: 'AI', icon: Sparkles},
   ...(authStore.user?.role === 1
       ? [{path: '/my-enrollments', label: t('common.navigation.myEnrollments'), icon: GraduationCap}]
       : []),
@@ -284,6 +342,67 @@ async function handleLogout() {
   await authStore.logout()
   await router.replace('/login')
 }
+
+async function toggleAiMode() {
+  if (isSwitchingAiMode.value) return
+
+  if (isAiPage.value) {
+    await switchBackToApp()
+    return
+  }
+
+  await switchToAi()
+}
+
+async function switchToAi() {
+  isSwitchingAiMode.value = true
+  try {
+    await Promise.all([
+      aiModeTransitionOverlayRef.value?.playOutward() ?? Promise.resolve(),
+      globalAiDrawerRef.value?.playLauncherCenterTransition() ?? Promise.resolve(),
+      preloadAiWorkspace(),
+      preloadAiWorkspaceData(),
+    ])
+    await router.push('/ai')
+    await nextTick()
+    aiModeTransitionOverlayRef.value?.hide()
+  } catch (error) {
+    globalAiDrawerRef.value?.finishLauncherCenterTransition()
+    aiModeTransitionOverlayRef.value?.hide()
+    throw error
+  } finally {
+    isSwitchingAiMode.value = false
+  }
+}
+
+async function switchBackToApp() {
+  isSwitchingAiMode.value = true
+  aiReturnLauncherVisible.value = true
+  await nextTick()
+
+  try {
+    await Promise.all([
+      aiModeTransitionOverlayRef.value?.playInward() ?? Promise.resolve(),
+      aiReturnLauncherRef.value?.playReturnTransition() ?? Promise.resolve(),
+    ])
+    aiReturnLauncherVisible.value = false
+    await nextTick()
+    await router.push('/dashboard')
+    await nextTick()
+    aiModeTransitionOverlayRef.value?.hide()
+  } catch (error) {
+    aiReturnLauncherRef.value?.finishTransition()
+    aiModeTransitionOverlayRef.value?.hide()
+    throw error
+  } finally {
+    aiReturnLauncherVisible.value = false
+    isSwitchingAiMode.value = false
+  }
+}
+
+async function preloadAiWorkspaceData() {
+  await aiStore.ensureConversationsLoaded()
+}
 </script>
 
 <style scoped>
@@ -318,6 +437,19 @@ async function handleLogout() {
   gap: 10px;
   text-decoration: none;
   color: var(--color-on-surface);
+}
+
+.mode-switch {
+  max-width: 100%;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.mode-switch:hover {
+  color: var(--color-primary);
 }
 
 .brand-mark {
@@ -518,6 +650,12 @@ async function handleLogout() {
   transition: width 0.2s, padding 0.2s;
 }
 
+.layout-ai-mode .side-nav {
+  width: 248px;
+  padding: 20px 16px;
+  background: var(--color-surface-card);
+}
+
 .side-nav-header {
   display: flex;
   align-items: center;
@@ -531,14 +669,40 @@ async function handleLogout() {
   padding: 8px 10px;
 }
 
+.layout-ai-mode .side-nav-header {
+  margin-bottom: 18px;
+}
+
+.layout-ai-mode .side-logo {
+  flex: 1;
+  width: auto;
+  min-height: 48px;
+  padding: 8px 10px;
+}
+
 .side-logo span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.side-ai-panel {
+  min-height: 0;
+}
+
 .sidebar-collapse-btn {
-  flex-shrink: 0;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+}
+
+.sidebar-collapse-btn:hover,
+.sidebar-collapse-btn:focus-visible {
+  background: transparent;
+  color: var(--color-on-surface);
 }
 
 .side-nav-links {
@@ -689,6 +853,11 @@ async function handleLogout() {
   transition: margin-left 0.2s;
 }
 
+.layout-ai-mode .main-content {
+  margin-left: 248px;
+  padding: 0;
+}
+
 .layout-sidebar.sidebar-collapsed .side-nav {
   width: 84px;
   padding: 20px 12px;
@@ -742,6 +911,20 @@ async function handleLogout() {
   gap: 8px;
 }
 
+.layout-ai-mode.sidebar-collapsed .side-ai-panel :deep(.quick-actions) {
+  padding-bottom: 12px;
+}
+
+.layout-ai-mode.sidebar-collapsed .side-ai-panel :deep(.quick-action) {
+  justify-content: center;
+  padding: 12px;
+}
+
+.layout-ai-mode.sidebar-collapsed .side-ai-panel :deep(.quick-action span),
+.layout-ai-mode.sidebar-collapsed .side-ai-panel :deep(.session-list) {
+  display: none;
+}
+
 .layout-sidebar.sidebar-collapsed .side-user-menu {
   width: 40px;
   height: 40px;
@@ -763,6 +946,11 @@ async function handleLogout() {
   max-width: 1280px;
   margin: 0 auto;
   padding: 40px 0;
+}
+
+.layout-ai-mode .content-container {
+  max-width: none;
+  padding: 0;
 }
 
 /* ---- Responsive ---- */
@@ -920,6 +1108,51 @@ async function handleLogout() {
     border-top: 1px solid var(--color-outline-light);
   }
 
+  .layout-ai-mode .side-nav {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 248px;
+    height: 100dvh;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 20px 16px;
+    border-right: 1px solid var(--color-outline-light);
+    border-bottom: none;
+    box-shadow: none;
+    animation: none;
+  }
+
+  .layout-ai-mode .side-nav-header {
+    flex: none;
+    margin-bottom: 18px;
+  }
+
+  .layout-ai-mode .side-logo {
+    width: auto;
+    flex: 1;
+    padding: 8px 10px;
+  }
+
+  .layout-ai-mode .side-ai-panel {
+    display: flex;
+  }
+
+  .layout-ai-mode .main-content {
+    margin-left: 248px;
+    padding: 0;
+  }
+
+  .layout-ai-mode.sidebar-collapsed .side-nav {
+    width: 84px;
+    padding: 20px 12px;
+  }
+
+  .layout-ai-mode.sidebar-collapsed .main-content {
+    margin-left: 84px;
+  }
+
   @keyframes mobileSidebarSlideIn {
     from {
       transform: translateX(-100%);
@@ -950,6 +1183,27 @@ async function handleLogout() {
 
   .layout-sidebar .main-content {
     padding: 0 16px;
+  }
+
+  .layout-ai-mode .side-nav {
+    width: min(248px, 82vw);
+  }
+
+  .layout-ai-mode .main-content {
+    margin-left: min(248px, 82vw);
+    padding: 0;
+  }
+
+  .layout-ai-mode.sidebar-collapsed .side-nav {
+    width: 84px;
+  }
+
+  .layout-ai-mode.sidebar-collapsed .main-content {
+    margin-left: 84px;
+  }
+
+  .layout-ai-mode .content-container {
+    padding: 0;
   }
 
   .user-name {
