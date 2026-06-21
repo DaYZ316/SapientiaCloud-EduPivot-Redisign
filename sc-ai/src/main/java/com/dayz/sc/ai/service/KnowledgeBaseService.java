@@ -49,6 +49,7 @@ public class KnowledgeBaseService {
     private final StorageInternalClient storageInternalClient;
     private final ObjectProvider<@NonNull VectorStore> vectorStoreProvider;
     private final AiProperties aiProperties;
+    private final AiProviderCallGuard aiProviderCallGuard;
     private final String vectorIndexName;
     private final String vectorPrefix;
 
@@ -60,12 +61,14 @@ public class KnowledgeBaseService {
                                 StorageInternalClient storageInternalClient,
                                 ObjectProvider<@NonNull VectorStore> vectorStoreProvider,
                                 AiProperties aiProperties,
+                                AiProviderCallGuard aiProviderCallGuard,
                                 @Value("${spring.ai.vectorstore.redis.index-name:edupivot-ai-idx}") String vectorIndexName,
                                 @Value("${spring.ai.vectorstore.redis.prefix:edupivot:ai:vec:}") String vectorPrefix) {
         this.knowledgeDocRepository = knowledgeDocRepository;
         this.storageInternalClient = storageInternalClient;
         this.vectorStoreProvider = vectorStoreProvider;
         this.aiProperties = aiProperties;
+        this.aiProviderCallGuard = aiProviderCallGuard;
         this.vectorIndexName = vectorIndexName;
         this.vectorPrefix = vectorPrefix;
     }
@@ -94,7 +97,7 @@ public class KnowledgeBaseService {
                 chunk.getMetadata().put(META_DOC_ID, doc.getId().toString());
                 chunk.getMetadata().put(META_SOURCE_TYPE, META_SOURCE_TYPE_KNOWLEDGE_DOC);
             }
-            vectorStoreProvider.getObject().add(chunks);
+            aiProviderCallGuard.run(() -> vectorStoreProvider.getObject().add(chunks));
 
             doc.setChunkCount(chunks.size());
             doc.setStatus(DocStatus.INDEXED.name());

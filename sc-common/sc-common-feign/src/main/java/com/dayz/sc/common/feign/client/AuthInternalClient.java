@@ -1,10 +1,13 @@
 package com.dayz.sc.common.feign.client;
 
 import com.dayz.sc.common.feign.dto.UserBasicInfo;
+import com.dayz.sc.common.feign.dto.InternalUserProfile;
 import com.dayz.sc.common.response.ApiResponse;
 import org.jspecify.annotations.NonNull;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
@@ -29,4 +32,11 @@ public interface AuthInternalClient {
      */
     @GetMapping("/internal/basic")
     ApiResponse<@NonNull List<@NonNull UserBasicInfo>> getUsersBasicInfo(@RequestParam("ids") List<UUID> ids);
+
+    @GetMapping("/internal/profile")
+    ApiResponse<@NonNull InternalUserProfile> getUserProfile(@RequestParam("id") UUID id);
+
+    @GetMapping("/me")
+    ApiResponse<@NonNull InternalUserProfile> getCurrentUserProfile(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization);
 }

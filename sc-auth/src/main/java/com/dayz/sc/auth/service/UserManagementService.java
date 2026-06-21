@@ -20,6 +20,7 @@ import com.dayz.sc.auth.repository.UserAccountRepository;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.feign.client.StorageInternalClient;
+import com.dayz.sc.common.feign.dto.InternalUserProfile;
 import com.dayz.sc.common.feign.dto.StorageObjectInfo;
 import com.dayz.sc.common.model.UserRole;
 import com.dayz.sc.common.response.ApiResponse;
@@ -145,6 +146,18 @@ public class UserManagementService {
                         resolveAvatarUrl(user, avatarUrls),
                         user.getRole()))
                 .toList();
+    }
+
+    public InternalUserProfile getInternalUserProfile(UUID id) {
+        User user = userAccountRepository.findUser(id)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND, "User not found"));
+        Map<UUID, String> avatarUrls = loadAvatarUrls(List.of(user));
+        return new InternalUserProfile(
+                user.getId(),
+                user.getEmail(),
+                user.getDisplayName(),
+                resolveAvatarUrl(user, avatarUrls),
+                user.getRole());
     }
 
     public UserProfileVO getUser(UUID id) {

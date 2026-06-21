@@ -8,6 +8,7 @@ import com.dayz.sc.course.repository.CourseFileRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -46,5 +47,14 @@ public class MybatisCourseFileRepository implements CourseFileRepository {
                 .orderByAsc(CourseFile::getSortOrder)
                 .orderByDesc(CourseFile::getCreatedAt);
         return courseFileMapper.selectPage(new Page<>(page, size), wrapper);
+    }
+
+    @Override
+    public List<CourseFile> findAllByCourseId(UUID courseId) {
+        LambdaQueryWrapper<CourseFile> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(CourseFile::getCourseId, courseId)
+                .orderByAsc(CourseFile::getSortOrder)
+                .orderByDesc(CourseFile::getCreatedAt);
+        return courseFileMapper.selectList(wrapper);
     }
 }

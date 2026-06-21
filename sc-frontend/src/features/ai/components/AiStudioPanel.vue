@@ -2,12 +2,11 @@
   <aside class="ai-studio-panel">
     <header class="studio-header">
       <div>
-        <span>{{ panelTag }}</span>
         <h2>{{ panelTitle }}</h2>
       </div>
       <button
+        :title="t('common.ai.studio.close')"
         class="btn-close"
-        title="关闭"
         type="button"
         @click="$emit('close')"
       >
@@ -29,27 +28,27 @@
         class="form-grid"
       >
         <label class="form-field">
-          <span>试卷名称</span>
+          <span>{{ t('common.ai.studio.paperName') }}</span>
           <input
             v-model.trim="generationModel.paperName"
+            :placeholder="t('common.ai.studio.paperNamePlaceholder')"
             class="form-input"
             maxlength="100"
-            placeholder="期末复习卷"
             type="text"
           >
         </label>
         <label class="form-field">
-          <span>试卷类型</span>
+          <span>{{ t('common.ai.studio.paperType') }}</span>
           <input
             v-model.trim="generationModel.paperType"
+            :placeholder="t('common.ai.studio.paperTypePlaceholder')"
             class="form-input"
             maxlength="50"
-            placeholder="阶段测验"
             type="text"
           >
         </label>
         <label class="form-field">
-          <span>总分</span>
+          <span>{{ t('common.ai.studio.totalScore') }}</span>
           <BaseNumberStepper
             v-model="totalScoreValue"
             :max="1000"
@@ -57,7 +56,7 @@
           />
         </label>
         <label class="form-field">
-          <span>预计用时</span>
+          <span>{{ t('common.ai.studio.estimatedTime') }}</span>
           <BaseNumberStepper
             v-model="totalEstimatedTimeValue"
             :max="300"
@@ -68,7 +67,7 @@
 
       <div class="form-grid">
         <label class="form-field">
-          <span>题目数量</span>
+          <span>{{ t('common.ai.studio.questionCount') }}</span>
           <BaseNumberStepper
             v-model="questionCountValue"
             :max="mode === 'PAPER' ? 50 : 10"
@@ -76,7 +75,7 @@
           />
         </label>
         <label class="form-field">
-          <span>题型</span>
+          <span>{{ t('common.ai.studio.questionType') }}</span>
           <BaseSelect
             v-model="questionTypeValue"
             :options="questionTypeOptions"
@@ -85,7 +84,7 @@
           />
         </label>
         <label class="form-field">
-          <span>难度</span>
+          <span>{{ t('common.ai.studio.difficulty') }}</span>
           <BaseSelect
             v-model="difficultyValue"
             :options="difficultyOptions"
@@ -94,7 +93,7 @@
           />
         </label>
         <label class="form-field">
-          <span>每题分值</span>
+          <span>{{ t('common.ai.studio.scorePerQuestion') }}</span>
           <BaseNumberStepper
             v-model="scorePerQuestionValue"
             :max="100"
@@ -107,11 +106,11 @@
         v-if="mode === 'PAPER'"
         class="wide-field"
       >
-        <span>知识点</span>
+        <span>{{ t('common.ai.studio.knowledgePoints') }}</span>
         <textarea
           v-model="knowledgePointsText"
+          :placeholder="t('common.ai.studio.knowledgePointsPlaceholder')"
           class="form-textarea"
-          placeholder="多个知识点用逗号或换行分隔"
           rows="2"
         />
       </label>
@@ -119,16 +118,16 @@
         v-if="mode === 'PAPER'"
         class="wide-field"
       >
-        <span>能力目标</span>
+        <span>{{ t('common.ai.studio.abilityGoals') }}</span>
         <textarea
           v-model="abilityGoalsText"
+          :placeholder="t('common.ai.studio.abilityGoalsPlaceholder')"
           class="form-textarea"
-          placeholder="多个能力目标用逗号或换行分隔"
           rows="2"
         />
       </label>
       <label class="wide-field">
-        <span>生成要求</span>
+        <span>{{ t('common.ai.studio.requirement') }}</span>
         <textarea
           v-model="generationModel.requirement"
           :placeholder="requirementPlaceholder"
@@ -144,7 +143,7 @@
           type="button"
           @click="$emit('close')"
         >
-          Cancel
+          {{ t('common.confirmDialog.cancel') }}
         </button>
         <button
           class="btn-primary"
@@ -178,7 +177,7 @@
             class="question-card"
           >
             <span>Q{{ index + 1 }}</span>
-            <h3>{{ textValue(question.questionTitle) || textValue(question.title) || '未命名题目' }}</h3>
+            <h3>{{ textValue(question.questionTitle) || textValue(question.title) || t('common.ai.studio.unnamedQuestion') }}</h3>
             <p v-if="textValue(question.questionContent)">
               {{ textValue(question.questionContent) }}
             </p>
@@ -207,7 +206,7 @@
         type="button"
         @click="copyArtifact"
       >
-        Copy artifact
+        {{ t('common.ai.studio.copyArtifact') }}
       </button>
     </section>
 
@@ -219,14 +218,15 @@
         :size="30"
         stroke-width="1.5"
       />
-      <h3>Generated work appears here</h3>
-      <p>Choose question set or paper mode from the composer to open a structured request panel.</p>
+      <h3>{{ t('common.ai.studio.emptyTitle') }}</h3>
+      <p>{{ t('common.ai.studio.emptyDescription') }}</p>
     </section>
   </aside>
 </template>
 
 <script lang="ts" setup>
 import {computed, ref, watch} from 'vue'
+import {useI18n} from 'vue-i18n'
 import {PanelRight, X} from 'lucide-vue-next'
 
 import {useAiStore} from '@/features/ai/stores/ai'
@@ -250,6 +250,7 @@ const emit = defineEmits<{
   'update:generation': [value: GenerationRequest]
 }>()
 
+const {t} = useI18n()
 const aiStore = useAiStore()
 const artifact = computed(() => aiStore.latestArtifact)
 const payload = computed(() => (artifact.value?.payload || {}) as PayloadRecord)
@@ -262,21 +263,21 @@ const generationModel = computed({
 const knowledgePointsText = ref('')
 const abilityGoalsText = ref('')
 
-const questionTypeOptions: SelectOption[] = [
-  {label: '单选题', value: 0},
-  {label: '多选题', value: 1},
-  {label: '判断题', value: 2},
-  {label: '填空题', value: 3},
-  {label: '简答题', value: 4},
-  {label: '混合题型', value: 5},
-]
+const questionTypeOptions = computed<SelectOption[]>(() => [
+  {label: t('common.ai.studio.questionTypes.singleChoice'), value: 0},
+  {label: t('common.ai.studio.questionTypes.multipleChoice'), value: 1},
+  {label: t('common.ai.studio.questionTypes.trueFalse'), value: 2},
+  {label: t('common.ai.studio.questionTypes.fillBlank'), value: 3},
+  {label: t('common.ai.studio.questionTypes.shortAnswer'), value: 4},
+  {label: t('common.ai.studio.questionTypes.mixed'), value: 5},
+])
 
-const difficultyOptions: SelectOption[] = [
-  {label: '随机', value: 0},
-  {label: '简单', value: 1},
-  {label: '中等', value: 2},
-  {label: '困难', value: 3},
-]
+const difficultyOptions = computed<SelectOption[]>(() => [
+  {label: t('common.ai.studio.difficulties.random'), value: 0},
+  {label: t('common.ai.studio.difficulties.easy'), value: 1},
+  {label: t('common.ai.studio.difficulties.medium'), value: 2},
+  {label: t('common.ai.studio.difficulties.hard'), value: 3},
+])
 
 const totalScoreValue = numericField('totalScore', 100)
 const totalEstimatedTimeValue = numericField('totalEstimatedTime', 60)
@@ -285,21 +286,24 @@ const scorePerQuestionValue = numericField('scorePerQuestion', 1)
 const questionTypeValue = selectField('questionType')
 const difficultyValue = selectField('difficulty')
 
-const panelTitle = computed(() => props.mode === 'PAPER' ? '智能出卷' : props.mode === 'QUESTION' ? '智能出题' : '生成产物')
-const panelTag = computed(() => props.mode === 'PAPER' ? 'Paper request' : props.mode === 'QUESTION' ? 'Question request' : 'Preview')
+const panelTitle = computed(() => props.mode === 'PAPER'
+  ? t('common.ai.studio.paperTitle')
+  : props.mode === 'QUESTION' ? t('common.ai.studio.questionTitle') : t('common.ai.studio.artifactTitle'))
 const formHint = computed(() => props.mode === 'PAPER'
-  ? '设置试卷结构、知识点和生成要求，提交后 AI 会在当前会话中生成试卷草稿。'
-  : '设置题目数量、题型、难度和生成要求，提交后 AI 会在当前会话中生成题目草稿。')
+  ? t('common.ai.studio.paperHint')
+  : t('common.ai.studio.questionHint'))
 const requirementPlaceholder = computed(() => props.mode === 'PAPER'
-  ? '例如：覆盖本章核心概念，包含基础题和综合应用题'
-  : '例如：围绕本章知识点生成可直接加入题库的选择题')
+  ? t('common.ai.studio.paperRequirementPlaceholder')
+  : t('common.ai.studio.questionRequirementPlaceholder'))
 const artifactTitle = computed(() =>
   textValue(payload.value.title) ||
-  (artifact.value?.messageType === 'PAPER' ? 'AI 试卷草稿' : 'AI 题目草稿'),
+  (artifact.value?.messageType === 'PAPER'
+    ? t('common.ai.studio.paperDraftTitle')
+    : t('common.ai.studio.questionDraftTitle')),
 )
 const artifactSummary = computed(() => {
-  if (questionCount.value > 0) return `${questionCount.value} 个条目已生成，可复制后进入题库或试卷编辑流程。`
-  return 'The generated response is preserved as a structured research artifact.'
+  if (questionCount.value > 0) return t('common.ai.studio.artifactSummary', {count: questionCount.value})
+  return t('common.ai.studio.artifactSummaryFallback')
 })
 
 watch(knowledgePointsText, (value) => {
@@ -324,9 +328,9 @@ async function copyArtifact() {
     : artifact.value.content
   try {
     await navigator.clipboard.writeText(text)
-    notify.success('产物已复制')
+    notify.success(t('common.ai.studio.copied'))
   } catch {
-    notify.error('复制失败')
+    notify.error(t('common.ai.studio.copyFailed'))
   }
 }
 
@@ -341,8 +345,8 @@ function listValue(value: unknown) {
 function optionLabel(option: PayloadRecord, index: number) {
   const label = textValue(option.label) || String.fromCharCode(65 + index)
   const content = textValue(option.content) || textValue(option.answerContent)
-  const marker = option.correct === true || option.isCorrect === 1 ? ' / 答案' : ''
-  return `${label}. ${content || '选项'}${marker}`
+  const marker = option.correct === true || option.isCorrect === 1 ? t('common.ai.studio.answerMarker') : ''
+  return `${label}. ${content || t('common.ai.studio.optionFallback')}${marker}`
 }
 
 function numericField(key: keyof GenerationRequest, fallback: number) {
@@ -407,7 +411,6 @@ function normalizeListInput(value: string) {
   border-bottom: 1px solid var(--color-outline-light);
 }
 
-.studio-header span,
 .report-kicker span,
 .question-card span,
 .generation-form span,
@@ -458,6 +461,7 @@ function normalizeListInput(value: string) {
   margin: 0;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--color-outline-light);
+  font-size: 13px;
   line-height: 1.55;
   text-transform: none;
 }
@@ -473,6 +477,10 @@ function normalizeListInput(value: string) {
   gap: var(--space-xs);
 }
 
+.generation-form label > span {
+  font-size: 12px;
+}
+
 .form-input,
 .form-textarea {
   width: 100%;
@@ -481,7 +489,7 @@ function normalizeListInput(value: string) {
   border-radius: var(--radius-sm);
   color: var(--color-on-surface);
   font-family: var(--font-body);
-  font-size: 14px;
+  font-size: 16px;
   outline: none;
   transition: border-color 0.2s ease, background 0.2s ease;
 }
@@ -516,49 +524,57 @@ function normalizeListInput(value: string) {
 
 .form-field :deep(.base-select-trigger) {
   min-height: 40px;
-  background: var(--color-surface-container);
-  border-radius: var(--radius-sm);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-outline-light);
+  border-radius: 0;
   font-family: var(--font-body);
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .form-field :deep(.base-select-trigger:hover),
 .form-field :deep(.base-select.open .base-select-trigger) {
-  background: var(--color-surface-container-high);
-  border-color: var(--color-outline-variant);
+  background: transparent;
+  border-bottom-color: var(--color-outline-variant);
 }
 
 .form-field :deep(.base-select-trigger:focus-visible),
 .form-field :deep(.base-select.open .base-select-trigger) {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-on-surface) 10%, transparent);
+  box-shadow: none;
 }
 
 .form-field :deep(.base-select-menu) {
   border-radius: var(--radius-sm);
 }
 
+.form-field :deep(.base-select-option) {
+  font-size: 15px;
+}
+
 .form-field :deep(.base-number-stepper) {
   min-height: 40px;
   grid-template-columns: 28px minmax(0, 1fr) 28px;
-  background: var(--color-surface-container);
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-outline-light);
+  border-radius: 0;
 }
 
 .form-field :deep(.base-number-stepper:focus-within) {
-  border-color: var(--color-on-surface);
+  border-bottom-color: var(--color-on-surface);
 }
 
 .form-field :deep(.base-number-stepper-input) {
   min-height: 38px;
   padding: 0;
   color: var(--color-on-surface);
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .form-field :deep(.base-number-stepper-button) {
   height: 38px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
 }
 
 .wide-field {
@@ -580,7 +596,7 @@ function normalizeListInput(value: string) {
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: var(--font-label);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;

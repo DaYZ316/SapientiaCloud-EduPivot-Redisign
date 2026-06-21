@@ -1,12 +1,14 @@
 package com.dayz.sc.ai.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.dayz.sc.ai.mapper.ConversationMapper;
 import com.dayz.sc.ai.model.entity.Conversation;
 import com.dayz.sc.ai.repository.ConversationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -40,8 +42,7 @@ public class MybatisConversationRepository implements ConversationRepository {
     public List<Conversation> findByUserId(UUID userId, int page, int size) {
         LambdaQueryWrapper<Conversation> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Conversation::getUserId, userId);
-        wrapper.orderByDesc(Conversation::getPinned)
-                .orderByDesc(Conversation::getUpdatedAt);
+        wrapper.orderByDesc(Conversation::getUpdatedAt);
         wrapper.last("LIMIT " + size + " OFFSET " + (page - 1) * size);
         return conversationMapper.selectList(wrapper);
     }
@@ -49,6 +50,15 @@ public class MybatisConversationRepository implements ConversationRepository {
     @Override
     public void update(Conversation conversation) {
         conversationMapper.updateById(conversation);
+    }
+
+    @Override
+    public void touchUpdatedAt(UUID id, UUID userId) {
+        LambdaUpdateWrapper<Conversation> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(Conversation::getId, id);
+        wrapper.eq(Conversation::getUserId, userId);
+        wrapper.set(Conversation::getUpdatedAt, Instant.now());
+        conversationMapper.update(wrapper);
     }
 
     @Override

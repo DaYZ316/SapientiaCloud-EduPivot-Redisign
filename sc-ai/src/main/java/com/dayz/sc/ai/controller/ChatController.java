@@ -15,6 +15,7 @@ import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,8 +44,10 @@ public class ChatController {
     @RateLimited(maxRequests = 20)
     public ResponseEntity<Flux<@NonNull ServerSentEvent<String>>> chat(
             @Valid @RequestBody ChatRequest request,
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
         // 校验会话归属，防止越权写入他人会话
         if (request.conversationId() != null) {
             conversationService.requireOwnedConversation(request.conversationId(), userId);
@@ -53,6 +56,6 @@ public class ChatController {
                 .contentType(MediaType.TEXT_EVENT_STREAM)
                 .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-transform")
                 .header("X-Accel-Buffering", "no")
-                .body(ragChatService.stream(request, userId));
+                .body(ragChatService.stream(request, userId, role, authorization));
     }
 }

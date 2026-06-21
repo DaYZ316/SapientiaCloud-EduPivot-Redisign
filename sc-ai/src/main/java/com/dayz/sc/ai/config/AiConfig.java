@@ -75,7 +75,8 @@ public class AiConfig {
                         RedisVectorStore.MetadataField.tag(ChatVectorMemoryService.META_CONVERSATION_ID),
                         RedisVectorStore.MetadataField.tag(ChatVectorMemoryService.META_USER_MESSAGE_ID),
                         RedisVectorStore.MetadataField.tag(ChatVectorMemoryService.META_ASSISTANT_MESSAGE_ID),
-                        RedisVectorStore.MetadataField.tag(ChatVectorMemoryService.META_COURSE_ID))
+                        RedisVectorStore.MetadataField.tag(ChatVectorMemoryService.META_COURSE_ID),
+                        RedisVectorStore.MetadataField.tag(ChatVectorMemoryService.META_DELETED))
                 .initializeSchema(true)
                 .build();
     }

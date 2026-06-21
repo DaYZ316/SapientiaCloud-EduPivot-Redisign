@@ -538,6 +538,13 @@ watch(filteredQuestions, (items) => {
   }
 })
 
+watch(() => route.query.questionId, (questionId) => {
+  const nextQuestionId = normalizeQuestionId(questionId)
+  if (nextQuestionId && questions.value.some((question) => question.id === nextQuestionId)) {
+    selectedQuestionId.value = nextQuestionId
+  }
+})
+
 watch(selectedQuestionId, (questionId) => {
   if (questionId) {
     void loadQuestionDetail(questionId)
@@ -776,10 +783,17 @@ async function loadData() {
   ])
   bank.value = bankData
   questions.value = questionsData.records || []
-  selectedQuestionId.value = questions.value[0]?.id || null
+  const routedQuestionId = normalizeQuestionId(route.query.questionId)
+  selectedQuestionId.value = routedQuestionId && questions.value.some((question) => question.id === routedQuestionId)
+      ? routedQuestionId
+      : questions.value[0]?.id || null
   if (selectedQuestionId.value) {
     await loadQuestionDetail(selectedQuestionId.value)
   }
+}
+
+function normalizeQuestionId(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
 }
 
 onMounted(async () => {

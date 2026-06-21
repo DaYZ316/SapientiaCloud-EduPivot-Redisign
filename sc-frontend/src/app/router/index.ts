@@ -58,6 +58,11 @@ export const router = createRouter({
                     component: () => import('@/features/ai/views/AiHistoryView.vue'),
                 },
                 {
+                    path: 'ai/favorites',
+                    name: 'ai-favorites',
+                    component: () => import('@/features/ai/views/AiFavoritesView.vue'),
+                },
+                {
                     path: 'courses',
                     name: 'courses',
                     component: () => import('@/features/course/views/CoursesView.vue'),

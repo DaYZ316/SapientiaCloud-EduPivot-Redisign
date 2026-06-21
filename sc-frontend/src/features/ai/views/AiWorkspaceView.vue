@@ -14,6 +14,18 @@
           class="workspace-tabs"
         >
           <button
+            v-if="uiPreferences.sidebarCollapsed"
+            :aria-label="t('common.layout.expandSidebar')"
+            class="sidebar-open-tab"
+            type="button"
+            @click="uiPreferences.toggleSidebarCollapsed"
+          >
+            <PanelLeftOpen
+              :size="18"
+              stroke-width="1.9"
+            />
+          </button>
+          <button
             :class="{active: chatMode === 'CHAT'}"
             type="button"
             @click="setChatMode('CHAT')"
@@ -68,14 +80,17 @@
 import {computed, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute} from 'vue-router'
+import {PanelLeftOpen} from 'lucide-vue-next'
 
 import AiChatPanel from '@/features/ai/components/AiChatPanel.vue'
 import AiStudioPanel from '@/features/ai/components/AiStudioPanel.vue'
 import {useAiStore} from '@/features/ai/stores/ai'
+import {useUiPreferencesStore} from '@/features/settings/stores/uiPreferences'
 import type {AiAgentMode, GenerationRequest} from '@/features/ai/types/ai'
 
 const route = useRoute()
 const aiStore = useAiStore()
+const uiPreferences = useUiPreferencesStore()
 const {t} = useI18n()
 const chatMode = ref<AiAgentMode>('CHAT')
 const generation = ref<GenerationRequest>(createGenerationDefaults('QUESTION'))
@@ -225,7 +240,13 @@ function normalizeGeneration(value: GenerationRequest): GenerationRequest {
   color: var(--color-on-primary);
 }
 
+.workspace-tabs .sidebar-open-tab {
+  display: none;
+}
+
 .workspace-content {
+  --question-panel-width: 40%;
+
   display: flex;
   min-height: 0;
   flex: 1;
@@ -263,8 +284,8 @@ function normalizeGeneration(value: GenerationRequest): GenerationRequest {
 }
 
 .question-panel-wrapper.is-visible {
-  flex-basis: 62%;
-  max-width: 62%;
+  flex-basis: var(--question-panel-width);
+  max-width: var(--question-panel-width);
   opacity: 1;
   transform: none;
   pointer-events: auto;
@@ -277,8 +298,12 @@ function normalizeGeneration(value: GenerationRequest): GenerationRequest {
 }
 
 .monolith-ai-shell.with-question-panel .chat-main-column {
-  flex-basis: 38%;
-  max-width: 38%;
+  flex-basis: calc(100% - var(--question-panel-width));
+  max-width: calc(100% - var(--question-panel-width));
+}
+
+.monolith-ai-shell.with-question-panel .chat-main-column :deep(.message-row) {
+  width: 100%;
 }
 
 @media (max-width: 900px) {
@@ -296,6 +321,12 @@ function normalizeGeneration(value: GenerationRequest): GenerationRequest {
     flex: 1;
     min-width: 0;
     min-height: 42px;
+  }
+
+  .workspace-tabs .sidebar-open-tab {
+    flex: 0 0 46px;
+    min-width: 46px;
+    padding: 0;
   }
 
   .monolith-ai-shell.with-question-panel .chat-main-column,
@@ -321,6 +352,11 @@ function normalizeGeneration(value: GenerationRequest): GenerationRequest {
 
   .thread-label {
     padding: 0 16px;
+  }
+
+  .workspace-tabs .sidebar-open-tab {
+    display: grid;
+    place-items: center;
   }
 }
 </style>

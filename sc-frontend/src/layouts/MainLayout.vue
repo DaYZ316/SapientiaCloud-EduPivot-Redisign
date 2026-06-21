@@ -650,10 +650,24 @@ async function preloadAiWorkspaceData() {
   transition: width 0.2s, padding 0.2s;
 }
 
+.layout-ai-mode {
+  --font-ai-sans: MiSans, 'Noto Sans SC', 'Microsoft YaHei', DengXian, 'Segoe UI', system-ui, sans-serif;
+  --font-ai-mono: 'Cascadia Code', 'Cascadia Mono', Consolas, monospace;
+  --font-heading: 'Bodoni Moda', 'Georgia', serif;
+  --font-body: var(--font-ai-sans);
+  --font-label: var(--font-ai-sans);
+  font-family: var(--font-ai-sans);
+}
+
 .layout-ai-mode .side-nav {
   width: 248px;
   padding: 20px 16px;
   background: var(--color-surface-card);
+}
+
+.layout-ai-mode .user-name,
+.layout-ai-mode .dropdown-item {
+  font-family: var(--font-ai-sans);
 }
 
 .side-nav-header {
@@ -1186,20 +1200,33 @@ async function preloadAiWorkspaceData() {
   }
 
   .layout-ai-mode .side-nav {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 130;
     width: min(248px, 82vw);
+    height: 100dvh;
+    padding: 20px 16px;
+    border-right: 1px solid var(--color-outline-light);
+    background: var(--color-surface-card);
+    box-shadow: 16px 0 40px rgba(15, 23, 42, 0.16);
   }
 
   .layout-ai-mode .main-content {
-    margin-left: min(248px, 82vw);
+    margin-left: 0;
     padding: 0;
   }
 
   .layout-ai-mode.sidebar-collapsed .side-nav {
-    width: 84px;
+    width: 0;
+    padding: 0;
+    overflow: hidden;
+    border-right: 0;
   }
 
   .layout-ai-mode.sidebar-collapsed .main-content {
-    margin-left: 84px;
+    margin-left: 0;
   }
 
   .layout-ai-mode .content-container {

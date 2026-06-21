@@ -38,6 +38,49 @@ export interface ChatMessage {
   failed?: boolean
 }
 
+export type AgentSearchPhase = 'started' | 'results' | 'empty' | 'error' | 'completed'
+
+export interface AgentSearchItem {
+  sourceType?: string
+  sourceLabel?: string
+  sourceId?: string | null
+  courseId?: string | null
+  title?: string
+  contextLabel?: string
+  snippet?: string
+  relationLabel?: string
+  metadata?: Record<string, unknown> | null
+  indexInfo?: Record<string, unknown> | null
+}
+
+export interface AgentSearchEvent {
+  searchId?: string
+  phase: AgentSearchPhase | string
+  domain: string
+  label: string
+  query?: string
+  occurredAt?: string
+  total?: number
+  items?: AgentSearchItem[]
+}
+
+export interface AgentSearchRecord {
+  searchId?: string
+  domain?: string
+  query?: string
+  label?: string
+  phase?: AgentSearchPhase | string
+  total?: number
+  occurredAt?: string
+  items?: AgentSearchItem[]
+}
+
+export interface AgentSearchPayload {
+  events?: AgentSearchEvent[]
+  searches?: AgentSearchRecord[]
+  items?: AgentSearchItem[]
+}
+
 export interface AiChatContextInfo {
   conversationId: string
   memoryMessageCount: number

@@ -7,11 +7,13 @@
 </template>
 
 <script lang="ts" setup>
-import {nextTick, onBeforeUnmount, onMounted, ref} from 'vue'
+import {nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 
 import LegendaryCursor from '@/vendor/legendary-cursor'
 
 const props = withDefaults(defineProps<{
+  centerX?: number
+  centerY?: number
   radius?: number
   size?: number
   speed?: number
@@ -25,6 +27,7 @@ const props = withDefaults(defineProps<{
 
 const anchorRef = ref<HTMLElement | null>(null)
 let resizeObserver: ResizeObserver | undefined
+let initialized = false
 
 onMounted(async () => {
   await nextTick()
@@ -41,6 +44,7 @@ onMounted(async () => {
     autoPilotSpeed: props.speed,
     zIndex: props.zIndex,
   })
+  initialized = true
   updateBrushCenter()
   window.addEventListener('resize', updateBrushCenter)
   resizeObserver = new ResizeObserver(updateBrushCenter)
@@ -52,14 +56,26 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateBrushCenter)
   resizeObserver?.disconnect()
+  initialized = false
   LegendaryCursor.destroy()
 })
 
+watch(() => [props.centerX, props.centerY], updateBrushCenter)
+
 function updateBrushCenter() {
+  if (!initialized) return
+
   LegendaryCursor.setAutoPilotCenter(getAnchorCenter())
 }
 
 function getAnchorCenter() {
+  if (props.centerX !== undefined && props.centerY !== undefined) {
+    return {
+      x: props.centerX,
+      y: props.centerY,
+    }
+  }
+
   const rect = anchorRef.value?.getBoundingClientRect()
   if (!rect) {
     return {

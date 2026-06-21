@@ -7,9 +7,11 @@ import com.dayz.sc.ai.model.enums.AiAgentMode;
 import com.dayz.sc.ai.model.enums.AiMessageType;
 import com.dayz.sc.ai.model.enums.MessageRole;
 import com.dayz.sc.ai.model.vo.AiAgentResult;
+import com.dayz.sc.ai.model.vo.GenerationStageEvent;
 import com.dayz.sc.ai.repository.MessageRepository;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.feign.dto.AiCourseContext;
+import com.dayz.sc.common.model.UserRole;
 import com.dayz.sc.common.util.UuidV7Generator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,13 +29,16 @@ import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +46,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 @Service
@@ -67,6 +71,8 @@ public class RagChatService {
     private final AiRuntimeGuard aiRuntimeGuard;
     private final PlatformDataTool platformDataTool;
     private final ChatVectorMemoryService chatVectorMemoryService;
+    private final AgentSearchTools agentSearchTools;
+    private final AiProviderCallGuard aiProviderCallGuard;
     private final ObjectMapper objectMapper;
 
     public RagChatService(ChatClient chatClient,
@@ -78,6 +84,8 @@ public class RagChatService {
                           AiRuntimeGuard aiRuntimeGuard,
                           PlatformDataTool platformDataTool,
                           ChatVectorMemoryService chatVectorMemoryService,
+                          AgentSearchTools agentSearchTools,
+                          AiProviderCallGuard aiProviderCallGuard,
                           ObjectMapper objectMapper) {
         this.chatClient = chatClient;
         this.vectorStoreProvider = vectorStoreProvider;
@@ -88,10 +96,15 @@ public class RagChatService {
         this.aiRuntimeGuard = aiRuntimeGuard;
         this.platformDataTool = platformDataTool;
         this.chatVectorMemoryService = chatVectorMemoryService;
+        this.agentSearchTools = agentSearchTools;
+        this.aiProviderCallGuard = aiProviderCallGuard;
         this.objectMapper = objectMapper;
     }
 
-    public Flux<@NonNull ServerSentEvent<String>> stream(ChatRequest request, UUID userId) {
+    public Flux<@NonNull ServerSentEvent<String>> stream(ChatRequest request,
+                                                         UUID userId,
+                                                         Integer role,
+                                                         String authorization) {
         return Flux.defer(() -> {
             long startedAtNanos = System.nanoTime();
             log.info("AI chat stream request received userId={} conversationId={} elapsedMs={}",
@@ -114,49 +127,79 @@ public class RagChatService {
 
             UUID streamConversationId = conversationId;
             Flux<@NonNull ServerSentEvent<String>> chunks = streamContent(
-                    request, userId, streamConversationId, mode, startedAtNanos);
+                    request, userId, role, authorization, streamConversationId, mode, startedAtNanos);
             if (!newConversation) {
                 return chunks;
             }
 
             Mono<@NonNull ServerSentEvent<String>> titleUpdate = asyncTitleUpdate(
                     streamConversationId, userId, request.message(), initialTitle, startedAtNanos);
-            titleUpdate.subscribe();
             return Flux.just(conversationEvent(streamConversationId, initialTitle))
-                    .concatWith(chunks.publish(sharedChunks -> Flux.merge(
-                            sharedChunks,
-                            titleUpdate.flux().takeUntilOther(sharedChunks.then())
-                    )));
+                    .concatWith(chunks)
+                    .concatWith(titleUpdate.flux());
         }).onErrorResume(error -> Flux.just(errorEvent(error)));
     }
 
     private Flux<@NonNull ServerSentEvent<String>> streamContent(ChatRequest request,
                                                                  UUID userId,
+                                                                 Integer role,
+                                                                 String authorization,
                                                                  UUID conversationId,
                                                                  AiAgentMode mode,
                                                                  long startedAtNanos) {
         if (mode == AiAgentMode.CHAT && request.courseId() == null) {
-            return streamRagChat(conversationId, userId, request.message(), startedAtNanos);
+            return streamRagChat(conversationId, userId, role, authorization, request.message(), startedAtNanos);
         }
         if (mode == AiAgentMode.CHAT) {
-            return streamCourseChat(conversationId, userId, request, startedAtNanos);
+            return streamCourseChat(conversationId, userId, role, authorization, request, startedAtNanos);
         }
 
-        persist(conversationId, MessageRole.USER, request.message(), AiMessageType.TEXT, null);
-        log.info("AI chat agent run started conversationId={} mode={} elapsedMs={}",
-                conversationId, mode, elapsedMs(startedAtNanos));
-        AiAgentResult result = aiAgentService.run(request);
-        persist(conversationId, MessageRole.ASSISTANT, result.content(), result.messageType(), result.payload());
-        log.info("AI chat agent run completed conversationId={} mode={} elapsedMs={}",
-                conversationId, mode, elapsedMs(startedAtNanos));
-        return Flux.just(chunkEvent(result.content()));
+        ChatMessage currentUserMessage = persistUserMessage(conversationId, userId, request.message());
+        return streamGenerationAgent(conversationId, userId, role, request, mode, currentUserMessage, startedAtNanos);
+    }
+
+    private Flux<@NonNull ServerSentEvent<String>> streamGenerationAgent(UUID conversationId,
+                                                                         UUID userId,
+                                                                         Integer role,
+                                                                         ChatRequest request,
+                                                                         AiAgentMode mode,
+                                                                         ChatMessage currentUserMessage,
+                                                                         long startedAtNanos) {
+        Sinks.Many<GenerationStageEvent> stageSink = Sinks.many().unicast().onBackpressureBuffer();
+        Sinks.Many<AgentSearchEvent> agentSearchSink = Sinks.many().unicast().onBackpressureBuffer();
+        Flux<@NonNull ServerSentEvent<String>> stageEvents = stageSink.asFlux()
+                .map(this::generationStageEvent);
+        Flux<@NonNull ServerSentEvent<String>> agentSearchEvents = agentSearchSink.asFlux()
+                .map(this::agentSearchEvent);
+        Mono<@NonNull ServerSentEvent<String>> resultEvent = Mono.fromCallable(() -> {
+                    log.info("AI chat agent run started conversationId={} mode={} elapsedMs={}",
+                            conversationId, mode, elapsedMs(startedAtNanos));
+                    AiAgentResult result = aiAgentService.runGeneration(
+                            request,
+                            userId,
+                            role,
+                            event -> stageSink.tryEmitNext(event),
+                            event -> agentSearchSink.tryEmitNext(event));
+                    persist(conversationId, MessageRole.ASSISTANT, result.content(), result.messageType(), result.payload());
+                    log.info("AI chat agent run completed conversationId={} mode={} elapsedMs={}",
+                            conversationId, mode, elapsedMs(startedAtNanos));
+                    return chunkEvent(result.content());
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .doFinally(signalType -> {
+                    stageSink.tryEmitComplete();
+                    agentSearchSink.tryEmitComplete();
+                });
+        return Flux.merge(stageEvents, agentSearchEvents, resultEvent);
     }
 
     private Flux<@NonNull ServerSentEvent<String>> streamRagChat(UUID conversationId,
                                                                  UUID userId,
+                                                                 Integer role,
+                                                                 String authorization,
                                                                  String question,
                                                                  long startedAtNanos) {
-        ChatMessage currentUserMessage = persist(conversationId, MessageRole.USER, question, AiMessageType.TEXT, null);
+        ChatMessage currentUserMessage = persistUserMessage(conversationId, userId, question);
         List<ChatMessage> memoryMessages = recentMemoryMessages(conversationId, currentUserMessage.getId());
         String retrievalQuery = retrievalQuery(question, memoryMessages);
 
@@ -165,20 +208,23 @@ public class RagChatService {
                         .concatWith(streamModelAnswer(
                                         conversationId,
                                         userId,
+                                        role,
+                                        authorization,
                                         currentUserMessage,
                                         null,
                                         systemPromptForRagContext(context),
                                         memoryMessages,
                                         question,
-                                        startedAtNanos)
-                                .map(this::chunkEvent)));
+                                        startedAtNanos)));
     }
 
     private Flux<@NonNull ServerSentEvent<String>> streamCourseChat(UUID conversationId,
                                                                     UUID userId,
+                                                                    Integer role,
+                                                                    String authorization,
                                                                     ChatRequest request,
                                                                     long startedAtNanos) {
-        ChatMessage currentUserMessage = persist(conversationId, MessageRole.USER, request.message(), AiMessageType.TEXT, null);
+        ChatMessage currentUserMessage = persistUserMessage(conversationId, userId, request.message());
         List<ChatMessage> memoryMessages = recentMemoryMessages(conversationId, currentUserMessage.getId());
         AiCourseContext context = platformDataTool.loadCourseContext(request.courseId());
         RagContext chatMemoryContext = retrieveChatMemoryNow(userId, retrievalQuery(request.message(), memoryMessages));
@@ -192,48 +238,144 @@ public class RagChatService {
                 .concatWith(streamModelAnswer(
                                 conversationId,
                                 userId,
+                                role,
+                                authorization,
                                 currentUserMessage,
                                 request.courseId(),
                                 systemPrompt,
                                 memoryMessages,
                                 request.message(),
-                                startedAtNanos)
-                        .map(this::chunkEvent));
+                                startedAtNanos));
     }
 
-    private Flux<@NonNull String> streamModelAnswer(UUID conversationId,
-                                                    UUID userId,
-                                                    ChatMessage currentUserMessage,
-                                                    UUID courseId,
-                                                    String systemPrompt,
-                                                    List<ChatMessage> memoryMessages,
-                                                    String question,
-                                                    long startedAtNanos) {
-        StringBuilder answer = new StringBuilder();
-        AtomicBoolean firstChunkLogged = new AtomicBoolean(false);
-        return chatClient.prompt()
-                .messages(modelMessages(systemPrompt, memoryMessages, question))
-                .stream()
-                .content()
+    private Flux<@NonNull ServerSentEvent<String>> streamModelAnswer(UUID conversationId,
+                                                                     UUID userId,
+                                                                     Integer role,
+                                                                     String authorization,
+                                                                     ChatMessage currentUserMessage,
+                                                                     UUID courseId,
+                                                                     String systemPrompt,
+                                                                     List<ChatMessage> memoryMessages,
+                                                                     String question,
+                                                                     long startedAtNanos) {
+        Sinks.Many<AgentSearchEvent> agentSearchSink = Sinks.many().unicast().onBackpressureBuffer();
+        List<AgentSearchEvent> agentSearchLog = Collections.synchronizedList(new ArrayList<>());
+        AgentSearchEventEmitter emitter = event -> {
+            agentSearchLog.add(event);
+            agentSearchSink.tryEmitNext(event);
+        };
+        Flux<@NonNull ServerSentEvent<String>> agentSearchEvents = agentSearchSink.asFlux()
+                .map(this::agentSearchEvent);
+        Mono<@NonNull ServerSentEvent<String>> answerEvent = Mono.fromCallable(() -> callModelAnswer(
+                        conversationId,
+                        userId,
+                        role,
+                        authorization,
+                        currentUserMessage,
+                        courseId,
+                        systemPrompt,
+                        memoryMessages,
+                        question,
+                        emitter,
+                        agentSearchLog))
+                .subscribeOn(Schedulers.boundedElastic())
                 .doOnSubscribe(subscription -> log.info(
-                        "AI chat model stream subscribed conversationId={} elapsedMs={}",
+                        "AI chat model call started conversationId={} elapsedMs={}",
                         conversationId, elapsedMs(startedAtNanos)))
-                .doOnNext(chunk -> {
-                    if (firstChunkLogged.compareAndSet(false, true)) {
-                        log.info("AI chat first model chunk received conversationId={} elapsedMs={}",
-                                conversationId, elapsedMs(startedAtNanos));
-                    }
-                    answer.append(chunk);
-                })
-                .doOnComplete(() -> {
-                    ChatMessage assistantMessage = persist(conversationId, MessageRole.ASSISTANT,
-                            answer.toString(), AiMessageType.TEXT, null);
-                    indexChatTurn(userId, conversationId, currentUserMessage, assistantMessage, courseId);
-                    log.info("AI chat stream complete conversationId={} elapsedMs={}",
-                            conversationId, elapsedMs(startedAtNanos));
-                })
-                .doOnError(error -> log.warn("AI chat stream errored conversationId={} elapsedMs={}",
-                        conversationId, elapsedMs(startedAtNanos), error));
+                .doOnNext(answer -> log.info(
+                        "AI chat model call completed conversationId={} elapsedMs={}",
+                        conversationId, elapsedMs(startedAtNanos)))
+                .doOnError(error -> log.warn("AI chat model call errored conversationId={} elapsedMs={}",
+                        conversationId, elapsedMs(startedAtNanos), error))
+                .doFinally(signalType -> agentSearchSink.tryEmitComplete())
+                .map(this::chunkEvent);
+        return Flux.merge(agentSearchEvents, answerEvent);
+    }
+
+    private String callModelAnswer(UUID conversationId,
+                                   UUID userId,
+                                   Integer role,
+                                   String authorization,
+                                   ChatMessage currentUserMessage,
+                                   UUID courseId,
+                                   String systemPrompt,
+                                   List<ChatMessage> memoryMessages,
+                                   String question,
+                                   AgentSearchEventEmitter emitter,
+                                   List<AgentSearchEvent> agentSearchLog) {
+        String content = aiProviderCallGuard.call(() -> chatClient.prompt()
+                .messages(modelMessages(systemPrompt, memoryMessages, question, role))
+                .tools(agentSearchTools)
+                .toolContext(agentSearchContext(userId, role, authorization, conversationId, courseId, emitter))
+                .call()
+                .content());
+        if (emitter != null) {
+            emitter.emit(AgentSearchEvent.completed());
+        }
+        String answer = content == null ? "" : content;
+        persistAssistantAnswer(conversationId, userId, currentUserMessage, courseId, answer, agentSearchLog);
+        return answer;
+    }
+
+    private void persistAssistantAnswer(UUID conversationId,
+                                        UUID userId,
+                                        ChatMessage currentUserMessage,
+                                        UUID courseId,
+                                        String answer,
+                                        List<AgentSearchEvent> agentSearchLog) {
+        ChatMessage assistantMessage = persist(conversationId, MessageRole.ASSISTANT,
+                answer, AiMessageType.TEXT, agentSearchPayload(agentSearchLog));
+        indexChatTurn(userId, conversationId, currentUserMessage, assistantMessage, courseId);
+    }
+
+    private Map<String, Object> agentSearchPayload(List<AgentSearchEvent> events) {
+        if (events == null || events.isEmpty()) {
+            return null;
+        }
+        List<AgentSearchEvent> eventSnapshot;
+        synchronized (events) {
+            eventSnapshot = List.copyOf(events);
+        }
+        return Map.of(
+                "agentSearch",
+                Map.of(
+                        "events", eventSnapshot,
+                        "searches", agentSearches(eventSnapshot),
+                        "items", agentSearchItems(eventSnapshot)
+                ));
+    }
+
+    private List<Map<String, Object>> agentSearches(List<AgentSearchEvent> events) {
+        Map<String, Map<String, Object>> searches = new LinkedHashMap<>();
+        for (AgentSearchEvent event : events) {
+            if (event == null || "completed".equals(event.phase())) {
+                continue;
+            }
+            String key = StringUtils.hasText(event.searchId())
+                    ? event.searchId()
+                    : event.domain() + ":" + event.query();
+            Map<String, Object> search = searches.computeIfAbsent(key, ignored -> new LinkedHashMap<>());
+            search.putIfAbsent("searchId", event.searchId());
+            search.putIfAbsent("domain", event.domain());
+            search.putIfAbsent("query", event.query());
+            search.put("label", event.label());
+            search.put("phase", event.phase());
+            search.put("total", event.total());
+            search.put("occurredAt", event.occurredAt());
+            if (event.items() != null && !event.items().isEmpty()) {
+                search.put("items", event.items());
+            }
+        }
+        return List.copyOf(searches.values());
+    }
+
+    private List<Object> agentSearchItems(List<AgentSearchEvent> events) {
+        return events.stream()
+                .filter(Objects::nonNull)
+                .flatMap(event -> event.items() == null ? java.util.stream.Stream.empty() : event.items().stream())
+                .filter(Objects::nonNull)
+                .map(item -> (Object) item)
+                .toList();
     }
 
     String systemPromptForRagContext(RagContext context) {
@@ -260,14 +402,68 @@ public class RagChatService {
     }
 
     List<Message> modelMessages(String systemPrompt, List<ChatMessage> memoryMessages, String question) {
+        return modelMessages(systemPrompt, memoryMessages, question, null);
+    }
+
+    List<Message> modelMessages(String systemPrompt, List<ChatMessage> memoryMessages, String question, Integer role) {
         List<Message> messages = new ArrayList<>();
-        messages.add(new SystemMessage(systemPrompt));
+        messages.add(new SystemMessage(systemPrompt + "\n\n" + currentUserContext(role) + "\n\n" + agentSearchInstruction()));
         memoryMessages.stream()
                 .map(this::toModelMessage)
                 .filter(Objects::nonNull)
                 .forEach(messages::add);
         messages.add(new UserMessage(question));
         return messages;
+    }
+
+    private String agentSearchInstruction() {
+        return """
+                AgentSearch tools are available for read-only searches within the current user's permissions.
+                Use getCurrentUserProfile when the user asks who they are, their current account, name, or role.
+                Use listMyCourses when the user asks which courses they teach, assist, learn, or can access.
+                For questions about primary teaching courses, call listMyCourses with scope primaryTeaching.
+                Use listCourseChapters when the user asks for a course's chapters, outline, syllabus structure, or catalog.
+                Use searchCourseResources when the user asks to find course chapters, question banks, questions,
+                course files, live practices, practice records, or other named resources within a specific course.
+                Use search tools when the user asks about platform facts, course content, question banks, questions,
+                live practices, personal knowledge documents, or prior chat memory. Do not invent platform facts; if search results are
+                insufficient, say what is missing in user-facing language.
+                Use queryPlatformApi only for read-only platform facts that are not covered by the more specific tools.
+                For user-facing answers, use readable names and Chinese role labels only. Do not reveal UUIDs,
+                internal ids, courseId, sourceId, role numbers, or backend field names.
+                """;
+    }
+
+    private String currentUserContext(Integer role) {
+        String roleName = roleName(role);
+        if (roleName.isBlank()) {
+            return "当前登录用户角色：未知。";
+        }
+        return "当前登录用户角色：" + roleName + "。";
+    }
+
+    private Map<String, Object> agentSearchContext(UUID userId,
+                                                   Integer role,
+                                                   String authorization,
+                                                   UUID conversationId,
+                                                   UUID courseId,
+                                                   AgentSearchEventEmitter emitter) {
+        Map<String, Object> context = new java.util.HashMap<>();
+        context.put(AgentSearchTools.CONTEXT_USER_ID, userId.toString());
+        if (role != null) {
+            context.put(AgentSearchTools.CONTEXT_USER_ROLE, role.toString());
+        }
+        if (authorization != null && !authorization.isBlank()) {
+            context.put(AgentSearchTools.CONTEXT_AUTHORIZATION, authorization);
+        }
+        context.put("conversationId", conversationId.toString());
+        if (courseId != null) {
+            context.put(AgentSearchTools.CONTEXT_COURSE_ID, courseId.toString());
+        }
+        if (emitter != null) {
+            context.put(AgentSearchTools.CONTEXT_EVENT_EMITTER, emitter);
+        }
+        return context;
     }
 
     String retrievalQuery(String question, List<ChatMessage> memoryMessages) {
@@ -400,11 +596,11 @@ public class RagChatService {
         if (!aiProperties.getChatVectorMemory().isEnabled()) {
             return List.of();
         }
-        return searchDocuments(
+        return chatVectorMemoryService.activeMemoryDocuments(userId, searchDocuments(
                 question,
                 aiProperties.getChatVectorMemory().getTopK(),
                 aiProperties.getChatVectorMemory().getSimilarityThreshold(),
-                sourceFilter(userId, ChatVectorMemoryService.META_SOURCE_TYPE_CHAT_TURN));
+                chatVectorMemoryService.activeMemoryFilter(userId)));
     }
 
     private List<Document> searchDocuments(String query, int topK, double similarityThreshold, String filterExpression) {
@@ -414,7 +610,7 @@ public class RagChatService {
                 .similarityThreshold(similarityThreshold)
                 .filterExpression(filterExpression)
                 .build();
-        List<Document> docs = vectorStoreProvider.getObject().similaritySearch(request);
+        List<Document> docs = aiProviderCallGuard.call(() -> vectorStoreProvider.getObject().similaritySearch(request));
         return docs == null ? List.of() : docs;
     }
 
@@ -479,6 +675,12 @@ public class RagChatService {
         return message;
     }
 
+    private ChatMessage persistUserMessage(UUID conversationId, UUID userId, String content) {
+        ChatMessage message = persist(conversationId, MessageRole.USER, content, AiMessageType.TEXT, null);
+        conversationService.touchUpdatedAt(conversationId, userId);
+        return message;
+    }
+
     private Mono<@NonNull ServerSentEvent<String>> asyncTitleUpdate(UUID conversationId,
                                                                     UUID userId,
                                                                     String message,
@@ -525,7 +727,7 @@ public class RagChatService {
                 %s
                 """.formatted(message);
         try {
-            return normalizeTitle(chatClient.prompt().user(prompt).call().content(), message);
+            return normalizeTitle(aiProviderCallGuard.call(() -> chatClient.prompt().user(prompt).call().content()), message);
         } catch (RuntimeException exception) {
             return fallbackTitle(message);
         }
@@ -583,7 +785,8 @@ public class RagChatService {
                         "chatMemoryMatchedCount", context.chatMemoryMatchedCount(),
                         "matchedSourceTypes", context.matchedSourceTypes(),
                         "matchedDocIds", context.matchedDocIds(),
-                        "matchedConversationIds", context.matchedConversationIds()
+                        "matchedConversationIds", context.matchedConversationIds(),
+                        "agentSearchEnabled", true
                 )))
                 .event("context")
                 .build();
@@ -592,6 +795,18 @@ public class RagChatService {
     private ServerSentEvent<String> chunkEvent(String chunk) {
         return ServerSentEvent.<String>builder(chunk)
                 .event("chunk")
+                .build();
+    }
+
+    private ServerSentEvent<String> agentSearchEvent(AgentSearchEvent event) {
+        return ServerSentEvent.<String>builder(toJson(event))
+                .event("agent_search")
+                .build();
+    }
+
+    private ServerSentEvent<String> generationStageEvent(GenerationStageEvent event) {
+        return ServerSentEvent.<String>builder(toJson(event))
+                .event("generation_stage")
                 .build();
     }
 
@@ -637,6 +852,20 @@ public class RagChatService {
 
     private long elapsedMs(long startedAtNanos) {
         return Duration.ofNanos(System.nanoTime() - startedAtNanos).toMillis();
+    }
+
+    private String roleName(Integer role) {
+        UserRole userRole = UserRole.fromCode(role);
+        if (userRole == UserRole.ADMIN) {
+            return "管理员";
+        }
+        if (userRole == UserRole.TEACHER) {
+            return "教师";
+        }
+        if (userRole == UserRole.STUDENT) {
+            return "学生";
+        }
+        return "";
     }
 
     record RagContext(ChatStrategy strategy,

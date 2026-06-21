@@ -4,6 +4,9 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.time.Duration;
+import java.util.List;
+
 /**
  * AI 模块业务配置（前缀 edupivot.ai）
  *
@@ -18,6 +21,7 @@ public class AiProperties {
     private final Rag rag = new Rag();
     private final KnowledgeBase knowledgeBase = new KnowledgeBase();
     private final ChatVectorMemory chatVectorMemory = new ChatVectorMemory();
+    private final AgentSearch agentSearch = new AgentSearch();
 
     /**
      * Chat strategy and prompt configuration.
@@ -38,6 +42,10 @@ public class AiProperties {
                 - 如果资料不足，说明缺少哪些信息，并给出可以继续尝试的做法。
                 - 除非用户明确询问系统实现、接口、部署或排障细节，不要输出以下开发/运维术语：RAG、vector store、embedding、payload、messageType、courseId、questionBankId、DashScope、API key、SSE、Kafka、Redis。
                 - 不要编造用户、课程、章节、题库、学生、作业或平台事实。
+                - 解释数学、物理、化学内容时，优先使用标准 LaTeX 表达公式。
+                - 行内公式使用 `$...$`，独立推导、方程组或重要公式使用独占起止行的 `$$...$$`。
+                - 化学方程式、离子、电荷和状态符号使用 `\\ce{...}`，例如 `$\\ce{2H2 + O2 -> 2H2O}$`。
+                - 不要输出 MathJax 配置说明，不要输出未闭合的公式定界符。
 
                 表达示例：
                 - 不要说：“未检索到 RAG 上下文。”
@@ -59,6 +67,10 @@ public class AiProperties {
                 - 如果课程资料不足，说明缺少哪类课程信息，再给出可行的教学建议。
                 - 除非用户明确询问系统实现、接口、部署或排障细节，不要输出以下开发/运维术语：RAG、vector store、embedding、payload、messageType、courseId、questionBankId、DashScope、API key、SSE、Kafka、Redis。
                 - 不要编造课程、章节、题库、学生、作业或平台事实。
+                - 解释数学、物理、化学内容时，优先使用标准 LaTeX 表达公式。
+                - 行内公式使用 `$...$`，独立推导、方程组或重要公式使用独占起止行的 `$$...$$`。
+                - 化学方程式、离子、电荷和状态符号使用 `\\ce{...}`，例如 `$\\ce{2H2 + O2 -> 2H2O}$`。
+                - 不要输出 MathJax 配置说明，不要输出未闭合的公式定界符。
 
                 表达示例：
                 - 不要说：“courseId 没有对应上下文。”
@@ -92,6 +104,10 @@ public class AiProperties {
                 - 用面向用户的自然语言，像在帮助一位真实的教学平台用户。
                 - 先给结论或可执行建议，再补充依据；尽量简洁。
                 - 除非用户明确询问系统实现、接口、部署或排障细节，不要输出以下开发/运维术语：RAG、vector store、embedding、payload、messageType、courseId、questionBankId、DashScope、API key、SSE、Kafka、Redis。
+                - 解释数学、物理、化学内容时，优先使用标准 LaTeX 表达公式。
+                - 行内公式使用 `$...$`，独立推导、方程组或重要公式使用独占起止行的 `$$...$$`。
+                - 化学方程式、离子、电荷和状态符号使用 `\\ce{...}`，例如 `$\\ce{2H2 + O2 -> 2H2O}$`。
+                - 不要输出 MathJax 配置说明，不要输出未闭合的公式定界符。
 
                 表达示例：
                 - 不要说：“未检索到 RAG 上下文。”
@@ -121,5 +137,14 @@ public class AiProperties {
         private int maxContentChars = 2000;
         private int topK = 3;
         private double similarityThreshold = 0.65;
+    }
+
+    @Getter
+    @Setter
+    public static class AgentSearch {
+        private String gatewayBaseUrl = "http://localhost:39080";
+        private List<String> openApiSources = List.of("auth", "course", "storage", "notification", "ai");
+        private Duration timeout = Duration.ofSeconds(3);
+        private int maxResponseChars = 4000;
     }
 }

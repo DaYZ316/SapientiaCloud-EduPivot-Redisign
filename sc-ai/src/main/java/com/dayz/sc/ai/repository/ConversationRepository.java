@@ -47,6 +47,8 @@ public interface ConversationRepository {
      */
     void update(Conversation conversation);
 
+    void touchUpdatedAt(UUID id, UUID userId);
+
     /**
      * 根据会话ID和用户ID删除会话
      *

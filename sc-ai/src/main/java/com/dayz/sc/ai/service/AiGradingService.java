@@ -31,6 +31,7 @@ public class AiGradingService {
     private final AiRuntimeGuard aiRuntimeGuard;
     private final AiGradingEventPublisher aiGradingEventPublisher;
     private final ObjectMapper objectMapper;
+    private final AiProviderCallGuard aiProviderCallGuard;
 
     public void grade(LivePracticeAiGradingRequestedEvent event) {
         if (!aiRuntimeGuard.isConfigured()) {
@@ -70,10 +71,10 @@ public class AiGradingService {
                 objectMapper.writeValueAsString(event.answers()),
                 Objects.toString(event.textAnswer(), "")
         );
-        return chatClient.prompt()
+        return aiProviderCallGuard.call(() -> chatClient.prompt()
                 .user(prompt)
                 .call()
-                .content();
+                .content());
     }
 
     private Map<String, Object> parse(String response) throws JsonProcessingException {

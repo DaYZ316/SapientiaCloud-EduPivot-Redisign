@@ -30,10 +30,24 @@
     >
       <div
         v-if="aiStore.loadingMessages"
+        :aria-label="t('common.ai.history.loading')"
         class="state-block"
+        role="status"
       >
-        <div class="skeleton-line shimmer" />
-        <div class="skeleton-line short shimmer" />
+        <div class="loading-message-card loading-message-card--user">
+          <div class="loading-copy">
+            <span class="loading-line loading-line--medium shimmer" />
+            <span class="loading-line loading-line--short shimmer" />
+          </div>
+        </div>
+        <div class="loading-message-card loading-message-card--assistant">
+          <span class="loading-avatar shimmer" />
+          <div class="loading-copy">
+            <span class="loading-line loading-line--title shimmer" />
+            <span class="loading-line shimmer" />
+            <span class="loading-line loading-line--short shimmer" />
+          </div>
+        </div>
       </div>
 
       <template v-else-if="aiStore.messages.length > 0">
@@ -52,20 +66,23 @@
             </small>
           </div>
           <div class="message-bubble">
+            <AiPendingBrushLoader
+              v-if="message.pending && isAssistantMessage(message.role) && !message.content"
+              class="pending-brush"
+            />
             <div
               v-if="message.content"
               class="message-content"
             >
-              {{ message.content }}
-              <span
-                v-if="message.pending"
-                class="stream-caret"
+              <AiMarkdownMessage
+                v-if="isAssistantMessage(message.role)"
+                :content="message.content"
               />
+              <template v-else>
+                {{ message.content }}
+              </template>
             </div>
-            <AiPendingBrushLoader
-              v-else-if="message.pending"
-              class="pending-brush"
-            />
+            <AiAgentSearchEvidence :payload="agentSearchPayload(message)" />
           </div>
         </article>
       </template>
@@ -123,20 +140,31 @@
             />
           </button>
           <button
-            :disabled="!draft.trim() || aiStore.streaming"
+            v-if="draft.trim() && !isListening"
+            :disabled="aiStore.streaming"
             class="btn-primary primary-action"
             :title="t('common.ai.chat.send')"
             type="submit"
           >
             <Send
-              v-if="draft.trim()"
               :size="15"
               stroke-width="1.9"
             />
+          </button>
+          <button
+            v-else
+            :aria-label="speechButtonLabel"
+            :aria-pressed="isListening"
+            :class="{'is-listening': isListening}"
+            :disabled="aiStore.streaming"
+            class="btn-primary primary-action voice-action"
+            :title="speechButtonLabel"
+            type="button"
+            @click="toggleSpeechInput"
+          >
             <Mic
-              v-else
-              :size="15"
-              stroke-width="1.9"
+              :size="21"
+              stroke-width="2.2"
             />
           </button>
         </div>
@@ -158,8 +186,10 @@ import {Mic, Plus, Send, Square} from 'lucide-vue-next'
 
 import {useAiStore} from '@/features/ai/stores/ai'
 import {useAuthStore} from '@/features/auth/stores/auth'
+import AiAgentSearchEvidence from '@/features/ai/components/AiAgentSearchEvidence.vue'
+import AiMarkdownMessage from '@/features/ai/components/AiMarkdownMessage.vue'
 import AiPendingBrushLoader from '@/features/ai/components/AiPendingBrushLoader.vue'
-import type {AiAgentMode, AiMessageRole, GenerationRequest} from '@/features/ai/types/ai'
+import type {AgentSearchPayload, AiAgentMode, AiMessageRole, ChatMessage, GenerationRequest} from '@/features/ai/types/ai'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
 const props = withDefaults(defineProps<{
@@ -178,11 +208,12 @@ const props = withDefaults(defineProps<{
 
 const aiStore = useAiStore()
 const authStore = useAuthStore()
-const {t} = useI18n()
+const {locale, t} = useI18n()
 const draft = ref('')
 const internalMode = ref<AiAgentMode>('CHAT')
 const messageListRef = ref<HTMLElement | null>(null)
 const composerTextareaRef = ref<HTMLTextAreaElement | null>(null)
+const isListening = ref(false)
 const activeMode = computed(() => props.modelValue ?? internalMode.value)
 const isEmpty = computed(() => !aiStore.loadingMessages && aiStore.messages.length === 0)
 const hasConversationHistory = computed(() => aiStore.conversations.length > 0)
@@ -190,7 +221,13 @@ const userDisplayName = computed(() => authStore.user?.displayName || authStore.
 const streamFingerprint = computed(() =>
   aiStore.messages.map((message) => `${message.id}:${message.content.length}:${message.pending ? '1' : '0'}`).join('|'),
 )
+const speechButtonLabel = computed(() =>
+  isListening.value ? t('common.ai.chat.stopVoiceInput') : t('common.ai.chat.startVoiceInput'),
+)
 let scrollFrame = 0
+let activeSpeechRecognition: SpeechRecognitionLike | null = null
+let speechBaseDraft = ''
+let speechFinalTranscript = ''
 
 const emptyTitle = computed(() => {
   if (!hasConversationHistory.value) {
@@ -236,12 +273,14 @@ onBeforeUnmount(() => {
   if (scrollFrame) {
     cancelAnimationFrame(scrollFrame)
   }
+  cancelSpeechInput()
 })
 
 async function submit() {
   const message = draft.value.trim()
   if (!message) return
 
+  cancelSpeechInput()
   draft.value = ''
   await nextTick()
   resizeComposer()
@@ -250,6 +289,108 @@ async function submit() {
     courseId: aiStore.context.courseId,
     generation: activeMode.value === 'CHAT' ? undefined : normalizedGeneration(props.generation),
   })
+}
+
+function toggleSpeechInput() {
+  if (isListening.value) {
+    stopSpeechInput()
+    return
+  }
+
+  startSpeechInput()
+}
+
+function startSpeechInput() {
+  const SpeechRecognitionConstructor = getSpeechRecognitionConstructor()
+  if (!SpeechRecognitionConstructor) {
+    notify.warn(t('common.ai.chat.voiceUnsupported'))
+    return
+  }
+
+  cancelSpeechInput()
+  speechBaseDraft = draft.value.trim()
+  speechFinalTranscript = ''
+
+  const recognition = new SpeechRecognitionConstructor()
+  recognition.continuous = true
+  recognition.interimResults = true
+  recognition.lang = locale.value.startsWith('zh') ? 'zh-CN' : 'en-US'
+  recognition.onresult = handleSpeechResult
+  recognition.onerror = handleSpeechError
+  recognition.onend = () => {
+    if (activeSpeechRecognition === recognition) {
+      activeSpeechRecognition = null
+      isListening.value = false
+      void nextTick(resizeComposer)
+    }
+  }
+
+  activeSpeechRecognition = recognition
+  try {
+    recognition.start()
+    isListening.value = true
+  } catch {
+    activeSpeechRecognition = null
+    isListening.value = false
+    notify.warn(t('common.ai.chat.voiceStartFailed'))
+  }
+}
+
+function stopSpeechInput() {
+  if (!activeSpeechRecognition) {
+    isListening.value = false
+    return
+  }
+
+  isListening.value = false
+  activeSpeechRecognition.stop()
+}
+
+function cancelSpeechInput() {
+  if (!activeSpeechRecognition) {
+    isListening.value = false
+    return
+  }
+
+  activeSpeechRecognition.onresult = null
+  activeSpeechRecognition.onerror = null
+  activeSpeechRecognition.onend = null
+  activeSpeechRecognition.abort()
+  activeSpeechRecognition = null
+  isListening.value = false
+}
+
+function handleSpeechResult(event: SpeechRecognitionEventLike) {
+  let interimTranscript = ''
+
+  for (let index = event.resultIndex; index < event.results.length; index += 1) {
+    const result = event.results[index]
+    const transcript = result[0]?.transcript ?? ''
+    if (result.isFinal) {
+      speechFinalTranscript += transcript
+    } else {
+      interimTranscript += transcript
+    }
+  }
+
+  const voiceText = `${speechFinalTranscript}${interimTranscript}`.trim()
+  draft.value = [speechBaseDraft, voiceText].filter(Boolean).join(' ')
+}
+
+function handleSpeechError(event: SpeechRecognitionErrorEventLike) {
+  if (event.error === 'aborted') return
+
+  if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+    notify.warn(t('common.ai.chat.voicePermissionDenied'))
+    return
+  }
+
+  notify.warn(t(event.error === 'no-speech' ? 'common.ai.chat.voiceNoSpeech' : 'common.ai.chat.voiceStartFailed'))
+}
+
+function getSpeechRecognitionConstructor() {
+  const speechWindow = window as SpeechRecognitionWindow
+  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition
 }
 
 function normalizedGeneration(generation?: GenerationRequest): GenerationRequest {
@@ -287,11 +428,25 @@ function resizeComposer() {
   if (!textarea) return
 
   textarea.style.height = 'auto'
-  textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`
+  textarea.style.height = `${Math.min(textarea.scrollHeight, maxComposerTextareaHeight(textarea))}px`
+}
+
+function maxComposerTextareaHeight(textarea: HTMLTextAreaElement) {
+  const lineHeight = Number.parseFloat(window.getComputedStyle(textarea).lineHeight) || 24
+  return Math.ceil(lineHeight * 6)
 }
 
 function messageClass(role: AiMessageRole) {
-  return role.toLowerCase() === 'user' ? 'from-user' : 'from-assistant'
+  return isAssistantMessage(role) ? 'from-assistant' : 'from-user'
+}
+
+function isAssistantMessage(role: AiMessageRole) {
+  return role.toLowerCase() !== 'user'
+}
+
+function agentSearchPayload(message: ChatMessage): AgentSearchPayload | null {
+  const value = message.payload?.agentSearch
+  return value && typeof value === 'object' ? value as AgentSearchPayload : null
 }
 
 function messageTypeLabel(type: string) {
@@ -307,6 +462,46 @@ function greetingKey() {
   if (hour >= 11 && hour < 14) return 'common.ai.chat.greetingNoon'
   if (hour >= 14 && hour < 18) return 'common.ai.chat.greetingAfternoon'
   return 'common.ai.chat.greetingEvening'
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike
+
+interface SpeechRecognitionWindow extends Window {
+  SpeechRecognition?: SpeechRecognitionConstructor
+  webkitSpeechRecognition?: SpeechRecognitionConstructor
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  onend: (() => void) | null
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null
+  abort: () => void
+  start: () => void
+  stop: () => void
+}
+
+interface SpeechRecognitionEventLike {
+  resultIndex: number
+  results: SpeechRecognitionResultListLike
+}
+
+interface SpeechRecognitionResultListLike {
+  length: number
+  [index: number]: SpeechRecognitionResultLike
+}
+
+interface SpeechRecognitionResultLike {
+  isFinal: boolean
+  [index: number]: {
+    transcript: string
+  }
+}
+
+interface SpeechRecognitionErrorEventLike {
+  error: string
 }
 </script>
 
@@ -391,6 +586,8 @@ function greetingKey() {
 .message-row {
   display: grid;
   gap: var(--space-xs);
+  width: 60%;
+  margin-inline: auto;
   margin-bottom: var(--space-md);
   animation: messageEnter 0.18s ease-out;
 }
@@ -417,7 +614,7 @@ function greetingKey() {
 
 .message-bubble {
   width: fit-content;
-  max-width: min(72ch, 100%);
+  max-width: 80%;
   padding: 14px var(--space-md);
   background: var(--color-surface-container-lowest);
   border: 1px solid var(--color-outline-light);
@@ -425,6 +622,8 @@ function greetingKey() {
 }
 
 .from-assistant .message-bubble {
+  width: 100%;
+  max-width: 100%;
   border-color: transparent;
   border-radius: 0;
   padding: 0;
@@ -432,10 +631,16 @@ function greetingKey() {
 }
 
 .from-user .message-bubble {
-  max-width: min(58ch, 88%);
-  background: var(--color-surface-container-high);
+  max-width: 60%;
+  padding: 10px 16px;
+  background: var(--color-primary);
   border-color: transparent;
-  color: var(--color-on-surface);
+  color: var(--color-on-primary);
+}
+
+.from-user .message-content {
+  font-size: 18px;
+  line-height: 1.55;
 }
 
 .message-row.failed .message-bubble {
@@ -459,18 +664,151 @@ function greetingKey() {
   display: inline;
 }
 
-.stream-caret {
-  display: inline-block;
-  width: 7px;
-  height: 1.1em;
-  margin-left: 2px;
-  background: var(--color-on-surface);
-  vertical-align: -0.18em;
-  animation: caretBlink 1s steps(2, start) infinite;
+.pending-brush {
+  margin: 0;
 }
 
-.pending-brush {
-  margin: 4px 0;
+.agent-search-disclosure {
+  display: grid;
+  width: min(100%, 520px);
+  margin: 8px 0 4px;
+  padding: 0;
+}
+
+.agent-search-status,
+.agent-search-steps span,
+.agent-search-card span,
+.agent-search-card small {
+  font-family: var(--font-label);
+  letter-spacing: 0;
+}
+
+.agent-search-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: fit-content;
+  min-height: 28px;
+  padding: 0 24px 0 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: var(--color-muted);
+  list-style: none;
+  transition: color 0.18s ease;
+  user-select: none;
+}
+
+.agent-search-toggle:hover {
+  color: var(--color-on-surface);
+}
+
+.agent-search-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.agent-search-status {
+  color: var(--color-muted);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.68;
+}
+
+.agent-search-toggle-icon {
+  position: absolute;
+  right: 0;
+  flex: 0 0 auto;
+  opacity: 0.72;
+  transition: transform 0.2s;
+}
+
+.agent-search-disclosure[open] .agent-search-toggle-icon {
+  transform: rotate(180deg);
+}
+
+.agent-search-detail {
+  display: grid;
+  gap: 8px;
+  padding: 8px 0 0;
+}
+
+.agent-search-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.agent-search-steps span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.agent-search-steps .phase-results {
+  color: var(--color-primary);
+}
+
+.agent-search-steps .phase-empty,
+.agent-search-steps .phase-error {
+  color: var(--color-error);
+}
+
+.agent-search-cards {
+  display: grid;
+  gap: 8px;
+}
+
+.agent-search-card {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+
+.agent-search-card span {
+  color: var(--color-primary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.agent-search-card strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-search-card small {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.agent-search-card p {
+  display: -webkit-box;
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .empty-chat,
@@ -482,6 +820,72 @@ function greetingKey() {
   justify-items: center;
   color: var(--color-muted);
   text-align: center;
+}
+
+.state-block {
+  width: min(100%, 720px);
+  gap: 18px;
+  margin: auto;
+  padding: 10px 0;
+  animation: messageEnter 0.22s ease-out;
+}
+
+.loading-message-card {
+  display: grid;
+  width: min(100%, 560px);
+  align-items: start;
+  gap: 14px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--color-surface-container) 76%, transparent);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-lg);
+}
+
+.loading-message-card--assistant {
+  grid-template-columns: 34px minmax(0, 1fr);
+  justify-self: start;
+}
+
+.loading-message-card--user {
+  width: min(78%, 420px);
+  justify-self: end;
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface-container));
+}
+
+.loading-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+}
+
+.loading-copy {
+  display: grid;
+  gap: 9px;
+  width: 100%;
+}
+
+.loading-line {
+  display: block;
+  width: 100%;
+  height: 10px;
+  border-radius: var(--radius-sm);
+}
+
+.loading-line--title {
+  width: 36%;
+}
+
+.loading-line--medium {
+  width: 72%;
+  justify-self: end;
+}
+
+.loading-line--short {
+  width: 58%;
+}
+
+.loading-message-card--user .loading-line {
+  justify-self: end;
 }
 
 .empty-chat {
@@ -497,7 +901,7 @@ function greetingKey() {
   color: var(--color-primary);
   font-family: var(--font-heading);
   font-size: clamp(42px, 6vw, 76px);
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1.1;
   letter-spacing: 0;
   text-wrap: balance;
@@ -507,20 +911,15 @@ function greetingKey() {
   display: none;
 }
 
-.skeleton-line {
-  width: min(360px, 80%);
-  height: 18px;
-}
-
-.skeleton-line.short {
-  width: min(240px, 62%);
-  margin-top: 10px;
-}
-
 .shimmer {
-  background: linear-gradient(110deg, var(--color-surface-container-high) 8%, var(--color-surface-canvas) 18%, var(--color-surface-container-high) 33%);
+  background: linear-gradient(
+    110deg,
+    var(--color-surface-container-high) 8%,
+    color-mix(in srgb, var(--color-on-surface) 10%, var(--color-surface-canvas)) 18%,
+    var(--color-surface-container-high) 33%
+  );
   background-size: 200% 100%;
-  animation: shimmer 1.4s ease-in-out infinite;
+  animation: shimmer 1.55s ease-in-out infinite;
 }
 
 .inline-error {
@@ -542,7 +941,7 @@ function greetingKey() {
   position: absolute;
   top: calc(50% + 54px);
   left: 50%;
-  width: min(760px, calc(100% - var(--space-lg) - var(--space-lg)));
+  width: min(920px, calc(100% - var(--space-xl) - var(--space-xl)));
   margin: 0;
   padding: 0;
   border-top: 0;
@@ -550,16 +949,23 @@ function greetingKey() {
   transform: translate(-50%, -50%);
 }
 
+.ai-chat-panel.is-empty .composer-shell {
+  width: 100%;
+  border-radius: 34px;
+}
+
 .composer-shell {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-xs);
+  width: 60%;
   min-height: 68px;
+  margin-inline: auto;
   padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-md);
   background: var(--color-surface-container);
   border: 1px solid var(--color-outline-variant);
-  border-radius: 28px;
+  border-radius: 34px;
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
@@ -607,7 +1013,7 @@ function greetingKey() {
   width: 100%;
   height: 44px;
   min-height: 44px;
-  max-height: 160px;
+  max-height: calc(1.55em * 6);
   resize: none;
   padding: 10px var(--space-xs);
   overflow-y: auto;
@@ -618,6 +1024,11 @@ function greetingKey() {
   font-size: 16px;
   line-height: 1.55;
   outline: none;
+  scrollbar-width: none;
+}
+
+.composer textarea::-webkit-scrollbar {
+  display: none;
 }
 
 .composer textarea::placeholder {
@@ -655,21 +1066,39 @@ function greetingKey() {
   color: var(--color-on-surface);
 }
 
+.voice-action {
+  width: 46px;
+  height: 46px;
+  min-height: 46px;
+  border-radius: 50%;
+  color: var(--color-primary);
+}
+
+.voice-action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.voice-action:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 42%, transparent);
+  outline-offset: 3px;
+}
+
+.voice-action.is-listening {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.voice-action.is-listening:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 88%, var(--color-on-surface));
+  color: var(--color-on-primary);
+}
+
 @keyframes shimmer {
   to {
     background-position-x: -200%;
-  }
-}
-
-@keyframes caretBlink {
-  0%,
-  45% {
-    opacity: 1;
-  }
-
-  46%,
-  100% {
-    opacity: 0;
   }
 }
 
@@ -685,9 +1114,37 @@ function greetingKey() {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .message-row,
+  .state-block,
+  .shimmer {
+    animation: none;
+  }
+}
+
 @media (max-width: 720px) {
+  .message-row {
+    width: 100%;
+  }
+
+  .message-bubble {
+    max-width: min(72ch, 100%);
+  }
+
+  .from-user .message-bubble {
+    max-width: min(58ch, 88%);
+  }
+
   .message-list {
     padding: var(--space-md) 18px var(--space-sm);
+  }
+
+  .state-block {
+    width: 100%;
+  }
+
+  .loading-message-card--user {
+    width: min(88%, 420px);
   }
 
   .ai-chat-panel.is-empty .message-list {
@@ -696,7 +1153,7 @@ function greetingKey() {
 
   .empty-chat h3 {
     font-size: 32px;
-    font-weight: 600;
+    font-weight: 400;
     line-height: 1.2;
   }
 
@@ -709,16 +1166,60 @@ function greetingKey() {
     width: calc(100% - var(--space-md) - var(--space-md));
   }
 
+  .ai-chat-panel.is-empty .composer-shell {
+    border-radius: 30px;
+  }
+
   .composer-disclaimer {
     bottom: var(--space-md);
     width: calc(100% - var(--space-md) - var(--space-md));
   }
 
   .composer-shell {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    align-items: center;
+    width: 100%;
     min-height: 60px;
-    padding-left: var(--space-sm);
-    border-radius: var(--radius-lg);
+    gap: 8px;
+    padding: 6px 8px 6px 12px;
+    border-radius: 30px;
+  }
+
+  .composer-brand {
+    align-self: center;
+    min-width: 28px;
+    justify-content: flex-start;
+    font-size: 13px;
+  }
+
+  .composer textarea {
+    min-width: 0;
+    height: 42px;
+    min-height: 42px;
+    max-height: calc(1.55em * 6);
+    padding: 9px 0;
+    font-size: 14px;
+  }
+
+  .tools-right {
+    align-self: center;
+    gap: 4px;
+    padding-right: 0;
+  }
+
+  .primary-action,
+  .secondary-action {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    border-radius: var(--radius-sm);
+  }
+
+  .voice-action {
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+    border-radius: 50%;
   }
 }
 </style>

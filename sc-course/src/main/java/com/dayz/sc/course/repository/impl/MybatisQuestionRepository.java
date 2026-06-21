@@ -90,7 +90,10 @@ public class MybatisQuestionRepository implements QuestionRepository {
             );
         }
         if (StringUtils.hasText(keyword)) {
-            wrapper.like(Question::getQuestionTitle, keyword);
+            wrapper.and(w -> w
+                    .like(Question::getQuestionTitle, keyword)
+                    .or()
+                    .like(Question::getQuestionContent, keyword));
         }
         wrapper.orderByDesc(Question::getCreatedAt);
         return questionMapper.selectPage(new Page<>(page, size), wrapper);

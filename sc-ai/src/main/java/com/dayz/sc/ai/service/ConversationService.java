@@ -90,6 +90,11 @@ public class ConversationService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+    public void touchUpdatedAt(UUID conversationId, UUID userId) {
+        conversationRepository.touchUpdatedAt(conversationId, userId);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
     public void deleteConversation(UUID conversationId, UUID userId) {
         requireOwnedConversation(conversationId, userId);
         chatVectorMemoryService.deleteConversationMemory(conversationId, userId);

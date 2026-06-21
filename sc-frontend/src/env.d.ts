@@ -14,6 +14,24 @@ interface ImportMeta {
     readonly env: ImportMetaEnv
 }
 
+declare module 'katex/contrib/auto-render' {
+    import type {KatexOptions} from 'katex'
+
+    interface AutoRenderDelimiter {
+        left: string
+        right: string
+        display: boolean
+    }
+
+    interface AutoRenderOptions extends KatexOptions {
+        delimiters?: AutoRenderDelimiter[]
+        ignoredTags?: string[]
+        ignoredClasses?: string[]
+    }
+
+    export default function renderMathInElement(element: HTMLElement, options?: AutoRenderOptions): void
+}
+
 declare module '@vue-office/pdf/lib/v3/vue-office-pdf.mjs' {
     import type {DefineComponent} from 'vue'
 

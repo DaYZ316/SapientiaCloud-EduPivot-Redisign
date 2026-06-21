@@ -50,19 +50,13 @@
         </section>
       </div>
 
-      <button
-        v-if="visibleGroups.length > 0 && aiStore.hasMoreConversations"
-        class="load-older"
-        :disabled="aiStore.loadingMoreConversations"
-        type="button"
-        @click="loadOlderConversations"
+      <div
+        v-if="visibleGroups.length > 0"
+        ref="paginationSentinelRef"
+        class="history-pagination"
       >
-        {{ aiStore.loadingMoreConversations ? t('common.ai.history.loadingMore') : t('common.ai.history.loadOlder') }}
-        <ChevronDown
-          :size="13"
-          stroke-width="1.8"
-        />
-      </button>
+        <span v-if="aiStore.loadingMoreConversations">{{ t('common.ai.history.loadingMore') }}</span>
+      </div>
 
       <footer class="history-footer">
         <span>{{ t('common.ai.chat.disclaimer') }}</span>
@@ -74,10 +68,10 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted} from 'vue'
+import {computed, nextTick, onBeforeUnmount, onMounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
-import {CalendarDays, ChevronDown, Code2, FileText, Languages, MessageSquare, PencilLine} from 'lucide-vue-next'
+import {CalendarDays, Code2, FileText, Languages, MessageSquare, PencilLine} from 'lucide-vue-next'
 
 import {useAiStore} from '@/features/ai/stores/ai'
 import type {Conversation} from '@/features/ai/types/ai'
@@ -94,6 +88,8 @@ interface HistoryGroup {
 const aiStore = useAiStore()
 const router = useRouter()
 const {t, locale} = useI18n()
+const paginationSentinelRef = ref<HTMLElement | null>(null)
+let paginationObserver: IntersectionObserver | null = null
 
 const rowIcons = [MessageSquare, Code2, FileText, PencilLine, Languages, CalendarDays]
 
@@ -104,7 +100,7 @@ const visibleGroups = computed(() => {
     {label: t('common.ai.history.recent'), kind: 'recent', items: []},
   ]
 
-  for (const conversation of aiStore.sortedConversations) {
+  for (const conversation of updatedConversations.value) {
     const date = new Date(conversation.updatedAt)
     if (Number.isNaN(date.getTime())) continue
 
@@ -120,7 +116,21 @@ const visibleGroups = computed(() => {
   return groups.filter(group => group.items.length > 0)
 })
 
-onMounted(loadConversations)
+const updatedConversations = computed(() =>
+  [...aiStore.conversations].sort((left, right) =>
+    new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
+  ),
+)
+
+onMounted(async () => {
+  await loadConversations()
+  await nextTick()
+  observePaginationSentinel()
+})
+
+onBeforeUnmount(() => {
+  paginationObserver?.disconnect()
+})
 
 async function loadConversations() {
   try {
@@ -131,6 +141,8 @@ async function loadConversations() {
 }
 
 async function loadOlderConversations() {
+  if (!aiStore.hasMoreConversations || aiStore.loadingMoreConversations) return
+
   try {
     await aiStore.loadMoreConversations()
   } catch {
@@ -141,6 +153,19 @@ async function loadOlderConversations() {
 async function openConversation(id: string) {
   await aiStore.loadMessages(id)
   await router.push({name: 'ai-workspace'})
+}
+
+function observePaginationSentinel() {
+  paginationObserver?.disconnect()
+  const sentinel = paginationSentinelRef.value
+  if (!sentinel) return
+
+  paginationObserver = new IntersectionObserver((entries) => {
+    if (entries.some(entry => entry.isIntersecting)) {
+      loadOlderConversations()
+    }
+  }, {rootMargin: '240px 0px'})
+  paginationObserver.observe(sentinel)
 }
 
 function rowIcon(index: number) {
@@ -289,35 +314,17 @@ function formatConversationTime(value: string, kind: HistoryGroupKind) {
   font-size: 14px;
 }
 
-.load-older {
-  display: inline-flex;
-  width: fit-content;
-  min-height: 36px;
+.history-pagination {
+  display: flex;
+  min-height: 48px;
   align-items: center;
-  gap: 8px;
-  margin: 34px 0 0 min(190px, 22vw);
-  padding: 0 18px;
-  background: transparent;
-  border: 0;
-  border-radius: 999px;
-  color: var(--color-on-surface);
-  cursor: pointer;
+  margin: 20px 0 0;
+  color: var(--color-muted);
   font-family: var(--font-label);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  transition: background 0.2s ease, color 0.2s ease, opacity 0.2s ease;
-}
-
-.load-older:hover {
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-}
-
-.load-older:disabled {
-  cursor: wait;
-  opacity: 0.65;
 }
 
 .history-footer {
@@ -357,10 +364,6 @@ function formatConversationTime(value: string, kind: HistoryGroupKind) {
 
   .history-row time {
     grid-column: 2;
-  }
-
-  .load-older {
-    margin-left: 0;
   }
 
   .history-footer {

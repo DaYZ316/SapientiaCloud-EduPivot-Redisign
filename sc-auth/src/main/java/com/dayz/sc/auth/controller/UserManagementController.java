@@ -7,6 +7,7 @@ import com.dayz.sc.auth.model.vo.UserProfileVO;
 import com.dayz.sc.auth.service.UserManagementService;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.feign.dto.InternalUserProfile;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.ratelimit.RateLimited;
@@ -93,6 +94,11 @@ public class UserManagementController {
     @GetMapping("/internal/basic")
     public ApiResponse<@NonNull List<@NonNull UserBasicInfo>> getUsersBasicInfoInternal(@RequestParam List<UUID> ids) {
         return ApiResponse.ok(userManagementService.getUsersBasicInfo(ids));
+    }
+
+    @GetMapping("/internal/profile")
+    public ApiResponse<@NonNull InternalUserProfile> getUserProfileInternal(@RequestParam UUID id) {
+        return ApiResponse.ok(userManagementService.getInternalUserProfile(id));
     }
 
     /**

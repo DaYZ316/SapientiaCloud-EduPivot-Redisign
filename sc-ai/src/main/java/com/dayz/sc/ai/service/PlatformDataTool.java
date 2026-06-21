@@ -19,9 +19,6 @@ public class PlatformDataTool {
     private final CourseAiContextClient courseAiContextClient;
 
     public AiCourseContext loadCourseContext(UUID courseId) {
-        if (courseId == null) {
-            return EMPTY_CONTEXT;
-        }
         ApiResponse<AiCourseContext> response = courseAiContextClient.getContext(courseId);
         if (response == null || response.code() != 0 || response.data() == null) {
             return EMPTY_CONTEXT;

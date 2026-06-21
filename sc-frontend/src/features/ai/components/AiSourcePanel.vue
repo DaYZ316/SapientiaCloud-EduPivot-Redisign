@@ -26,9 +26,10 @@
         <span>{{ t('common.ai.sidebar.history') }}</span>
       </button>
       <button
+        :class="{active: route.name === 'ai-favorites'}"
         class="quick-action"
-        disabled
         type="button"
+        @click="openFavorites"
       >
         <Star
           :size="16"
@@ -44,9 +45,19 @@
       </div>
       <div
         v-if="aiStore.loadingConversations"
-        class="panel-state"
+        :aria-label="t('common.ai.sidebar.loading')"
+        aria-busy="true"
+        class="session-loading-skeleton"
+        role="status"
       >
-        {{ t('common.ai.sidebar.loading') }}
+        <article
+          v-for="row in 6"
+          :key="row"
+          class="session-skeleton-item"
+        >
+          <span class="session-skeleton-line" />
+          <span class="session-skeleton-action" />
+        </article>
       </div>
       <div
         v-else-if="aiStore.sortedConversations.length === 0"
@@ -73,13 +84,20 @@
           </button>
           <button
             :aria-expanded="openMenuId === conversation.id"
-            :class="{'menu-open': openMenuId === conversation.id}"
+            :class="{'menu-open': openMenuId === conversation.id, pinned: conversation.pinned}"
             class="session-more"
             :title="t('common.ai.sidebar.deleteTitle')"
             type="button"
             @click.stop="toggleMenu(conversation.id)"
           >
+            <Pin
+              v-if="conversation.pinned"
+              class="session-pin-icon"
+              :size="15"
+              stroke-width="1.9"
+            />
             <MoreVertical
+              class="session-more-icon"
               :size="16"
               stroke-width="2"
             />
@@ -171,6 +189,11 @@ async function newConversation() {
 async function openHistory() {
   closeMenu()
   await router.push({name: 'ai-history'})
+}
+
+async function openFavorites() {
+  closeMenu()
+  await router.push({name: 'ai-favorites'})
 }
 
 function toggleMenu(id: string) {
@@ -282,6 +305,11 @@ async function removeConversation(id: string) {
   flex: 1;
   overflow-y: auto;
   padding: 18px 0 var(--space-xs);
+  scrollbar-width: none;
+}
+
+.session-list::-webkit-scrollbar {
+  display: none;
 }
 
 .section-title {
@@ -296,6 +324,45 @@ async function removeConversation(id: string) {
 .session-items {
   display: grid;
   gap: 2px;
+}
+
+.session-loading-skeleton {
+  display: grid;
+  gap: 2px;
+}
+
+.session-skeleton-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  align-items: center;
+  min-height: 34px;
+  border-radius: 10px;
+}
+
+.session-skeleton-line {
+  width: min(100%, 152px);
+  height: 13px;
+  margin-left: 10px;
+  border-radius: var(--radius-sm);
+}
+
+.session-skeleton-action {
+  width: 18px;
+  height: 18px;
+  justify-self: center;
+  border-radius: var(--radius-sm);
+}
+
+.session-skeleton-line,
+.session-skeleton-action {
+  background: linear-gradient(
+    110deg,
+    var(--color-surface-container-high) 8%,
+    color-mix(in srgb, var(--color-on-surface) 9%, var(--color-surface-canvas)) 18%,
+    var(--color-surface-container-high) 33%
+  );
+  background-size: 200% 100%;
+  animation: session-skeleton-shimmer 1.45s ease-in-out infinite;
 }
 
 .session-item {
@@ -357,6 +424,15 @@ async function removeConversation(id: string) {
   transition: transform 0.2s ease;
 }
 
+.session-more.pinned {
+  color: var(--color-primary);
+  opacity: 1;
+}
+
+.session-more.pinned .session-more-icon {
+  display: none;
+}
+
 .session-more:hover {
   background: var(--color-surface-canvas);
   color: var(--color-primary);
@@ -370,6 +446,18 @@ async function removeConversation(id: string) {
 
 .session-more.menu-open svg {
   transform: rotate(90deg);
+}
+
+.session-item:hover .session-more.pinned .session-pin-icon,
+.session-item:focus-within .session-more.pinned .session-pin-icon,
+.session-more.pinned.menu-open .session-pin-icon {
+  display: none;
+}
+
+.session-item:hover .session-more.pinned .session-more-icon,
+.session-item:focus-within .session-more.pinned .session-more-icon,
+.session-more.pinned.menu-open .session-more-icon {
+  display: block;
 }
 
 .session-item:hover .session-more,
@@ -421,6 +509,19 @@ async function removeConversation(id: string) {
   padding: var(--space-md) var(--space-xs);
   line-height: 1.55;
   text-align: left;
+}
+
+@keyframes session-skeleton-shimmer {
+  to {
+    background-position-x: -200%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-skeleton-line,
+  .session-skeleton-action {
+    animation: none;
+  }
 }
 
 </style>

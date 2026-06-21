@@ -12,6 +12,10 @@ import {
   updateConversation,
 } from '@/features/ai/api/ai'
 import type {
+  AgentSearchEvent,
+  AgentSearchItem,
+  AgentSearchPayload,
+  AgentSearchRecord,
   AiAgentMode,
   AiChatContextInfo,
   AiContext,
@@ -63,6 +67,8 @@ export const useAiStore = defineStore('ai', () => {
   const messages = ref<ChatMessage[]>([])
   const knowledgeDocs = ref<KnowledgeDoc[]>([])
   const latestChatContext = ref<AiChatContextInfo | null>(null)
+  const activeAgentSearchSteps = ref<AgentSearchEvent[]>([])
+  const latestAgentSearchItems = ref<AgentSearchItem[]>([])
   const activeConversationId = ref<string | null>(null)
   const context = ref<AiContext>({sourceRoute: '/'})
   const loadingConversations = ref(false)
@@ -178,6 +184,7 @@ export const useAiStore = defineStore('ai', () => {
       draftConversationOpen.value = false
       activeConversationId.value = conversationId
       messages.value = await listConversationMessages(conversationId)
+      clearAgentSearchState()
     } finally {
       loadingMessages.value = false
     }
@@ -188,6 +195,7 @@ export const useAiStore = defineStore('ai', () => {
     activeConversationId.value = null
     messages.value = []
     streamError.value = ''
+    clearAgentSearchState()
   }
 
   async function sendMessage(content: string, options: SendMessageOptions = {}) {
@@ -202,6 +210,7 @@ export const useAiStore = defineStore('ai', () => {
     streaming.value = true
     streamError.value = ''
     latestChatContext.value = null
+    clearAgentSearchState()
     abortController.value?.abort()
     abortController.value = new AbortController()
     const streamBuffer = createDisplayStreamBuffer(assistantMessage)
@@ -220,6 +229,9 @@ export const useAiStore = defineStore('ai', () => {
           signal: abortController.value.signal,
           onChunk(chunk) {
             streamBuffer.enqueue(chunk)
+          },
+          onAgentSearch(event) {
+            applyAgentSearchEvent(event)
           },
           onContext(contextInfo) {
             latestChatContext.value = contextInfo
@@ -273,6 +285,117 @@ export const useAiStore = defineStore('ai', () => {
       streamFlushTimer = null
     }
     streaming.value = false
+  }
+
+  function applyAgentSearchEvent(event: AgentSearchEvent) {
+    const normalizedEvent: AgentSearchEvent = {
+      ...event,
+      searchId: event.searchId || fallbackAgentSearchId(event),
+      label: event.label || agentSearchFallbackLabel(event.phase),
+      items: sanitizeAgentSearchItems(event.items),
+    }
+
+    if (normalizedEvent.phase !== 'completed') {
+      activeAgentSearchSteps.value = activeAgentSearchSteps.value
+        .filter((step) => step.domain !== normalizedEvent.domain)
+        .concat(normalizedEvent)
+        .slice(-5)
+    }
+
+    if (normalizedEvent.items?.length) {
+      latestAgentSearchItems.value = normalizedEvent.items
+    }
+    attachAgentSearchToPendingMessage(normalizedEvent)
+  }
+
+  function sanitizeAgentSearchItems(items?: AgentSearchItem[]) {
+    if (!items?.length) return []
+
+    return items
+      .filter(Boolean)
+      .map((item) => ({
+        sourceType: item.sourceType,
+        sourceLabel: item.sourceLabel,
+        sourceId: item.sourceId,
+        courseId: item.courseId,
+        title: item.title,
+        contextLabel: item.contextLabel,
+        snippet: item.snippet,
+        relationLabel: item.relationLabel,
+        metadata: item.metadata ?? null,
+        indexInfo: item.indexInfo ?? null,
+      }))
+      .filter((item) => item.title || item.sourceLabel || item.snippet)
+  }
+
+  function attachAgentSearchToPendingMessage(event: AgentSearchEvent) {
+    const message = [...messages.value]
+      .reverse()
+      .find((item) => item.pending && item.role.toLowerCase() !== 'user')
+    if (!message) return
+
+    const payload = {...(message.payload || {})}
+    const agentSearch = normalizeAgentSearchPayload(payload.agentSearch)
+    agentSearch.events = [...(agentSearch.events || []), event]
+    agentSearch.searches = mergeAgentSearchRecord(agentSearch.searches || [], event)
+    if (event.items?.length) {
+      agentSearch.items = [...(agentSearch.items || []), ...event.items]
+    }
+    payload.agentSearch = agentSearch
+    message.payload = payload
+  }
+
+  function normalizeAgentSearchPayload(value: unknown): AgentSearchPayload {
+    if (!value || typeof value !== 'object') {
+      return {events: [], searches: [], items: []}
+    }
+    const payload = value as AgentSearchPayload
+    return {
+      events: Array.isArray(payload.events) ? payload.events : [],
+      searches: Array.isArray(payload.searches) ? payload.searches : [],
+      items: Array.isArray(payload.items) ? payload.items : [],
+    }
+  }
+
+  function mergeAgentSearchRecord(records: AgentSearchRecord[], event: AgentSearchEvent) {
+    if (event.phase === 'completed') return records
+
+    const searchId = event.searchId || fallbackAgentSearchId(event)
+    const nextRecords = [...records]
+    const index = nextRecords.findIndex((record) =>
+      (record.searchId || fallbackAgentSearchId(record)) === searchId,
+    )
+    const nextRecord: AgentSearchRecord = {
+      ...(index >= 0 ? nextRecords[index] : {}),
+      searchId,
+      domain: event.domain,
+      query: event.query,
+      label: event.label,
+      phase: event.phase,
+      total: event.total,
+      occurredAt: event.occurredAt,
+      items: event.items?.length ? event.items : index >= 0 ? nextRecords[index].items : [],
+    }
+    if (index >= 0) {
+      nextRecords[index] = nextRecord
+      return nextRecords
+    }
+    return [...nextRecords, nextRecord]
+  }
+
+  function fallbackAgentSearchId(event: Pick<AgentSearchRecord, 'domain' | 'query'>) {
+    return `${event.domain || 'agentSearch'}:${event.query || ''}`
+  }
+
+  function agentSearchFallbackLabel(phase: string) {
+    if (phase === 'empty') return '未找到匹配内容'
+    if (phase === 'error') return '检索失败'
+    return '正在搜集信息…'
+  }
+
+  function clearAgentSearchState() {
+    activeAgentSearchSteps.value = []
+    latestAgentSearchItems.value = []
   }
 
   function patchLocalMessage(messageId: string, patch: Partial<ChatMessage>) {
@@ -382,6 +505,8 @@ export const useAiStore = defineStore('ai', () => {
     messages,
     knowledgeDocs,
     latestChatContext,
+    activeAgentSearchSteps,
+    latestAgentSearchItems,
     activeConversationId,
     activeConversation,
     context,

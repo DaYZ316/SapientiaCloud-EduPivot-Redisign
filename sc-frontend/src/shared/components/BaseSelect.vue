@@ -208,13 +208,14 @@ defineExpose({isOpen})
 }
 
 .base-select-trigger {
+  position: relative;
   width: 100%;
   min-height: 48px;
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 14px;
-  padding: 0 14px 0 16px;
+  padding: 0 38px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
   border-radius: 16px;
@@ -226,6 +227,14 @@ defineExpose({isOpen})
   transition: border-color 0.2s,
   box-shadow 0.2s,
   background 0.2s;
+}
+
+.base-select-trigger span {
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .base-select-trigger:hover {
@@ -241,6 +250,8 @@ defineExpose({isOpen})
 }
 
 .base-select-icon {
+  position: absolute;
+  right: 14px;
   flex-shrink: 0;
   color: var(--color-on-surface);
   transition: transform 0.2s;
@@ -271,12 +282,13 @@ defineExpose({isOpen})
 }
 
 .base-select-option {
+  position: relative;
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 20px;
-  padding: 10px 12px;
+  padding: 10px 34px;
   background: transparent;
   border: none;
   border-radius: 10px;
@@ -284,7 +296,7 @@ defineExpose({isOpen})
   font-size: 14px;
   font-weight: 500;
   color: var(--color-on-surface);
-  text-align: left;
+  text-align: center;
   white-space: nowrap;
   cursor: pointer;
   transition: background 0.2s,
@@ -301,6 +313,8 @@ defineExpose({isOpen})
 }
 
 .base-select-option svg {
+  position: absolute;
+  right: 12px;
   flex-shrink: 0;
 }
 

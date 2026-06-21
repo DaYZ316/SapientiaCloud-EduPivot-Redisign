@@ -2,6 +2,7 @@ import {fetchEventSource} from '@microsoft/fetch-event-source'
 
 import {ACCESS_TOKEN_KEY, refreshSession, request} from '@/shared/api/request'
 import type {
+  AgentSearchEvent,
   AiChatContextInfo,
   ChatRequest,
   Conversation,
@@ -75,6 +76,7 @@ export async function streamChat(
   data: ChatRequest,
   handlers: {
     onChunk: (chunk: string) => void
+    onAgentSearch?: (event: AgentSearchEvent) => void
     onContext?: (context: AiChatContextInfo) => void
     onConversation?: (conversation: Pick<Conversation, 'id' | 'title'>) => void
     onError?: (error: Error) => void
@@ -96,6 +98,7 @@ async function connectChatStream(
   data: ChatRequest,
   handlers: {
     onChunk: (chunk: string) => void
+    onAgentSearch?: (event: AgentSearchEvent) => void
     onContext?: (context: AiChatContextInfo) => void
     onConversation?: (conversation: Pick<Conversation, 'id' | 'title'>) => void
     onError?: (error: Error) => void
@@ -126,6 +129,8 @@ async function connectChatStream(
         handlers.onConversation?.(JSON.parse(event.data) as Pick<Conversation, 'id' | 'title'>)
       } else if (event.event === 'context') {
         handlers.onContext?.(JSON.parse(event.data) as AiChatContextInfo)
+      } else if (event.event === 'agent_search') {
+        handlers.onAgentSearch?.(JSON.parse(event.data) as AgentSearchEvent)
       } else if (event.event === 'error') {
         throw new Error(event.data)
       } else if (!event.event || event.event === 'chunk') {

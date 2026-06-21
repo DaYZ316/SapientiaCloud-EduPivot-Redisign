@@ -8,6 +8,7 @@ import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,7 +44,8 @@ class ChatVectorMemoryServiceTest {
                     .equals(userMessage.getId().toString())
                     && document.getMetadata().get(ChatVectorMemoryService.META_ASSISTANT_MESSAGE_ID)
                     .equals(assistantMessage.getId().toString())
-                    && document.getMetadata().get(ChatVectorMemoryService.META_COURSE_ID).equals(courseId.toString());
+                    && document.getMetadata().get(ChatVectorMemoryService.META_COURSE_ID).equals(courseId.toString())
+                    && document.getMetadata().get(ChatVectorMemoryService.META_DELETED).equals("false");
         }));
     }
 
@@ -86,11 +88,42 @@ class ChatVectorMemoryServiceTest {
                         && filter.contains(userId.toString())));
     }
 
+    @Test
+    void indexTurnShouldSkipConversationMarkedDeleted() {
+        VectorStore vectorStore = mock(VectorStore.class);
+        ChatVectorMemoryService service = serviceWith(vectorStore, new AiProperties());
+        UUID conversationId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+
+        service.deleteConversationMemory(conversationId, userId);
+        service.indexTurn(userId, conversationId, message("q"), message("a"), null);
+
+        verify(vectorStore, never()).add(anyList());
+    }
+
+    @Test
+    void activeMemoryDocumentsShouldRemoveDeletedConversationDocuments() {
+        VectorStore vectorStore = mock(VectorStore.class);
+        ChatVectorMemoryService service = serviceWith(vectorStore, new AiProperties());
+        UUID conversationId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        Document deleted = new Document("old", Map.of(
+                ChatVectorMemoryService.META_CONVERSATION_ID, conversationId.toString()));
+        Document active = new Document("new", Map.of(
+                ChatVectorMemoryService.META_CONVERSATION_ID, UUID.randomUUID().toString()));
+
+        service.deleteConversationMemory(conversationId, userId);
+
+        assertThat(service.activeMemoryDocuments(userId, List.of(deleted, active)))
+                .extracting(Document::getText)
+                .containsExactly("new");
+    }
+
     @SuppressWarnings("unchecked")
     private ChatVectorMemoryService serviceWith(VectorStore vectorStore, AiProperties properties) {
         ObjectProvider<@org.jspecify.annotations.NonNull VectorStore> provider = mock(ObjectProvider.class);
         when(provider.getObject()).thenReturn(vectorStore);
-        return new ChatVectorMemoryService(provider, properties);
+        return new ChatVectorMemoryService(provider, properties, new AiProviderCallGuard());
     }
 
     private ChatMessage message(String content) {

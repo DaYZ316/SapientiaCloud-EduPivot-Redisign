@@ -113,9 +113,15 @@ defineExpose({
 
 <style scoped>
 .drawer-layer {
+  --font-ai-sans: MiSans, 'Noto Sans SC', 'Microsoft YaHei', DengXian, 'Segoe UI', system-ui, sans-serif;
+  --font-ai-mono: 'Cascadia Code', 'Cascadia Mono', Consolas, monospace;
+  --font-heading: 'Bodoni Moda', 'Georgia', serif;
+  --font-body: var(--font-ai-sans);
+  --font-label: var(--font-ai-sans);
   position: fixed;
   inset: 0;
   z-index: 2300;
+  font-family: var(--font-ai-sans);
   pointer-events: none;
 }
 

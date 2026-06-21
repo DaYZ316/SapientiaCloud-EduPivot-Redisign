@@ -10,25 +10,37 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class PlatformDataToolTest {
 
     @Test
-    void loadCourseContextShouldReturnEmptyContextWithoutFeignCallWhenCourseIdIsNull() {
+    void loadCourseContextShouldCallFeignWhenCourseIdIsNull() {
         CourseAiContextClient client = mock(CourseAiContextClient.class);
         PlatformDataTool tool = new PlatformDataTool(client);
+        UUID courseId = UUID.randomUUID();
+        AiCourseContext expected = new AiCourseContext(
+                List.of(new AiCourseContext.CourseSummary(
+                        courseId,
+                        "Global AI Course",
+                        "Intro",
+                        "2026",
+                        "Online",
+                        1,
+                        1,
+                        12L,
+                        "TEACHER")),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of());
+        when(client.getContext(null)).thenReturn(ApiResponse.ok(expected));
 
         AiCourseContext context = tool.loadCourseContext(null);
 
-        assertThat(context.courses()).isEmpty();
-        assertThat(context.chapters()).isEmpty();
-        assertThat(context.questionBanks()).isEmpty();
-        assertThat(context.questions()).isEmpty();
-        assertThat(context.livePractices()).isEmpty();
-        verify(client, never()).getContext(org.mockito.ArgumentMatchers.any());
+        assertThat(context).isSameAs(expected);
+        verify(client).getContext(null);
     }
 
     @Test
