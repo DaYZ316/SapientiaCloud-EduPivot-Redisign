@@ -51,7 +51,7 @@ class AiGenerationExportServiceTest {
     }
 
     @Test
-    void exportShouldCreatePdfWithAnswersWhenEnabled() {
+    void exportShouldCreatePdfWithAnswersWhenEnabled() throws Exception {
         UUID conversationId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         ChatMessage message = message(conversationId, AiMessageType.PAPER, paperPayload());
@@ -63,6 +63,65 @@ class AiGenerationExportServiceTest {
         assertThat(file.contentType()).isEqualTo("application/pdf");
         assertThat(file.filename()).endsWith("-教师版.pdf");
         assertThat(new String(file.bytes(), 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
+
+        String html = service.renderHtml(service.buildDocument(message, true));
+        assertThat(html)
+                .contains("参考答案与解析")
+                .contains("Answer: A")
+                .contains("The default load factor is 0.75");
+        assertThat(html.indexOf("参考答案与解析")).isGreaterThan(html.indexOf("HashMap load factor"));
+    }
+
+    @Test
+    void exportShouldCreateStudentPdfAsFormalPaperWithoutAnswers() throws Exception {
+        UUID conversationId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        ChatMessage message = message(conversationId, AiMessageType.PAPER, paperPayload());
+        AiGenerationExportService service = service(conversationId, userId, message);
+
+        AiGenerationExportService.ExportFile file = service.export(
+                conversationId, message.getId(), userId, "pdf", false);
+
+        assertThat(new String(file.bytes(), 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
+        String html = service.renderHtml(service.buildDocument(message, false));
+        assertThat(html)
+                .contains("姓名")
+                .contains("班级")
+                .contains("学号")
+                .contains("得分")
+                .contains("注意事项")
+                .contains("大题")
+                .contains("题量")
+                .contains("满分")
+                .contains("Choice Section")
+                .contains("<strong>A.</strong>")
+                .contains("<p>0.75</p>")
+                .doesNotContain("<ol")
+                .doesNotContain("参考答案与解析")
+                .doesNotContain("Answer: A")
+                .doesNotContain("The default load factor is 0.75");
+    }
+
+    @Test
+    void exportShouldKeepQuestionSetPdfExportableWhenBlueprintMissing() throws Exception {
+        UUID conversationId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        ChatMessage message = message(conversationId, AiMessageType.QUESTION_SET, Map.of(
+                "title", "Question Set",
+                "questions", List.of(question("First question", "A"), question("Second question", "B"))));
+        AiGenerationExportService service = service(conversationId, userId, message);
+
+        AiGenerationExportService.ExportFile file = service.export(
+                conversationId, message.getId(), userId, "pdf", false);
+
+        assertThat(new String(file.bytes(), 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
+        String html = service.renderHtml(service.buildDocument(message, false));
+        assertThat(html)
+                .contains("Question Set")
+                .contains("题目")
+                .contains("First question")
+                .contains("Second question");
+        assertThat(html).doesNotContain("1. A. 0.75");
     }
 
     @Test
@@ -115,6 +174,22 @@ class AiGenerationExportServiceTest {
         assertThat(document.sections().getFirst().questions())
                 .extracting(AiGenerationExportService.ExportQuestion::title)
                 .containsExactly("First question", "Second question");
+    }
+
+    @Test
+    void buildDocumentShouldAcceptSchemaVersionTwoPayload() {
+        ChatMessage message = message(UUID.randomUUID(), AiMessageType.QUESTION_SET, Map.of(
+                "schemaVersion", 2,
+                "title", "Question Set",
+                "questions", List.of(question("Schema v2 question", "A"))));
+        AiGenerationExportService service = service(UUID.randomUUID(), UUID.randomUUID(), message);
+
+        AiGenerationExportService.ExportDocument document = service.buildDocument(message, true);
+
+        assertThat(document.title()).isEqualTo("Question Set");
+        assertThat(document.sections().getFirst().questions())
+                .extracting(AiGenerationExportService.ExportQuestion::title)
+                .containsExactly("Schema v2 question");
     }
 
     @Test

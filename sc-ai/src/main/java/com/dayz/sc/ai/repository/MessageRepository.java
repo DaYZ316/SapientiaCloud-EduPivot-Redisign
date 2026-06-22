@@ -22,6 +22,8 @@ public interface MessageRepository {
      */
     ChatMessage save(ChatMessage message);
 
+    void update(ChatMessage message);
+
     Optional<ChatMessage> findById(UUID id);
 
     /**

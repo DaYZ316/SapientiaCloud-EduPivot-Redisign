@@ -11,6 +11,7 @@ import com.dayz.sc.ai.repository.MessageRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -37,6 +38,7 @@ import static org.mockito.Mockito.RETURNS_SELF;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -123,7 +125,7 @@ class RagChatServiceTest {
     }
 
     @Test
-    void recentMemoryMessagesShouldKeepTextUserAndAssistantMessagesInAscendingOrder() {
+    void recentMemoryMessagesShouldKeepTextAndCompletedGenerationMessagesInAscendingOrder() {
         UUID conversationId = UUID.randomUUID();
         UUID currentMessageId = UUID.randomUUID();
         MessageRepository messageRepository = mock(MessageRepository.class);
@@ -131,7 +133,14 @@ class RagChatServiceTest {
                 message(currentMessageId, MessageRole.USER, AiMessageType.TEXT, "current"),
                 message(UUID.randomUUID(), MessageRole.ASSISTANT, AiMessageType.TEXT, "old answer 2"),
                 message(UUID.randomUUID(), MessageRole.USER, AiMessageType.TEXT, "old question 2"),
-                message(UUID.randomUUID(), MessageRole.ASSISTANT, AiMessageType.PAPER, "paper payload"),
+                message(UUID.randomUUID(), MessageRole.ASSISTANT, AiMessageType.PAPER, "paper payload",
+                        Map.of("generationStatus", "completed")),
+                message(UUID.randomUUID(), MessageRole.ASSISTANT, AiMessageType.QUESTION_SET, "failed generation",
+                        Map.of("generationStatus", "failed")),
+                message(UUID.randomUUID(), MessageRole.ASSISTANT, AiMessageType.PAPER, "",
+                        Map.of("generationStatus", "processing")),
+                message(UUID.randomUUID(), MessageRole.ASSISTANT, AiMessageType.QUESTION_SET, "question set payload",
+                        Map.of("generationStatus", "completed")),
                 message(UUID.randomUUID(), MessageRole.SYSTEM, AiMessageType.TEXT, "system"),
                 message(UUID.randomUUID(), MessageRole.USER, AiMessageType.TEXT, "old question 1")
         ));
@@ -141,7 +150,8 @@ class RagChatServiceTest {
 
         assertThat(messages)
                 .extracting(ChatMessage::getContent)
-                .containsExactly("old question 1", "old question 2", "old answer 2");
+                .containsExactly("old question 1", "question set payload", "paper payload",
+                        "old question 2", "old answer 2");
     }
 
     @Test
@@ -161,6 +171,27 @@ class RagChatServiceTest {
         assertThat(messages.get(3)).isInstanceOf(UserMessage.class);
         assertThat(messages.get(3).getText()).isEqualTo("what is my name?");
         assertThat(messages.getFirst().getText()).contains("当前登录用户角色：未知。");
+    }
+
+    @Test
+    void modelMessagesShouldIncludeReadableGenerationArtifactContext() {
+        RagChatService service = serviceWith(mock(VectorStore.class), new AiProperties());
+        String paperContent = "## AI \u51fa\u5377\u7ed3\u679c\n\n\u7b2c1\u9898: HashMap load factor";
+
+        List<Message> messages = service.modelMessages("SYSTEM", List.of(
+                message(UUID.randomUUID(), MessageRole.USER, AiMessageType.TEXT, "generate paper"),
+                message(UUID.randomUUID(), MessageRole.ASSISTANT, AiMessageType.PAPER, paperContent,
+                        Map.of(
+                                "generationStatus", "completed",
+                                "generationTrace", List.of(Map.of("stage", "RESPONDED")),
+                                "generationDebugTrace", List.of("debug")))
+        ), "\u8be6\u7ec6\u89e3\u6790\u4e00\u4e0b\u7b2c\u4e00\u9898");
+
+        assertThat(messages).hasSize(4);
+        assertThat(messages.get(2)).isInstanceOf(AssistantMessage.class);
+        assertThat(messages.get(2).getText())
+                .contains("\u4e0a\u4e00\u4efd AI \u51fa\u5377\u7ed3\u679c", "\u7b2c1\u9898", "HashMap")
+                .doesNotContain("generationTrace", "generationDebugTrace");
     }
 
     @Test
@@ -364,6 +395,7 @@ class RagChatServiceTest {
         ConversationService conversationService = mock(ConversationService.class);
         AiAgentService aiAgentService = mock(AiAgentService.class);
         Map<String, Object> payload = Map.of(
+                "schemaVersion", 2,
                 "questions", List.of(Map.of(
                         "questionTitle", "HashMap load factor",
                         "questionContent", "Choose the correct answer.")));
@@ -405,7 +437,63 @@ class RagChatServiceTest {
                 .containsEntry("messageType", "PAPER")
                 .containsEntry("content", "paper content");
         Map<?, ?> resultPayload = (Map<?, ?>) data.get("payload");
+        assertThat(resultPayload.get("schemaVersion")).isEqualTo(2);
         assertThat((List<?>) resultPayload.get("questions")).hasSize(1);
+    }
+
+    @Test
+    void generationStreamShouldUpdatePersistedPlaceholderMessage() {
+        UUID conversationId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        when(messageRepository.findById(any())).thenAnswer(invocation -> {
+            ChatMessage message = new ChatMessage();
+            message.setId(invocation.getArgument(0));
+            message.setConversationId(conversationId);
+            message.setRole(MessageRole.ASSISTANT.name());
+            message.setContent("");
+            message.setMessageType(AiMessageType.QUESTION_SET.name());
+            message.setPayload(Map.of("generationStatus", "processing", "generationTrace", List.of()));
+            return java.util.Optional.of(message);
+        });
+        ConversationService conversationService = mock(ConversationService.class);
+        AiAgentService aiAgentService = mock(AiAgentService.class);
+        Map<String, Object> payload = Map.of("schemaVersion", 2, "questions", List.of());
+        when(aiAgentService.runGeneration(
+                any(ChatRequest.class),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()))
+                .thenReturn(new AiAgentResult("generated", AiMessageType.QUESTION_SET, payload));
+        RagChatService service = serviceWith(
+                mock(VectorStore.class),
+                new AiProperties(),
+                messageRepository,
+                conversationService,
+                aiAgentService);
+
+        service.stream(new ChatRequest(conversationId, "generate questions", "QUESTION", null, null), userId, 2, null)
+                .collectList()
+                .block();
+
+        ArgumentCaptor<ChatMessage> savedCaptor = ArgumentCaptor.forClass(ChatMessage.class);
+        verify(messageRepository, times(2)).save(savedCaptor.capture());
+        assertThat(savedCaptor.getAllValues())
+                .filteredOn(message -> MessageRole.ASSISTANT.name().equals(message.getRole()))
+                .hasSize(1)
+                .first()
+                .satisfies(message -> assertThat(message.getPayload())
+                        .containsEntry("generationStatus", "processing")
+                        .containsEntry("generationStage", "RECEIVED"));
+        verify(messageRepository).update(argThat(message ->
+                MessageRole.ASSISTANT.name().equals(message.getRole())
+                        && "generated".equals(message.getContent())
+                        && AiMessageType.QUESTION_SET.name().equals(message.getMessageType())
+                        && "completed".equals(message.getPayload().get("generationStatus"))
+                        && "RESPONDED".equals(message.getPayload().get("generationStage"))
+                        && Integer.valueOf(2).equals(message.getPayload().get("schemaVersion"))));
     }
 
     @Test
@@ -615,7 +703,8 @@ class RagChatServiceTest {
                 agentSearchTools,
                 new AiProviderCallGuard(),
                 new ObjectMapper(),
-                emptyQuestionGenerationKafkaBridgeProvider()
+                emptyQuestionGenerationKafkaBridgeProvider(),
+                new GenerationMessageStateService(messageRepository)
         );
     }
 
@@ -667,6 +756,16 @@ class RagChatServiceTest {
         message.setRole(role.name());
         message.setMessageType(messageType.name());
         message.setContent(content);
+        return message;
+    }
+
+    private ChatMessage message(UUID id,
+                                MessageRole role,
+                                AiMessageType messageType,
+                                String content,
+                                Map<String, Object> payload) {
+        ChatMessage message = message(id, role, messageType, content);
+        message.setPayload(payload);
         return message;
     }
 

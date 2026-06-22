@@ -8,9 +8,11 @@ import com.dayz.sc.ai.model.vo.AiAgentResult;
 import com.dayz.sc.ai.model.vo.GenerationStageEvent;
 import com.dayz.sc.common.events.ai.QuestionGenerationCompletedEvent;
 import com.dayz.sc.common.events.ai.QuestionGenerationProgressEvent;
+import com.dayz.sc.common.events.ai.QuestionGenerationRequestedEvent;
 import com.dayz.sc.common.events.config.KafkaTopicConstants;
 import org.junit.jupiter.api.Test;
 import org.jspecify.annotations.NonNull;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
@@ -44,7 +46,8 @@ class QuestionGenerationKafkaBridgeTest {
                         UUID.randomUUID(),
                         2,
                         AiAgentMode.QUESTION,
-                        "request-1")
+                        "request-1",
+                        UUID.randomUUID())
                 .block();
 
         assertThat(result).isNull();
@@ -63,6 +66,22 @@ class QuestionGenerationKafkaBridgeTest {
                 eq(KafkaTopicConstants.QUESTION_GENERATION_PROGRESS),
                 eq("request-1"),
                 any(QuestionGenerationProgressEvent.class));
+    }
+
+    @Test
+    void publishStageShouldEmitProgressToLocalSubscribersImmediately() {
+        KafkaTemplate<@NonNull String, @NonNull Object> kafkaTemplate = kafkaTemplate();
+        QuestionGenerationKafkaBridge bridge = new QuestionGenerationKafkaBridge(provider(kafkaTemplate));
+        List<QuestionGenerationProgressEvent> received = new CopyOnWriteArrayList<>();
+        bridge.progress("request-1").subscribe(received::add);
+        GenerationStageEvent event = GenerationStageEvent.of(
+                "request-1", "QUESTION", "GENERATED", "processing", "draft", "summary", Map.of());
+
+        bridge.publishStage("request-1", event);
+        bridge.onProgress(received.getFirst(), null);
+
+        assertThat(received).hasSize(1);
+        assertThat(received.getFirst().eventType()).isEqualTo("generation_stage");
     }
 
     @Test
@@ -96,7 +115,8 @@ class QuestionGenerationKafkaBridgeTest {
                 UUID.randomUUID(),
                 2,
                 AiAgentMode.QUESTION,
-                requestId);
+                requestId,
+                UUID.randomUUID());
         QuestionGenerationProgressEvent event = new QuestionGenerationProgressEvent(
                 UUID.randomUUID(),
                 requestId,
@@ -106,6 +126,32 @@ class QuestionGenerationKafkaBridgeTest {
         bridge.onProgress(event, null);
 
         assertThat(received).containsExactly(event);
+    }
+
+    @Test
+    void submitShouldPublishAssistantMessageId() {
+        KafkaTemplate<@NonNull String, @NonNull Object> kafkaTemplate = kafkaTemplate();
+        QuestionGenerationKafkaBridge bridge = new QuestionGenerationKafkaBridge(provider(kafkaTemplate));
+        UUID assistantMessageId = UUID.randomUUID();
+        String requestId = "request-1";
+
+        bridge.submit(
+                new ChatRequest(UUID.randomUUID(), "generate questions", "QUESTION", null, null),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                2,
+                AiAgentMode.QUESTION,
+                requestId,
+                assistantMessageId);
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(kafkaTemplate).send(
+                eq(KafkaTopicConstants.QUESTION_GENERATION_REQUESTS),
+                eq(requestId),
+                eventCaptor.capture());
+        assertThat(eventCaptor.getValue())
+                .isInstanceOfSatisfying(QuestionGenerationRequestedEvent.class,
+                        event -> assertThat(event.assistantMessageId()).isEqualTo(assistantMessageId));
     }
 
     @Test
@@ -122,18 +168,20 @@ class QuestionGenerationKafkaBridgeTest {
                 UUID.randomUUID(),
                 2,
                 AiAgentMode.QUESTION,
-                requestId);
+                requestId,
+                UUID.randomUUID());
         bridge.onCompleted(QuestionGenerationCompletedEvent.completed(
                 requestId,
                 "完成",
                 AiMessageType.QUESTION_SET.name(),
-                Map.of("questions", List.of())), null);
+                Map.of("schemaVersion", 2, "questions", List.of())), null);
 
         AiAgentResult result = resultMono.block();
 
         assertThat(result).isNotNull();
         assertThat(result.content()).isEqualTo("完成");
         assertThat(result.messageType()).isEqualTo(AiMessageType.QUESTION_SET);
+        assertThat(result.payload()).containsEntry("schemaVersion", 2);
         verify(kafkaTemplate).send(
                 eq(KafkaTopicConstants.QUESTION_GENERATION_REQUESTS),
                 eq(requestId),
@@ -154,7 +202,8 @@ class QuestionGenerationKafkaBridgeTest {
                 UUID.randomUUID(),
                 2,
                 AiAgentMode.QUESTION,
-                requestId);
+                requestId,
+                UUID.randomUUID());
         bridge.onCompleted(QuestionGenerationCompletedEvent.failed(requestId, "worker failed"), null);
 
         assertThatThrownBy(resultMono::block)
@@ -176,7 +225,8 @@ class QuestionGenerationKafkaBridgeTest {
                         UUID.randomUUID(),
                         2,
                         AiAgentMode.QUESTION,
-                        "request-1")
+                        "request-1",
+                        UUID.randomUUID())
                 .block(Duration.ofSeconds(1));
 
         assertThat(result).isNull();

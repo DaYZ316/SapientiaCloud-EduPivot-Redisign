@@ -317,6 +317,31 @@ if errorlevel 1 exit /b 1
 call :REMOTE "tar -xzf %DEPLOY_DIR%/.upload/infra.tgz -C %DEPLOY_DIR%"
 exit /b %ERRORLEVEL%
 
+:UPLOAD_RUNTIME_FILES
+if not exist "%ROOT_DIR%\docker-compose.artifact.yaml" (
+    echo docker-compose.artifact.yaml not found.
+    exit /b 1
+)
+if not exist "%ROOT_DIR%\deploy\artifact\java-runtime.Dockerfile" (
+    echo deploy/artifact/java-runtime.Dockerfile not found.
+    exit /b 1
+)
+if not exist "%ARTIFACT_DIR%" mkdir "%ARTIFACT_DIR%"
+set "ARCHIVE=%ARTIFACT_DIR%\runtime-files.tgz"
+echo Pack Java runtime deploy files
+pushd "%ROOT_DIR%"
+tar -czf "%ARCHIVE%" docker-compose.artifact.yaml deploy/artifact/java-runtime.Dockerfile
+set "ERR=!ERRORLEVEL!"
+popd
+if not "!ERR!"=="0" exit /b !ERR!
+call :PREPARE_REMOTE_DIRS
+if errorlevel 1 exit /b 1
+echo Upload Java runtime deploy files to %DEPLOY_DIR%
+call :SCP_TO_REMOTE "%ARCHIVE%" "%DEPLOY_DIR%/.upload/runtime-files.tgz"
+if errorlevel 1 exit /b 1
+call :REMOTE "tar -xzf %DEPLOY_DIR%/.upload/runtime-files.tgz -C %DEPLOY_DIR%"
+exit /b %ERRORLEVEL%
+
 :RESTART_INFRA
 if "%SKIP_RESTART%"=="1" (
     echo Skip remote infra restart
@@ -332,6 +357,8 @@ exit /b %ERRORLEVEL%
 set "SERVICE=%~1"
 call :BUILD_BACKEND "!SERVICE!"
 if errorlevel 1 exit /b 1
+call :UPLOAD_RUNTIME_FILES
+if errorlevel 1 exit /b 1
 call :UPLOAD_BACKEND "!SERVICE!"
 if errorlevel 1 exit /b 1
 call :RESTART_SERVICES "!SERVICE!"
@@ -339,6 +366,8 @@ exit /b %ERRORLEVEL%
 
 :DEPLOY_ALL_BACKEND
 call :BUILD_ALL_BACKEND
+if errorlevel 1 exit /b 1
+call :UPLOAD_RUNTIME_FILES
 if errorlevel 1 exit /b 1
 for %%S in (%BACKEND_SERVICES%) do (
     call :UPLOAD_BACKEND "%%S"

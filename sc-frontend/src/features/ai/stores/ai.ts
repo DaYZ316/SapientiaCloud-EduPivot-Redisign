@@ -193,21 +193,25 @@ export const useAiStore = defineStore('ai', () => {
     await conversationsLoadPromise
   }
 
-  async function loadMessages(conversationId = activeConversationId.value) {
+  async function loadMessages(conversationId = activeConversationId.value, options: {silent?: boolean} = {}) {
     if (!conversationId) {
       messages.value = []
       return
     }
-    loadingMessages.value = true
+    if (!options.silent) {
+      loadingMessages.value = true
+    }
     try {
       draftConversationOpen.value = false
       activeConversationId.value = conversationId
       activeGenerationMessageId.value = null
-      messages.value = await listConversationMessages(conversationId)
+      messages.value = (await listConversationMessages(conversationId)).map(normalizeLoadedMessage)
       reconcileGenerationState()
       clearAgentSearchState()
     } finally {
-      loadingMessages.value = false
+      if (!options.silent) {
+        loadingMessages.value = false
+      }
     }
   }
 
@@ -297,10 +301,6 @@ export const useAiStore = defineStore('ai', () => {
         activeConversationId.value = conversationId
         activeGenerationConversationId.value = conversationId
       }
-      if (assistantMessage.messageType !== 'TEXT' && conversationId) {
-        await loadMessages(conversationId)
-        activeGenerationMessageId.value = null
-      }
     } catch (error) {
       streamBuffer.clear()
       const errorMessage = error instanceof Error ? error.message : 'AI response failed'
@@ -310,7 +310,6 @@ export const useAiStore = defineStore('ai', () => {
         pending: false,
       })
       streamError.value = errorMessage
-      await refreshActiveGeneration()
     } finally {
       streamBuffer.clear()
       if (activeStreamBuffer === streamBuffer) {
@@ -337,6 +336,23 @@ export const useAiStore = defineStore('ai', () => {
 
   function isGenerationMessage(message: ChatMessage) {
     return message.messageType === 'QUESTION_SET' || message.messageType === 'PAPER'
+  }
+
+  function normalizeLoadedMessage(message: ChatMessage): ChatMessage {
+    if (!isGenerationMessage(message)) return message
+
+    const status = typeof message.payload?.generationStatus === 'string'
+      ? message.payload.generationStatus
+      : ''
+    const stage = typeof message.payload?.generationStage === 'string'
+      ? message.payload.generationStage
+      : ''
+    const failed = status === 'failed' || status === 'error' || stage === 'FAILED'
+    return {
+      ...message,
+      pending: status === 'processing',
+      failed,
+    }
   }
 
   function applyAgentSearchEvent(event: AgentSearchEvent) {
@@ -459,12 +475,13 @@ export const useAiStore = defineStore('ai', () => {
   }
 
   function applyGenerationStageEvent(message: ChatMessage, event: GenerationStageEvent) {
-    const payload = {...(message.payload || {})}
+    const target = bindGenerationMessage(message, event.messageId)
+    const payload = {...(target.payload || {})}
     const trace = normalizeGenerationTrace(payload.generationTrace)
     const timestamp = event.timestamp || new Date().toISOString()
     const entryId = event.requestId
       ? `${event.requestId}-${event.stage}-${trace.length}`
-      : `${message.id}-${event.stage}-${trace.length}`
+      : `${target.id}-${event.stage}-${trace.length}`
 
     payload.generationTrace = trace.concat({
       entryId,
@@ -480,7 +497,11 @@ export const useAiStore = defineStore('ai', () => {
     payload.generationStatus = event.status
     payload.generationRequestId = event.requestId
     payload.generationMode = event.mode
-    message.payload = payload
+    promoteGeneratedQuestions(payload, event)
+    target.payload = payload
+    target.failed = event.status === 'failed' || event.status === 'error' || event.stage === 'FAILED'
+    target.pending = !target.failed && event.status !== 'completed' && event.stage !== 'RESPONDED'
+    activeGenerationMessageId.value = target.id
     activeGenerationRequestId.value = event.requestId || null
     if (activeConversationId.value) {
       activeGenerationConversationId.value = activeConversationId.value
@@ -488,6 +509,7 @@ export const useAiStore = defineStore('ai', () => {
   }
 
   function applyGenerationResultEvent(message: ChatMessage, event: GenerationResultEvent) {
+    const target = bindGenerationMessage(message, event.messageId)
     const payload = {...(event.payload || {})}
     if (event.requestId) {
       payload.generationRequestId = event.requestId
@@ -497,7 +519,7 @@ export const useAiStore = defineStore('ai', () => {
     }
     payload.generationStage ??= 'RESPONDED'
     payload.generationStatus ??= 'completed'
-    patchLocalMessage(message.id, {
+    patchLocalMessage(target.id, {
       content: event.content,
       messageType: event.messageType,
       payload,
@@ -509,16 +531,61 @@ export const useAiStore = defineStore('ai', () => {
     }
   }
 
+  function bindGenerationMessage(message: ChatMessage, messageId?: string) {
+    if (!messageId || message.id === messageId) {
+      return message
+    }
+
+    const existing = messages.value.find((item) => item.id === messageId)
+    if (existing) {
+      return existing
+    }
+
+    const index = messages.value.findIndex((item) => item.id === message.id)
+    if (index >= 0) {
+      messages.value[index] = {
+        ...messages.value[index],
+        id: messageId,
+      }
+      activeGenerationMessageId.value = messageId
+      return messages.value[index]
+    }
+
+    return message
+  }
+
+  function promoteGeneratedQuestions(payload: Record<string, unknown>, event: GenerationStageEvent) {
+    const questions = event.payload?.questions
+    if (shouldPromoteQuestions(event.stage) && Array.isArray(questions)) {
+      payload.questions = event.payload?.questionDelta === true
+        ? appendGeneratedQuestions(payload.questions, questions)
+        : questions
+    }
+  }
+
+  function shouldPromoteQuestions(stage: string) {
+    return stage === 'GENERATED' || stage === 'REPAIRED' || stage === 'ASSEMBLED'
+  }
+
+  function appendGeneratedQuestions(current: unknown, delta: unknown[]) {
+    return Array.isArray(current) ? current.concat(delta) : [...delta]
+  }
+
   async function refreshActiveGeneration() {
     if (!activeGenerationConversationId.value) return
 
     const keepTraceRequestId = activeGenerationRequestId.value
-    await loadMessages(activeGenerationConversationId.value)
+    await loadMessages(activeGenerationConversationId.value, {silent: true})
     const refreshedMessage = [...messages.value].reverse().find((message) =>
       isGenerationMessage(message)
       && (!keepTraceRequestId || message.payload?.generationRequestId === keepTraceRequestId),
     )
     activeGenerationMessageId.value = refreshedMessage?.id || null
+    if (!refreshedMessage) {
+      activeGenerationRequestId.value = null
+      activeGenerationConversationId.value = null
+      return
+    }
     if (refreshedMessage && !refreshedMessage.pending) {
       activeGenerationRequestId.value = null
       activeGenerationConversationId.value = null

@@ -10,13 +10,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.List;
 
-/**
- * 创建随堂练习题目请求
- *
- * @author DaYZ
- * @since 2026-06-18
- */
-public record CreateLivePracticeQuestionRequest(
+public record QuestionImportRequest(
         @NotBlank @Size(max = 500) String questionTitle,
         String questionContent,
         int questionType,
@@ -26,8 +20,7 @@ public record CreateLivePracticeQuestionRequest(
         List<String> tags,
         List<String> imageUrls,
         int allowPartialCredit,
-        int aiGradingEnabled,
-        @Valid List<QuestionOptionRequest> options,
-        @Valid List<QuestionAnswerRequest> answers
+        List<@Valid QuestionOptionRequest> options,
+        List<@Valid QuestionAnswerRequest> answers
 ) {
 }

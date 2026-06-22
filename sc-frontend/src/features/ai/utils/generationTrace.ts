@@ -35,17 +35,35 @@ const STAGE_LABELS: Record<GenerationStage, string> = {
   FAILED: '生成失败',
 }
 
+const TECHNICAL_DETAIL_TYPES = new Set(['section_attempt', 'repair_attempt', 'placeholder_result'])
+const HIDDEN_ISSUE_CODES = new Set(['MISSING_QUESTION_BANK_ID'])
+const EMPTY_RESULT_ISSUE_CODES = new Set(['EMPTY_RESULT'])
+
 export function isGenerationMessage(message: ChatMessage) {
   return message.messageType === 'QUESTION_SET' || message.messageType === 'PAPER'
 }
 
-export function generationTrace(message: ChatMessage | null | undefined): GenerationTraceEntry[] {
+export function rawGenerationTrace(message: ChatMessage | null | undefined): GenerationTraceEntry[] {
   const value = message?.payload?.generationTrace
-  if (!Array.isArray(value)) return []
+  return traceList(value)
+}
 
-  return value.filter((entry): entry is GenerationTraceEntry =>
-    Boolean(entry) && typeof entry === 'object',
+export function generationDebugTrace(message: ChatMessage | null | undefined): GenerationTraceEntry[] {
+  const explicitDebugTrace = traceList(message?.payload?.generationDebugTrace)
+  if (explicitDebugTrace.length) return explicitDebugTrace
+
+  const finalQuestionCount = resolvedQuestionCount(message)
+  return rawGenerationTrace(message).filter(entry =>
+    isTechnicalEntry(entry) || isLegacyEmptyNoise(entry, finalQuestionCount),
   )
+}
+
+export function generationTrace(message: ChatMessage | null | undefined): GenerationTraceEntry[] {
+  const finalQuestionCount = resolvedQuestionCount(message)
+  return collapseVisibleTrace(rawGenerationTrace(message)
+    .filter(entry => !isTechnicalEntry(entry))
+    .filter(entry => !isLegacyEmptyNoise(entry, finalQuestionCount))
+    .map(sanitizeTraceEntry))
 }
 
 export function currentGenerationStage(message: ChatMessage | null | undefined) {
@@ -99,4 +117,147 @@ export function generatedQuestionCount(message: ChatMessage) {
 
 function isGenerationStage(stage?: string | null): stage is GenerationStage {
   return Boolean(stage && stage in STAGE_PROGRESS)
+}
+
+function traceList(value: unknown): GenerationTraceEntry[] {
+  if (!Array.isArray(value)) return []
+
+  return value.filter((entry): entry is GenerationTraceEntry =>
+    Boolean(entry) && typeof entry === 'object',
+  )
+}
+
+function collapseVisibleTrace(entries: GenerationTraceEntry[]) {
+  const collapsed: GenerationTraceEntry[] = []
+  for (const entry of entries) {
+    if (isGeneratedQuestionEntry(entry)) {
+      const existingIndex = collapsed.findIndex(isGeneratedQuestionEntry)
+      if (existingIndex >= 0) {
+        collapsed[existingIndex] = mergeGeneratedEntry(collapsed[existingIndex], entry)
+      } else {
+        collapsed.push(entry)
+      }
+      continue
+    }
+
+    const existingIndex = collapsed.findIndex(item => traceKey(item) === traceKey(entry))
+    if (existingIndex >= 0) {
+      collapsed[existingIndex] = entry
+      continue
+    }
+    collapsed.push(entry)
+  }
+  return collapsed
+}
+
+function mergeGeneratedEntry(current: GenerationTraceEntry, next: GenerationTraceEntry): GenerationTraceEntry {
+  const currentPayload = recordValue(current.payload) || {}
+  const nextPayload = recordValue(next.payload) || {}
+  const nextQuestions = Array.isArray(nextPayload.questions) ? nextPayload.questions : []
+  const currentQuestions = Array.isArray(currentPayload.questions) ? currentPayload.questions : []
+  const questions = nextPayload.questionDelta === true
+    ? currentQuestions.concat(nextQuestions)
+    : nextQuestions.length ? nextQuestions : currentQuestions
+  const payload = {
+    ...currentPayload,
+    ...nextPayload,
+  }
+  if (questions.length) {
+    payload.questions = questions
+    payload.questionCount = questions.length
+  }
+
+  const generatedCount = numberValue(
+    nextPayload.generatedQuestionCount
+      ?? payload.generatedQuestionCount
+      ?? payload.questionCount
+      ?? questions.length,
+  )
+  const totalCount = numberValue(nextPayload.totalQuestionCount ?? currentPayload.totalQuestionCount)
+  const summary = totalCount && generatedCount !== null
+    ? `已生成 ${generatedCount} / ${totalCount} 道题目草稿。`
+    : next.summary || current.summary
+
+  return {
+    ...current,
+    ...next,
+    title: next.title || current.title,
+    summary,
+    payload,
+  }
+}
+
+function sanitizeTraceEntry(entry: GenerationTraceEntry): GenerationTraceEntry {
+  const payload = recordValue(entry.payload)
+  if (!payload || !Array.isArray(payload.issues)) return entry
+
+  const issues = payload.issues.filter(issue => !isHiddenIssue(issue))
+  if (issues.length === payload.issues.length) return entry
+
+  const nextPayload = {...payload, issues}
+  if ('issueCount' in nextPayload) nextPayload.issueCount = issues.length
+  if ('remainingIssueCount' in nextPayload) nextPayload.remainingIssueCount = issues.length
+  return {...entry, payload: nextPayload}
+}
+
+function isGeneratedQuestionEntry(entry: GenerationTraceEntry) {
+  return entry.stage === 'GENERATED' && (entry.detailType === 'draft_progress' || entry.detailType === 'drafts')
+}
+
+function isTechnicalEntry(entry: GenerationTraceEntry) {
+  return typeof entry.detailType === 'string' && TECHNICAL_DETAIL_TYPES.has(entry.detailType)
+}
+
+function isLegacyEmptyNoise(entry: GenerationTraceEntry, finalQuestionCount: number) {
+  if (finalQuestionCount <= 0 || (entry.stage !== 'GENERATED' && entry.stage !== 'VALIDATED')) return false
+
+  const payload = recordValue(entry.payload)
+  if (!payload) return false
+  const questionCount = numberValue(payload.questionCount)
+  const hasEmptyQuestions = questionCount === 0 || (Array.isArray(payload.questions) && payload.questions.length === 0)
+  if (!hasEmptyQuestions) return false
+
+  const issueCodes = Array.isArray(payload.issues)
+    ? payload.issues.map(issueCode).filter(Boolean)
+    : []
+  return issueCodes.some(code => EMPTY_RESULT_ISSUE_CODES.has(code))
+    || entry.detailType === 'drafts'
+    || entry.detailType === 'validation'
+}
+
+function isHiddenIssue(issue: unknown) {
+  const code = issueCode(issue)
+  return Boolean(code && HIDDEN_ISSUE_CODES.has(code))
+}
+
+function issueCode(issue: unknown) {
+  const record = recordValue(issue)
+  const code = record?.code
+  return typeof code === 'string' ? code : ''
+}
+
+function traceKey(entry: GenerationTraceEntry) {
+  return `${entry.stage || ''}:${entry.detailType || ''}`
+}
+
+function payloadQuestionCount(value: unknown) {
+  return Array.isArray(value) ? value.length : 0
+}
+
+function resolvedQuestionCount(message: ChatMessage | null | undefined) {
+  const payloadCount = payloadQuestionCount(message?.payload?.questions)
+  if (payloadCount > 0) return payloadCount
+
+  return rawGenerationTrace(message)
+    .map(entry => payloadQuestionCount(entry.payload?.questions))
+    .findLast(count => count > 0) || 0
+}
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : null
+}
+
+function numberValue(value: unknown) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
 }

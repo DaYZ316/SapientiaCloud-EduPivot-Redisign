@@ -6,6 +6,7 @@ import com.dayz.sc.ai.model.enums.AiMessageType;
 import com.dayz.sc.ai.model.vo.AiAgentResult;
 import com.dayz.sc.ai.model.vo.GenerationStageEvent;
 import com.dayz.sc.ai.service.AiAgentService;
+import com.dayz.sc.ai.service.GenerationMessageStateService;
 import com.dayz.sc.ai.service.QuestionGenerationKafkaBridge;
 import com.dayz.sc.common.events.ai.QuestionGenerationRequestedEvent;
 import org.junit.jupiter.api.Test;
@@ -28,11 +29,16 @@ class QuestionGenerationWorkerTest {
     void onRequestedShouldPublishReceivedBeforeRunningGeneration() {
         AiAgentService aiAgentService = mock(AiAgentService.class);
         QuestionGenerationKafkaBridge kafkaBridge = mock(QuestionGenerationKafkaBridge.class);
-        QuestionGenerationWorker worker = new QuestionGenerationWorker(aiAgentService, kafkaBridge);
+        GenerationMessageStateService generationMessageStateService = mock(GenerationMessageStateService.class);
+        QuestionGenerationWorker worker = new QuestionGenerationWorker(
+                aiAgentService,
+                kafkaBridge,
+                generationMessageStateService);
         String requestId = "request-1";
         QuestionGenerationRequestedEvent event = new QuestionGenerationRequestedEvent(
                 UUID.randomUUID(),
                 requestId,
+                UUID.randomUUID(),
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 2,
@@ -54,11 +60,16 @@ class QuestionGenerationWorkerTest {
     void onRequestedShouldPublishReceivedStagePayload() {
         AiAgentService aiAgentService = mock(AiAgentService.class);
         QuestionGenerationKafkaBridge kafkaBridge = mock(QuestionGenerationKafkaBridge.class);
-        QuestionGenerationWorker worker = new QuestionGenerationWorker(aiAgentService, kafkaBridge);
+        GenerationMessageStateService generationMessageStateService = mock(GenerationMessageStateService.class);
+        QuestionGenerationWorker worker = new QuestionGenerationWorker(
+                aiAgentService,
+                kafkaBridge,
+                generationMessageStateService);
         String requestId = "request-1";
         QuestionGenerationRequestedEvent event = new QuestionGenerationRequestedEvent(
                 UUID.randomUUID(),
                 requestId,
+                UUID.randomUUID(),
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 2,

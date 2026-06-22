@@ -10,9 +10,9 @@ describe('generation request payload', () => {
     const payload = createGenerationRequestPayload('QUESTION', {
       questionBankId: 'bank-1',
       questionCount: 5,
-      questionType: 0,
-      difficulty: 2,
-      scorePerQuestion: 4,
+      questionType: 5,
+      difficulty: 0,
+      scorePerQuestion: 0,
       requirement: 'Cover HashMap default load factor.',
       knowledgePoints: ['HashMap', '集合框架'],
       abilityGoals: ['理解底层原理'],
@@ -22,8 +22,9 @@ describe('generation request payload', () => {
 
     expect(display?.mode).toBe('QUESTION')
     expect(display?.fields).toContainEqual({key: 'questionCount', kind: 'number', value: 5})
-    expect(display?.fields).toContainEqual({key: 'questionType', kind: 'questionType', value: 0})
-    expect(display?.fields).toContainEqual({key: 'difficulty', kind: 'difficulty', value: 2})
+    expect(display?.fields).toContainEqual({key: 'questionType', kind: 'questionType', value: 5})
+    expect(display?.fields).toContainEqual({key: 'difficulty', kind: 'difficulty', value: 0})
+    expect(display?.fields).toContainEqual({key: 'scorePerQuestion', kind: 'number', value: 0})
     expect(display?.fields).toContainEqual({key: 'questionBankId', kind: 'questionBank', value: 'bank-1'})
     expect(display?.requirement).toBe('Cover HashMap default load factor.')
   })

@@ -90,6 +90,34 @@
         <h3>等待详细输出</h3>
         <p>出题步骤开始后，会在这里显示 AI 的实时过程。</p>
       </div>
+
+      <details
+        v-if="debugEntries.length"
+        class="trace-debug"
+      >
+        <summary>技术明细 {{ debugEntries.length }} 条</summary>
+        <div class="trace-debug-list">
+          <article
+            v-for="(entry, index) in debugEntries"
+            :key="entry.entryId || `debug-${entry.stage}-${index}`"
+            class="trace-debug-step"
+          >
+            <span>{{ generationStageLabel(entry.stage) }}</span>
+            <h4>{{ entry.title || generationStageLabel(entry.stage) }}</h4>
+            <AiMarkdownMessage
+              v-if="entry.summary"
+              :content="entry.summary"
+              class="trace-block"
+            />
+            <AiMarkdownMessage
+              v-for="(block, blockIndex) in buildEntryBlocks(entry)"
+              :key="blockIndex"
+              :content="markdownBlock(block)"
+              class="trace-block"
+            />
+          </article>
+        </div>
+      </details>
     </div>
   </aside>
 </template>
@@ -100,7 +128,12 @@ import {FileClock, X} from 'lucide-vue-next'
 
 import AiMarkdownMessage from '@/features/ai/components/AiMarkdownMessage.vue'
 import type {ChatMessage, GenerationTraceEntry} from '@/features/ai/types/ai'
-import {currentGenerationStage, generationStageLabel, generationTrace} from '@/features/ai/utils/generationTrace'
+import {
+  currentGenerationStage,
+  generationDebugTrace,
+  generationStageLabel,
+  generationTrace,
+} from '@/features/ai/utils/generationTrace'
 
 const props = withDefaults(defineProps<{
   message: ChatMessage | null
@@ -120,6 +153,7 @@ let programmaticScroll = false
 let scrollElement: HTMLElement | null = null
 
 const entries = computed(() => generationTrace(props.message))
+const debugEntries = computed(() => generationDebugTrace(props.message))
 const stage = computed(() => currentGenerationStage(props.message))
 const kindLabel = computed(() => props.message?.messageType === 'PAPER' ? 'AI 出卷详细输出' : 'AI 出题详细输出')
 const panelTitle = computed(() => {
@@ -489,6 +523,46 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 .trace-block {
   padding: 10px 0;
   border-top: 1px solid var(--color-outline-light);
+}
+
+.trace-debug {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-outline-light);
+}
+
+.trace-debug summary {
+  color: var(--color-muted);
+  cursor: pointer;
+  font-family: var(--font-label);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.trace-debug-list {
+  display: grid;
+  gap: 14px;
+  padding-top: 14px;
+}
+
+.trace-debug-step {
+  display: grid;
+  gap: 6px;
+}
+
+.trace-debug-step span {
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.trace-debug-step h4 {
+  margin: 0;
+  color: var(--color-on-surface);
+  font-family: var(--font-heading);
+  font-size: 17px;
+  line-height: 1.25;
 }
 
 .trace-loading {

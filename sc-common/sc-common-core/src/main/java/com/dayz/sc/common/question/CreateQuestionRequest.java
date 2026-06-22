@@ -1,4 +1,4 @@
-package com.dayz.sc.course.model.dto;
+package com.dayz.sc.common.question;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -9,12 +9,6 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * 请求 DTO
- *
- * @author DaYZ
- * @since 2026-06-12
- */
 public record CreateQuestionRequest(
         @NotNull UUID questionBankId,
         @NotBlank @Size(max = 500) String questionTitle,

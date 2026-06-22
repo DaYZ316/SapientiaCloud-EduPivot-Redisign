@@ -29,10 +29,11 @@ export interface GenerationRequest {
 }
 
 export interface GenerationStageEvent {
+  messageId?: string
   requestId?: string
   mode?: AiAgentMode | string
   stage: GenerationStage | string
-  status?: 'processing' | 'completed' | 'error' | string
+  status?: 'processing' | 'completed' | 'failed' | 'error' | string
   title?: string
   summary?: string
   payload?: Record<string, unknown> | null
@@ -40,6 +41,7 @@ export interface GenerationStageEvent {
 }
 
 export interface GenerationResultEvent {
+  messageId?: string
   requestId?: string
   mode?: AiAgentMode | string
   content: string

@@ -8,6 +8,12 @@ import type {ChatMessage} from '@/features/ai/types/ai'
 
 const mocks = vi.hoisted(() => ({
   exportGeneratedArtifact: vi.fn(),
+  getTeacherCourses: vi.fn(),
+  getCourseQuestionBanks: vi.fn(),
+  getQuestionBank: vi.fn(),
+  batchCreateQuestions: vi.fn(),
+  confirmDialog: vi.fn(),
+  routerPush: vi.fn(),
   notify: {
     success: vi.fn(),
     error: vi.fn(),
@@ -30,6 +36,26 @@ vi.mock('@/shared/composables/useGlobalNotification', () => ({
   notify: mocks.notify,
 }))
 
+vi.mock('@/shared/composables/useConfirmDialog', () => ({
+  confirmDialog: mocks.confirmDialog,
+}))
+
+vi.mock('vue-router', () => ({
+  useRouter: () => ({
+    push: mocks.routerPush,
+  }),
+}))
+
+vi.mock('@/features/course/api/course', () => ({
+  getTeacherCourses: mocks.getTeacherCourses,
+}))
+
+vi.mock('@/features/question-bank/api/questionBank', () => ({
+  batchCreateQuestions: mocks.batchCreateQuestions,
+  getCourseQuestionBanks: mocks.getCourseQuestionBanks,
+  getQuestionBank: mocks.getQuestionBank,
+}))
+
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (key: string) => key,
@@ -39,8 +65,19 @@ vi.mock('vue-i18n', () => ({
 describe('AiStudioPanel export actions', () => {
   beforeEach(() => {
     mocks.exportGeneratedArtifact.mockReset()
+    mocks.getTeacherCourses.mockReset()
+    mocks.getCourseQuestionBanks.mockReset()
+    mocks.getQuestionBank.mockReset()
+    mocks.batchCreateQuestions.mockReset()
+    mocks.confirmDialog.mockReset()
+    mocks.routerPush.mockReset()
     mocks.notify.success.mockReset()
     mocks.notify.error.mockReset()
+    mocks.getTeacherCourses.mockResolvedValue({records: [course('course-1', 'Java Basics')]})
+    mocks.getCourseQuestionBanks.mockResolvedValue([questionBank('bank-1', 'Java Bank', 'course-1')])
+    mocks.getQuestionBank.mockResolvedValue(questionBank('bank-1', 'Java Bank', 'course-1'))
+    mocks.batchCreateQuestions.mockResolvedValue({questionIds: ['question-1'], importedCount: 1})
+    mocks.confirmDialog.mockResolvedValue(false)
     vi.stubGlobal('URL', {
       ...URL,
       createObjectURL: vi.fn(() => 'blob:generated-artifact'),
@@ -52,6 +89,7 @@ describe('AiStudioPanel export actions', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
+    document.body.innerHTML = ''
   })
 
   it('exports PDF with includeAnswers following the answer toggle', async () => {
@@ -104,6 +142,137 @@ describe('AiStudioPanel export actions', () => {
     })
     expect(mocks.notify.error).toHaveBeenCalledWith('common.ai.studio.exportFailed')
   })
+
+  it('shows import action for generated question artifacts and opens with no questions selected', async () => {
+    const wrapper = mountPanel(generatedMessage({
+      messageType: 'QUESTION_SET',
+      payload: {
+        questions: [
+          {questionTitle: 'Question A', questionType: 0, options: [{content: 'A', correct: true}]},
+          {title: 'Question B', type: 4, answers: [{content: 'Answer B'}]},
+        ],
+      },
+    }))
+
+    await exportButtons(wrapper)[2].trigger('click')
+    await flushPromises()
+
+    expect(mocks.getTeacherCourses).toHaveBeenCalledWith(1, 100)
+    expect(mocks.getCourseQuestionBanks).toHaveBeenCalledWith('course-1')
+    expect(importDialog()).not.toBeNull()
+    expect(importQuestionCheckboxes().map(input => input.checked)).toEqual([false, false])
+    expect(importSubmitButton()?.disabled).toBe(true)
+  })
+
+  it('submits only selected generated questions to the target question bank', async () => {
+    const wrapper = mountPanel(generatedMessage({
+      payload: {
+        questions: [
+          {
+            questionTitle: 'Question A',
+            questionContent: 'Pick one.',
+            questionType: 0,
+            difficulty: 3,
+            score: 2,
+            options: [{label: 'A', content: 'Right', correct: true}],
+          },
+          {
+            title: 'Question B',
+            content: 'Explain briefly.',
+            type: 4,
+            answers: [{content: 'Because.'}],
+          },
+        ],
+      },
+    }))
+
+    await exportButtons(wrapper)[2].trigger('click')
+    await flushPromises()
+    importQuestionCheckboxes()[1].click()
+    await flushPromises()
+    importSubmitButton()?.click()
+    await flushPromises()
+
+    expect(mocks.batchCreateQuestions).toHaveBeenCalledWith({
+      questionBankId: 'bank-1',
+      questions: [{
+        questionTitle: 'Question B',
+        questionContent: 'Explain briefly.',
+        questionType: 4,
+        difficulty: 2,
+        score: 0,
+        estimatedTime: 1,
+        tags: [],
+        imageUrls: [],
+        allowPartialCredit: 0,
+        options: [],
+        answers: [{
+          answerContent: 'Because.',
+          explanation: undefined,
+          score: 0,
+          sortOrder: 1,
+        }],
+      }],
+    })
+    expect(mocks.confirmDialog).toHaveBeenCalledWith({
+      title: 'common.ai.studio.importCompleteTitle',
+      message: 'common.ai.studio.importCompleteMessage',
+      cancelText: 'common.ai.studio.importStayHere',
+      confirmText: 'common.ai.studio.importViewBank',
+    })
+    expect(mocks.routerPush).not.toHaveBeenCalled()
+  })
+
+  it('preselects the context question bank when it belongs to a teacher course', async () => {
+    mocks.confirmDialog.mockResolvedValue(true)
+    mocks.getTeacherCourses.mockResolvedValue({
+      records: [
+        course('course-1', 'Java Basics'),
+        course('course-2', 'Data Structures'),
+      ],
+    })
+    mocks.getQuestionBank.mockResolvedValue(questionBank('bank-2', 'Data Bank', 'course-2'))
+    mocks.getCourseQuestionBanks.mockResolvedValue([
+      questionBank('bank-3', 'Fallback Bank', 'course-2'),
+      questionBank('bank-2', 'Data Bank', 'course-2'),
+    ])
+    const wrapper = mountPanel()
+    useAiStore().setContext({sourceRoute: '/', courseId: 'course-2', questionBankId: 'bank-2'})
+
+    await exportButtons(wrapper)[2].trigger('click')
+    await flushPromises()
+    importQuestionCheckboxes()[0].click()
+    await flushPromises()
+    importSubmitButton()?.click()
+    await flushPromises()
+
+    expect(mocks.getQuestionBank).toHaveBeenCalledWith('bank-2')
+    expect(mocks.getCourseQuestionBanks).toHaveBeenCalledWith('course-2')
+    expect(mocks.batchCreateQuestions).toHaveBeenCalledWith(expect.objectContaining({
+      questionBankId: 'bank-2',
+    }))
+    expect(mocks.routerPush).toHaveBeenCalledWith({
+      name: 'question-bank-detail',
+      params: {id: 'bank-2'},
+    })
+  })
+
+  it('keeps the import dialog open and shows an error when batch import fails', async () => {
+    mocks.batchCreateQuestions.mockRejectedValue(new Error('Import failed'))
+    const wrapper = mountPanel()
+
+    await exportButtons(wrapper)[2].trigger('click')
+    await flushPromises()
+    importQuestionCheckboxes()[0].click()
+    await flushPromises()
+    importSubmitButton()?.click()
+    await flushPromises()
+
+    expect(importDialog()).not.toBeNull()
+    expect(importQuestionCheckboxes()[0]?.checked).toBe(true)
+    expect(mocks.confirmDialog).not.toHaveBeenCalled()
+    expect(mocks.notify.error).toHaveBeenCalledWith('common.ai.studio.importFailed')
+  })
 })
 
 function mountPanel(message = generatedMessage()) {
@@ -126,7 +295,26 @@ function mountPanel(message = generatedMessage()) {
           template: '<div class="ai-markdown-stub">{{ content }}</div>',
         },
         BaseNumberStepper: true,
-        BaseSelect: true,
+        BaseSelect: {
+          props: ['modelValue', 'options', 'disabled'],
+          emits: ['update:modelValue', 'change'],
+          template: `
+            <select
+              class="base-select-stub"
+              :disabled="disabled"
+              :value="modelValue"
+              @change="$emit('update:modelValue', $event.target.value); $emit('change')"
+            >
+              <option
+                v-for="option in options"
+                :key="String(option.value)"
+                :value="option.value"
+              >
+                {{ option.label }}
+              </option>
+            </select>
+          `,
+        },
       },
     },
   })
@@ -134,6 +322,26 @@ function mountPanel(message = generatedMessage()) {
 
 function exportButtons(wrapper: ReturnType<typeof mountPanel>) {
   return wrapper.findAll('.export-actions button')
+}
+
+function importDialog() {
+  return document.body.querySelector('.question-import-dialog')
+}
+
+function importQuestionCheckboxes() {
+  return Array.from(document.body.querySelectorAll<HTMLInputElement>('.import-question-row input[type="checkbox"]'))
+}
+
+function importSubmitButton() {
+  return document.body.querySelector<HTMLButtonElement>('.question-import-footer .btn-primary')
+}
+
+function course(id: string, title: string) {
+  return {id, title}
+}
+
+function questionBank(id: string, bankName: string, courseId: string) {
+  return {id, bankName, courseId}
 }
 
 function generatedMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {

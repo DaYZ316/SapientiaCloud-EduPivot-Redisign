@@ -30,6 +30,11 @@ public class MybatisMessageRepository implements MessageRepository {
     }
 
     @Override
+    public void update(ChatMessage message) {
+        messageMapper.updateById(message);
+    }
+
+    @Override
     public Optional<ChatMessage> findById(UUID id) {
         return Optional.ofNullable(messageMapper.selectById(id));
     }

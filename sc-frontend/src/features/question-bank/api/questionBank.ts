@@ -1,6 +1,8 @@
 import {request} from '@/shared/api/request'
 import type {PageResponse} from '@/shared/types/common'
 import type {
+    BatchCreateQuestionsRequest,
+    BatchCreateQuestionsResponse,
     CreateQuestionBankRequest,
     CreateQuestionRequest,
     Question,
@@ -69,6 +71,10 @@ export function getQuestion(id: string) {
 
 export function createQuestion(data: CreateQuestionRequest) {
     return request<string>({method: 'POST', url: '/api/question-banks/questions', data, silent: true})
+}
+
+export function batchCreateQuestions(data: BatchCreateQuestionsRequest) {
+    return request<BatchCreateQuestionsResponse>({method: 'POST', url: '/api/question-banks/questions/batch', data, silent: true})
 }
 
 export function updateQuestion(id: string, data: UpdateQuestionRequest) {

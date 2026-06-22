@@ -17,8 +17,8 @@ ENV JAVA_OPTS=""
 COPY --from=build /workspace/sc-ai/target/sc-ai-*.jar app.jar
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl fontconfig fonts-noto-cjk \
-    && fc-match "Noto Sans CJK SC" \
+    && apt-get install -y --no-install-recommends curl fontconfig fonts-noto-cjk fonts-wqy-microhei \
+    && fc-match "WenQuanYi Micro Hei" \
     && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 28086

@@ -8,5 +8,6 @@ ENV TZ=Asia/Shanghai
 ENV JAVA_OPTS=""
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl libreoffice-writer \
+    && apt-get install -y --no-install-recommends curl fontconfig fonts-noto-cjk fonts-wqy-microhei libreoffice-writer \
+    && fc-match "WenQuanYi Micro Hei" \
     && rm -rf /var/lib/apt/lists/*

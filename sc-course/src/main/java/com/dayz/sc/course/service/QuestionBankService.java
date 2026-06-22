@@ -3,6 +3,9 @@ package com.dayz.sc.course.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.question.CreateQuestionRequest;
+import com.dayz.sc.common.question.QuestionAnswerRequest;
+import com.dayz.sc.common.question.QuestionOptionRequest;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.common.util.PageUtils;
@@ -16,9 +19,11 @@ import com.dayz.sc.course.model.enums.QuestionDifficulty;
 import com.dayz.sc.course.model.enums.QuestionStatus;
 import com.dayz.sc.course.model.enums.QuestionType;
 import com.dayz.sc.course.model.vo.QuestionAnswerVO;
+import com.dayz.sc.course.model.vo.BatchCreateQuestionsResponse;
 import com.dayz.sc.course.model.vo.QuestionBankVO;
 import com.dayz.sc.course.model.vo.QuestionOptionVO;
 import com.dayz.sc.course.model.vo.QuestionVO;
+import com.dayz.sc.course.repository.CourseTeacherRepository;
 import com.dayz.sc.course.repository.QuestionAnswerRepository;
 import com.dayz.sc.course.repository.QuestionBankRepository;
 import com.dayz.sc.course.repository.QuestionOptionRepository;
@@ -27,6 +32,7 @@ import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -46,6 +52,7 @@ public class QuestionBankService {
     private final QuestionRepository questionRepository;
     private final QuestionOptionRepository questionOptionRepository;
     private final QuestionAnswerRepository questionAnswerRepository;
+    private final CourseTeacherRepository courseTeacherRepository;
 
     // ==================== QuestionBank CRUD ====================
 
@@ -152,8 +159,32 @@ public class QuestionBankService {
         QuestionBank bank = questionBankRepository.findById(request.questionBankId())
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
 
+        return createQuestionInBank(request, bank, userId);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public BatchCreateQuestionsResponse batchCreateQuestions(BatchCreateQuestionsRequest request, UUID userId, Integer role) {
+        QuestionBank bank = questionBankRepository.findById(request.questionBankId())
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        requireCourseTeacher(bank.getCourseId(), userId, role);
+
+        List<CreateQuestionRequest> questions = request.questions().stream()
+                .map(question -> toCreateQuestionRequest(request.questionBankId(), question))
+                .toList();
+        questions.forEach(this::validateCreateQuestionRequest);
+
+        List<UUID> questionIds = questions.stream()
+                .map(question -> createQuestionInBank(question, bank, userId))
+                .toList();
+
+        return new BatchCreateQuestionsResponse(questionIds, questionIds.size());
+    }
+
+    private UUID createQuestionInBank(CreateQuestionRequest request, QuestionBank bank, UUID userId) {
+        validateCreateQuestionRequest(request);
+
         Question question = new Question();
-        question.setQuestionBankId(request.questionBankId());
+        question.setQuestionBankId(bank.getId());
         question.setCourseId(bank.getCourseId());
         question.setSysUserId(userId);
         question.setQuestionTitle(request.questionTitle());
@@ -210,6 +241,37 @@ public class QuestionBankService {
         }
 
         return question.getId();
+    }
+
+    private CreateQuestionRequest toCreateQuestionRequest(UUID questionBankId, QuestionImportRequest question) {
+        return new CreateQuestionRequest(
+                questionBankId,
+                question.questionTitle(),
+                question.questionContent(),
+                question.questionType(),
+                question.difficulty(),
+                question.score(),
+                question.estimatedTime(),
+                question.tags(),
+                question.imageUrls(),
+                question.allowPartialCredit(),
+                question.options(),
+                question.answers()
+        );
+    }
+
+    private void validateCreateQuestionRequest(CreateQuestionRequest request) {
+        if (!StringUtils.hasText(request.questionTitle())) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST);
+        }
+        QuestionType.fromCode(request.questionType());
+        QuestionDifficulty.fromCode(request.difficulty());
+    }
+
+    private void requireCourseTeacher(UUID courseId, UUID userId, Integer role) {
+        if (userId == null || (!SecurityUtils.isAdmin(role) && !courseTeacherRepository.existsByCourseIdAndTeacherId(courseId, userId))) {
+            throw new BusinessException(ErrorCodes.FORBIDDEN);
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)

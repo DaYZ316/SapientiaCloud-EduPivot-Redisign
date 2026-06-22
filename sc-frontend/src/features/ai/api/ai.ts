@@ -1,4 +1,5 @@
 import {fetchEventSource} from '@microsoft/fetch-event-source'
+import type {AxiosResponse} from 'axios'
 
 import {ACCESS_TOKEN_KEY, http, refreshSession, request} from '@/shared/api/request'
 import type {
@@ -15,6 +16,8 @@ import type {
 } from '@/features/ai/types/ai'
 
 export type GeneratedArtifactExportFormat = 'pdf' | 'docx'
+
+const UNAUTHORIZED_CODE = 40100
 
 export interface GeneratedArtifactExportOptions {
   format: GeneratedArtifactExportFormat
@@ -68,7 +71,7 @@ export async function exportGeneratedArtifact(
   messageId: string,
   options: GeneratedArtifactExportOptions,
 ): Promise<GeneratedArtifactExportResult> {
-  const response = await http.request<Blob>({
+  const config = {
     method: 'GET',
     url: `/api/ai/conversations/${conversationId}/messages/${messageId}/export`,
     params: {
@@ -76,7 +79,17 @@ export async function exportGeneratedArtifact(
       includeAnswers: options.includeAnswers ?? false,
     },
     responseType: 'blob',
-  })
+  } as const
+
+  let response: AxiosResponse<Blob>
+  try {
+    response = await http.request<Blob>(config)
+  } catch (error) {
+    if (!isUnauthorizedResponse(error) || !await refreshSession()) {
+      throw error
+    }
+    response = await http.request<Blob>(config)
+  }
 
   return {
     blob: response.data,
@@ -231,6 +244,19 @@ function filenameFromContentDisposition(value: string) {
   }
 
   return /filename="?([^";]+)"?/i.exec(value)?.[1] || ''
+}
+
+function isUnauthorizedResponse(error: unknown) {
+  const response = (error as {
+    response?: {
+      status?: number
+      data?: {
+        code?: number
+      }
+    }
+  }).response
+
+  return response?.status === 401 || response?.data?.code === UNAUTHORIZED_CODE
 }
 
 async function readStreamError(response: Response) {

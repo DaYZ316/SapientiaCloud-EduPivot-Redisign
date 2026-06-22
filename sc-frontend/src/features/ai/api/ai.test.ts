@@ -2,6 +2,7 @@ import {beforeEach, describe, expect, it, vi} from 'vitest'
 import type {EventSourceMessage, FetchEventSourceInit} from '@microsoft/fetch-event-source'
 import type {AxiosResponse} from 'axios'
 
+import * as requestApi from '@/shared/api/request'
 import {ACCESS_TOKEN_KEY, http} from '@/shared/api/request'
 import {exportGeneratedArtifact, streamChat} from '@/features/ai/api/ai'
 
@@ -213,5 +214,42 @@ describe('exportGeneratedArtifact', () => {
       blob,
       filename: 'generated-artifact.docx',
     })
+  })
+
+  it('refreshes the session and retries once when the export request is unauthorized', async () => {
+    const blob = new Blob(['pdf'])
+    const requestSpy = vi.spyOn(http, 'request')
+      .mockRejectedValueOnce({response: {status: 401}})
+      .mockResolvedValueOnce({
+        data: blob,
+        headers: {},
+      } as unknown as AxiosResponse<Blob>)
+    const refreshSpy = vi.spyOn(requestApi, 'refreshSession').mockResolvedValue(true)
+
+    const result = await exportGeneratedArtifact('conversation-1', 'message-1', {
+      format: 'pdf',
+      includeAnswers: true,
+    })
+
+    expect(refreshSpy).toHaveBeenCalledTimes(1)
+    expect(requestSpy).toHaveBeenCalledTimes(2)
+    expect(result).toEqual({
+      blob,
+      filename: 'generated-artifact.pdf',
+    })
+  })
+
+  it('does not retry export when the session cannot be refreshed', async () => {
+    const unauthorizedError = {response: {status: 401}}
+    const requestSpy = vi.spyOn(http, 'request').mockRejectedValueOnce(unauthorizedError)
+    const refreshSpy = vi.spyOn(requestApi, 'refreshSession').mockResolvedValue(false)
+
+    await expect(exportGeneratedArtifact('conversation-1', 'message-1', {
+      format: 'pdf',
+      includeAnswers: true,
+    })).rejects.toBe(unauthorizedError)
+
+    expect(refreshSpy).toHaveBeenCalledTimes(1)
+    expect(requestSpy).toHaveBeenCalledTimes(1)
   })
 })

@@ -2,9 +2,11 @@ package com.dayz.sc.course.controller;
 
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
+import com.dayz.sc.common.question.CreateQuestionRequest;
 import com.dayz.sc.common.security.ratelimit.RateLimited;
 import com.dayz.sc.common.security.support.JwtPrincipalResolver;
 import com.dayz.sc.course.model.dto.*;
+import com.dayz.sc.course.model.vo.BatchCreateQuestionsResponse;
 import com.dayz.sc.course.model.vo.QuestionBankVO;
 import com.dayz.sc.course.model.vo.QuestionVO;
 import com.dayz.sc.course.service.QuestionBankService;
@@ -94,6 +96,17 @@ public class QuestionBankController {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         UUID questionId = questionBankService.createQuestion(request, userId);
         return ApiResponse.ok(questionId);
+    }
+
+    @PostMapping("/questions/batch")
+    @RateLimited(maxRequests = 10)
+    public ApiResponse<@NonNull BatchCreateQuestionsResponse> batchCreateQuestions(
+            @Valid @RequestBody BatchCreateQuestionsRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        BatchCreateQuestionsResponse response = questionBankService.batchCreateQuestions(request, userId, role);
+        return ApiResponse.ok(response);
     }
 
     @GetMapping("/questions")

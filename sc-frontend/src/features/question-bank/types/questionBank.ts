@@ -86,6 +86,18 @@ export interface CreateQuestionRequest {
     answers?: CreateAnswerRequest[]
 }
 
+export type QuestionImportRequest = Omit<CreateQuestionRequest, 'questionBankId'>
+
+export interface BatchCreateQuestionsRequest {
+    questionBankId: string
+    questions: QuestionImportRequest[]
+}
+
+export interface BatchCreateQuestionsResponse {
+    questionIds: string[]
+    importedCount: number
+}
+
 export interface UpdateQuestionRequest {
     questionTitle?: string
     questionContent?: string

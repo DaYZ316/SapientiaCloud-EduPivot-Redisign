@@ -124,6 +124,20 @@
             />
             <span>Word</span>
           </button>
+          <button
+            v-if="canImportArtifact"
+            :disabled="importingQuestions"
+            :title="t('common.ai.studio.importToBank')"
+            class="import-to-bank-button"
+            type="button"
+            @click="openImportDialog"
+          >
+            <BookPlus
+              :size="15"
+              stroke-width="1.9"
+            />
+            <span>{{ t('common.ai.studio.importToBankShort') }}</span>
+          </button>
         </div>
       </div>
       <div v-else>
@@ -222,7 +236,7 @@
           <BaseNumberStepper
             v-model="scorePerQuestionValue"
             :max="100"
-            :min="1"
+            :min="0"
           />
         </label>
       </div>
@@ -495,20 +509,147 @@
       <p>{{ t('common.ai.studio.emptyDescription') }}</p>
     </section>
   </aside>
+
+  <Teleport to="body">
+    <div
+      v-if="showImportDialog"
+      class="question-import-overlay"
+      @click.self="closeImportDialog"
+    >
+      <section
+        aria-modal="true"
+        class="question-import-dialog"
+        role="dialog"
+      >
+        <header class="question-import-header">
+          <div>
+            <span class="section-label">{{ t('common.ai.studio.importToBank') }}</span>
+            <h2>{{ t('common.ai.studio.importDialogTitle') }}</h2>
+          </div>
+          <button
+            :title="t('common.ai.studio.close')"
+            class="btn-close"
+            type="button"
+            @click="closeImportDialog"
+          >
+            <X
+              :size="16"
+              stroke-width="1.8"
+            />
+          </button>
+        </header>
+
+        <div class="question-import-body">
+          <div class="import-select-grid">
+            <label class="import-field">
+              <span>{{ t('common.ai.studio.importCourse') }}</span>
+              <BaseSelect
+                v-model="selectedImportCourseId"
+                :disabled="importCoursesLoading"
+                :options="importCourseOptions"
+                :placeholder="t('common.ai.studio.importCoursePlaceholder')"
+                class="import-select"
+                min-width="100%"
+                @change="handleImportCourseChanged"
+              />
+            </label>
+            <label class="import-field">
+              <span>{{ t('common.ai.studio.importBank') }}</span>
+              <BaseSelect
+                v-model="selectedImportBankId"
+                :disabled="importBanksLoading || importQuestionBanks.length === 0"
+                :options="importBankOptions"
+                :placeholder="t('common.ai.studio.importBankPlaceholder')"
+                class="import-select"
+                min-width="100%"
+              />
+            </label>
+          </div>
+
+          <p
+            v-if="importCoursesLoading || importBanksLoading"
+            class="import-status-text"
+          >
+            {{ t('common.ai.studio.importLoadingTargets') }}
+          </p>
+          <p
+            v-else-if="selectedImportCourseId && importQuestionBanks.length === 0"
+            class="import-status-text"
+          >
+            {{ t('common.ai.studio.importNoBanks') }}
+          </p>
+
+          <div class="import-selection-bar">
+            <label class="import-check-all">
+              <input
+                :checked="allImportQuestionsSelected"
+                :disabled="importableQuestionItems.length === 0"
+                type="checkbox"
+                @change="handleToggleAllImportQuestions"
+              >
+              <span>{{ t('common.ai.studio.importSelectAll') }}</span>
+            </label>
+            <span>{{ t('common.ai.studio.importSelectedCount', {selected: selectedImportQuestionCount, total: importableQuestionItems.length}) }}</span>
+          </div>
+
+          <div class="import-question-list">
+            <label
+              v-for="item in importableQuestionItems"
+              :key="item.key"
+              class="import-question-row"
+            >
+              <input
+                v-model="selectedImportQuestionKeys"
+                :value="item.key"
+                type="checkbox"
+              >
+              <span>Q{{ item.index + 1 }}</span>
+              <strong>{{ questionTitle(item.question) }}</strong>
+              <small>{{ questionTypeName(item.question) }} / {{ difficultyName(item.question) }}</small>
+            </label>
+          </div>
+        </div>
+
+        <footer class="question-import-footer">
+          <button
+            class="btn-secondary"
+            type="button"
+            @click="closeImportDialog"
+          >
+            {{ t('common.confirmDialog.cancel') }}
+          </button>
+          <button
+            :disabled="!canSubmitImport"
+            class="btn-primary"
+            type="button"
+            @click="handleImportQuestions"
+          >
+            {{ importingQuestions ? t('common.ai.studio.importing') : t('common.ai.studio.importSelected') }}
+          </button>
+        </footer>
+      </section>
+    </div>
+  </Teleport>
 </template>
 
 <script lang="ts" setup>
 import {computed, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {ChevronLeft, ChevronRight, FileDown, FileText, PanelRight, X} from 'lucide-vue-next'
+import {useRouter} from 'vue-router'
+import {BookPlus, ChevronLeft, ChevronRight, FileDown, FileText, PanelRight, X} from 'lucide-vue-next'
 
 import {exportGeneratedArtifact} from '@/features/ai/api/ai'
 import AiGenerationTracePanel from '@/features/ai/components/AiGenerationTracePanel.vue'
 import AiMarkdownMessage from '@/features/ai/components/AiMarkdownMessage.vue'
 import {useAiStore} from '@/features/ai/stores/ai'
 import type {AiAgentMode, ChatMessage, GenerationRequest} from '@/features/ai/types/ai'
+import {getTeacherCourses} from '@/features/course/api/course'
+import type {Course} from '@/features/course/types/course'
+import {batchCreateQuestions, getCourseQuestionBanks, getQuestionBank} from '@/features/question-bank/api/questionBank'
+import type {QuestionBank, QuestionImportRequest} from '@/features/question-bank/types/questionBank'
 import BaseNumberStepper from '@/shared/components/BaseNumberStepper.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
+import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
 type PayloadRecord = Record<string, unknown>
@@ -532,6 +673,7 @@ const emit = defineEmits<{
 }>()
 
 const {t} = useI18n()
+const router = useRouter()
 const aiStore = useAiStore()
 const artifact = computed(() => {
   const selectedMessage = props.traceMessage
@@ -558,6 +700,15 @@ const showQuestionAnswer = ref(true)
 const exportingFormat = ref<ExportFormat | null>(null)
 const knowledgePointsText = ref('')
 const abilityGoalsText = ref('')
+const showImportDialog = ref(false)
+const importCourses = ref<Course[]>([])
+const importQuestionBanks = ref<QuestionBank[]>([])
+const importCoursesLoading = ref(false)
+const importBanksLoading = ref(false)
+const importingQuestions = ref(false)
+const selectedImportCourseId = ref<SelectValue>()
+const selectedImportBankId = ref<SelectValue>()
+const selectedImportQuestionKeys = ref<string[]>([])
 
 const questionTypeOptions = computed<SelectOption[]>(() => [
   {label: t('common.ai.studio.questionTypes.singleChoice'), value: 0},
@@ -578,7 +729,7 @@ const difficultyOptions = computed<SelectOption[]>(() => [
 const totalScoreValue = numericField('totalScore', 100)
 const totalEstimatedTimeValue = numericField('totalEstimatedTime', 60)
 const questionCountValue = numericField('questionCount', 5)
-const scorePerQuestionValue = numericField('scorePerQuestion', 1)
+const scorePerQuestionValue = numericField('scorePerQuestion', 0)
 const questionTypeValue = selectField('questionType')
 const difficultyValue = selectField('difficulty')
 
@@ -616,10 +767,41 @@ const canExportArtifact = computed(() => Boolean(
   && questionCount.value > 0
   && aiStore.activeConversationId,
 ))
+const canImportArtifact = computed(() => Boolean(
+  showExportActions.value
+  && artifact.value
+  && !artifact.value.pending
+  && !artifact.value.failed
+  && questionCount.value > 0,
+))
+const importableQuestionItems = computed(() => questions.value.map((question, index) => ({
+  key: importQuestionKey(question, index),
+  question,
+  index,
+})))
+const selectedImportQuestionCount = computed(() => selectedImportQuestionKeys.value.length)
+const allImportQuestionsSelected = computed(() =>
+  importableQuestionItems.value.length > 0
+  && selectedImportQuestionKeys.value.length === importableQuestionItems.value.length,
+)
+const importCourseOptions = computed<SelectOption[]>(() =>
+  importCourses.value.map(course => ({label: course.title, value: course.id})),
+)
+const importBankOptions = computed<SelectOption[]>(() =>
+  importQuestionBanks.value.map(bank => ({label: bank.bankName, value: bank.id})),
+)
+const canSubmitImport = computed(() => Boolean(
+  selectedString(selectedImportBankId.value)
+  && selectedImportQuestionKeys.value.length > 0
+  && !importingQuestions.value
+  && !importCoursesLoading.value
+  && !importBanksLoading.value,
+))
 
 watch(() => artifact.value?.id, () => {
   activeQuestionIndex.value = 0
   showQuestionAnswer.value = true
+  resetImportState()
 })
 
 watch(questionCount, (count) => {
@@ -661,6 +843,10 @@ function optionLabel(option: PayloadRecord, index: number) {
 
 function optionKey(option: PayloadRecord, index: number) {
   return textValue(option.id) || textValue(option.optionLabel) || textValue(option.label) || index
+}
+
+function importQuestionKey(question: PayloadRecord, index: number) {
+  return `${textValue(question.draftId) || textValue(question.id) || index}-${index}`
 }
 
 function questionTitle(question: PayloadRecord) {
@@ -768,6 +954,37 @@ function numberValue(value: unknown) {
   return null
 }
 
+function selectedString(value: SelectValue) {
+  return typeof value === 'string' ? value : ''
+}
+
+function stringListValue(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value.map(item => displayValue(item)).filter(Boolean)
+}
+
+function decimalValue(value: unknown, fallback: number) {
+  const parsed = numberValue(value)
+  return parsed === null ? fallback : Math.max(0, parsed)
+}
+
+function integerValue(value: unknown, fallback: number) {
+  const parsed = numberValue(value)
+  return parsed === null ? fallback : Math.trunc(parsed)
+}
+
+function normalizeImportQuestionType(question: PayloadRecord) {
+  const value = numberValue(question.questionType ?? question.type)
+  if (value !== null && value >= 0 && value <= 4) return Math.trunc(value)
+  return questionOptions(question).length > 0 ? 0 : 4
+}
+
+function normalizeImportDifficulty(question: PayloadRecord) {
+  const value = numberValue(question.difficulty)
+  if (value !== null && value >= 1 && value <= 3) return Math.trunc(value)
+  return 2
+}
+
 function numericField(key: keyof GenerationRequest, fallback: number) {
   return computed({
     get: () => {
@@ -806,6 +1023,188 @@ function normalizeListInput(value: string) {
 
   return items.length ? items : null
 }
+function resetImportState() {
+  showImportDialog.value = false
+  importCourses.value = []
+  importQuestionBanks.value = []
+  importCoursesLoading.value = false
+  importBanksLoading.value = false
+  importingQuestions.value = false
+  selectedImportCourseId.value = undefined
+  selectedImportBankId.value = undefined
+  selectedImportQuestionKeys.value = []
+}
+
+async function openImportDialog() {
+  if (!canImportArtifact.value) return
+  showImportDialog.value = true
+  importCourses.value = []
+  importQuestionBanks.value = []
+  selectedImportCourseId.value = undefined
+  selectedImportBankId.value = undefined
+  selectedImportQuestionKeys.value = []
+  await loadImportTargets()
+}
+
+function closeImportDialog() {
+  if (importingQuestions.value) return
+  showImportDialog.value = false
+}
+
+async function loadImportTargets() {
+  importCoursesLoading.value = true
+  try {
+    const contextBankId = aiStore.context.questionBankId || ''
+    const contextBank = contextBankId ? await loadContextBank(contextBankId) : null
+    const preferredCourseId = aiStore.context.courseId || contextBank?.courseId || ''
+    const response = await getTeacherCourses(1, 100)
+    importCourses.value = response.records || []
+
+    const courseId = importCourses.value.some(course => course.id === preferredCourseId)
+      ? preferredCourseId
+      : importCourses.value[0]?.id || ''
+    selectedImportCourseId.value = courseId || undefined
+
+    if (courseId) {
+      await loadImportQuestionBanks(courseId, contextBankId)
+    }
+  } catch {
+    notify.error(t('common.ai.studio.importLoadFailed'))
+  } finally {
+    importCoursesLoading.value = false
+  }
+}
+
+async function loadContextBank(questionBankId: string) {
+  try {
+    return await getQuestionBank(questionBankId)
+  } catch {
+    return null
+  }
+}
+
+async function handleImportCourseChanged() {
+  const courseId = selectedString(selectedImportCourseId.value)
+  selectedImportBankId.value = undefined
+  importQuestionBanks.value = []
+  if (courseId) {
+    await loadImportQuestionBanks(courseId)
+  }
+}
+
+async function loadImportQuestionBanks(courseId: string, preferredBankId = '') {
+  importBanksLoading.value = true
+  try {
+    const banks = await getCourseQuestionBanks(courseId)
+    importQuestionBanks.value = banks
+    const bankId = banks.some(bank => bank.id === preferredBankId)
+      ? preferredBankId
+      : banks[0]?.id || ''
+    selectedImportBankId.value = bankId || undefined
+  } catch {
+    notify.error(t('common.ai.studio.importLoadFailed'))
+  } finally {
+    importBanksLoading.value = false
+  }
+}
+
+function handleToggleAllImportQuestions(event: Event) {
+  const checked = event.target instanceof HTMLInputElement && event.target.checked
+  selectedImportQuestionKeys.value = checked ? importableQuestionItems.value.map(item => item.key) : []
+}
+
+async function handleImportQuestions() {
+  const questionBankId = selectedString(selectedImportBankId.value)
+  if (!questionBankId || !canSubmitImport.value) return
+
+  const questionsToImport = importableQuestionItems.value
+    .filter(item => selectedImportQuestionKeys.value.includes(item.key))
+    .map(item => toImportQuestionRequest(item.question))
+
+  if (questionsToImport.length === 0) return
+
+  importingQuestions.value = true
+  let importedCount = 0
+  try {
+    const response = await batchCreateQuestions({
+      questionBankId,
+      questions: questionsToImport,
+    })
+    importedCount = response.importedCount
+    showImportDialog.value = false
+  } catch {
+    notify.error(t('common.ai.studio.importFailed'))
+    return
+  } finally {
+    importingQuestions.value = false
+  }
+
+  const shouldViewBank = await confirmDialog({
+    title: t('common.ai.studio.importCompleteTitle'),
+    message: t('common.ai.studio.importCompleteMessage', {count: importedCount}),
+    cancelText: t('common.ai.studio.importStayHere'),
+    confirmText: t('common.ai.studio.importViewBank'),
+  })
+  if (shouldViewBank) {
+    await router.push({name: 'question-bank-detail', params: {id: questionBankId}})
+  }
+}
+
+function toImportQuestionRequest(question: PayloadRecord): QuestionImportRequest {
+  const questionType = normalizeImportQuestionType(question)
+  const score = decimalValue(question.score, 0)
+  return {
+    questionTitle: questionTitle(question),
+    questionContent: questionContent(question),
+    questionType,
+    difficulty: normalizeImportDifficulty(question),
+    score,
+    estimatedTime: Math.max(1, integerValue(question.estimatedTime, 1)),
+    tags: questionTags(question),
+    imageUrls: stringListValue(question.imageUrls),
+    allowPartialCredit: questionType === 1 ? 1 : 0,
+    options: questionType <= 2 ? importOptions(question) : [],
+    answers: importAnswers(question, score),
+  }
+}
+
+function importOptions(question: PayloadRecord) {
+  return questionOptions(question)
+    .map((option, index) => ({
+      optionLabel: optionLabelText(option, index),
+      optionContent: optionContentText(option),
+      isCorrect: isCorrectOption(option) ? 1 : 0,
+      score: decimalValue(option.score, 0),
+      imageUrls: stringListValue(option.imageUrls),
+      explanation: textValue(option.explanation) || undefined,
+    }))
+    .filter(option => option.optionContent)
+}
+
+function importAnswers(question: PayloadRecord, score: number) {
+  const explicitAnswers = questionAnswers(question)
+    .map((answer, index) => ({
+      answerContent: textValue(answer.answerContent) || textValue(answer.content),
+      explanation: textValue(answer.explanation) || undefined,
+      score: decimalValue(answer.score, score),
+      sortOrder: Math.max(1, integerValue(answer.sortOrder, index + 1)),
+    }))
+    .filter(answer => answer.answerContent)
+
+  if (explicitAnswers.length > 0) return explicitAnswers
+
+  return questionOptions(question)
+    .map((option, index) => isCorrectOption(option)
+      ? {
+          answerContent: `${optionLabelText(option, index)}. ${optionContentText(option)}`,
+          explanation: textValue(option.explanation) || undefined,
+          score,
+          sortOrder: 1,
+        }
+      : null)
+    .filter((answer): answer is NonNullable<typeof answer> => answer != null && Boolean(answer.answerContent))
+}
+
 function isExportableMessage(message: ChatMessage) {
   return message.messageType === 'QUESTION_SET' || message.messageType === 'PAPER'
 }
@@ -1188,7 +1587,7 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 .export-actions {
-  grid-template-columns: repeat(2, minmax(48px, 1fr));
+  grid-template-columns: repeat(3, minmax(48px, 1fr));
   border-left: 0;
 }
 
@@ -1562,6 +1961,174 @@ function downloadBlob(blob: Blob, filename: string) {
   line-height: 1.7;
 }
 
+.question-import-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2600;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.38);
+}
+
+.question-import-dialog {
+  display: flex;
+  width: min(860px, 100%);
+  max-height: min(760px, calc(100dvh - 48px));
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-outline-light);
+  color: var(--color-on-surface);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.26);
+}
+
+.question-import-header,
+.question-import-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--color-outline-light);
+}
+
+.question-import-header h2 {
+  margin: 6px 0 0;
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+.question-import-header .btn-close {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  background: transparent;
+  border: 1px solid var(--color-outline-light);
+  color: var(--color-on-surface);
+  cursor: pointer;
+}
+
+.question-import-body {
+  display: grid;
+  gap: 18px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.import-select-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.import-field {
+  display: grid;
+  gap: 8px;
+}
+
+.import-field > span,
+.import-selection-bar,
+.import-status-text {
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.import-field :deep(.import-select .base-select-trigger) {
+  min-height: 44px;
+  border-radius: var(--radius-sm);
+}
+
+.import-selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-light);
+}
+
+.import-check-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-on-surface);
+  cursor: pointer;
+}
+
+.import-check-all input[type="checkbox"],
+.import-question-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.import-check-all input[type="checkbox"]:focus-visible,
+.import-question-row input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.import-check-all input[type="checkbox"]:disabled,
+.import-question-row input[type="checkbox"]:disabled {
+  accent-color: var(--color-outline);
+  cursor: not-allowed;
+}
+
+.import-status-text {
+  margin: 0;
+}
+
+.import-question-list {
+  display: grid;
+  gap: 8px;
+}
+
+.import-question-row {
+  display: grid;
+  grid-template-columns: 22px 42px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 50px;
+  padding: 10px 12px;
+  background: var(--color-surface-canvas);
+  border: 1px solid var(--color-outline-light);
+  cursor: pointer;
+}
+
+.import-question-row span,
+.import-question-row small {
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+}
+
+.import-question-row strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.question-import-footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--color-outline-light);
+  border-bottom: 0;
+}
+
 .empty-studio {
   display: grid;
   flex: 1;
@@ -1606,11 +2173,11 @@ function downloadBlob(blob: Blob, filename: string) {
   }
 
   .artifact-toolbar.has-export-actions {
-    grid-template-columns: minmax(0, 1fr) minmax(108px, auto);
+    grid-template-columns: minmax(0, 1fr) minmax(156px, auto);
   }
 
   .artifact-toolbar.has-question-stepper.has-export-actions {
-    grid-template-columns: minmax(0, 1fr) minmax(116px, auto) minmax(108px, auto);
+    grid-template-columns: minmax(0, 1fr) minmax(116px, auto) minmax(156px, auto);
   }
 
   .artifact-toolbar.has-question-stepper .artifact-tabs {
@@ -1649,6 +2216,28 @@ function downloadBlob(blob: Blob, filename: string) {
   .artifact-body,
   .generation-form {
     padding: 22px;
+  }
+
+  .question-import-overlay {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .question-import-dialog {
+    width: 100%;
+    max-height: calc(100dvh - 20px);
+  }
+
+  .import-select-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .import-question-row {
+    grid-template-columns: 22px 36px minmax(0, 1fr);
+  }
+
+  .import-question-row small {
+    grid-column: 3;
   }
 }
 </style>

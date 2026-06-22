@@ -25,6 +25,8 @@ public class GatewayHttpClientConfiguration {
     private static final int MAX_CONNECTIONS_PER_ROUTE = 100;
     private static final Timeout CONNECTION_REQUEST_TIMEOUT = Timeout.ofSeconds(2);
     private static final Timeout CONNECT_TIMEOUT = Timeout.ofSeconds(3);
+    // SSE and AI streaming endpoints can wait indefinitely between chunks.
+    private static final Timeout RESPONSE_TIMEOUT = Timeout.DISABLED;
     private static final TimeValue IDLE_CONNECTION_TTL = TimeValue.ofSeconds(30);
 
     @SuppressWarnings("deprecation")
@@ -38,6 +40,7 @@ public class GatewayHttpClientConfiguration {
         RequestConfig requestConfig = RequestConfig.custom()
                 .setConnectionRequestTimeout(CONNECTION_REQUEST_TIMEOUT)
                 .setConnectTimeout(CONNECT_TIMEOUT)
+                .setResponseTimeout(RESPONSE_TIMEOUT)
                 .build();
 
         CloseableHttpClient httpClient = HttpClients.custom()
@@ -50,6 +53,7 @@ public class GatewayHttpClientConfiguration {
         HttpComponentsClientHttpRequestFactory requestFactory =
                 new HttpComponentsClientHttpRequestFactory(httpClient);
         requestFactory.setConnectionRequestTimeout(CONNECTION_REQUEST_TIMEOUT.toMillisecondsIntBound());
+        requestFactory.setReadTimeout(RESPONSE_TIMEOUT.toMillisecondsIntBound());
         return requestFactory;
     }
 }

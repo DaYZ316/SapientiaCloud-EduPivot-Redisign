@@ -16,6 +16,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
 
+/**
+ * PostgreSQL JSONB map type handler.
+ *
+ * @author DaYZ
+ * @since 2026-06-22
+ */
 @MappedJdbcTypes(JdbcType.OTHER)
 public class PostgresJsonbMapTypeHandler extends BaseTypeHandler<Map<String, Object>> {
 

@@ -41,6 +41,7 @@ class QuestionGenerationServiceTest {
                         null, null, null, null, null, null, List.of("集合"), null),
                 null);
 
+        assertThat(result.payload()).containsEntry("schemaVersion", 2);
         List<Map<String, Object>> questions = questions(result);
         assertThat(questions).hasSize(1);
         assertThat(questions.getFirst())
@@ -65,13 +66,39 @@ class QuestionGenerationServiceTest {
     }
 
     @Test
-    void generatePaperShouldSplitMixedTypesIntoSectionBatches() {
+    void generateQuestionsShouldKeepPreviewOnlyQuestionWhenQuestionBankMissing() {
+        ChatFixture fixture = chatFixture(questionJson(0, 1, "Preview only", "Choose preview answer"));
+        QuestionGenerationService service = service(fixture.chatClient());
+
+        AiAgentResult result = service.generateQuestions(
+                "generate preview question",
+                new GenerationRequest(null, 1, 0, 2, BigDecimal.valueOf(5),
+                        null, null, null, null, null, null, List.of("preview"), null),
+                null);
+
+        assertThat(questions(result).getFirst())
+                .containsEntry("questionBankId", null)
+                .containsEntry("questionTitle", "Preview only1");
+        assertThat(issues(result))
+                .noneMatch(issue -> "MISSING_QUESTION_BANK_ID".equals(issue.code()));
+        verify(fixture.callSpec(), times(1)).content();
+    }
+
+    @Test
+    void generatePaperShouldSplitMixedTypesIntoSingleQuestionBatches() {
         ChatFixture fixture = chatFixture(
-                questionJson(0, 3, "单选", "单选题干"),
-                questionJson(1, 3, "多选", "多选题干"),
-                questionJson(2, 2, "判断", "判断题干"),
-                questionJson(3, 2, "填空", "填空题干"),
-                questionJson(4, 2, "简答", "简答题干"));
+                questionJson(0, 1, "single-1-", "single content-1-"),
+                questionJson(0, 1, "single-2-", "single content-2-"),
+                questionJson(0, 1, "single-3-", "single content-3-"),
+                questionJson(1, 1, "multiple-1-", "multiple content-1-"),
+                questionJson(1, 1, "multiple-2-", "multiple content-2-"),
+                questionJson(1, 1, "multiple-3-", "multiple content-3-"),
+                questionJson(2, 1, "judge-1-", "judge content-1-"),
+                questionJson(2, 1, "judge-2-", "judge content-2-"),
+                questionJson(3, 1, "blank-1-", "blank content-1-"),
+                questionJson(3, 1, "blank-2-", "blank content-2-"),
+                questionJson(4, 1, "short-1-", "short content-1-"),
+                questionJson(4, 1, "short-2-", "short content-2-"));
         QuestionGenerationService service = service(fixture.chatClient());
 
         AiAgentResult result = service.generatePaper(
@@ -81,15 +108,15 @@ class QuestionGenerationServiceTest {
                 null);
 
         PaperBlueprint blueprint = (PaperBlueprint) result.payload().get("blueprint");
-        assertThat(blueprint.sections()).hasSize(5);
+        assertThat(blueprint.sections()).hasSize(12);
         assertThat(blueprint.sections())
                 .extracting(PaperSectionPlan::questionType)
-                .containsExactly(0, 1, 2, 3, 4);
+                .containsExactly(0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4);
         assertThat(blueprint.sections())
                 .extracting(PaperSectionPlan::targetCount)
-                .containsExactly(3, 3, 2, 2, 2);
+                .containsOnly(1);
         assertThat(questions(result)).hasSize(12);
-        verify(fixture.callSpec(), times(5)).content();
+        verify(fixture.callSpec(), times(12)).content();
     }
 
     @Test
@@ -109,6 +136,9 @@ class QuestionGenerationServiceTest {
 
         assertThat(questions(result)).hasSize(1);
         assertThat(trace(result))
+                .filteredOn(entry -> "section_attempt".equals(entry.detailType()))
+                .isEmpty();
+        assertThat(debugTrace(result))
                 .filteredOn(entry -> "section_attempt".equals(entry.detailType()))
                 .hasSize(2);
         verify(fixture.callSpec(), times(2)).content();
@@ -137,7 +167,48 @@ class QuestionGenerationServiceTest {
                 .noneMatch(issue -> "error".equalsIgnoreCase(issue.level()));
         assertThat(trace(result))
                 .filteredOn(entry -> "repair_attempt".equals(entry.detailType()))
+                .isEmpty();
+        assertThat(debugTrace(result))
+                .filteredOn(entry -> "repair_attempt".equals(entry.detailType()))
                 .hasSize(1);
+        verify(fixture.callSpec(), times(4)).content();
+    }
+
+    @Test
+    void generateQuestionsShouldKeepEmptyDraftFailuresOutOfVisibleTrace() {
+        ChatFixture fixture = chatFixture(
+                "{\"questions\":[]}",
+                "{\"questions\":[]}",
+                "{\"questions\":[]}",
+                questionJson(0, 1, "修复后的单选", "请选择正确答案"));
+        QuestionGenerationService service = service(fixture.chatClient());
+        List<GenerationStageEvent> events = new ArrayList<>();
+
+        AiAgentResult result = service.generateQuestions(
+                "生成单选题",
+                new GenerationRequest(UUID.randomUUID(), 1, 0, 2, BigDecimal.valueOf(5),
+                        null, null, null, null, null, null, null, null),
+                null,
+                UUID.randomUUID(),
+                2,
+                UUID.randomUUID(),
+                events::add,
+                ignored -> {
+                });
+
+        assertThat(questions(result)).hasSize(1);
+        assertThat(events)
+                .extracting(GenerationStageEvent::stage)
+                .doesNotContain("VALIDATED");
+        assertThat(events)
+                .extracting(GenerationStageEvent::summary)
+                .noneMatch(summary -> summary != null && summary.contains("未生成任何题目"));
+        assertThat(trace(result))
+                .filteredOn(entry -> "section_attempt".equals(entry.detailType()) || "repair_attempt".equals(entry.detailType()))
+                .isEmpty();
+        assertThat(debugTrace(result))
+                .extracting(GenerationTraceEntry::detailType)
+                .contains("section_attempt", "validation", "repair_attempt");
         verify(fixture.callSpec(), times(4)).content();
     }
 
@@ -161,11 +232,31 @@ class QuestionGenerationServiceTest {
 
         assertThat(events)
                 .extracting(GenerationStageEvent::stage)
-                .containsExactly("RECEIVED", "CONTEXT_READY", "PLANNED", "GENERATED",
+                .containsExactly("RECEIVED", "CONTEXT_READY", "PLANNED", "GENERATED", "GENERATED",
                         "VALIDATED", "REPAIRED", "ASSEMBLED", "RESPONDED");
         assertThat(trace(result))
                 .extracting(GenerationTraceEntry::detailType)
-                .contains("context_summary", "blueprint", "section_attempt", "validation", "final_questions");
+                .contains("context_summary", "blueprint", "draft_progress", "validation", "final_questions")
+                .doesNotContain("section_attempt", "repair_attempt");
+        List<GenerationStageEvent> generatedEvents = events.stream()
+                .filter(event -> "GENERATED".equals(event.stage()))
+                .toList();
+        assertThat(generatedEvents.getFirst().payload().get("questions")).isInstanceOf(List.class);
+        assertThat(generatedEvents.getFirst().payload())
+                .containsEntry("questionCount", 1)
+                .containsEntry("totalQuestionCount", 1);
+        GenerationStageEvent generated = generatedEvents.getLast();
+        Map<?, ?> draft = ((List<Map<?, ?>>) generated.payload().get("drafts")).getFirst();
+        Map<?, ?> question = (Map<?, ?>) draft.get("question");
+        assertThat(question.get("questionTitle")).isNotNull();
+        assertThat(question.get("options")).isInstanceOf(List.class);
+        GenerationStageEvent assembled = events.stream()
+                .filter(event -> "ASSEMBLED".equals(event.stage()))
+                .findFirst()
+                .orElseThrow();
+        Map<?, ?> assembledQuestion = ((List<Map<?, ?>>) assembled.payload().get("questions")).getFirst();
+        assertThat(assembledQuestion.get("questionTitle")).isNotNull();
+        assertThat(assembledQuestion.get("options")).isInstanceOf(List.class);
     }
 
     @Test
@@ -286,6 +377,9 @@ class QuestionGenerationServiceTest {
         assertThat(questions(result)).hasSize(1);
         assertThat(trace(result))
                 .filteredOn(entry -> "repair_attempt".equals(entry.detailType()))
+                .isEmpty();
+        assertThat(debugTrace(result))
+                .filteredOn(entry -> "repair_attempt".equals(entry.detailType()))
                 .hasSize(1);
         verify(fixture.callSpec(), times(4)).content();
     }
@@ -334,6 +428,9 @@ class QuestionGenerationServiceTest {
         assertThat(list(questions(result).getFirst().get("answers")).getFirst())
                 .containsEntry("answerContent", "init-param");
         assertThat(trace(result))
+                .filteredOn(entry -> "repair_attempt".equals(entry.detailType()))
+                .isEmpty();
+        assertThat(debugTrace(result))
                 .filteredOn(entry -> "repair_attempt".equals(entry.detailType()))
                 .hasSize(1);
     }
@@ -516,6 +613,11 @@ class QuestionGenerationServiceTest {
     @SuppressWarnings("unchecked")
     private List<GenerationTraceEntry> trace(AiAgentResult result) {
         return (List<GenerationTraceEntry>) result.payload().get("generationTrace");
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<GenerationTraceEntry> debugTrace(AiAgentResult result) {
+        return (List<GenerationTraceEntry>) result.payload().get("generationDebugTrace");
     }
 
     @SuppressWarnings("unchecked")

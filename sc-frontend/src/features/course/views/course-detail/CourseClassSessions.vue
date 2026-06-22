@@ -295,6 +295,7 @@
                 <span
                     v-for="dot in arcDots"
                     :key="dot.id"
+                    :class="{'seat-dot--occupied': occupiedSeatIndexes.has(dot.id)}"
                     :style="{ left: dot.x + '%', top: dot.y + '%' }"
                     class="seat-dot"
                 ></span>
@@ -304,7 +305,12 @@
                   :style="{ gridTemplateColumns: `repeat(${selectedRoomSpec.cols}, minmax(0, 1fr))` }"
                   class="grid-preview"
               >
-                <span v-for="seat in selectedRoomSpec.seats" :key="seat" class="seat-dot"></span>
+                <span
+                    v-for="seat in selectedRoomSpec.seats"
+                    :key="seat"
+                    :class="{'seat-dot--occupied': occupiedSeatIndexes.has(seat)}"
+                    class="seat-dot"
+                ></span>
               </div>
             </div>
           </section>
@@ -348,6 +354,7 @@ import {
   createClassSession,
   deleteClassSession,
   getCourseClassSessions,
+  listClassSessionParticipants,
   publishClassSession,
   updateClassSession,
 } from '@/features/course/api/classSession'
@@ -388,7 +395,10 @@ const busySessionId = ref<string | null>(null)
 const enteringSessionId = ref<string | null>(null)
 const editingSession = ref<ClassSession | null>(null)
 const previewSession = ref<ClassSession | null>(null)
+const occupiedSeatIndexes = ref(new Set<number>())
 const errorMessage = ref('')
+const STUDENT_PARTICIPANT_ROLE = 1
+let occupiedSeatsRequestId = 0
 
 const form = reactive({
   title: '',
@@ -503,6 +513,10 @@ watch(() => props.createRequestKey, (next, previous) => {
   }
 })
 
+watch(previewSession, (session) => {
+  void loadOccupiedSeats(session)
+})
+
 async function loadSessions() {
   loading.value = true
   loadFailed.value = false
@@ -565,6 +579,7 @@ function openCreate() {
   if (!props.canManageCourse) return
   previewSession.value = null
   editingSession.value = null
+  occupiedSeatIndexes.value = new Set()
   resetForm()
 }
 
@@ -590,6 +605,31 @@ function fillFormFromSession(session: ClassSession) {
   form.scheduledStartAt = toDatetimeLocalValue(session.scheduledStartAt)
   form.scheduledEndAt = toDatetimeLocalValue(session.scheduledEndAt)
   form.roomSize = normalizedRoomSize(session.roomSize)
+}
+
+async function loadOccupiedSeats(session: ClassSession | null) {
+  const requestId = occupiedSeatsRequestId + 1
+  occupiedSeatsRequestId = requestId
+  occupiedSeatIndexes.value = new Set()
+  if (!session?.publishedAt) {
+    return
+  }
+
+  try {
+    const participants = await listClassSessionParticipants(session.id)
+    if (requestId !== occupiedSeatsRequestId) {
+      return
+    }
+    occupiedSeatIndexes.value = new Set(
+        participants
+            .filter(participant => participant.role === STUDENT_PARTICIPANT_ROLE && participant.seatIndex != null)
+            .map(participant => participant.seatIndex as number),
+    )
+  } catch {
+    if (requestId === occupiedSeatsRequestId) {
+      occupiedSeatIndexes.value = new Set()
+    }
+  }
 }
 
 async function handleSubmit() {
@@ -1453,6 +1493,13 @@ textarea.input-field:focus {
   min-width: 4px;
   background: var(--color-surface-container-highest);
   border: 1px solid var(--color-outline-light);
+}
+
+.seat-dot--occupied {
+  background: var(--color-primary);
+  border-color: var(--color-on-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 40%, transparent),
+  0 0 12px color-mix(in srgb, var(--color-primary) 46%, transparent);
 }
 
 .arc-preview {

@@ -93,6 +93,7 @@ const questionTypeLabels: Record<number, string> = {
 }
 
 const difficultyLabels: Record<number, string> = {
+  0: 'common.ai.studio.difficulties.random',
   1: 'common.ai.studio.difficulties.easy',
   2: 'common.ai.studio.difficulties.medium',
   3: 'common.ai.studio.difficulties.hard',

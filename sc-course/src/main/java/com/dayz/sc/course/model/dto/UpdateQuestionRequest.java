@@ -1,5 +1,7 @@
 package com.dayz.sc.course.model.dto;
 
+import com.dayz.sc.common.question.QuestionAnswerRequest;
+import com.dayz.sc.common.question.QuestionOptionRequest;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 

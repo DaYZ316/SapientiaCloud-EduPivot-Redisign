@@ -1,12 +1,13 @@
 package com.dayz.sc.ai.model.vo;
 
+import com.dayz.sc.common.question.CreateQuestionRequest;
+
 import java.util.List;
-import java.util.Map;
 
 public record GeneratedQuestionDraft(
         String draftId,
         int order,
-        Map<String, Object> question,
+        CreateQuestionRequest question,
         List<GenerationValidationIssue> issues
 ) {
 }

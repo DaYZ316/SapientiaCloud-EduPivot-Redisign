@@ -7,6 +7,7 @@ import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.util.Units;
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 import org.apache.poi.xwpf.usermodel.Document;
@@ -18,7 +19,7 @@ import org.springframework.util.StringUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -28,6 +29,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class AiGenerationExportService {
 
@@ -87,6 +89,7 @@ public class AiGenerationExportService {
         return new ExportDocument(
                 firstText(payload.get("title"), fallbackTitle),
                 documentMetadata(payload, questions.size()),
+                firstText(mapValue(payload.get("generation")).get("requirement"), payload.get("requirement")),
                 exportSections(payload.get("blueprint"), questions),
                 includeAnswers);
     }
@@ -106,6 +109,7 @@ public class AiGenerationExportService {
                 number,
                 firstText(question.get("questionTitle"), question.get("title"), "未命名题目"),
                 firstText(question.get("questionContent"), question.get("content"), question.get("questionTitle")),
+                firstText(question.get("score")),
                 questionMetadata(question),
                 options,
                 answerItems(question, options),
@@ -192,7 +196,7 @@ public class AiGenerationExportService {
     private List<ExportSection> exportSections(Object blueprintValue, List<ExportQuestion> questions) {
         List<Map<String, Object>> rawSections = mapList(mapValue(blueprintValue).get("sections"));
         if (rawSections.isEmpty()) {
-            return List.of(new ExportSection("", questions));
+            return List.of(new ExportSection("", "", questions));
         }
 
         List<ExportSection> sections = new ArrayList<>();
@@ -211,13 +215,16 @@ public class AiGenerationExportService {
             String sectionTitle = firstText(
                     rawSection.get("sectionTitle"),
                     "第" + firstText(rawSection.get("sectionNo"), String.valueOf(sections.size() + 1)) + "部分");
-            sections.add(new ExportSection(sectionTitle, List.copyOf(questions.subList(cursor, end))));
+            sections.add(new ExportSection(
+                    sectionTitle,
+                    firstText(rawSection.get("scorePerQuestion")),
+                    List.copyOf(questions.subList(cursor, end))));
             cursor = end;
         }
         if (cursor < questions.size()) {
-            sections.add(new ExportSection("其他题目", List.copyOf(questions.subList(cursor, questions.size()))));
+            sections.add(new ExportSection("其他题目", "", List.copyOf(questions.subList(cursor, questions.size()))));
         }
-        return sections.isEmpty() ? List.of(new ExportSection("", questions)) : sections;
+        return sections.isEmpty() ? List.of(new ExportSection("", "", questions)) : sections;
     }
 
     private byte[] renderDocx(ExportDocument document) {
@@ -388,36 +395,63 @@ public class AiGenerationExportService {
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
+            log.error("Failed to export PDF document", e);
             throw new BusinessException(ErrorCodes.SYSTEM_ERROR, "Failed to export PDF document");
         }
     }
 
-    private String renderHtml(ExportDocument document) {
+    String renderHtml(ExportDocument document) {
         StringBuilder html = new StringBuilder("""
                 <!DOCTYPE html>
                 <html>
                 <head>
                   <meta charset="UTF-8"/>
                   <style>
-                    @page { size: A4; margin: 22mm 18mm; }
-                    body { font-family: 'Noto Sans CJK SC', 'Microsoft YaHei', sans-serif; color: #202124; font-size: 12px; line-height: 1.62; }
-                    h1 { margin: 0 0 10px; text-align: center; font-size: 22px; }
-                    h2 { margin: 22px 0 10px; padding-bottom: 4px; border-bottom: 1px solid #d0d7de; font-size: 16px; }
-                    .meta { margin: 0 0 18px; text-align: center; color: #5f6368; }
-                    .question { margin: 0 0 16px; page-break-inside: avoid; }
-                    .question-title { margin: 0 0 4px; font-weight: 700; font-size: 13px; }
-                    .question-meta { margin: 0 0 6px; color: #5f6368; font-size: 11px; }
-                    .stem { margin: 0 0 8px; }
-                    .options { margin: 0 0 8px 18px; padding: 0; }
-                    .options li { margin: 3px 0; }
-                    .answer { margin-top: 8px; padding: 8px 10px; background: #f6f8fa; border: 1px solid #d0d7de; }
-                    .answer p { margin: 0 0 4px; }
-                    .rich-text p { margin: 0 0 6px; white-space: pre-wrap; }
-                    .rich-text h3 { margin: 8px 0 6px; font-size: 13px; }
+                    @page {
+                      size: A4;
+                      margin: 20mm 18mm 18mm;
+                      @bottom-center {
+                        content: "第 " counter(page) " 页 / 共 " counter(pages) " 页";
+                        font-family: 'Noto Sans CJK SC', 'Microsoft YaHei', sans-serif;
+                        font-size: 10px;
+                        color: #444;
+                      }
+                    }
+                    body {
+                      font-family: 'Noto Sans CJK SC', 'Microsoft YaHei', sans-serif;
+                      color: #111;
+                      font-size: 12px;
+                      line-height: 1.58;
+                    }
+                    h1 { margin: 0 0 8px; text-align: center; font-size: 22px; font-weight: 700; }
+                    .paper-meta { margin: 0 0 12px; text-align: center; font-size: 11px; }
+                    .candidate-row { width: 100%; margin: 0 0 12px; border-collapse: collapse; table-layout: fixed; }
+                    .candidate-row td { padding: 6px 8px; border: 1px solid #111; font-size: 11px; }
+                    .score-table { width: 100%; margin: 0 0 12px; border-collapse: collapse; table-layout: fixed; }
+                    .score-table th, .score-table td { padding: 5px 6px; border: 1px solid #111; text-align: center; font-size: 10px; }
+                    .score-table th { font-weight: 700; background: #f5f5f5; }
+                    .notice { margin: 0 0 16px; padding: 8px 10px; border: 1px solid #111; }
+                    .notice-title { margin: 0 0 4px; font-weight: 700; }
+                    .notice p { margin: 0 0 3px; }
+                    h2 { margin: 18px 0 10px; font-size: 15px; font-weight: 700; }
+                    .question { margin: 0 0 14px; page-break-inside: avoid; }
+                    .question-title { margin: 0 0 6px; font-weight: 700; font-size: 12px; }
+                    .question-score { font-weight: 400; }
+                    .stem { margin: 0 0 6px; }
+                    .options { margin: 4px 0 6px 16px; }
+                    .option { margin: 3px 0; }
+                    .answer-space { margin: 8px 0 2px; border-bottom: 1px solid #555; height: 28px; }
+                    .answer-section { page-break-before: always; }
+                    .answer-section h2 { text-align: center; font-size: 18px; }
+                    .answer-item { margin: 0 0 12px; page-break-inside: avoid; }
+                    .answer-title { margin: 0 0 4px; font-weight: 700; }
+                    .answer-block { margin: 4px 0 0 18px; }
+                    .rich-text p { margin: 0 0 5px; white-space: pre-wrap; }
+                    .rich-text h3 { margin: 8px 0 5px; font-size: 13px; }
                     .rich-text .list-item { margin-left: 14px; }
-                    .rich-text pre { margin: 6px 0; padding: 6px 8px; background: #f6f8fa; border: 1px solid #d0d7de; white-space: pre-wrap; }
+                    .rich-text pre { margin: 6px 0; padding: 6px 8px; border: 1px solid #999; white-space: pre-wrap; }
                     .rich-text code { font-family: "Consolas", monospace; }
-                    .options .rich-text, .options .rich-text p { display: inline; }
+                    .option .rich-text, .option .rich-text p { display: inline; }
                     .formula-inline { max-height: 1.8em; vertical-align: middle; }
                     .formula-display { display: block; max-width: 100%; margin: 8px auto; }
                   </style>
@@ -426,58 +460,177 @@ public class AiGenerationExportService {
                 """);
         html.append("<h1>").append(escapeHtml(document.title())).append("</h1>");
         if (!document.metadata().isEmpty()) {
-            html.append("<p class=\"meta\">").append(escapeHtml(String.join(" | ", document.metadata()))).append("</p>");
+            html.append("<p class=\"paper-meta\">").append(escapeHtml(String.join(" | ", document.metadata()))).append("</p>");
         }
+        appendCandidateRow(html);
+        appendScoreTable(html, document.sections());
+        appendNotice(html, document.requirement());
         for (ExportSection section : document.sections()) {
-            if (StringUtils.hasText(section.title())) {
-                html.append("<h2>").append(escapeHtml(section.title())).append("</h2>");
-            }
+            html.append("<h2>").append(escapeHtml(sectionHeading(section))).append("</h2>");
             for (ExportQuestion question : section.questions()) {
-                appendQuestionHtml(html, question, document.includeAnswers());
+                appendQuestionHtml(html, question);
             }
+        }
+        if (document.includeAnswers()) {
+            appendAnswerSection(html, document.sections());
         }
         html.append("</body></html>");
         return html.toString();
     }
 
-    private void appendQuestionHtml(StringBuilder html, ExportQuestion question, boolean includeAnswers) {
+    private void appendCandidateRow(StringBuilder html) {
+        html.append("""
+                <table class="candidate-row">
+                  <tr>
+                    <td>姓名：</td>
+                    <td>班级：</td>
+                    <td>学号：</td>
+                    <td>得分：</td>
+                  </tr>
+                </table>
+                """);
+    }
+
+    private void appendScoreTable(StringBuilder html, List<ExportSection> sections) {
+        html.append("<table class=\"score-table\"><tr><th>大题</th>");
+        for (int i = 0; i < sections.size(); i++) {
+            html.append("<th>").append(escapeHtml(chineseOrdinal(i + 1))).append("</th>");
+        }
+        html.append("<th>总分</th></tr><tr><td>题量</td>");
+        for (ExportSection section : sections) {
+            html.append("<td>").append(section.questions().size()).append("</td>");
+        }
+        html.append("<td>").append(totalQuestionCount(sections)).append("</td></tr><tr><td>满分</td>");
+        for (ExportSection section : sections) {
+            html.append("<td>").append(escapeHtml(sectionScore(section))).append("</td>");
+        }
+        html.append("<td>").append(escapeHtml(totalScore(sections))).append("</td></tr><tr><td>得分</td>");
+        for (int i = 0; i < sections.size() + 1; i++) {
+            html.append("<td></td>");
+        }
+        html.append("</tr></table>");
+    }
+
+    private void appendNotice(StringBuilder html, String requirement) {
+        html.append("<section class=\"notice rich-text\"><p class=\"notice-title\">注意事项</p>");
+        String text = StringUtils.hasText(requirement)
+                ? requirement
+                : "请认真审题，在规定时间内完成作答；选择题请填写选项，非选择题请写明必要过程。";
+        appendRichBlocksHtml(html, text);
+        html.append("</section>");
+    }
+
+    private void appendQuestionHtml(StringBuilder html, ExportQuestion question) {
         html.append("<section class=\"question\">");
         html.append("<p class=\"question-title\">")
                 .append(question.number()).append(". ")
+                .append("<span class=\"question-score\">")
+                .append(escapeHtml(questionScoreLabel(question)))
+                .append("</span> ")
                 .append(escapeHtml(question.title()))
                 .append("</p>");
-        if (!question.metadata().isEmpty()) {
-            html.append("<p class=\"question-meta\">")
-                    .append(escapeHtml(String.join(" | ", question.metadata())))
-                    .append("</p>");
-        }
         if (StringUtils.hasText(question.stem()) && !question.stem().equals(question.title())) {
             appendRichHtml(html, "stem rich-text", question.stem());
         }
         if (!question.options().isEmpty()) {
-            html.append("<ol class=\"options\">");
+            html.append("<div class=\"options\">");
             for (ExportOption option : question.options()) {
-                String marker = includeAnswers && option.correct() ? " （答案）" : "";
-                html.append("<li><strong>")
+                html.append("<div class=\"option\"><strong>")
                         .append(escapeHtml(option.label()))
                         .append(".</strong> ")
                         .append("<div class=\"rich-text\">");
-                appendRichBlocksHtml(html, option.content() + marker);
-                html.append("</div></li>");
-            }
-            html.append("</ol>");
-        }
-        if (includeAnswers && (!question.answers().isEmpty() || StringUtils.hasText(question.explanation()))) {
-            html.append("<div class=\"answer\">");
-            if (!question.answers().isEmpty()) {
-                appendRichHtml(html, "rich-text", "答案：" + String.join("；", question.answers()));
-            }
-            if (StringUtils.hasText(question.explanation())) {
-                appendRichHtml(html, "rich-text", "解析：" + question.explanation());
+                appendRichBlocksHtml(html, option.content());
+                html.append("</div></div>");
             }
             html.append("</div>");
+        } else if (needsAnswerSpace(question)) {
+            html.append("<div class=\"answer-space\"></div><div class=\"answer-space\"></div>");
         }
         html.append("</section>");
+    }
+
+    private void appendAnswerSection(StringBuilder html, List<ExportSection> sections) {
+        html.append("<section class=\"answer-section\"><h2>参考答案与解析</h2>");
+        for (ExportSection section : sections) {
+            for (ExportQuestion question : section.questions()) {
+                html.append("<div class=\"answer-item\"><p class=\"answer-title\">")
+                        .append(question.number()).append(". ")
+                        .append(escapeHtml(question.title()))
+                        .append(" ")
+                        .append(escapeHtml(questionScoreLabel(question)))
+                        .append("</p>");
+                if (!question.answers().isEmpty()) {
+                    appendRichHtml(html, "answer-block rich-text", "答案：" + String.join("；", question.answers()));
+                }
+                if (StringUtils.hasText(question.explanation())) {
+                    appendRichHtml(html, "answer-block rich-text", "解析：" + question.explanation());
+                }
+                html.append("</div>");
+            }
+        }
+        html.append("</section>");
+    }
+
+    private static String sectionHeading(ExportSection section) {
+        String title = StringUtils.hasText(section.title()) ? section.title() : "题目";
+        return title + "（共 " + section.questions().size() + " 题，共 " + sectionScore(section) + " 分）";
+    }
+
+    private static int totalQuestionCount(List<ExportSection> sections) {
+        return sections.stream().mapToInt(section -> section.questions().size()).sum();
+    }
+
+    private static String sectionScore(ExportSection section) {
+        BigDecimal score = section.questions().stream()
+                .map(question -> decimalValue(question.score()))
+                .filter(value -> value != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (BigDecimal.ZERO.compareTo(score) != 0) {
+            return displayDecimal(score);
+        }
+
+        BigDecimal scorePerQuestion = decimalValue(section.scorePerQuestion());
+        if (scorePerQuestion != null) {
+            return displayDecimal(scorePerQuestion.multiply(BigDecimal.valueOf(section.questions().size())));
+        }
+        return "";
+    }
+
+    private static String totalScore(List<ExportSection> sections) {
+        BigDecimal total = BigDecimal.ZERO;
+        boolean hasScore = false;
+        for (ExportSection section : sections) {
+            BigDecimal score = decimalValue(sectionScore(section));
+            if (score != null) {
+                total = total.add(score);
+                hasScore = true;
+            }
+        }
+        return hasScore ? displayDecimal(total) : "";
+    }
+
+    private static String questionScoreLabel(ExportQuestion question) {
+        return StringUtils.hasText(question.score()) ? "（" + question.score() + " 分）" : "";
+    }
+
+    private static boolean needsAnswerSpace(ExportQuestion question) {
+        return question.options().isEmpty();
+    }
+
+    private static String chineseOrdinal(int value) {
+        return switch (value) {
+            case 1 -> "一";
+            case 2 -> "二";
+            case 3 -> "三";
+            case 4 -> "四";
+            case 5 -> "五";
+            case 6 -> "六";
+            case 7 -> "七";
+            case 8 -> "八";
+            case 9 -> "九";
+            case 10 -> "十";
+            default -> String.valueOf(value);
+        };
     }
 
     private void appendRichHtml(StringBuilder html, String className, String text) {
@@ -809,6 +962,21 @@ public class AiGenerationExportService {
         return null;
     }
 
+    private static BigDecimal decimalValue(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        try {
+            return new BigDecimal(value.trim());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private static String displayDecimal(BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
+    }
+
     private static boolean isTruthy(Object value) {
         if (value instanceof Boolean bool) {
             return bool;
@@ -883,15 +1051,20 @@ public class AiGenerationExportService {
     public record ExportFile(String filename, String contentType, byte[] bytes) {
     }
 
-    record ExportDocument(String title, List<String> metadata, List<ExportSection> sections, boolean includeAnswers) {
+    record ExportDocument(String title,
+                          List<String> metadata,
+                          String requirement,
+                          List<ExportSection> sections,
+                          boolean includeAnswers) {
     }
 
-    record ExportSection(String title, List<ExportQuestion> questions) {
+    record ExportSection(String title, String scorePerQuestion, List<ExportQuestion> questions) {
     }
 
     record ExportQuestion(int number,
                           String title,
                           String stem,
+                          String score,
                           List<String> metadata,
                           List<ExportOption> options,
                           List<String> answers,

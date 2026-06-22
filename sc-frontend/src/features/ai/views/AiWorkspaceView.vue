@@ -136,7 +136,6 @@ const isPreviewPanelVisible = computed(() =>
 
 onMounted(() => {
   aiStore.setContext({sourceRoute: route.fullPath})
-  void aiStore.refreshActiveGeneration()
 })
 
 watch(chatMode, (mode) => {
@@ -239,9 +238,9 @@ async function generateFromPanel() {
 function createGenerationDefaults(mode: Exclude<AiAgentMode, 'CHAT'>): GenerationRequest {
   return {
     questionCount: mode === 'PAPER' ? 10 : 5,
-    questionType: mode === 'PAPER' ? 5 : 0,
-    difficulty: 2,
-    scorePerQuestion: null,
+    questionType: 5,
+    difficulty: 0,
+    scorePerQuestion: 0,
     totalScore: mode === 'PAPER' ? 100 : null,
     totalEstimatedTime: mode === 'PAPER' ? 60 : null,
     paperName: '',

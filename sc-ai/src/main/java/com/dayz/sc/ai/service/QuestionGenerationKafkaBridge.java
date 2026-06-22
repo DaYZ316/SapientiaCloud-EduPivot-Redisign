@@ -27,6 +27,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
@@ -45,6 +46,7 @@ public class QuestionGenerationKafkaBridge {
     private final Map<String, Sinks.One<QuestionGenerationCompletedEvent>> responseSinks = new ConcurrentHashMap<>();
     private final Map<String, Sinks.Many<QuestionGenerationProgressEvent>> progressSinks = new ConcurrentHashMap<>();
     private final Map<String, Sinks.One<Void>> startedSinks = new ConcurrentHashMap<>();
+    private final Set<UUID> emittedProgressEventIds = ConcurrentHashMap.newKeySet();
 
     @Autowired
     public QuestionGenerationKafkaBridge(
@@ -66,7 +68,8 @@ public class QuestionGenerationKafkaBridge {
                                       UUID userId,
                                       Integer role,
                                       AiAgentMode mode,
-                                      String requestId) {
+                                      String requestId,
+                                      UUID assistantMessageId) {
         KafkaTemplate<@NonNull String, @NonNull Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
         if (kafkaTemplate == null) {
             return Mono.empty();
@@ -82,6 +85,7 @@ public class QuestionGenerationKafkaBridge {
                 UuidV7Generator.generate(),
                 finalRequestId,
                 conversationId,
+                assistantMessageId,
                 userId,
                 role,
                 request.courseId(),
@@ -165,16 +169,7 @@ public class QuestionGenerationKafkaBridge {
     @KafkaListener(topics = KafkaTopicConstants.QUESTION_GENERATION_PROGRESS, groupId = "sc-ai-question-generation-progress")
     public void onProgress(QuestionGenerationProgressEvent event, Acknowledgment acknowledgment) {
         try {
-            if (event != null && hasText(event.requestId())) {
-                Sinks.One<Void> startedSink = startedSinks.get(event.requestId());
-                if (startedSink != null) {
-                    startedSink.tryEmitEmpty();
-                }
-                Sinks.Many<QuestionGenerationProgressEvent> sink = progressSinks.get(event.requestId());
-                if (sink != null) {
-                    sink.tryEmitNext(event);
-                }
-            }
+            emitProgressLocally(event);
         } finally {
             acknowledge(acknowledgment);
         }
@@ -209,6 +204,7 @@ public class QuestionGenerationKafkaBridge {
                 eventType,
                 objectPayload(payload),
                 Instant.now());
+        emitProgressLocally(event);
         kafkaTemplate.send(KafkaTopicConstants.QUESTION_GENERATION_PROGRESS, requestId, event)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
@@ -272,6 +268,24 @@ public class QuestionGenerationKafkaBridge {
         Sinks.Many<QuestionGenerationProgressEvent> progressSink = progressSinks.remove(requestId);
         if (progressSink != null) {
             progressSink.tryEmitComplete();
+        }
+    }
+
+    private void emitProgressLocally(QuestionGenerationProgressEvent event) {
+        if (event == null || !hasText(event.requestId())) {
+            return;
+        }
+        UUID eventId = event.eventId();
+        if (eventId != null && !emittedProgressEventIds.add(eventId)) {
+            return;
+        }
+        Sinks.One<Void> startedSink = startedSinks.get(event.requestId());
+        if (startedSink != null) {
+            startedSink.tryEmitEmpty();
+        }
+        Sinks.Many<QuestionGenerationProgressEvent> sink = progressSinks.get(event.requestId());
+        if (sink != null) {
+            sink.tryEmitNext(event);
         }
     }
 
