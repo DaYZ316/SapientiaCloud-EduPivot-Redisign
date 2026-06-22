@@ -8,6 +8,7 @@ import com.dayz.sc.course.model.dto.CreateClassSessionRequest;
 import com.dayz.sc.course.model.dto.JoinClassSessionRequest;
 import com.dayz.sc.course.model.dto.UpdateClassSessionRequest;
 import com.dayz.sc.course.model.entity.*;
+import com.dayz.sc.course.model.enums.ClassLiveStatus;
 import com.dayz.sc.course.model.enums.ClassSessionStatus;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
 import com.dayz.sc.course.model.vo.LiveKitTokenVO;
@@ -62,6 +63,9 @@ class ClassSessionServiceTest {
     private LiveKitTokenService liveKitTokenService;
 
     @Mock
+    private LiveKitRoomService liveKitRoomService;
+
+    @Mock
     private AuthInternalClient authInternalClient;
 
     @Mock
@@ -92,6 +96,7 @@ class ClassSessionServiceTest {
                 enrollmentRepository,
                 barrageSseEmitter,
                 liveKitTokenService,
+                liveKitRoomService,
                 authInternalClient,
                 classSeatSyncTokenService,
                 seatSyncWebSocketHub
@@ -412,8 +417,11 @@ class ClassSessionServiceTest {
         UUID sessionId = UUID.randomUUID();
         UUID studentId = UUID.randomUUID();
         ClassSession session = session(sessionId, Instant.now());
+        session.setLiveStatus(ClassLiveStatus.LIVE.getCode());
         when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
-        when(classParticipantRepository.existsBySessionIdAndUserId(sessionId, studentId)).thenReturn(false);
+        when(enrollmentRepository.findByCourseIdAndStudentId(session.getCourseId(), studentId))
+                .thenReturn(Optional.of(enrollment(studentId, EnrollmentStatus.ACTIVE.getCode())));
+        when(classParticipantRepository.findBySessionIdAndUserId(sessionId, studentId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> classSessionService.createLiveToken(sessionId, studentId, 1))
                 .isInstanceOf(BusinessException.class);
@@ -421,16 +429,57 @@ class ClassSessionServiceTest {
     }
 
     @Test
-    void createLiveToken_shouldReturnTokenForJoinedUser() {
+    void createLiveToken_shouldReturnSubscribeTokenForSeatedStudent() {
         UUID sessionId = UUID.randomUUID();
         UUID studentId = UUID.randomUUID();
         ClassSession session = session(sessionId, Instant.now());
+        session.setLiveStatus(ClassLiveStatus.LIVE.getCode());
+        ClassParticipant participant = participant(sessionId, studentId, 4);
         LiveKitTokenVO token = new LiveKitTokenVO("wss://live.test", session.getLiveRoomName(), "token", Instant.now().plusSeconds(60));
         when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
-        when(classParticipantRepository.existsBySessionIdAndUserId(sessionId, studentId)).thenReturn(true);
+        when(enrollmentRepository.findByCourseIdAndStudentId(session.getCourseId(), studentId))
+                .thenReturn(Optional.of(enrollment(studentId, EnrollmentStatus.ACTIVE.getCode())));
+        when(classParticipantRepository.findBySessionIdAndUserId(sessionId, studentId)).thenReturn(Optional.of(participant));
         when(liveKitTokenService.createToken(studentId, session.getLiveRoomName(), false)).thenReturn(token);
 
         assertThat(classSessionService.createLiveToken(sessionId, studentId, 1)).isSameAs(token);
+    }
+
+    @Test
+    void startLive_shouldSetLiveStatus_whenClassOngoing() {
+        UUID sessionId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        ClassSession session = session(sessionId, Instant.now());
+        session.setTeacherId(teacherId);
+        when(classSessionRepository.findByIdForUpdate(sessionId)).thenReturn(Optional.of(session));
+        when(courseTeacherRepository.existsByCourseIdAndTeacherId(session.getCourseId(), teacherId)).thenReturn(true);
+        when(classParticipantRepository.findBySessionIdAndUserId(sessionId, teacherId)).thenReturn(Optional.empty());
+
+        var result = classSessionService.startLive(sessionId, teacherId, 2);
+
+        assertThat(result.liveStatus()).isEqualTo(ClassLiveStatus.LIVE.getCode());
+        verify(classSessionRepository).update(sessionCaptor.capture());
+        assertThat(sessionCaptor.getValue().getLiveStartedAt()).isNotNull();
+        verify(seatSyncWebSocketHub).broadcastLiveStatus(eq(sessionId), any(), eq("live_started"));
+    }
+
+    @Test
+    void pauseResumeStopLive_shouldMoveBetweenLiveStates() {
+        UUID sessionId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        ClassSession session = session(sessionId, Instant.now());
+        session.setTeacherId(teacherId);
+        session.setLiveStatus(ClassLiveStatus.LIVE.getCode());
+        when(classSessionRepository.findByIdForUpdate(sessionId)).thenReturn(Optional.of(session));
+        when(courseTeacherRepository.existsByCourseIdAndTeacherId(session.getCourseId(), teacherId)).thenReturn(true);
+
+        assertThat(classSessionService.pauseLive(sessionId, teacherId, 2).liveStatus())
+                .isEqualTo(ClassLiveStatus.PAUSED.getCode());
+        assertThat(classSessionService.resumeLive(sessionId, teacherId, 2).liveStatus())
+                .isEqualTo(ClassLiveStatus.LIVE.getCode());
+        assertThat(classSessionService.stopLive(sessionId, teacherId, 2).liveStatus())
+                .isEqualTo(ClassLiveStatus.ENDED.getCode());
+        verify(liveKitRoomService).deleteRoom(session.getLiveRoomName());
     }
 
     @Test
@@ -439,7 +488,9 @@ class ClassSessionServiceTest {
         UUID studentId = UUID.randomUUID();
         ClassSession session = session(sessionId, Instant.now());
         when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
-        when(classParticipantRepository.existsBySessionIdAndUserId(sessionId, studentId)).thenReturn(false);
+        when(enrollmentRepository.findByCourseIdAndStudentId(session.getCourseId(), studentId))
+                .thenReturn(Optional.of(enrollment(studentId, EnrollmentStatus.ACTIVE.getCode())));
+        when(classParticipantRepository.findBySessionIdAndUserId(sessionId, studentId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> classSessionService.sendBarrage(sessionId,
                 new CreateClassBarrageRequest("hello"), studentId, 1))
@@ -451,8 +502,11 @@ class ClassSessionServiceTest {
         UUID sessionId = UUID.randomUUID();
         UUID studentId = UUID.randomUUID();
         ClassSession session = session(sessionId, Instant.now());
+        ClassParticipant participant = participant(sessionId, studentId, 3);
         when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
-        when(classParticipantRepository.existsBySessionIdAndUserId(sessionId, studentId)).thenReturn(true);
+        when(enrollmentRepository.findByCourseIdAndStudentId(session.getCourseId(), studentId))
+                .thenReturn(Optional.of(enrollment(studentId, EnrollmentStatus.ACTIVE.getCode())));
+        when(classParticipantRepository.findBySessionIdAndUserId(sessionId, studentId)).thenReturn(Optional.of(participant));
 
         classSessionService.sendBarrage(sessionId, new CreateClassBarrageRequest(" hello "), studentId, 1);
 
@@ -474,11 +528,12 @@ class ClassSessionServiceTest {
         session.setCourseId(UUID.randomUUID());
         session.setTeacherId(UUID.randomUUID());
         session.setTitle("Intro");
-        session.setScheduledStartAt(Instant.now().plusSeconds(3600));
-        session.setScheduledEndAt(Instant.now().plusSeconds(7200));
+        session.setScheduledStartAt(Instant.now().minusSeconds(60));
+        session.setScheduledEndAt(Instant.now().plusSeconds(3600));
         session.setPublishedAt(publishedAt);
         session.setRoomSize(0);
         session.setLiveRoomName("class-session-" + sessionId);
+        session.setLiveStatus(ClassLiveStatus.NOT_STARTED.getCode());
         session.setCreatedAt(Instant.now());
         session.setUpdatedAt(Instant.now());
         return session;

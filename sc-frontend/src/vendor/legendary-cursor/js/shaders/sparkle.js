@@ -48,7 +48,7 @@ void main() {
     // star texture mix
     a *= texture2D(uTexture3, gl_PointCoord).a;
 
-    gl_FragColor = vec4(col * 1.3, a);
+    gl_FragColor = vec4(col * 1.55, a);
 }
 `;
 

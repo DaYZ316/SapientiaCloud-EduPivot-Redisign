@@ -16,7 +16,6 @@
 </template>
 
 <script lang="ts" setup>
-import {onMounted, onUnmounted} from 'vue'
 import {useRouter} from 'vue-router'
 import {ClipboardList, X} from 'lucide-vue-next'
 
@@ -24,10 +23,7 @@ import {useLivePracticeEvents} from '@/features/live-practice/composables/useLiv
 import type {LivePracticeEvent} from '@/features/live-practice/types/livePractice'
 
 const router = useRouter()
-const {events, start, stop, dismiss} = useLivePracticeEvents()
-
-onMounted(start)
-onUnmounted(stop)
+const {events, dismiss} = useLivePracticeEvents()
 
 async function openPractice(event: LivePracticeEvent) {
   dismiss(event.groupId)

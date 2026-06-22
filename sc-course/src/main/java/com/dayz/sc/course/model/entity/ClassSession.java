@@ -48,6 +48,18 @@ public class ClassSession {
     @TableField("live_room_name")
     private String liveRoomName;
 
+    @TableField("live_status")
+    private Integer liveStatus;
+
+    @TableField("live_started_at")
+    private Instant liveStartedAt;
+
+    @TableField("live_paused_at")
+    private Instant livePausedAt;
+
+    @TableField("live_ended_at")
+    private Instant liveEndedAt;
+
     @TableField(fill = FieldFill.INSERT)
     private Instant createdAt;
 

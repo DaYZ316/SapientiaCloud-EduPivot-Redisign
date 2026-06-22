@@ -100,7 +100,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   finishCenterTransition()
   window.removeEventListener('resize', handleResize)
-  LegendaryCursor.destroy()
+  LegendaryCursor.pause()
 })
 
 function handleClick(event: MouseEvent) {

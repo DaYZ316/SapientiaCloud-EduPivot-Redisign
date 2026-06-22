@@ -11,7 +11,10 @@ import {watch} from 'vue'
 import {RouterView} from 'vue-router'
 
 import {useAuthStore} from '@/features/auth/stores/auth'
+import {useLivePracticeEvents} from '@/features/live-practice/composables/useLivePracticeEvents'
 import {useUiPreferencesStore} from '@/features/settings/stores/uiPreferences'
+import {useUnreadCount} from '@/shared/composables/useUnreadCount'
+import {closeAllSseConnections} from '@/shared/api/sseManager'
 import GlobalConfirmDialog from '@/shared/components/GlobalConfirmDialog.vue'
 import GlobalNotification from '@/shared/components/GlobalNotification.vue'
 import SessionExpiredDialog from '@/shared/components/SessionExpiredDialog.vue'
@@ -19,6 +22,8 @@ import LivePracticePopup from '@/features/live-practice/components/LivePracticeP
 
 const authStore = useAuthStore()
 const uiPreferences = useUiPreferencesStore()
+const unreadCount = useUnreadCount()
+const livePracticeEvents = useLivePracticeEvents()
 
 uiPreferences.initializeTheme()
 
@@ -28,6 +33,22 @@ watch(
       if (theme) {
         uiPreferences.setThemePreference(theme)
       }
+    },
+    {immediate: true},
+)
+
+watch(
+    () => authStore.isAuthenticated,
+    (isAuthenticated) => {
+      if (isAuthenticated) {
+        unreadCount.start()
+        livePracticeEvents.start()
+        return
+      }
+
+      unreadCount.stop()
+      livePracticeEvents.stop()
+      closeAllSseConnections()
     },
     {immediate: true},
 )

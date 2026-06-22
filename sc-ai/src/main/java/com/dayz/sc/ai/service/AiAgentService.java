@@ -41,6 +41,15 @@ public class AiAgentService {
                                        Integer role,
                                        Consumer<GenerationStageEvent> stageListener,
                                        Consumer<AgentSearchEvent> agentSearchListener) {
+        return runGeneration(request, userId, role, stageListener, agentSearchListener, null);
+    }
+
+    public AiAgentResult runGeneration(ChatRequest request,
+                                       UUID userId,
+                                       Integer role,
+                                       Consumer<GenerationStageEvent> stageListener,
+                                       Consumer<AgentSearchEvent> agentSearchListener,
+                                       String requestId) {
         AiAgentMode mode = AiAgentMode.resolve(request.agentMode(), request.message());
         AiCourseContext context = platformDataTool.loadCourseContext(request.courseId());
         return switch (mode) {
@@ -52,7 +61,8 @@ public class AiAgentService {
                     role,
                     request.courseId(),
                     stageListener,
-                    agentSearchListener);
+                    agentSearchListener,
+                    requestId);
             case PAPER -> questionGenerationService.generatePaper(
                     request.message(),
                     request.generation(),
@@ -61,7 +71,8 @@ public class AiAgentService {
                     role,
                     request.courseId(),
                     stageListener,
-                    agentSearchListener);
+                    agentSearchListener,
+                    requestId);
             case CHAT -> chat(request, context);
         };
     }

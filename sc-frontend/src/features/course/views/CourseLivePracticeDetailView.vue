@@ -168,7 +168,10 @@
 
             <section class="preview-section">
               <h4>{{ t('courseDetail.livePractice.stem') }}</h4>
-              <p>{{ selectedQuestion.questionContent || selectedQuestion.questionTitle }}</p>
+              <RichMathContent
+                :content="selectedQuestion.questionContent || selectedQuestion.questionTitle"
+                class="question-content rich-content"
+              />
             </section>
 
             <section
@@ -187,7 +190,10 @@
                   class="option-row"
                 >
                   <span class="option-label">{{ option.optionLabel }}</span>
-                  <span>{{ option.optionContent }}</span>
+                  <RichMathContent
+                    :content="option.optionContent"
+                    class="option-content rich-content"
+                  />
                   <strong v-if="canManageCourse && option.isCorrect === 1">{{ t('courseDetail.livePractice.correct') }}</strong>
                   <strong v-else-if="isSelectedOption(option.id)">{{ t('courseDetail.livePractice.selected') }}</strong>
                 </div>
@@ -274,13 +280,12 @@
             >
               <h4>{{ t('courseDetail.livePractice.referenceAnswers') }}</h4>
               <div class="answer-list">
-                <div
+                <RichMathContent
                   v-for="answer in answerItems"
                   :key="answer"
+                  :content="answer"
                   class="answer-row"
-                >
-                  {{ answer }}
-                </div>
+                />
               </div>
             </section>
 
@@ -304,20 +309,18 @@
                   v-if="selectedOptionItems.length"
                   class="answer-list"
                 >
-                  <div
+                  <RichMathContent
                     v-for="option in selectedOptionItems"
                     :key="option"
+                    :content="option"
                     class="answer-row"
-                  >
-                    {{ option }}
-                  </div>
+                  />
                 </div>
-                <p
+                <RichMathContent
                   v-if="selectedQuestion.mySubmission.textAnswer"
+                  :content="selectedQuestion.mySubmission.textAnswer"
                   class="text-answer"
-                >
-                  {{ selectedQuestion.mySubmission.textAnswer }}
-                </p>
+                />
               </div>
               <p
                 v-else
@@ -356,6 +359,7 @@ import {useAuthStore} from '@/features/auth/stores/auth'
 import type {ClassSession} from '@/features/course/types/classSession'
 import type {CourseDetail} from '@/features/course/types/course'
 import type {LivePracticeGroup} from '@/features/live-practice/types/livePractice'
+import RichMathContent from '@/shared/components/RichMathContent.vue'
 
 const {t, locale} = useI18n()
 const route = useRoute()
@@ -798,6 +802,25 @@ function isSelectedOption(optionId: string) {
   line-height: 1.65;
 }
 
+.rich-content {
+  max-width: none;
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.question-content.rich-content {
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.rich-content :deep(p),
+.answer-row :deep(p),
+.text-answer :deep(p) {
+  margin: 0;
+}
+
 .option-list,
 .answer-list {
   display: grid;
@@ -815,6 +838,11 @@ function isSelectedOption(optionId: string) {
   border: 1px solid var(--color-outline-light);
   color: var(--color-on-surface-variant);
   font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.option-content.rich-content {
   font-size: 14px;
   line-height: 1.5;
 }
@@ -887,6 +915,17 @@ function isSelectedOption(optionId: string) {
   border: 1px solid var(--color-outline-light);
   color: var(--color-on-surface-variant);
   font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.answer-row {
+  max-width: none;
+  margin: 0;
+}
+
+.answer-row.rich-math-content,
+.text-answer.rich-math-content {
   font-size: 13px;
   line-height: 1.4;
 }

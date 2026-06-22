@@ -25,6 +25,7 @@
         @exit="exitClassroom"
         @loading-progress="handleClassroomProgress"
         @load-error="handleClassroomLoadError"
+        @live-status-change="handleLiveStatusChange"
         @participants-change="handleParticipantsChange"
         @ready="handleClassroomReady"
     />
@@ -46,6 +47,10 @@
       <button v-if="canUseLivePracticePanel" class="floating-action" type="button" @click="openLivePracticePanel">
         <ClipboardList :size="18" stroke-width="1.8"/>
         {{ canManageSessionCourse ? '发布练习' : '随堂练习' }}
+      </button>
+      <button class="floating-action" type="button" @click="openClassroomLivePanel">
+        <Video :size="18" stroke-width="1.8"/>
+        课堂直播
       </button>
     </div>
 
@@ -75,6 +80,15 @@
         @close="closeAiSummaryPanel"
     />
 
+    <ClassroomLivePanel
+        v-if="session?.publishedAt && showClassroomLivePanel"
+        :can-participate="canUseClassroomLive"
+        :is-teacher="canManageSessionCourse"
+        :session="session"
+        @close="closeClassroomLivePanel"
+        @session-change="applySessionUpdate"
+    />
+
     <CourseEntryTransition
         v-if="showEntryTransition"
         :label="classroomProgressLabel"
@@ -87,17 +101,19 @@
 import {computed, defineAsyncComponent, onMounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
-import {BookOpen, CircleAlert, ClipboardList, Sparkles, Users} from 'lucide-vue-next'
+import {BookOpen, CircleAlert, ClipboardList, Sparkles, Users, Video} from 'lucide-vue-next'
 
 import {getClassSession} from '@/features/course/api/classSession'
 import {getCourse} from '@/features/course/api/course'
 import type {ClassParticipant, ClassSession} from '@/features/course/types/classSession'
+import type {SeatSyncMessage} from '@/features/classroom/types/classroom'
 import type {CourseDetail} from '@/features/course/types/course'
 import CourseEntryTransition from '@/features/course/components/CourseEntryTransition.vue'
 import {useAuthStore} from '@/features/auth/stores/auth'
 
 const AiLiveSummaryPanel = defineAsyncComponent(() => import('@/features/ai/components/AiLiveSummaryPanel.vue'))
 const Classroom3D = defineAsyncComponent(() => import('@/features/classroom/components/Classroom3D.vue'))
+const ClassroomLivePanel = defineAsyncComponent(() => import('@/features/classroom/components/ClassroomLivePanel.vue'))
 const ChapterPreviewPanel = defineAsyncComponent(() => import('@/features/classroom/components/ChapterPreviewPanel.vue'))
 const LivePracticePanel = defineAsyncComponent(() => import('@/features/live-practice/components/LivePracticePanel.vue'))
 const SeatedStudentsPanel = defineAsyncComponent(() => import('@/features/classroom/components/SeatedStudentsPanel.vue'))
@@ -121,6 +137,7 @@ const showLivePracticePanel = ref(false)
 const showChapterPreviewPanel = ref(false)
 const showSeatedStudentsPanel = ref(false)
 const showAiSummaryPanel = ref(false)
+const showClassroomLivePanel = ref(false)
 const initialPracticeGroupId = ref<string | null>(null)
 const seatedParticipants = ref<ClassParticipant[]>([])
 const showEntryTransition = computed(() =>
@@ -136,6 +153,12 @@ const canManageSessionCourse = computed(() => {
   return course.value.teacherId === userId || Boolean(course.value.teacherIds?.includes(userId))
 })
 const canUseLivePracticePanel = computed(() => !isTeacher.value || canManageSessionCourse.value)
+const currentUserSeated = computed(() => {
+  const userId = authStore.user?.id
+  if (!userId) return false
+  return seatedParticipants.value.some(participant => participant.userId === userId && participant.seatIndex != null)
+})
+const canUseClassroomLive = computed(() => canManageSessionCourse.value || currentUserSeated.value)
 
 onMounted(() => {
   void loadSession()
@@ -190,6 +213,10 @@ function markLeft() {
   }
 }
 
+function applySessionUpdate(nextSession: ClassSession) {
+  session.value = nextSession
+}
+
 function handleClassroomReady() {
   classroomProgress.value = 100
   classroomProgressLabel.value = '\u5373\u5c06\u8fdb\u5165\u6559\u5ba4'
@@ -235,15 +262,39 @@ function closeAiSummaryPanel() {
   showAiSummaryPanel.value = false
 }
 
+function openClassroomLivePanel() {
+  closeSidePanels()
+  showClassroomLivePanel.value = true
+}
+
+function closeClassroomLivePanel() {
+  showClassroomLivePanel.value = false
+}
+
 function closeSidePanels() {
   closeLivePracticePanel()
   closeChapterPreviewPanel()
   closeSeatedStudentsPanel()
   closeAiSummaryPanel()
+  closeClassroomLivePanel()
 }
 
 function handleParticipantsChange(participants: ClassParticipant[]) {
   seatedParticipants.value = participants
+}
+
+function handleLiveStatusChange(message: SeatSyncMessage) {
+  if (!session.value || message.sessionId !== session.value.id || message.liveStatus == null) {
+    return
+  }
+  session.value = {
+    ...session.value,
+    liveStatus: message.liveStatus,
+    liveStatusText: message.liveStatusText ?? session.value.liveStatusText,
+    liveStartedAt: message.liveStartedAt ?? session.value.liveStartedAt,
+    livePausedAt: message.livePausedAt ?? null,
+    liveEndedAt: message.liveEndedAt ?? session.value.liveEndedAt,
+  }
 }
 
 function handleClassroomLoadError() {

@@ -2,6 +2,7 @@ import {describe, expect, it} from 'vitest'
 import {mount} from '@vue/test-utils'
 
 import AiMarkdownMessage from '@/features/ai/components/AiMarkdownMessage.vue'
+import RichMathContent from '@/shared/components/RichMathContent.vue'
 import {renderAiMarkdown} from '@/features/ai/components/aiMarkdownRenderer'
 
 async function mountRenderedMessage(content: string) {
@@ -51,6 +52,22 @@ describe('renderAiMarkdown', () => {
 
     expect(wrapper.find('.katex-display').exists()).toBe(true)
     expect(wrapper.text()).toContain('E')
+  })
+
+  it('renders escaped inline and display delimiters', async () => {
+    const wrapper = await mountRenderedMessage('速度是 \\(v = \\frac{s}{t}\\)\n\n\\[\nF = ma\n\\]')
+
+    expect(wrapper.find('.katex-display').exists()).toBe(true)
+    expect(wrapper.findAll('.katex').length).toBeGreaterThanOrEqual(2)
+    expect(wrapper.html()).toContain('mfrac')
+  })
+
+  it('keeps display dollar delimiters before inline dollar delimiters', async () => {
+    const wrapper = await mountRenderedMessage('$$x+y=z$$，其中 $z$ 是结果。')
+
+    expect(wrapper.find('.katex-display').exists()).toBe(true)
+    expect(wrapper.findAll('.katex').length).toBeGreaterThanOrEqual(2)
+    expect(wrapper.find('.katex-error').exists()).toBe(false)
   })
 
   it('renders block math when the opening delimiter shares the formula line', async () => {
@@ -110,6 +127,24 @@ describe('renderAiMarkdown', () => {
     expect(wrapper.find('annotation[encoding="application/x-tex"]').text()).toContain('\\begin{aligned}')
   })
 
+  it('keeps multiline aligned formulas with text labels valid', async () => {
+    const wrapper = await mountRenderedMessage(
+      '$$\n' +
+        '\\begin{aligned}\n' +
+        '&\\nabla \\cdot \\mathbf{E} = 0 &\\text{（高斯定律，真空无净电荷）} \\\\\n' +
+        '&\\nabla \\cdot \\mathbf{B} = 0 &\\text{（高斯磁定律，磁单极子不存在）} \\\\\n' +
+        '&\\nabla \\times \\mathbf{E} = -\\frac{\\partial \\mathbf{B}}{\\partial t} &\\text{（法拉第电磁感应定律）} \\\\\n' +
+        '&\\nabla \\times \\mathbf{B} = \\mu_0 \\varepsilon_0 \\frac{\\partial \\mathbf{E}}{\\partial t} &\\text{（安培-麦克斯韦定律，含位移电流项）}\n' +
+        '\\end{aligned}\n' +
+        '$$',
+    )
+
+    expect(wrapper.find('.katex-error').exists()).toBe(false)
+    expect(wrapper.html()).toContain('mtable')
+    expect(wrapper.text()).toContain('高斯定律')
+    expect(wrapper.text()).toContain('安培')
+  })
+
   it('renders mhchem formulas', async () => {
     const wrapper = await mountRenderedMessage('$$\n\\ce{2H2 + O2 -> 2H2O}\n$$')
 
@@ -148,9 +183,32 @@ describe('renderAiMarkdown', () => {
         '$\\nabla \\times \\mathbf{E}=-\\frac{\\partial \\mathbf{B}}{\\partial t}$ （法拉第定律）',
     )
 
+    expect(wrapper.find('.formula-row-list').exists()).toBe(true)
+    expect(wrapper.findAll('.formula-row')).toHaveLength(3)
+    expect(wrapper.findAll('.katex')).toHaveLength(3)
+  })
+
+  it('keeps equation snippets inline when joined by narrative words', async () => {
+    const wrapper = await mountRenderedMessage('解为 $x=1$，且 $y=2$。')
+
     expect(wrapper.find('.formula-row-list').exists()).toBe(false)
     expect(wrapper.findAll('.formula-row')).toHaveLength(0)
-    expect(wrapper.findAll('.katex')).toHaveLength(3)
+    expect(wrapper.findAll('.katex')).toHaveLength(2)
+  })
+
+  it('splits single-line aligned formula lists into separate display rows', async () => {
+    const wrapper = await mountRenderedMessage(
+      '$$\\begin{aligned}' +
+        '&\\nabla \\cdot \\mathbf{E}=0 &\\text{（高斯定律，真空无净电荷）}\\quad ' +
+        '&\\nabla \\cdot \\mathbf{B}=0 &\\text{（高斯磁定律，磁单极子不存在）}\\quad ' +
+        '&\\nabla \\times \\mathbf{E}=-\\frac{\\partial \\mathbf{B}}{\\partial t} &\\text{（法拉第定律）}' +
+        '\\end{aligned}$$',
+    )
+
+    expect(wrapper.find('.katex-error').exists()).toBe(false)
+    expect(wrapper.html()).toContain('mtable')
+    expect(wrapper.text()).toContain('高斯定律')
+    expect(wrapper.text()).toContain('法拉第')
   })
 
   it('sanitizes unsafe html', () => {
@@ -186,5 +244,18 @@ describe('renderAiMarkdown', () => {
 
     expect(wrapper.find('.katex').exists()).toBe(true)
     expect(wrapper.findAll('.katex').length).toBe(1)
+  })
+
+  it('renders persisted question fields through the shared rich math component', async () => {
+    const wrapper = mount(RichMathContent, {
+      props: {
+        content: '题干：$a^2+b^2=c^2$\n\n答案：$c=\\sqrt{a^2+b^2}$',
+      },
+    })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('.katex')).toHaveLength(2)
+    expect(wrapper.text()).toContain('题干')
+    expect(wrapper.text()).toContain('答案')
   })
 })

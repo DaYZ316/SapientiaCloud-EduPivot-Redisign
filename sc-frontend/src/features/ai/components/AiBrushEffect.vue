@@ -57,7 +57,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', updateBrushCenter)
   resizeObserver?.disconnect()
   initialized = false
-  LegendaryCursor.destroy()
+  LegendaryCursor.pause()
 })
 
 watch(() => [props.centerX, props.centerY], updateBrushCenter)

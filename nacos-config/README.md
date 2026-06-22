@@ -177,3 +177,4 @@ NACOS_SERVER_ADDR=nacos:8848
 - 生产环境不建议在 Nacos 中明文保存真实密钥。
 - 真实密钥优先通过环境变量、密钥管理平台或部署平台注入。
 - 数据库、Redis 和认证密钥配置建议关闭热刷新。
+- 课堂直播使用 Docker 自部署 LiveKit；`LIVEKIT_URL` 面向浏览器，`LIVEKIT_SERVER_URL` 面向后端容器，部署细节见 `docs/livekit-docker-deployment.md`。

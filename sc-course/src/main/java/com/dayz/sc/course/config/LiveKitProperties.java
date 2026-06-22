@@ -18,6 +18,7 @@ import java.time.Duration;
 public class LiveKitProperties {
 
     private String url;
+    private String serverUrl;
     private String apiKey;
     private String apiSecret;
     private Duration tokenTtl = Duration.ofHours(2);

@@ -22,7 +22,11 @@
         </div>
 
         <h3 class="question-title">{{ currentQuestion.questionTitle }}</h3>
-        <p v-if="currentQuestion.questionContent" class="question-content">{{ currentQuestion.questionContent }}</p>
+        <RichMathContent
+          v-if="currentQuestion.questionContent"
+          :content="currentQuestion.questionContent"
+          class="question-content rich-content"
+        />
 
         <div v-if="currentQuestion.questionType <= 2" class="options-list">
           <label
@@ -51,7 +55,10 @@
                 type="radio"
             />
             <span class="option-label">{{ option.optionLabel }}</span>
-            <span class="option-content">{{ option.optionContent }}</span>
+            <RichMathContent
+              :content="option.optionContent"
+              class="option-content rich-content"
+            />
             <Check v-if="showFeedback && option.isCorrect === 1" :size="16" class="check-icon"/>
           </label>
         </div>
@@ -72,7 +79,11 @@
               :key="option.id"
               class="explanation-item"
           >
-            <span class="option-label">{{ option.optionLabel }}</span>: {{ option.explanation }}
+            <span class="option-label">{{ option.optionLabel }}</span>
+            <RichMathContent
+              :content="option.explanation || ''"
+              class="explanation-content rich-content"
+            />
           </div>
         </div>
 
@@ -120,6 +131,7 @@ import type {PracticeSession} from '@/features/question-bank/types/practiceSessi
 import {notify} from '@/shared/composables/useGlobalNotification'
 import PracticeProgress from '@/features/question-bank/components/PracticeProgress.vue'
 import PracticeResult from '@/features/question-bank/components/PracticeResult.vue'
+import RichMathContent from '@/shared/components/RichMathContent.vue'
 
 const {t} = useI18n()
 const route = useRoute()
@@ -323,6 +335,21 @@ function handleBack() {
   line-height: 1.6;
 }
 
+.rich-content {
+  max-width: none;
+  margin: 0;
+}
+
+.question-content.rich-content {
+  color: var(--color-muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.rich-content :deep(p) {
+  margin: 0;
+}
+
 .options-list {
   display: flex;
   flex-direction: column;
@@ -375,6 +402,11 @@ function handleBack() {
   flex: 1;
 }
 
+.option-content.rich-content {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .check-icon {
   color: #22c55e;
   flex-shrink: 0;
@@ -407,9 +439,17 @@ function handleBack() {
 }
 
 .explanation-item {
+  display: flex;
+  gap: 6px;
   font-family: var(--font-body);
   font-size: 13px;
   color: var(--color-muted);
+}
+
+.explanation-content.rich-content {
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .practice-actions {

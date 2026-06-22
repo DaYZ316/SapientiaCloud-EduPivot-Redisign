@@ -738,7 +738,7 @@ function handleSseNotification(payload: SsePayload) {
 
 onMounted(() => {
   loadNotifications()
-  eventSource = subscribeNotifications(handleSseNotification)
+  eventSource = subscribeNotifications(handleSseNotification, loadNotifications)
 })
 
 onUnmounted(() => {

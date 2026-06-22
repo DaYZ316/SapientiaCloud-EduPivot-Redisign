@@ -1,16 +1,30 @@
 import {fetchEventSource} from '@microsoft/fetch-event-source'
 
-import {ACCESS_TOKEN_KEY, refreshSession, request} from '@/shared/api/request'
+import {ACCESS_TOKEN_KEY, http, refreshSession, request} from '@/shared/api/request'
 import type {
   AgentSearchEvent,
   AiChatContextInfo,
   ChatRequest,
   Conversation,
+  GenerationResultEvent,
+  GenerationStageEvent,
   IngestDocumentRequest,
   ChatMessage,
   KnowledgeDoc,
   UpdateConversationRequest,
 } from '@/features/ai/types/ai'
+
+export type GeneratedArtifactExportFormat = 'pdf' | 'docx'
+
+export interface GeneratedArtifactExportOptions {
+  format: GeneratedArtifactExportFormat
+  includeAnswers?: boolean
+}
+
+export interface GeneratedArtifactExportResult {
+  blob: Blob
+  filename: string
+}
 
 class UnauthorizedSseError extends Error {
   constructor() {
@@ -49,6 +63,29 @@ export function deleteConversation(conversationId: string) {
   })
 }
 
+export async function exportGeneratedArtifact(
+  conversationId: string,
+  messageId: string,
+  options: GeneratedArtifactExportOptions,
+): Promise<GeneratedArtifactExportResult> {
+  const response = await http.request<Blob>({
+    method: 'GET',
+    url: `/api/ai/conversations/${conversationId}/messages/${messageId}/export`,
+    params: {
+      format: options.format,
+      includeAnswers: options.includeAnswers ?? false,
+    },
+    responseType: 'blob',
+  })
+
+  return {
+    blob: response.data,
+    filename: filenameFromContentDisposition(
+      headerValue(response.headers, 'content-disposition'),
+    ) || `generated-artifact.${options.format}`,
+  }
+}
+
 export function ingestKnowledgeDoc(data: IngestDocumentRequest) {
   return request<string>({
     method: 'POST',
@@ -77,6 +114,8 @@ export async function streamChat(
   handlers: {
     onChunk: (chunk: string) => void
     onAgentSearch?: (event: AgentSearchEvent) => void
+    onGenerationStage?: (event: GenerationStageEvent) => void
+    onGenerationResult?: (event: GenerationResultEvent) => void
     onContext?: (context: AiChatContextInfo) => void
     onConversation?: (conversation: Pick<Conversation, 'id' | 'title'>) => void
     onError?: (error: Error) => void
@@ -99,6 +138,8 @@ async function connectChatStream(
   handlers: {
     onChunk: (chunk: string) => void
     onAgentSearch?: (event: AgentSearchEvent) => void
+    onGenerationStage?: (event: GenerationStageEvent) => void
+    onGenerationResult?: (event: GenerationResultEvent) => void
     onContext?: (context: AiChatContextInfo) => void
     onConversation?: (conversation: Pick<Conversation, 'id' | 'title'>) => void
     onError?: (error: Error) => void
@@ -110,7 +151,7 @@ async function connectChatStream(
     throw new UnauthorizedSseError()
   }
 
-  await fetchEventSource('/api/ai/chat', {
+  await fetchEventSource(apiUrl('/api/ai/chat'), {
     method: 'POST',
     headers: {
       Accept: 'text/event-stream',
@@ -131,6 +172,10 @@ async function connectChatStream(
         handlers.onContext?.(JSON.parse(event.data) as AiChatContextInfo)
       } else if (event.event === 'agent_search') {
         handlers.onAgentSearch?.(JSON.parse(event.data) as AgentSearchEvent)
+      } else if (event.event === 'generation_stage') {
+        handlers.onGenerationStage?.(JSON.parse(event.data) as GenerationStageEvent)
+      } else if (event.event === 'generation_result') {
+        handlers.onGenerationResult?.(JSON.parse(event.data) as GenerationResultEvent)
       } else if (event.event === 'error') {
         throw new Error(event.data)
       } else if (!event.event || event.event === 'chunk') {
@@ -158,6 +203,34 @@ async function connectChatStream(
       throw normalizedError
     },
   })
+}
+
+function apiUrl(path: string) {
+  const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+  return `${baseUrl}${path}`
+}
+
+function headerValue(headers: unknown, name: string) {
+  const getter = (headers as { get?: (key: string) => unknown } | null)?.get
+  if (typeof getter === 'function') {
+    return String(getter.call(headers, name) ?? '')
+  }
+
+  const values = headers as Record<string, unknown> | null
+  return String(values?.[name] ?? values?.[name.toLowerCase()] ?? '')
+}
+
+function filenameFromContentDisposition(value: string) {
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(value)?.[1]
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded.replace(/^"|"$/g, ''))
+    } catch {
+      return encoded
+    }
+  }
+
+  return /filename="?([^";]+)"?/i.exec(value)?.[1] || ''
 }
 
 async function readStreamError(response: Response) {

@@ -3,6 +3,8 @@ package com.dayz.sc.ai.config;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.apache.ibatis.type.BaseTypeHandler;
 import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.MappedJdbcTypes;
@@ -17,7 +19,10 @@ import java.util.Map;
 @MappedJdbcTypes(JdbcType.OTHER)
 public class PostgresJsonbMapTypeHandler extends BaseTypeHandler<Map<String, Object>> {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder()
+            .findAndAddModules()
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+            .build();
     private static final TypeReference<Map<String, Object>> VALUE_TYPE = new TypeReference<>() {
     };
 

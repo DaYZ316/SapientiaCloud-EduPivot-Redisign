@@ -80,6 +80,7 @@ export interface CreateQuestionRequest {
     score?: number
     estimatedTime?: number
     tags?: string[]
+    imageUrls?: string[]
     allowPartialCredit?: number
     options?: CreateOptionRequest[]
     answers?: CreateAnswerRequest[]
@@ -93,6 +94,7 @@ export interface UpdateQuestionRequest {
     score?: number
     estimatedTime?: number
     tags?: string[]
+    imageUrls?: string[]
     allowPartialCredit?: number
     options?: CreateOptionRequest[]
     answers?: CreateAnswerRequest[]
@@ -103,6 +105,7 @@ export interface CreateOptionRequest {
     optionLabel: string
     isCorrect: number
     score?: number
+    imageUrls?: string[]
     explanation?: string
 }
 

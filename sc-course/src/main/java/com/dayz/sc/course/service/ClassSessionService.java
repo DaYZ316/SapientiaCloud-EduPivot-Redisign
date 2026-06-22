@@ -15,6 +15,7 @@ import com.dayz.sc.course.model.dto.CreateClassSessionRequest;
 import com.dayz.sc.course.model.dto.JoinClassSessionRequest;
 import com.dayz.sc.course.model.dto.UpdateClassSessionRequest;
 import com.dayz.sc.course.model.entity.*;
+import com.dayz.sc.course.model.enums.ClassLiveStatus;
 import com.dayz.sc.course.model.enums.ClassParticipantRole;
 import com.dayz.sc.course.model.enums.ClassRoomSize;
 import com.dayz.sc.course.model.enums.ClassSessionStatus;
@@ -68,6 +69,7 @@ public class ClassSessionService {
     private final EnrollmentRepository enrollmentRepository;
     private final ClassBarrageSseEmitter barrageSseEmitter;
     private final LiveKitTokenService liveKitTokenService;
+    private final LiveKitRoomService liveKitRoomService;
     private final AuthInternalClient authInternalClient;
     private final ClassSeatSyncTokenService classSeatSyncTokenService;
     private final ClassSeatSyncWebSocketHub seatSyncWebSocketHub;
@@ -93,6 +95,7 @@ public class ClassSessionService {
         session.setScheduledEndAt(request.scheduledEndAt());
         session.setRoomSize(request.roomSize());
         session.setLiveRoomName(roomName(session.getId()));
+        session.setLiveStatus(ClassLiveStatus.NOT_STARTED.getCode());
         classSessionRepository.save(session);
         return session.getId();
     }
@@ -245,27 +248,115 @@ public class ClassSessionService {
                 });
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    public ClassSessionVO startLive(UUID sessionId, UUID userId, Integer role) {
+        ClassSession session = classSessionRepository.findByIdForUpdate(sessionId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        requireSessionTeacher(session, userId, role);
+        liveKitTokenService.requireConfigured();
+        ensureClassOngoing(session);
+        if (liveStatus(session) != ClassLiveStatus.NOT_STARTED) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Live stream cannot be started from current status");
+        }
+
+        Instant now = Instant.now();
+        session.setLiveStatus(ClassLiveStatus.LIVE.getCode());
+        session.setLiveStartedAt(now);
+        session.setLivePausedAt(null);
+        session.setLiveEndedAt(null);
+        classSessionRepository.update(session);
+        ensureParticipant(session, userId, ClassParticipantRole.TEACHER, null, ZERO, ZERO, ZERO);
+        ClassSessionVO vo = toSessionVO(session, true);
+        seatSyncWebSocketHub.broadcastLiveStatus(sessionId, vo, "live_started");
+        return vo;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public ClassSessionVO pauseLive(UUID sessionId, UUID userId, Integer role) {
+        ClassSession session = classSessionRepository.findByIdForUpdate(sessionId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        requireSessionTeacher(session, userId, role);
+        liveKitTokenService.requireConfigured();
+        if (liveStatus(session) != ClassLiveStatus.LIVE) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Only live streams can be paused");
+        }
+
+        session.setLiveStatus(ClassLiveStatus.PAUSED.getCode());
+        session.setLivePausedAt(Instant.now());
+        classSessionRepository.update(session);
+        ClassSessionVO vo = toSessionVO(session, joined(sessionId, userId));
+        seatSyncWebSocketHub.broadcastLiveStatus(sessionId, vo, "live_paused");
+        return vo;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public ClassSessionVO resumeLive(UUID sessionId, UUID userId, Integer role) {
+        ClassSession session = classSessionRepository.findByIdForUpdate(sessionId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        requireSessionTeacher(session, userId, role);
+        liveKitTokenService.requireConfigured();
+        ensureClassOngoing(session);
+        if (liveStatus(session) != ClassLiveStatus.PAUSED) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Only paused live streams can be resumed");
+        }
+
+        session.setLiveStatus(ClassLiveStatus.LIVE.getCode());
+        session.setLivePausedAt(null);
+        classSessionRepository.update(session);
+        ClassSessionVO vo = toSessionVO(session, joined(sessionId, userId));
+        seatSyncWebSocketHub.broadcastLiveStatus(sessionId, vo, "live_resumed");
+        return vo;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public ClassSessionVO stopLive(UUID sessionId, UUID userId, Integer role) {
+        ClassSession session = classSessionRepository.findByIdForUpdate(sessionId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        requireSessionTeacher(session, userId, role);
+        liveKitTokenService.requireConfigured();
+        ClassLiveStatus status = liveStatus(session);
+        if (status != ClassLiveStatus.LIVE && status != ClassLiveStatus.PAUSED) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Only active live streams can be stopped");
+        }
+
+        session.setLiveStatus(ClassLiveStatus.ENDED.getCode());
+        session.setLivePausedAt(null);
+        session.setLiveEndedAt(Instant.now());
+        classSessionRepository.update(session);
+        liveKitRoomService.deleteRoom(session.getLiveRoomName());
+        ClassSessionVO vo = toSessionVO(session, joined(sessionId, userId));
+        seatSyncWebSocketHub.broadcastLiveStatus(sessionId, vo, "live_stopped");
+        return vo;
+    }
+
     public LiveKitTokenVO createLiveToken(UUID sessionId, UUID userId, Integer role) {
         ClassSession session = classSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
-        ensurePublished(session);
-        if (isCourseTeacher(session.getCourseId(), userId, role)) {
+        ensureClassOngoing(session);
+        ClassLiveStatus liveStatus = liveStatus(session);
+        boolean isTeacher = isCourseTeacher(session.getCourseId(), userId, role);
+        if (isTeacher) {
+            if (liveStatus == ClassLiveStatus.ENDED) {
+                throw new BusinessException(ErrorCodes.BAD_REQUEST, "Live stream has ended");
+            }
             ensureParticipant(session, userId, ClassParticipantRole.TEACHER, null, ZERO, ZERO, ZERO);
+            return liveKitTokenService.createToken(userId, session.getLiveRoomName(), true);
         }
-        if (!joined(sessionId, userId)) {
-            throw new BusinessException(ErrorCodes.FORBIDDEN);
+        if (liveStatus != ClassLiveStatus.LIVE && liveStatus != ClassLiveStatus.PAUSED) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Live stream is not available");
         }
-        return liveKitTokenService.createToken(userId, session.getLiveRoomName(), isCourseTeacher(session.getCourseId(), userId, role));
+        requireStudentSeat(session, userId, role);
+        return liveKitTokenService.createToken(userId, session.getLiveRoomName(), false);
     }
 
     public SseEmitter streamBarrages(UUID sessionId, UUID userId, Integer role) {
-        requireJoinedPublishedSession(sessionId, userId, role);
+        requireClassroomInteractionAccess(sessionId, userId, role);
         return barrageSseEmitter.createEmitter(sessionId);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public ClassBarrageVO sendBarrage(UUID sessionId, CreateClassBarrageRequest request, UUID userId, Integer role) {
-        requireJoinedPublishedSession(sessionId, userId, role);
+        requireClassroomInteractionAccess(sessionId, userId, role);
         String content = request.content().trim();
         if (content.isEmpty()) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Barrage content cannot be blank");
@@ -289,6 +380,41 @@ public class ClassSessionService {
         int pageSize = PageUtils.normalizeSize(size);
         Page<ClassBarrage> result = classBarrageRepository.findBySessionId(sessionId, currentPage, pageSize);
         return PageResponse.of(result.getRecords().stream().map(this::toBarrageVO).toList(), result.getTotal(), currentPage, pageSize);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public int endExpiredLiveSessions() {
+        Instant now = Instant.now();
+        List<ClassSession> sessions = classSessionRepository.findLiveSessionsPastEnd(
+                now,
+                ClassLiveStatus.ENDED.getCode(),
+                100
+        );
+        int endedCount = 0;
+        for (ClassSession session : sessions) {
+            if (liveStatus(session) == ClassLiveStatus.ENDED) {
+                continue;
+            }
+            session.setLiveStatus(ClassLiveStatus.ENDED.getCode());
+            session.setLivePausedAt(null);
+            session.setLiveEndedAt(now);
+            classSessionRepository.update(session);
+            liveKitRoomService.deleteRoom(session.getLiveRoomName());
+            seatSyncWebSocketHub.broadcastLiveStatus(session.getId(), toSessionVO(session, false), "live_stopped");
+            endedCount++;
+        }
+        return endedCount;
+    }
+
+    private void requireClassroomInteractionAccess(UUID sessionId, UUID userId, Integer role) {
+        ClassSession session = classSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        ensureClassOngoing(session);
+        if (isCourseTeacher(session.getCourseId(), userId, role)) {
+            ensureParticipant(session, userId, ClassParticipantRole.TEACHER, null, ZERO, ZERO, ZERO);
+            return;
+        }
+        requireStudentSeat(session, userId, role);
     }
 
     private void requireJoinedPublishedSession(UUID sessionId, UUID userId, Integer role) {
@@ -432,6 +558,23 @@ public class ClassSessionService {
         }
     }
 
+    private void ensureClassOngoing(ClassSession session) {
+        ensurePublished(session);
+        if (classStatus(session) != ClassSessionStatus.LIVE) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Class session is not live");
+        }
+    }
+
+    private ClassParticipant requireStudentSeat(ClassSession session, UUID userId, Integer role) {
+        if (!SecurityUtils.isStudent(role) || !isStudentEnrolled(session.getCourseId(), userId)) {
+            throw new BusinessException(ErrorCodes.FORBIDDEN);
+        }
+        return classParticipantRepository.findBySessionIdAndUserId(session.getId(), userId)
+                .filter(participant -> participant.getRole() == ClassParticipantRole.STUDENT.getCode())
+                .filter(participant -> participant.getSeatIndex() != null)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.FORBIDDEN));
+    }
+
     private boolean joined(UUID sessionId, UUID userId) {
         return userId != null && classParticipantRepository.existsBySessionIdAndUserId(sessionId, userId);
     }
@@ -453,13 +596,22 @@ public class ClassSessionService {
         return "class-session-" + sessionId;
     }
 
-    private ClassSessionVO toSessionVO(ClassSession session, boolean joined) {
-        ClassSessionStatus status = ClassSessionStatus.calculate(
+    private ClassSessionStatus classStatus(ClassSession session) {
+        return ClassSessionStatus.calculate(
                 session.getPublishedAt(),
                 session.getScheduledStartAt(),
                 session.getScheduledEndAt(),
                 Instant.now()
         );
+    }
+
+    private ClassLiveStatus liveStatus(ClassSession session) {
+        return ClassLiveStatus.fromCode(session.getLiveStatus());
+    }
+
+    private ClassSessionVO toSessionVO(ClassSession session, boolean joined) {
+        ClassSessionStatus status = classStatus(session);
+        ClassLiveStatus liveStatus = liveStatus(session);
         return new ClassSessionVO(
                 session.getId(),
                 session.getCourseId(),
@@ -471,6 +623,11 @@ public class ClassSessionService {
                 session.getPublishedAt(),
                 session.getRoomSize(),
                 session.getLiveRoomName(),
+                liveStatus.getCode(),
+                liveStatus.getDescription(),
+                session.getLiveStartedAt(),
+                session.getLivePausedAt(),
+                session.getLiveEndedAt(),
                 status.getCode(),
                 status.getDescription(),
                 joined,

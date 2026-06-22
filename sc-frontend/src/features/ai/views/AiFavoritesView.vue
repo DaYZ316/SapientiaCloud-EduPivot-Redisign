@@ -1,54 +1,64 @@
 <template>
-  <main class="ai-favorites-page">
-    <section class="favorites-shell">
-      <header class="favorites-header">
-        <div>
-          <h1>{{ t('common.ai.favorites.title') }}</h1>
-          <p>{{ t('common.ai.favorites.description') }}</p>
-        </div>
-        <div class="favorites-count" aria-hidden="true">
-          <strong>{{ filteredConversations.length }}</strong>
-          <span>{{ t('common.ai.favorites.countLabel') }}</span>
-        </div>
+  <main class="ai-history-page">
+    <section class="history-shell">
+      <header class="history-header">
+        <h1>{{ t('common.ai.favorites.title') }}</h1>
+        <p>{{ t('common.ai.favorites.description') }}</p>
       </header>
 
-      <label class="favorites-search">
-        <Search :size="16" stroke-width="1.8"/>
-        <input v-model="keyword" :placeholder="t('common.ai.favorites.searchPlaceholder')" type="search"/>
-      </label>
-
-      <div v-if="aiStore.loadingConversations" class="favorites-state">
+      <div
+        v-if="aiStore.loadingConversations"
+        class="history-state"
+      >
         {{ t('common.ai.history.loading') }}
       </div>
 
-      <div v-else-if="filteredConversations.length === 0" class="favorites-state">
-        <Star :size="22" stroke-width="1.7"/>
-        <span>{{ emptyMessage }}</span>
+      <div
+        v-else-if="visibleGroups.length === 0"
+        class="history-state"
+      >
+        {{ t('common.ai.favorites.empty') }}
       </div>
 
-      <div v-else class="favorites-list">
-        <article
-          v-for="(conversation, index) in filteredConversations"
-          :key="conversation.id"
-          class="favorite-row"
+      <div
+        v-else
+        class="history-groups"
+      >
+        <section
+          v-for="group in visibleGroups"
+          :key="group.kind"
+          class="history-group"
         >
-          <button class="favorite-link" type="button" @click="openConversation(conversation.id)">
-            <component :is="rowIcon(index)" :size="15" stroke-width="1.8"/>
-            <span>{{ conversation.title }}</span>
-            <time>{{ formatConversationTime(conversation.updatedAt) }}</time>
-          </button>
-          <button
-            class="favorite-remove"
-            :title="t('common.ai.favorites.remove')"
-            type="button"
-            @click="removeFavorite(conversation)"
-          >
-            <StarOff :size="15" stroke-width="1.8"/>
-          </button>
-        </article>
+          <h2>{{ group.label }}</h2>
+          <div class="history-list">
+            <button
+              v-for="(conversation, index) in group.items"
+              :key="conversation.id"
+              class="history-row"
+              type="button"
+              @click="openConversation(conversation.id)"
+            >
+              <component
+                :is="rowIcon(index)"
+                :size="14"
+                stroke-width="1.8"
+              />
+              <span>{{ conversation.title }}</span>
+              <time>{{ formatConversationTime(conversation.updatedAt, group.kind) }}</time>
+            </button>
+          </div>
+        </section>
       </div>
 
-      <footer class="favorites-footer">
+      <div
+        v-if="visibleGroups.length > 0"
+        ref="paginationSentinelRef"
+        class="history-pagination"
+      >
+        <span v-if="aiStore.loadingMoreConversations">{{ t('common.ai.history.loadingMore') }}</span>
+      </div>
+
+      <footer class="history-footer">
         <span>{{ t('common.ai.chat.disclaimer') }}</span>
         <a href="#">{{ t('common.ai.history.terms') }}</a>
         <a href="#">{{ t('common.ai.history.privacy') }}</a>
@@ -58,42 +68,85 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, ref} from 'vue'
+import {computed, nextTick, onBeforeUnmount, onMounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
-import {BookMarked, FileText, MessageSquare, PencilLine, Search, Star, StarOff} from 'lucide-vue-next'
+import {CalendarDays, Code2, FileText, Languages, MessageSquare, PencilLine} from 'lucide-vue-next'
 
 import {useAiStore} from '@/features/ai/stores/ai'
 import type {Conversation} from '@/features/ai/types/ai'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
+type HistoryGroupKind = 'today' | 'yesterday' | 'recent'
+
+interface HistoryGroup {
+  label: string
+  kind: HistoryGroupKind
+  items: Conversation[]
+}
+
 const aiStore = useAiStore()
 const router = useRouter()
 const {t, locale} = useI18n()
-const keyword = ref('')
-const rowIcons = [Star, MessageSquare, FileText, PencilLine, BookMarked]
+const paginationSentinelRef = ref<HTMLElement | null>(null)
+let paginationObserver: IntersectionObserver | null = null
 
-const normalizedKeyword = computed(() => keyword.value.trim().toLowerCase())
-const favoriteConversations = computed(() =>
-  aiStore.sortedConversations.filter(conversation => conversation.favorited),
-)
-const filteredConversations = computed(() => {
-  if (!normalizedKeyword.value) return favoriteConversations.value
-  return favoriteConversations.value.filter(conversation =>
-    conversation.title.toLowerCase().includes(normalizedKeyword.value),
-  )
+const rowIcons = [MessageSquare, Code2, FileText, PencilLine, Languages, CalendarDays]
+
+const visibleGroups = computed(() => {
+  const groups: HistoryGroup[] = [
+    {label: t('common.ai.history.today'), kind: 'today', items: []},
+    {label: t('common.ai.history.yesterday'), kind: 'yesterday', items: []},
+    {label: t('common.ai.history.recent'), kind: 'recent', items: []},
+  ]
+
+  for (const conversation of updatedFavoriteConversations.value) {
+    const date = new Date(conversation.updatedAt)
+    if (Number.isNaN(date.getTime())) continue
+
+    if (isToday(date)) {
+      groups[0].items.push(conversation)
+    } else if (isYesterday(date)) {
+      groups[1].items.push(conversation)
+    } else {
+      groups[2].items.push(conversation)
+    }
+  }
+
+  return groups.filter(group => group.items.length > 0)
 })
-const emptyMessage = computed(() =>
-  favoriteConversations.value.length === 0
-    ? t('common.ai.favorites.empty')
-    : t('common.ai.favorites.noResults'),
+
+const updatedFavoriteConversations = computed(() =>
+  aiStore.conversations
+    .filter(conversation => conversation.favorited)
+    .sort((left, right) =>
+      new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
+    ),
 )
 
-onMounted(loadConversations)
+onMounted(async () => {
+  await loadConversations()
+  await nextTick()
+  observePaginationSentinel()
+})
+
+onBeforeUnmount(() => {
+  paginationObserver?.disconnect()
+})
 
 async function loadConversations() {
   try {
-    await aiStore.loadConversations()
+    await aiStore.ensureConversationsLoaded()
+  } catch {
+    notify.error(t('common.ai.notify.loadFailed'))
+  }
+}
+
+async function loadOlderConversations() {
+  if (!aiStore.hasMoreConversations || aiStore.loadingMoreConversations) return
+
+  try {
+    await aiStore.loadMoreConversations()
   } catch {
     notify.error(t('common.ai.notify.loadFailed'))
   }
@@ -104,64 +157,86 @@ async function openConversation(id: string) {
   await router.push({name: 'ai-workspace'})
 }
 
-async function removeFavorite(conversation: Conversation) {
-  try {
-    await aiStore.toggleFavorited(conversation)
-  } catch {
-    notify.error(t('common.ai.notify.updateFailed'))
-  }
+function observePaginationSentinel() {
+  paginationObserver?.disconnect()
+  const sentinel = paginationSentinelRef.value
+  if (!sentinel) return
+
+  paginationObserver = new IntersectionObserver((entries) => {
+    if (entries.some(entry => entry.isIntersecting)) {
+      loadOlderConversations()
+    }
+  }, {rootMargin: '240px 0px'})
+  paginationObserver.observe(sentinel)
 }
 
 function rowIcon(index: number) {
   return rowIcons[index % rowIcons.length]
 }
 
-function formatConversationTime(value: string) {
+function isToday(date: Date) {
+  const today = new Date()
+  return isSameDay(date, today)
+}
+
+function isYesterday(date: Date) {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  return isSameDay(date, yesterday)
+}
+
+function isSameDay(left: Date, right: Date) {
+  return left.getFullYear() === right.getFullYear()
+    && left.getMonth() === right.getMonth()
+    && left.getDate() === right.getDate()
+}
+
+function formatConversationTime(value: string, kind: HistoryGroupKind) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
 
-  return new Intl.DateTimeFormat(String(locale.value), {
-    month: 'short',
-    day: 'numeric',
+  if (kind === 'recent') {
+    return date.toLocaleDateString(String(locale.value), {
+      month: 'short',
+      day: 'numeric',
+    })
+  }
+
+  return date.toLocaleTimeString(String(locale.value), {
     hour: 'numeric',
     minute: '2-digit',
-  }).format(date)
+  })
 }
 </script>
 
 <style scoped>
-.ai-favorites-page {
+.ai-history-page {
   min-height: 100dvh;
   background: var(--color-surface-card);
   color: var(--color-on-surface);
 }
 
-.favorites-shell {
+.history-shell {
   display: flex;
   min-height: 100dvh;
   flex-direction: column;
   padding: 48px clamp(32px, 7vw, 144px) 28px;
 }
 
-.favorites-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 28px;
-  align-items: end;
-  margin-bottom: 30px;
+.history-header {
+  margin-bottom: 48px;
 }
 
-.favorites-header h1 {
+.history-header h1 {
   margin: 0;
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: clamp(48px, 6vw, 78px);
   font-weight: 700;
   line-height: 1;
-  letter-spacing: 0;
 }
 
-.favorites-header p {
+.history-header p {
   max-width: 560px;
   margin: 14px 0 0;
   color: var(--color-muted);
@@ -170,99 +245,51 @@ function formatConversationTime(value: string) {
   line-height: 1.6;
 }
 
-.favorites-count {
-  min-width: 128px;
-  padding: 16px;
-  border: 1px solid var(--color-outline-light);
-  background: var(--color-surface-container);
-}
-
-.favorites-count strong,
-.favorites-count span {
-  display: block;
-}
-
-.favorites-count strong {
-  color: var(--color-on-surface);
-  font-family: var(--font-label);
-  font-size: 38px;
-  font-weight: 600;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.favorites-count span {
-  margin-top: 8px;
-  color: var(--color-muted);
-  font-family: var(--font-body);
-  font-size: 11px;
-}
-
-.favorites-search {
-  width: min(100%, 420px);
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 28px;
-  padding: 0 14px;
-  border: 1px solid var(--color-outline-light);
-  background: var(--color-surface-container);
-  color: var(--color-muted);
-}
-
-.favorites-search input {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--color-on-surface);
-  font-family: var(--font-body);
-  font-size: 14px;
-}
-
-.favorites-search input::placeholder {
-  color: var(--color-muted);
-}
-
-.favorites-list {
+.history-groups {
   display: grid;
+  gap: 34px;
   width: min(100%, 980px);
+}
+
+.history-group h2 {
+  margin: 0 0 12px;
+  color: var(--color-on-surface);
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.history-list {
   border-top: 1px solid var(--color-outline-light);
 }
 
-.favorite-row {
+.history-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px;
-  align-items: center;
-  border-bottom: 1px solid var(--color-outline-light);
-}
-
-.favorite-link {
-  display: grid;
+  width: 100%;
   grid-template-columns: 20px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  min-height: 54px;
+  min-height: 48px;
   padding: 0;
-  border: 0;
   background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-outline-light);
   color: var(--color-on-surface);
   cursor: pointer;
   text-align: left;
   transition: background 0.2s ease, color 0.2s ease, padding 0.2s ease;
 }
 
-.favorite-link:hover,
-.favorite-link:focus-visible {
+.history-row:hover,
+.history-row:focus-visible {
   padding-inline: 12px;
   background: var(--color-primary);
   color: var(--color-on-primary);
   outline: 0;
 }
 
-.favorite-link span {
+.history-row span {
   min-width: 0;
   overflow: hidden;
   font-family: var(--font-body);
@@ -272,42 +299,15 @@ function formatConversationTime(value: string) {
   white-space: nowrap;
 }
 
-.favorite-link time {
+.history-row time {
   color: inherit;
   font-family: var(--font-label);
   font-size: 11px;
   letter-spacing: 0.04em;
 }
 
-.favorite-remove {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  justify-self: end;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-muted);
-  cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
-}
-
-.favorite-remove:hover {
-  background: var(--color-surface-canvas);
-  color: var(--color-primary);
-}
-
-.favorite-remove:active {
-  transform: translateY(1px);
-}
-
-.favorites-state {
+.history-state {
   width: min(100%, 760px);
-  min-height: 154px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
   padding: 42px 0;
   border-top: 1px solid var(--color-outline-light);
   border-bottom: 1px solid var(--color-outline-light);
@@ -316,7 +316,20 @@ function formatConversationTime(value: string) {
   font-size: 14px;
 }
 
-.favorites-footer {
+.history-pagination {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  margin: 20px 0 0;
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.history-footer {
   display: flex;
   justify-content: center;
   gap: 12px;
@@ -328,41 +341,35 @@ function formatConversationTime(value: string) {
   letter-spacing: 0.08em;
 }
 
-.favorites-footer a {
+.history-footer a {
   color: inherit;
   text-decoration: none;
 }
 
-.favorites-footer a:hover {
+.history-footer a:hover {
   color: var(--color-on-surface);
 }
 
 @media (max-width: 760px) {
-  .favorites-shell {
+  .history-shell {
     padding: 32px 22px 24px;
   }
 
-  .favorites-header,
-  .favorite-link {
-    grid-template-columns: 1fr;
+  .history-header {
+    margin-bottom: 36px;
   }
 
-  .favorites-count {
-    width: 100%;
+  .history-row {
+    grid-template-columns: 18px minmax(0, 1fr);
+    padding-block: 10px;
   }
 
-  .favorite-row {
-    grid-template-columns: minmax(0, 1fr) 40px;
-    align-items: start;
-    padding: 10px 0;
+  .history-row time {
+    grid-column: 2;
   }
 
-  .favorite-link {
-    gap: 8px;
-  }
-
-  .favorite-link time {
-    grid-column: 1;
+  .history-footer {
+    flex-wrap: wrap;
   }
 }
 </style>

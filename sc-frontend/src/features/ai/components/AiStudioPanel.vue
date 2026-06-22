@@ -1,7 +1,132 @@
 <template>
   <aside class="ai-studio-panel">
-    <header class="studio-header">
-      <div>
+    <header
+      :class="{'has-artifact-tabs': artifact && !mode}"
+      class="studio-header"
+    >
+      <div
+        v-if="artifact && !mode"
+        :class="{
+          'has-answer-toggle': activeArtifactTab !== 'trace',
+          'has-question-stepper': activeArtifactTab === 'single' && questions.length > 0,
+          'has-export-actions': showExportActions,
+        }"
+        class="artifact-toolbar"
+      >
+        <nav
+          :aria-label="t('common.ai.studio.artifactTabsAria')"
+          class="artifact-tabs"
+        >
+          <button
+            :class="{active: activeArtifactTab === 'single'}"
+            type="button"
+            @click="activeArtifactTab = 'single'"
+          >
+            {{ t('common.ai.studio.singlePreview') }}
+          </button>
+          <button
+            :class="{active: activeArtifactTab === 'overall'}"
+            type="button"
+            @click="activeArtifactTab = 'overall'"
+          >
+            {{ t('common.ai.studio.overallPreview') }}
+          </button>
+          <button
+            :class="{active: activeArtifactTab === 'trace'}"
+            type="button"
+            @click="activeArtifactTab = 'trace'"
+          >
+            {{ t('common.ai.studio.generationTrace') }}
+          </button>
+        </nav>
+        <div
+          v-if="activeArtifactTab !== 'trace'"
+          :aria-label="t('questionBank.showAnswer')"
+          class="answer-toggle"
+          role="group"
+        >
+          <button
+            :aria-pressed="!showQuestionAnswer"
+            :class="{active: !showQuestionAnswer}"
+            type="button"
+            @click="showQuestionAnswer = false"
+          >
+            {{ t('common.ai.studio.answerOff') }}
+          </button>
+          <button
+            :aria-pressed="showQuestionAnswer"
+            :class="{active: showQuestionAnswer}"
+            type="button"
+            @click="showQuestionAnswer = true"
+          >
+            {{ t('common.ai.studio.answerOn') }}
+          </button>
+        </div>
+        <div
+          v-if="activeArtifactTab === 'single' && questions.length > 0"
+          :aria-label="t('questionBank.questionPreview')"
+          class="question-stepper"
+          role="group"
+        >
+          <button
+            :aria-label="t('questionBank.prevQuestion')"
+            :disabled="activeQuestionIndex === 0"
+            type="button"
+            @click="activeQuestionIndex -= 1"
+          >
+            <ChevronLeft
+              :size="16"
+              stroke-width="1.9"
+            />
+          </button>
+          <span>{{ activeQuestionIndex + 1 }} / {{ questions.length }}</span>
+          <button
+            :aria-label="t('questionBank.nextQuestion')"
+            :disabled="activeQuestionIndex >= questions.length - 1"
+            type="button"
+            @click="activeQuestionIndex += 1"
+          >
+            <ChevronRight
+              :size="16"
+              stroke-width="1.9"
+            />
+          </button>
+        </div>
+        <div
+          v-if="showExportActions"
+          :aria-label="t('common.ai.studio.exportAria')"
+          class="export-actions"
+          role="group"
+        >
+          <button
+            :aria-busy="exportingFormat === 'pdf'"
+            :disabled="!canExportArtifact || Boolean(exportingFormat)"
+            :title="t('common.ai.studio.exportPdf')"
+            type="button"
+            @click="exportArtifact('pdf')"
+          >
+            <FileDown
+              :size="15"
+              stroke-width="1.9"
+            />
+            <span>PDF</span>
+          </button>
+          <button
+            :aria-busy="exportingFormat === 'docx'"
+            :disabled="!canExportArtifact || Boolean(exportingFormat)"
+            :title="t('common.ai.studio.exportWord')"
+            type="button"
+            @click="exportArtifact('docx')"
+          >
+            <FileText
+              :size="15"
+              stroke-width="1.9"
+            />
+            <span>Word</span>
+          </button>
+        </div>
+      </div>
+      <div v-else>
         <h2>{{ panelTitle }}</h2>
       </div>
       <button
@@ -150,64 +275,212 @@
           type="button"
           @click="$emit('generate')"
         >
-          {{ panelTitle }}
+          {{ generateButtonText }}
         </button>
       </div>
     </section>
 
     <section
       v-else-if="artifact"
+      :class="{'is-single-preview': activeArtifactTab === 'single'}"
       class="artifact-body"
     >
-      <article class="artifact-report">
-        <div class="report-kicker">
-          <span>{{ artifact.messageType }}</span>
-          <i />
-        </div>
-        <h1>{{ artifactTitle }}</h1>
-        <p>{{ artifactSummary }}</p>
-
-        <div
-          v-if="questions.length > 0"
-          class="question-list"
+      <template v-if="activeArtifactTab === 'single'">
+        <section
+          v-if="activeQuestion"
+          class="generated-question-preview"
         >
-          <article
-            v-for="(question, index) in questions"
-            :key="index"
-            class="question-card"
+          <div class="preview-header">
+            <div>
+              <span class="section-label">{{ t('questionBank.questionPreview') }}</span>
+              <h2>{{ questionTitle(activeQuestion) }}</h2>
+            </div>
+          </div>
+
+          <div class="preview-meta">
+            <span>{{ questionTypeName(activeQuestion) }}</span>
+            <span>{{ difficultyName(activeQuestion) }}</span>
+            <span v-if="scoreText(activeQuestion)">{{ scoreText(activeQuestion) }} {{ t('questionBank.score') }}</span>
+            <span v-if="estimatedTimeText(activeQuestion)">{{ t('questionBank.estimatedMinutes', {n: estimatedTimeText(activeQuestion)}) }}</span>
+          </div>
+
+          <section class="preview-section">
+            <h3>{{ t('questionBank.questionStem') }}</h3>
+            <AiMarkdownMessage
+              :content="questionContent(activeQuestion)"
+              class="preview-markdown"
+            />
+          </section>
+
+          <section
+            v-if="activeQuestionOptions.length"
+            class="preview-section"
           >
-            <span>Q{{ index + 1 }}</span>
-            <h3>{{ textValue(question.questionTitle) || textValue(question.title) || t('common.ai.studio.unnamedQuestion') }}</h3>
-            <p v-if="textValue(question.questionContent)">
-              {{ textValue(question.questionContent) }}
-            </p>
-            <div
-              v-if="listValue(question.options).length > 0"
-              class="option-list"
-            >
+            <h3>{{ t('questionBank.options') }}</h3>
+            <div class="preview-option-list">
               <div
-                v-for="(option, optionIndex) in listValue(question.options)"
-                :key="optionIndex"
+                v-for="(option, optionIndex) in activeQuestionOptions"
+                :key="optionKey(option, optionIndex)"
+                :class="{correct: showQuestionAnswer && isCorrectOption(option)}"
+                class="preview-option-row"
               >
-                {{ optionLabel(option, optionIndex) }}
+                <span class="option-label">{{ optionLabelText(option, optionIndex) }}</span>
+                <AiMarkdownMessage
+                  :content="optionContentText(option) || t('common.ai.studio.optionFallback')"
+                  class="preview-markdown option-content-markdown"
+                />
               </div>
             </div>
-          </article>
-        </div>
+          </section>
 
-        <pre
+          <section
+            v-if="showQuestionAnswer"
+            class="preview-section"
+          >
+            <h3>{{ t('questionBank.correctAnswer') }}</h3>
+            <div
+              v-if="activeAnswerItems.length"
+              class="answer-list"
+            >
+              <AiMarkdownMessage
+                v-for="(answer, answerIndex) in activeAnswerItems"
+                :key="answerIndex"
+                :content="answer"
+                class="answer-row"
+              />
+            </div>
+            <p
+              v-else
+              class="muted-text"
+            >
+              {{ t('questionBank.noAnswer') }}
+            </p>
+          </section>
+
+          <section
+            v-if="showQuestionAnswer"
+            class="preview-section"
+          >
+            <h3>{{ t('questionBank.explanation') }}</h3>
+            <AiMarkdownMessage
+              :content="activeExplanationText || t('questionBank.noExplanation')"
+              class="preview-markdown"
+            />
+          </section>
+
+          <section
+            v-if="questionTags(activeQuestion).length"
+            class="preview-section"
+          >
+            <h3>{{ t('questionBank.tags') }}</h3>
+            <div class="tag-list">
+              <span
+                v-for="tag in questionTags(activeQuestion)"
+                :key="tag"
+              >
+                {{ tag }}
+              </span>
+            </div>
+          </section>
+        </section>
+
+        <AiMarkdownMessage
           v-else
+          :content="artifact.content"
           class="artifact-text"
-        >{{ artifact.content }}</pre>
-      </article>
+        />
+      </template>
 
-      <button
-        class="copy-action"
-        type="button"
-        @click="copyArtifact"
-      >
-        {{ t('common.ai.studio.copyArtifact') }}
-      </button>
+      <template v-else-if="activeArtifactTab === 'overall'">
+        <article class="artifact-report">
+          <div class="report-kicker">
+            <span>{{ artifact.messageType }}</span>
+            <i />
+          </div>
+          <h1>{{ t('common.ai.studio.overviewTitle') }}</h1>
+          <p>{{ artifactSummary }}</p>
+
+          <div
+            v-if="questions.length > 0"
+            class="question-list"
+          >
+            <article
+              v-for="(question, index) in questions"
+              :key="index"
+              class="question-card"
+            >
+              <span>Q{{ index + 1 }}</span>
+              <AiMarkdownMessage
+                :content="questionTitle(question)"
+                class="question-title-markdown"
+              />
+              <AiMarkdownMessage
+                v-if="questionContent(question)"
+                :content="questionContent(question)"
+                class="question-content-markdown"
+              />
+              <div
+                v-if="questionOptions(question).length > 0"
+                class="option-list"
+              >
+                <AiMarkdownMessage
+                  v-for="(option, optionIndex) in questionOptions(question)"
+                  :key="optionKey(option, optionIndex)"
+                  :content="optionLabel(option, optionIndex)"
+                  class="option-markdown"
+                />
+              </div>
+
+              <div
+                v-if="showQuestionAnswer"
+                class="question-answer-preview"
+              >
+                <p>{{ t('questionBank.correctAnswer') }}</p>
+                <div
+                  v-if="answerItems(question).length"
+                  class="question-answer-list"
+                >
+                  <AiMarkdownMessage
+                    v-for="(answer, answerIndex) in answerItems(question)"
+                    :key="answerIndex"
+                    :content="answer"
+                    class="answer-markdown"
+                  />
+                </div>
+                <p
+                  v-else
+                  class="muted-text"
+                >
+                  {{ t('questionBank.noAnswer') }}
+                </p>
+              </div>
+
+              <div
+                v-if="showQuestionAnswer && explanationText(question)"
+                class="question-answer-preview"
+              >
+                <p>{{ t('questionBank.explanation') }}</p>
+                <AiMarkdownMessage
+                  :content="explanationText(question)"
+                  class="answer-markdown"
+                />
+              </div>
+            </article>
+          </div>
+
+          <AiMarkdownMessage
+            v-else
+            :content="artifact.content"
+            class="artifact-text"
+          />
+        </article>
+      </template>
+
+      <AiGenerationTracePanel
+        v-else
+        :message="traceMessage"
+        embedded
+      />
     </section>
 
     <section
@@ -227,10 +500,13 @@
 <script lang="ts" setup>
 import {computed, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {PanelRight, X} from 'lucide-vue-next'
+import {ChevronLeft, ChevronRight, FileDown, FileText, PanelRight, X} from 'lucide-vue-next'
 
+import {exportGeneratedArtifact} from '@/features/ai/api/ai'
+import AiGenerationTracePanel from '@/features/ai/components/AiGenerationTracePanel.vue'
+import AiMarkdownMessage from '@/features/ai/components/AiMarkdownMessage.vue'
 import {useAiStore} from '@/features/ai/stores/ai'
-import type {AiAgentMode, GenerationRequest} from '@/features/ai/types/ai'
+import type {AiAgentMode, ChatMessage, GenerationRequest} from '@/features/ai/types/ai'
 import BaseNumberStepper from '@/shared/components/BaseNumberStepper.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import {notify} from '@/shared/composables/useGlobalNotification'
@@ -238,21 +514,34 @@ import {notify} from '@/shared/composables/useGlobalNotification'
 type PayloadRecord = Record<string, unknown>
 type SelectValue = string | number | undefined
 type SelectOption = { label: string; value: SelectValue }
+type ArtifactTab = 'single' | 'overall' | 'trace'
+type ExportFormat = 'pdf' | 'docx'
 
 const props = defineProps<{
   mode?: Exclude<AiAgentMode, 'CHAT'>
   generation: GenerationRequest
+  artifactTab?: ArtifactTab
+  traceMessage?: ChatMessage | null
 }>()
 
 const emit = defineEmits<{
   close: []
   generate: []
+  'update:artifactTab': [value: ArtifactTab]
   'update:generation': [value: GenerationRequest]
 }>()
 
 const {t} = useI18n()
 const aiStore = useAiStore()
-const artifact = computed(() => aiStore.latestArtifact)
+const artifact = computed(() => {
+  const selectedMessage = props.traceMessage
+  if (selectedMessage?.messageType && selectedMessage.messageType !== 'TEXT') {
+    return selectedMessage
+  }
+
+  return aiStore.latestArtifact
+})
+const traceMessage = computed(() => props.traceMessage || artifact.value)
 const payload = computed(() => (artifact.value?.payload || {}) as PayloadRecord)
 const questions = computed(() => listValue(payload.value.questions))
 const questionCount = computed(() => questions.value.length)
@@ -260,6 +549,13 @@ const generationModel = computed({
   get: () => props.generation,
   set: (value: GenerationRequest) => emit('update:generation', value),
 })
+const activeArtifactTab = computed({
+  get: () => props.artifactTab || 'single',
+  set: (value: ArtifactTab) => emit('update:artifactTab', value),
+})
+const activeQuestionIndex = ref(0)
+const showQuestionAnswer = ref(true)
+const exportingFormat = ref<ExportFormat | null>(null)
 const knowledgePointsText = ref('')
 const abilityGoalsText = ref('')
 
@@ -289,21 +585,49 @@ const difficultyValue = selectField('difficulty')
 const panelTitle = computed(() => props.mode === 'PAPER'
   ? t('common.ai.studio.paperTitle')
   : props.mode === 'QUESTION' ? t('common.ai.studio.questionTitle') : t('common.ai.studio.artifactTitle'))
+const generateButtonText = computed(() => {
+  if (props.mode === 'QUESTION') return t('common.ai.studio.startQuestion')
+  if (props.mode === 'PAPER') return t('common.ai.studio.startPaper')
+  return panelTitle.value
+})
 const formHint = computed(() => props.mode === 'PAPER'
   ? t('common.ai.studio.paperHint')
   : t('common.ai.studio.questionHint'))
 const requirementPlaceholder = computed(() => props.mode === 'PAPER'
   ? t('common.ai.studio.paperRequirementPlaceholder')
   : t('common.ai.studio.questionRequirementPlaceholder'))
-const artifactTitle = computed(() =>
-  textValue(payload.value.title) ||
-  (artifact.value?.messageType === 'PAPER'
-    ? t('common.ai.studio.paperDraftTitle')
-    : t('common.ai.studio.questionDraftTitle')),
-)
 const artifactSummary = computed(() => {
   if (questionCount.value > 0) return t('common.ai.studio.artifactSummary', {count: questionCount.value})
   return t('common.ai.studio.artifactSummaryFallback')
+})
+const activeQuestion = computed(() => questions.value[activeQuestionIndex.value] || null)
+const activeQuestionOptions = computed(() => activeQuestion.value ? questionOptions(activeQuestion.value) : [])
+const activeAnswerItems = computed(() => activeQuestion.value ? answerItems(activeQuestion.value) : [])
+const activeExplanationText = computed(() => activeQuestion.value ? explanationText(activeQuestion.value) : '')
+const showExportActions = computed(() => Boolean(
+  artifact.value
+  && isExportableMessage(artifact.value),
+))
+const canExportArtifact = computed(() => Boolean(
+  showExportActions.value
+  && artifact.value
+  && !artifact.value.pending
+  && !artifact.value.failed
+  && questionCount.value > 0
+  && aiStore.activeConversationId,
+))
+
+watch(() => artifact.value?.id, () => {
+  activeQuestionIndex.value = 0
+  showQuestionAnswer.value = true
+})
+
+watch(questionCount, (count) => {
+  if (count <= 0) {
+    activeQuestionIndex.value = 0
+  } else if (activeQuestionIndex.value >= count) {
+    activeQuestionIndex.value = count - 1
+  }
 })
 
 watch(knowledgePointsText, (value) => {
@@ -320,20 +644,6 @@ watch(abilityGoalsText, (value) => {
   }
 })
 
-async function copyArtifact() {
-  if (!artifact.value) return
-
-  const text = Object.keys(payload.value).length > 0
-    ? JSON.stringify(payload.value, null, 2)
-    : artifact.value.content
-  try {
-    await navigator.clipboard.writeText(text)
-    notify.success(t('common.ai.studio.copied'))
-  } catch {
-    notify.error(t('common.ai.studio.copyFailed'))
-  }
-}
-
 function textValue(value: unknown) {
   return typeof value === 'string' ? value : ''
 }
@@ -343,10 +653,119 @@ function listValue(value: unknown) {
 }
 
 function optionLabel(option: PayloadRecord, index: number) {
-  const label = textValue(option.label) || String.fromCharCode(65 + index)
-  const content = textValue(option.content) || textValue(option.answerContent)
-  const marker = option.correct === true || option.isCorrect === 1 ? t('common.ai.studio.answerMarker') : ''
+  const label = optionLabelText(option, index)
+  const content = optionContentText(option)
+  const marker = isCorrectOption(option) ? t('common.ai.studio.answerMarker') : ''
   return `${label}. ${content || t('common.ai.studio.optionFallback')}${marker}`
+}
+
+function optionKey(option: PayloadRecord, index: number) {
+  return textValue(option.id) || textValue(option.optionLabel) || textValue(option.label) || index
+}
+
+function questionTitle(question: PayloadRecord) {
+  return textValue(question.questionTitle) || textValue(question.title) || t('common.ai.studio.unnamedQuestion')
+}
+
+function questionContent(question: PayloadRecord) {
+  return textValue(question.questionContent) || textValue(question.content) || questionTitle(question)
+}
+
+function questionOptions(question: PayloadRecord) {
+  return listValue(question.options)
+}
+
+function questionAnswers(question: PayloadRecord) {
+  return listValue(question.answers)
+}
+
+function questionTags(question: PayloadRecord) {
+  const tags = question.tags
+  if (!Array.isArray(tags)) return []
+  return tags.map(item => displayValue(item)).filter(Boolean)
+}
+
+function questionTypeName(question: PayloadRecord) {
+  const type = numberValue(question.questionType ?? question.type)
+  const labels: Record<number, string> = {
+    0: t('questionBank.typeSingle'),
+    1: t('questionBank.typeMultiple'),
+    2: t('questionBank.typeJudge'),
+    3: t('questionBank.typeBlank'),
+    4: t('questionBank.typeShort'),
+    5: t('common.ai.studio.questionTypes.mixed'),
+  }
+  return type === null
+    ? textValue(question.questionTypeName) || textValue(question.typeName) || t('questionBank.unknown')
+    : labels[type] || t('questionBank.unknown')
+}
+
+function difficultyName(question: PayloadRecord) {
+  const difficulty = numberValue(question.difficulty)
+  const labels: Record<number, string> = {
+    0: t('common.ai.studio.difficulties.random'),
+    1: t('questionBank.difficultyEasy'),
+    2: t('questionBank.difficultyMedium'),
+    3: t('questionBank.difficultyHard'),
+  }
+  return difficulty === null
+    ? textValue(question.difficultyName) || t('questionBank.unknown')
+    : labels[difficulty] || t('questionBank.unknown')
+}
+
+function scoreText(question: PayloadRecord) {
+  return displayValue(question.score)
+}
+
+function estimatedTimeText(question: PayloadRecord) {
+  return displayValue(question.estimatedTime)
+}
+
+function optionLabelText(option: PayloadRecord, index: number) {
+  return textValue(option.optionLabel) || textValue(option.label) || String.fromCharCode(65 + index)
+}
+
+function optionContentText(option: PayloadRecord) {
+  return textValue(option.optionContent) || textValue(option.content) || textValue(option.answerContent)
+}
+
+function isCorrectOption(option: PayloadRecord) {
+  return option.isCorrect === 1 || option.isCorrect === true || option.correct === 1 || option.correct === true
+}
+
+function answerItems(question: PayloadRecord) {
+  const textAnswers = questionAnswers(question)
+    .map(answer => textValue(answer.answerContent) || textValue(answer.content))
+    .filter(Boolean)
+  const optionAnswers = questionOptions(question)
+    .map((option, index) => isCorrectOption(option) ? `${optionLabelText(option, index)}. ${optionContentText(option)}` : '')
+    .filter(Boolean)
+
+  return textAnswers.length ? textAnswers : optionAnswers
+}
+
+function explanationText(question: PayloadRecord) {
+  const questionExplanation = textValue(question.explanation) || textValue(question.answerExplanation)
+  const optionExplanation = questionOptions(question)
+    .find(option => isCorrectOption(option) && textValue(option.explanation))?.explanation
+  const answerExplanation = questionAnswers(question)
+    .find(answer => textValue(answer.explanation))?.explanation
+
+  return questionExplanation || textValue(optionExplanation) || textValue(answerExplanation)
+}
+
+function displayValue(value: unknown) {
+  if (value === null || value === undefined || value === '') return ''
+  return String(value)
+}
+
+function numberValue(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
 }
 
 function numericField(key: keyof GenerationRequest, fallback: number) {
@@ -387,6 +806,39 @@ function normalizeListInput(value: string) {
 
   return items.length ? items : null
 }
+function isExportableMessage(message: ChatMessage) {
+  return message.messageType === 'QUESTION_SET' || message.messageType === 'PAPER'
+}
+
+async function exportArtifact(format: ExportFormat) {
+  const conversationId = aiStore.activeConversationId
+  if (!artifact.value || !conversationId || !canExportArtifact.value || exportingFormat.value) return
+
+  exportingFormat.value = format
+  try {
+    const result = await exportGeneratedArtifact(conversationId, artifact.value.id, {
+      format,
+      includeAnswers: showQuestionAnswer.value,
+    })
+    downloadBlob(result.blob, result.filename)
+    notify.success(t('common.ai.studio.exportSuccess'))
+  } catch {
+    notify.error(t('common.ai.studio.exportFailed'))
+  } finally {
+    exportingFormat.value = null
+  }
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
+  URL.revokeObjectURL(url)
+}
 </script>
 
 <style scoped>
@@ -407,8 +859,13 @@ function normalizeListInput(value: string) {
   justify-content: space-between;
   gap: 12px;
   min-height: 48px;
-  padding: 0 18px 0 28px;
+  padding: 0 0 0 28px;
   border-bottom: 1px solid var(--color-outline-light);
+}
+
+.studio-header.has-artifact-tabs {
+  gap: 0;
+  padding-left: 0;
 }
 
 .report-kicker span,
@@ -431,22 +888,23 @@ function normalizeListInput(value: string) {
   line-height: 1.12;
 }
 
-.studio-header button {
+.studio-header .btn-close {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 48px;
+  height: 48px;
+  align-self: stretch;
   place-items: center;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 999px;
+  border: 0;
+  border-radius: 0;
   color: var(--color-on-surface);
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease;
 }
 
-.studio-header button:hover {
-  background: var(--color-primary);
-  color: var(--color-on-primary);
+.studio-header .btn-close:hover {
+  background: var(--color-on-surface);
+  color: var(--color-surface-card);
 }
 
 .generation-form {
@@ -589,8 +1047,7 @@ function normalizeListInput(value: string) {
   border-top: 1px solid var(--color-outline-light);
 }
 
-.panel-footer button,
-.copy-action {
+.panel-footer button {
   min-height: 38px;
   padding: 0 15px;
   border-radius: var(--radius-sm);
@@ -603,8 +1060,7 @@ function normalizeListInput(value: string) {
   transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
-.panel-footer .btn-secondary,
-.copy-action {
+.panel-footer .btn-secondary {
   background: transparent;
   border: 1px solid var(--color-outline-light);
   color: var(--color-on-surface);
@@ -616,8 +1072,7 @@ function normalizeListInput(value: string) {
   color: var(--color-on-primary);
 }
 
-.panel-footer .btn-secondary:hover,
-.copy-action:hover {
+.panel-footer .btn-secondary:hover {
   background: var(--color-surface-container-high);
   border-color: var(--color-outline-variant);
 }
@@ -626,8 +1081,7 @@ function normalizeListInput(value: string) {
   background: var(--color-primary-soft);
 }
 
-.panel-footer button:active,
-.copy-action:active {
+.panel-footer button:active {
   transform: scale(0.98);
 }
 
@@ -639,6 +1093,174 @@ function normalizeListInput(value: string) {
   gap: 18px;
   overflow-y: auto;
   padding: 34px clamp(24px, 6vw, 72px);
+}
+
+.artifact-body.is-single-preview {
+  gap: 0;
+  padding: 0;
+}
+
+.artifact-toolbar {
+  display: grid;
+  min-width: 0;
+  width: min(100%, 480px);
+  flex: 1;
+  align-items: stretch;
+}
+
+.artifact-toolbar.has-answer-toggle {
+  width: min(100%, 640px);
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+}
+
+.artifact-toolbar.has-question-stepper {
+  width: min(100%, 800px);
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.artifact-toolbar.has-export-actions {
+  width: min(100%, 760px);
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr) minmax(104px, auto);
+}
+
+.artifact-toolbar.has-question-stepper.has-export-actions {
+  width: min(100%, 940px);
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr) minmax(0, 1fr) minmax(104px, auto);
+}
+
+.artifact-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--color-outline-light);
+  background: var(--color-surface-container-highest, #161616);
+}
+
+.artifact-toolbar.has-answer-toggle .artifact-tabs {
+  border-right: 0;
+}
+
+.artifact-tabs button {
+  min-width: 0;
+  padding: 0 14px;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--color-outline-light);
+  color: var(--color-muted);
+  cursor: pointer;
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.artifact-tabs button:last-child {
+  border-right: 0;
+}
+
+.artifact-tabs button:hover,
+.artifact-tabs button.active {
+  background: var(--color-on-surface);
+  color: var(--color-surface-card);
+}
+
+.answer-toggle,
+.question-stepper,
+.export-actions {
+  display: grid;
+  min-width: 0;
+  min-height: 48px;
+  overflow: hidden;
+  background: var(--color-surface-container-highest, #161616);
+  border: 1px solid var(--color-outline-light);
+  border-radius: 0;
+}
+
+.answer-toggle {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.question-stepper {
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  border-left: 0;
+}
+
+.export-actions {
+  grid-template-columns: repeat(2, minmax(48px, 1fr));
+  border-left: 0;
+}
+
+.answer-toggle button,
+.question-stepper button,
+.export-actions button {
+  min-width: 0;
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.question-stepper span {
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  background: var(--color-on-surface);
+  border-right: 1px solid var(--color-outline-light);
+  border-left: 1px solid var(--color-outline-light);
+  color: var(--color-surface-card);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.answer-toggle button + button {
+  border-left: 1px solid var(--color-outline-light);
+}
+
+.export-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.export-actions button + button {
+  border-left: 1px solid var(--color-outline-light);
+}
+
+.answer-toggle button:hover,
+.answer-toggle button.active,
+.question-stepper button:hover:not(:disabled),
+.export-actions button:hover:not(:disabled) {
+  background: var(--color-on-surface);
+  color: var(--color-surface-card);
+}
+
+.question-stepper button:disabled,
+.export-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.answer-toggle button:focus-visible,
+.question-stepper button:focus-visible,
+.export-actions button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 28%, transparent);
+  outline-offset: -2px;
+}
+
+.answer-toggle:focus-within {
+  border-color: var(--color-primary);
 }
 
 .artifact-report {
@@ -678,6 +1300,197 @@ function normalizeListInput(value: string) {
   line-height: 1.7;
 }
 
+.generated-question-preview {
+  display: flex;
+  min-height: 100%;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+}
+
+.artifact-body.is-single-preview .generated-question-preview {
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.preview-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 20px;
+  border-bottom: 1px solid var(--color-outline-light);
+}
+
+.section-label,
+.preview-section h3,
+.question-answer-preview > p {
+  margin: 0;
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.preview-header h2 {
+  margin: 8px 0 0;
+  color: var(--color-on-surface);
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.25;
+  text-wrap: pretty;
+}
+
+.preview-meta,
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.preview-meta {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--color-outline-light);
+}
+
+.preview-meta span,
+.tag-list span {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  padding: 0 9px;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-on-surface-variant);
+  font-family: var(--font-label);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.preview-section {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--color-outline-light);
+}
+
+.preview-section h3 {
+  margin-bottom: 10px;
+}
+
+.preview-option-list,
+.answer-list,
+.question-answer-list {
+  display: grid;
+  gap: 8px;
+}
+
+.preview-option-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 12px;
+  background: var(--color-surface-canvas);
+  border: 1px solid var(--color-outline-light);
+  color: var(--color-on-surface-variant);
+}
+
+.preview-option-row.correct {
+  background: var(--color-surface-container);
+  border-color: var(--color-primary);
+  color: var(--color-on-surface);
+}
+
+.option-label {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1px solid var(--color-outline-light);
+  color: var(--color-on-surface);
+  font-family: var(--font-label);
+  font-size: 12px;
+}
+
+.preview-markdown,
+.answer-row,
+.answer-markdown {
+  max-width: none;
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.answer-row,
+.answer-markdown {
+  padding: 10px 12px;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-light);
+  color: var(--color-on-surface);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.preview-markdown :deep(.ai-markdown-message),
+.answer-row :deep(.ai-markdown-message),
+.answer-markdown :deep(.ai-markdown-message) {
+  max-width: none;
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.preview-markdown :deep(p:last-child),
+.answer-row :deep(p:last-child),
+.answer-markdown :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.muted-text {
+  margin: 0;
+  color: var(--color-muted) !important;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.btn-outline {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 13px;
+  background: transparent;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-on-surface);
+  cursor: pointer;
+  font-family: var(--font-label);
+  font-size: 12px;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: var(--color-surface-container-high);
+  border-color: var(--color-outline);
+}
+
+.btn-outline:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .question-list {
   display: grid;
   gap: 0;
@@ -691,7 +1504,8 @@ function normalizeListInput(value: string) {
   border-bottom: 1px solid var(--color-outline-light);
 }
 
-.question-card h3 {
+.question-title-markdown {
+  max-width: none;
   margin: 0;
   font-family: var(--font-heading);
   font-size: 24px;
@@ -699,13 +1513,32 @@ function normalizeListInput(value: string) {
   line-height: 1.15;
 }
 
-.question-card p,
-.option-list {
+.question-content-markdown,
+.option-list,
+.option-markdown {
+  max-width: none;
   margin: 0;
   color: var(--color-on-surface-variant);
   font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.58;
+}
+
+.question-title-markdown :deep(.ai-markdown-message),
+.question-content-markdown :deep(.ai-markdown-message),
+.option-markdown :deep(.ai-markdown-message),
+.artifact-text :deep(.ai-markdown-message) {
+  max-width: none;
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.question-title-markdown :deep(p:last-child),
+.question-content-markdown :deep(p:last-child),
+.option-markdown :deep(p:last-child),
+.artifact-text :deep(p:last-child) {
+  margin-bottom: 0;
 }
 
 .option-list {
@@ -714,17 +1547,19 @@ function normalizeListInput(value: string) {
   padding-top: 4px;
 }
 
+.question-answer-preview {
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+}
+
 .artifact-text {
+  max-width: none;
   margin: 0;
-  white-space: pre-wrap;
   color: var(--color-on-surface);
   font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.7;
-}
-
-.copy-action {
-  width: fit-content;
 }
 
 .empty-studio {
@@ -757,6 +1592,56 @@ function normalizeListInput(value: string) {
 }
 
 @media (max-width: 760px) {
+  .studio-header.has-artifact-tabs {
+    align-items: flex-start;
+    padding: 0 10px 10px 0;
+  }
+
+  .artifact-toolbar {
+    width: 100%;
+  }
+
+  .artifact-toolbar.has-question-stepper {
+    grid-template-columns: minmax(0, 1fr) minmax(116px, auto);
+  }
+
+  .artifact-toolbar.has-export-actions {
+    grid-template-columns: minmax(0, 1fr) minmax(108px, auto);
+  }
+
+  .artifact-toolbar.has-question-stepper.has-export-actions {
+    grid-template-columns: minmax(0, 1fr) minmax(116px, auto) minmax(108px, auto);
+  }
+
+  .artifact-toolbar.has-question-stepper .artifact-tabs {
+    grid-column: 1 / -1;
+    border-right: 1px solid var(--color-outline-light);
+    border-bottom: 0;
+  }
+
+  .artifact-tabs,
+  .answer-toggle,
+  .question-stepper,
+  .export-actions {
+    min-height: 44px;
+  }
+
+  .artifact-tabs button,
+  .answer-toggle button,
+  .question-stepper button,
+  .question-stepper span,
+  .export-actions button {
+    padding: 0 8px;
+    font-size: 11px;
+    line-height: 1.15;
+  }
+
+  .answer-toggle,
+  .question-stepper,
+  .export-actions {
+    margin-left: 0;
+  }
+
   .form-grid {
     grid-template-columns: 1fr;
   }

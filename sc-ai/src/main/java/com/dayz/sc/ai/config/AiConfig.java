@@ -3,6 +3,8 @@ package com.dayz.sc.ai.config;
 import com.dayz.sc.ai.service.KnowledgeBaseService;
 import com.dayz.sc.ai.service.ChatVectorMemoryService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.redis.RedisVectorStore;
@@ -34,7 +36,10 @@ public class AiConfig {
     @Bean
     @ConditionalOnMissingBean(ObjectMapper.class)
     public ObjectMapper objectMapper() {
-        return new ObjectMapper();
+        return JsonMapper.builder()
+                .findAndAddModules()
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .build();
     }
 
     /**

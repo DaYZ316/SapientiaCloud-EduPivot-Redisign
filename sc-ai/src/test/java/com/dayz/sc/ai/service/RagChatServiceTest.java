@@ -2,11 +2,13 @@ package com.dayz.sc.ai.service;
 
 import com.dayz.sc.ai.config.AiProperties;
 import com.dayz.sc.ai.model.dto.ChatRequest;
+import com.dayz.sc.ai.model.dto.GenerationRequest;
 import com.dayz.sc.ai.model.entity.ChatMessage;
 import com.dayz.sc.ai.model.enums.AiMessageType;
 import com.dayz.sc.ai.model.enums.MessageRole;
 import com.dayz.sc.ai.model.vo.AiAgentResult;
 import com.dayz.sc.ai.repository.MessageRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
@@ -20,6 +22,7 @@ import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.codec.ServerSentEvent;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +41,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class RagChatServiceTest {
+
+    @Test
+    void defaultChatPromptsShouldIncludeLatexRules() {
+        AiProperties properties = new AiProperties();
+
+        assertLatexRules(properties.getChat().getGeneralSystemPrompt());
+        assertLatexRules(properties.getChat().getCourseSystemPrompt());
+        assertLatexRules(properties.getRag().getSystemPrompt());
+    }
 
     @Test
     void retrieveContextNowShouldReturnGeneralFallbackWhenNothingMatches() {
@@ -231,6 +243,169 @@ class RagChatServiceTest {
                 .block();
 
         verify(conversationService).touchUpdatedAt(conversationId, userId);
+    }
+
+    @Test
+    void generationUserMessageShouldPersistRequestPayload() {
+        UUID conversationId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID questionBankId = UUID.randomUUID();
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        ConversationService conversationService = mock(ConversationService.class);
+        AiAgentService aiAgentService = mock(AiAgentService.class);
+        when(aiAgentService.run(any(ChatRequest.class)))
+                .thenReturn(new AiAgentResult("generated", AiMessageType.QUESTION_SET, Map.<String, Object>of()));
+        RagChatService service = serviceWith(
+                mock(VectorStore.class),
+                new AiProperties(),
+                messageRepository,
+                conversationService,
+                aiAgentService);
+        GenerationRequest generation = new GenerationRequest(
+                questionBankId,
+                5,
+                0,
+                2,
+                BigDecimal.valueOf(4),
+                null,
+                null,
+                null,
+                null,
+                "覆盖 HashMap 默认负载因子。",
+                null,
+                List.of("HashMap"),
+                List.of("理解底层原理"));
+
+        service.stream(new ChatRequest(conversationId, "generate questions", "QUESTION", null, generation), userId, 2, null)
+                .collectList()
+                .block();
+
+        verify(messageRepository).save(argThat(message -> {
+            if (!MessageRole.USER.name().equals(message.getRole()) || message.getPayload() == null) {
+                return false;
+            }
+            Map<?, ?> generationRequest = (Map<?, ?>) message.getPayload().get("generationRequest");
+            return "generate questions".equals(message.getContent())
+                    && "QUESTION".equals(message.getPayload().get("generationMode"))
+                    && generationRequest != null
+                    && questionBankId.toString().equals(generationRequest.get("questionBankId"))
+                    && Integer.valueOf(5).equals(generationRequest.get("questionCount"))
+                    && "覆盖 HashMap 默认负载因子。".equals(generationRequest.get("requirement"));
+        }));
+    }
+
+    @Test
+    void generationShouldUseCreatedConversationWhenRequestStartsNewConversation() {
+        UUID conversationId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID questionBankId = UUID.randomUUID();
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        ConversationService conversationService = mock(ConversationService.class);
+        when(conversationService.createConversation(
+                org.mockito.ArgumentMatchers.anyString(),
+                any())).thenReturn(conversationId);
+        AiAgentService aiAgentService = mock(AiAgentService.class);
+        when(aiAgentService.runGeneration(
+                any(ChatRequest.class),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()))
+                .thenReturn(new AiAgentResult("generated", AiMessageType.QUESTION_SET, Map.<String, Object>of()));
+        RagChatService service = serviceWith(
+                mock(VectorStore.class),
+                new AiProperties(),
+                messageRepository,
+                conversationService,
+                aiAgentService);
+        GenerationRequest generation = new GenerationRequest(
+                questionBankId,
+                5,
+                0,
+                2,
+                BigDecimal.valueOf(4),
+                null,
+                null,
+                null,
+                null,
+                "generate from a new conversation",
+                null,
+                List.of("HashMap"),
+                List.of("鐞嗚В搴曞眰鍘熺悊"));
+
+        List<ServerSentEvent<String>> events = service.stream(
+                        new ChatRequest(null, "generate questions", "QUESTION", null, generation),
+                        userId,
+                        2,
+                        null)
+                .collectList()
+                .block();
+
+        assertThat(events).isNotNull();
+        assertThat(events).extracting(ServerSentEvent::event).contains("conversation", "chunk");
+        verify(aiAgentService).runGeneration(
+                argThat(request -> conversationId.equals(request.conversationId())
+                        && "generate questions".equals(request.message())
+                        && "QUESTION".equals(request.agentMode())
+                        && generation.equals(request.generation())),
+                any(),
+                any(),
+                any(),
+                any(),
+                any());
+    }
+
+    @Test
+    void generationStreamShouldEmitPaperResultPayloadEvent() throws Exception {
+        UUID conversationId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        ConversationService conversationService = mock(ConversationService.class);
+        AiAgentService aiAgentService = mock(AiAgentService.class);
+        Map<String, Object> payload = Map.of(
+                "questions", List.of(Map.of(
+                        "questionTitle", "HashMap load factor",
+                        "questionContent", "Choose the correct answer.")));
+        when(aiAgentService.runGeneration(
+                any(ChatRequest.class),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()))
+                .thenReturn(new AiAgentResult("paper content", AiMessageType.PAPER, payload));
+        RagChatService service = serviceWith(
+                mock(VectorStore.class),
+                new AiProperties(),
+                messageRepository,
+                conversationService,
+                aiAgentService);
+
+        List<ServerSentEvent<String>> events = service.stream(
+                        new ChatRequest(conversationId, "generate paper", "PAPER", null, null),
+                        userId,
+                        2,
+                        null)
+                .collectList()
+                .block();
+
+        assertThat(events).isNotNull();
+        assertThat(events).extracting(ServerSentEvent::event).contains("generation_result", "chunk");
+        ServerSentEvent<String> resultEvent = events.stream()
+                .filter(event -> "generation_result".equals(event.event()))
+                .findFirst()
+                .orElseThrow();
+        Map<String, Object> data = new ObjectMapper().readValue(
+                resultEvent.data(),
+                new TypeReference<>() {
+                });
+        assertThat(data)
+                .containsEntry("mode", "PAPER")
+                .containsEntry("messageType", "PAPER")
+                .containsEntry("content", "paper content");
+        Map<?, ?> resultPayload = (Map<?, ?>) data.get("payload");
+        assertThat((List<?>) resultPayload.get("questions")).hasSize(1);
     }
 
     @Test
@@ -439,8 +614,28 @@ class RagChatServiceTest {
                 chatVectorMemoryService,
                 agentSearchTools,
                 new AiProviderCallGuard(),
-                new ObjectMapper()
+                new ObjectMapper(),
+                emptyQuestionGenerationKafkaBridgeProvider()
         );
+    }
+
+    private ObjectProvider<@org.jspecify.annotations.NonNull QuestionGenerationKafkaBridge> emptyQuestionGenerationKafkaBridgeProvider() {
+        return new ObjectProvider<>() {
+            @Override
+            public QuestionGenerationKafkaBridge getObject(Object... args) {
+                return null;
+            }
+
+            @Override
+            public QuestionGenerationKafkaBridge getIfAvailable() {
+                return null;
+            }
+
+            @Override
+            public QuestionGenerationKafkaBridge getObject() {
+                return null;
+            }
+        };
     }
 
     private VectorStore vectorStoreWithSourceResults(List<Document> knowledgeDocs, List<Document> chatMemoryDocs) {
@@ -473,5 +668,14 @@ class RagChatServiceTest {
         message.setMessageType(messageType.name());
         message.setContent(content);
         return message;
+    }
+
+    private void assertLatexRules(String prompt) {
+        assertThat(prompt)
+                .contains("行内公式只使用 `$...$`")
+                .contains("前端 KaTeX 支持范围")
+                .contains("\\nabla")
+                .contains("\\ce{...}")
+                .contains("MathJax");
     }
 }

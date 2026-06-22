@@ -1,6 +1,16 @@
 export type AiMessageRole = 'USER' | 'ASSISTANT' | 'SYSTEM' | 'user' | 'assistant' | 'system'
 export type AiAgentMode = 'CHAT' | 'QUESTION' | 'PAPER'
 export type AiMessageType = 'TEXT' | 'QUESTION_SET' | 'PAPER' | 'GRADING_RESULT'
+export type GenerationStage =
+  | 'RECEIVED'
+  | 'CONTEXT_READY'
+  | 'PLANNED'
+  | 'GENERATED'
+  | 'VALIDATED'
+  | 'REPAIRED'
+  | 'ASSEMBLED'
+  | 'RESPONDED'
+  | 'FAILED'
 
 export interface GenerationRequest {
   questionBankId?: string | null
@@ -16,6 +26,36 @@ export interface GenerationRequest {
   chapterIds?: string[] | null
   knowledgePoints?: string[] | null
   abilityGoals?: string[] | null
+}
+
+export interface GenerationStageEvent {
+  requestId?: string
+  mode?: AiAgentMode | string
+  stage: GenerationStage | string
+  status?: 'processing' | 'completed' | 'error' | string
+  title?: string
+  summary?: string
+  payload?: Record<string, unknown> | null
+  timestamp?: string
+}
+
+export interface GenerationResultEvent {
+  requestId?: string
+  mode?: AiAgentMode | string
+  content: string
+  messageType: AiMessageType | string
+  payload?: Record<string, unknown> | null
+}
+
+export interface GenerationTraceEntry {
+  entryId?: string
+  stage?: GenerationStage | string
+  source?: string
+  detailType?: string
+  title?: string
+  summary?: string
+  payload?: Record<string, unknown> | null
+  timestamp?: string
 }
 
 export interface Conversation {

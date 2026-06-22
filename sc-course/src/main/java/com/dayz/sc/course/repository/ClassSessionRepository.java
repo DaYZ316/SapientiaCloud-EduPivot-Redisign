@@ -3,6 +3,7 @@ package com.dayz.sc.course.repository;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.course.model.entity.ClassSession;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -71,4 +72,6 @@ public interface ClassSessionRepository {
      * @return 课程ID与已发布开课数量的映射
      */
     Map<UUID, Long> countPublishedByCourseIds(List<UUID> courseIds);
+
+    List<ClassSession> findLiveSessionsPastEnd(Instant now, int endedLiveStatus, int limit);
 }

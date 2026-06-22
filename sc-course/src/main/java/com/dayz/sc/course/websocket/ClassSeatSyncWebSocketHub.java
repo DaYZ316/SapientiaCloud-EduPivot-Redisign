@@ -1,6 +1,7 @@
 package com.dayz.sc.course.websocket;
 
 import com.dayz.sc.course.model.vo.ClassParticipantVO;
+import com.dayz.sc.course.model.vo.ClassSessionVO;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +10,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,15 +46,24 @@ public class ClassSeatSyncWebSocketHub {
     }
 
     public void sendSnapshot(WebSocketSession session, UUID classSessionId, List<ClassParticipantVO> participants) {
-        send(session, new SeatSyncMessage("seat_snapshot", classSessionId, participants, null, null, null));
+        send(session, new SeatSyncMessage("seat_snapshot", classSessionId, participants, null, null, null,
+                null, null, null, null, null));
     }
 
     public void broadcastUpsert(UUID classSessionId, ClassParticipantVO participant) {
-        broadcast(classSessionId, new SeatSyncMessage("seat_upsert", classSessionId, null, participant, null, null));
+        broadcast(classSessionId, new SeatSyncMessage("seat_upsert", classSessionId, null, participant, null, null,
+                null, null, null, null, null));
     }
 
     public void broadcastRemove(UUID classSessionId, UUID userId, Integer seatIndex) {
-        broadcast(classSessionId, new SeatSyncMessage("seat_remove", classSessionId, null, null, userId, seatIndex));
+        broadcast(classSessionId, new SeatSyncMessage("seat_remove", classSessionId, null, null, userId, seatIndex,
+                null, null, null, null, null));
+    }
+
+    public void broadcastLiveStatus(UUID classSessionId, ClassSessionVO session, String type) {
+        broadcast(classSessionId, new SeatSyncMessage(type, classSessionId, null, null, null, null,
+                session.liveStatus(), session.liveStatusText(), session.liveStartedAt(),
+                session.livePausedAt(), session.liveEndedAt()));
     }
 
     private void broadcast(UUID classSessionId, SeatSyncMessage message) {
@@ -95,7 +106,12 @@ public class ClassSeatSyncWebSocketHub {
             List<ClassParticipantVO> participants,
             ClassParticipantVO participant,
             UUID userId,
-            Integer seatIndex
+            Integer seatIndex,
+            Integer liveStatus,
+            String liveStatusText,
+            Instant liveStartedAt,
+            Instant livePausedAt,
+            Instant liveEndedAt
     ) {
     }
 }

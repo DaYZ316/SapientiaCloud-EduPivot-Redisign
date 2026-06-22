@@ -21,9 +21,13 @@ import type {
   AiContext,
   ChatMessage,
   Conversation,
+  GenerationResultEvent,
+  GenerationStageEvent,
+  GenerationTraceEntry,
   GenerationRequest,
   KnowledgeDoc,
 } from '@/features/ai/types/ai'
+import {createGenerationRequestPayload} from '@/features/ai/utils/generationRequestPayload'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
 interface SendMessageOptions {
@@ -51,8 +55,9 @@ function createLocalMessage(
   role: 'USER' | 'ASSISTANT',
   content: string,
   messageType = 'TEXT',
+  payload?: Record<string, unknown> | null,
 ): ChatMessage {
-  return {
+  const message: ChatMessage = {
     id: `local-${role.toLowerCase()}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     role,
     content,
@@ -60,6 +65,10 @@ function createLocalMessage(
     createdAt: new Date().toISOString(),
     pending: role === 'ASSISTANT',
   }
+  if (payload) {
+    message.payload = payload
+  }
+  return message
 }
 
 export const useAiStore = defineStore('ai', () => {
@@ -82,6 +91,10 @@ export const useAiStore = defineStore('ai', () => {
   const streamError = ref('')
   const abortController = ref<AbortController | null>(null)
   const draftConversationOpen = ref(false)
+  const activeGenerationMessageId = ref<string | null>(null)
+  const activeGenerationRequestId = ref<string | null>(null)
+  const activeGenerationConversationId = ref<string | null>(null)
+  let conversationsLoadPromise: Promise<void> | null = null
   let streamFlushTimer: number | null = null
   let activeStreamBuffer: ReturnType<typeof createDisplayStreamBuffer> | null = null
 
@@ -100,6 +113,9 @@ export const useAiStore = defineStore('ai', () => {
     [...messages.value]
       .reverse()
       .find((message) => message.role.toLowerCase() !== 'user' && message.messageType && message.messageType !== 'TEXT') || null,
+  )
+  const activeGenerationMessage = computed(() =>
+    messages.value.find((message) => message.id === activeGenerationMessageId.value) || null,
   )
 
   function upsertConversationSummary(conversation: Pick<Conversation, 'id' | 'title'>) {
@@ -171,7 +187,10 @@ export const useAiStore = defineStore('ai', () => {
   async function ensureConversationsLoaded() {
     if (conversationsLoaded.value) return
 
-    await loadConversations()
+    conversationsLoadPromise ??= loadConversations().finally(() => {
+      conversationsLoadPromise = null
+    })
+    await conversationsLoadPromise
   }
 
   async function loadMessages(conversationId = activeConversationId.value) {
@@ -183,7 +202,9 @@ export const useAiStore = defineStore('ai', () => {
     try {
       draftConversationOpen.value = false
       activeConversationId.value = conversationId
+      activeGenerationMessageId.value = null
       messages.value = await listConversationMessages(conversationId)
+      reconcileGenerationState()
       clearAgentSearchState()
     } finally {
       loadingMessages.value = false
@@ -195,6 +216,9 @@ export const useAiStore = defineStore('ai', () => {
     activeConversationId.value = null
     messages.value = []
     streamError.value = ''
+    activeGenerationMessageId.value = null
+    activeGenerationRequestId.value = null
+    activeGenerationConversationId.value = null
     clearAgentSearchState()
   }
 
@@ -203,7 +227,12 @@ export const useAiStore = defineStore('ai', () => {
     if (!message || streaming.value) return
 
     let conversationId = activeConversationId.value
-    const userMessage = createLocalMessage('USER', message)
+    const userMessage = createLocalMessage(
+      'USER',
+      message,
+      'TEXT',
+      createGenerationRequestPayload(options.agentMode, options.generation),
+    )
     const assistantMessage = createLocalMessage('ASSISTANT', '', messageTypeForMode(options.agentMode))
 
     messages.value.push(userMessage, assistantMessage)
@@ -211,10 +240,12 @@ export const useAiStore = defineStore('ai', () => {
     streamError.value = ''
     latestChatContext.value = null
     clearAgentSearchState()
+    activeGenerationMessageId.value = null
     abortController.value?.abort()
     abortController.value = new AbortController()
     const streamBuffer = createDisplayStreamBuffer(assistantMessage)
     activeStreamBuffer = streamBuffer
+    let receivedGenerationResult = false
 
     try {
       await streamChat(
@@ -228,10 +259,22 @@ export const useAiStore = defineStore('ai', () => {
         {
           signal: abortController.value.signal,
           onChunk(chunk) {
-            streamBuffer.enqueue(chunk)
+            if (assistantMessage.messageType === 'TEXT') {
+              streamBuffer.enqueue(chunk)
+              return
+            }
+            if (receivedGenerationResult) return
+            appendLocalMessageContent(assistantMessage.id, chunk)
           },
           onAgentSearch(event) {
             applyAgentSearchEvent(event)
+          },
+          onGenerationStage(event) {
+            applyGenerationStageEvent(assistantMessage, event)
+          },
+          onGenerationResult(event) {
+            receivedGenerationResult = true
+            applyGenerationResultEvent(assistantMessage, event)
           },
           onContext(contextInfo) {
             latestChatContext.value = contextInfo
@@ -252,9 +295,11 @@ export const useAiStore = defineStore('ai', () => {
       await loadConversations({silent: true})
       if (conversationId) {
         activeConversationId.value = conversationId
+        activeGenerationConversationId.value = conversationId
       }
       if (assistantMessage.messageType !== 'TEXT' && conversationId) {
         await loadMessages(conversationId)
+        activeGenerationMessageId.value = null
       }
     } catch (error) {
       streamBuffer.clear()
@@ -265,6 +310,7 @@ export const useAiStore = defineStore('ai', () => {
         pending: false,
       })
       streamError.value = errorMessage
+      await refreshActiveGeneration()
     } finally {
       streamBuffer.clear()
       if (activeStreamBuffer === streamBuffer) {
@@ -285,6 +331,12 @@ export const useAiStore = defineStore('ai', () => {
       streamFlushTimer = null
     }
     streaming.value = false
+    activeGenerationRequestId.value = null
+    activeGenerationConversationId.value = null
+  }
+
+  function isGenerationMessage(message: ChatMessage) {
+    return message.messageType === 'QUESTION_SET' || message.messageType === 'PAPER'
   }
 
   function applyAgentSearchEvent(event: AgentSearchEvent) {
@@ -398,6 +450,107 @@ export const useAiStore = defineStore('ai', () => {
     latestAgentSearchItems.value = []
   }
 
+  function openGenerationTrace(messageId: string) {
+    activeGenerationMessageId.value = messageId
+  }
+
+  function closeGenerationTrace() {
+    activeGenerationMessageId.value = null
+  }
+
+  function applyGenerationStageEvent(message: ChatMessage, event: GenerationStageEvent) {
+    const payload = {...(message.payload || {})}
+    const trace = normalizeGenerationTrace(payload.generationTrace)
+    const timestamp = event.timestamp || new Date().toISOString()
+    const entryId = event.requestId
+      ? `${event.requestId}-${event.stage}-${trace.length}`
+      : `${message.id}-${event.stage}-${trace.length}`
+
+    payload.generationTrace = trace.concat({
+      entryId,
+      stage: event.stage,
+      source: 'question-generation',
+      detailType: String(event.stage).toLowerCase(),
+      title: event.title,
+      summary: event.summary,
+      payload: event.payload ?? null,
+      timestamp,
+    })
+    payload.generationStage = event.stage
+    payload.generationStatus = event.status
+    payload.generationRequestId = event.requestId
+    payload.generationMode = event.mode
+    message.payload = payload
+    activeGenerationRequestId.value = event.requestId || null
+    if (activeConversationId.value) {
+      activeGenerationConversationId.value = activeConversationId.value
+    }
+  }
+
+  function applyGenerationResultEvent(message: ChatMessage, event: GenerationResultEvent) {
+    const payload = {...(event.payload || {})}
+    if (event.requestId) {
+      payload.generationRequestId = event.requestId
+    }
+    if (event.mode) {
+      payload.generationMode = event.mode
+    }
+    payload.generationStage ??= 'RESPONDED'
+    payload.generationStatus ??= 'completed'
+    patchLocalMessage(message.id, {
+      content: event.content,
+      messageType: event.messageType,
+      payload,
+      pending: false,
+    })
+    activeGenerationRequestId.value = event.requestId || null
+    if (activeConversationId.value) {
+      activeGenerationConversationId.value = activeConversationId.value
+    }
+  }
+
+  async function refreshActiveGeneration() {
+    if (!activeGenerationConversationId.value) return
+
+    const keepTraceRequestId = activeGenerationRequestId.value
+    await loadMessages(activeGenerationConversationId.value)
+    const refreshedMessage = [...messages.value].reverse().find((message) =>
+      isGenerationMessage(message)
+      && (!keepTraceRequestId || message.payload?.generationRequestId === keepTraceRequestId),
+    )
+    activeGenerationMessageId.value = refreshedMessage?.id || null
+    if (refreshedMessage && !refreshedMessage.pending) {
+      activeGenerationRequestId.value = null
+      activeGenerationConversationId.value = null
+    }
+  }
+
+  function reconcileGenerationState() {
+    if (streaming.value) return
+
+    const pendingGeneration = [...messages.value].reverse().find((message) =>
+      isGenerationMessage(message) && message.pending,
+    )
+    if (!pendingGeneration) {
+      activeGenerationRequestId.value = null
+      activeGenerationConversationId.value = null
+      return
+    }
+    activeGenerationMessageId.value = pendingGeneration.id
+    activeGenerationRequestId.value = typeof pendingGeneration.payload?.generationRequestId === 'string'
+      ? pendingGeneration.payload.generationRequestId
+      : null
+    activeGenerationConversationId.value = activeConversationId.value
+  }
+
+  function normalizeGenerationTrace(value: unknown): GenerationTraceEntry[] {
+    if (!Array.isArray(value)) return []
+
+    return value.filter((entry): entry is GenerationTraceEntry =>
+      Boolean(entry) && typeof entry === 'object',
+    )
+  }
+
   function patchLocalMessage(messageId: string, patch: Partial<ChatMessage>) {
     const message = messages.value.find((item) => item.id === messageId)
     if (!message) return
@@ -422,6 +575,12 @@ export const useAiStore = defineStore('ai', () => {
           drainResolve()
           drainResolve = null
         }
+        return
+      }
+
+      if (isGenerationMessage(message)) {
+        appendLocalMessageContent(message.id, buffer)
+        buffer = ''
         return
       }
 
@@ -518,6 +677,8 @@ export const useAiStore = defineStore('ai', () => {
     hasMoreConversations,
     streaming,
     streamError,
+    activeGenerationMessageId,
+    activeGenerationMessage,
     sortedConversations,
     latestArtifact,
     setContext,
@@ -525,9 +686,12 @@ export const useAiStore = defineStore('ai', () => {
     loadConversations,
     loadMoreConversations,
     loadMessages,
+    refreshActiveGeneration,
     openNewConversationDraft,
     sendMessage,
     stopStreaming,
+    openGenerationTrace,
+    closeGenerationTrace,
     togglePinned,
     toggleFavorited,
     removeConversation,

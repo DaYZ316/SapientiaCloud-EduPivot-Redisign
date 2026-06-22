@@ -11,6 +11,7 @@ const SUCCESS_CODE = 0
 const UNAUTHORIZED_CODE = 40100
 const FORBIDDEN_CODE = 40300
 export const ACCESS_TOKEN_KEY = 'edupivot.accessToken'
+export const SESSION_CLEARED_EVENT = 'edupivot:session-cleared'
 const REFRESH_TOKEN_KEY = 'edupivot.refreshToken'
 const TOKEN_TYPE_KEY = 'edupivot.tokenType'
 const USER_KEY = 'edupivot.user'
@@ -183,4 +184,7 @@ function clearSession() {
     localStorage.removeItem(REFRESH_TOKEN_KEY)
     localStorage.removeItem(TOKEN_TYPE_KEY)
     localStorage.removeItem(USER_KEY)
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event(SESSION_CLEARED_EVENT))
+    }
 }

@@ -9,6 +9,11 @@ export interface ClassSession {
     publishedAt: string | null
     roomSize: number
     liveRoomName: string
+    liveStatus: number
+    liveStatusText: string
+    liveStartedAt: string | null
+    livePausedAt: string | null
+    liveEndedAt: string | null
     status: number
     statusText: string
     joined: boolean
@@ -59,6 +64,25 @@ export interface ClassSeatSyncToken {
     expiresInSeconds: number
 }
 
+export interface LiveKitToken {
+    url: string
+    roomName: string
+    token: string
+    expiresAt: string
+}
+
+export interface ClassBarrage {
+    id: string
+    sessionId: string
+    senderId: string
+    content: string
+    sentAt: string
+}
+
+export interface ClassBarrageSubscription {
+    close: () => void
+}
+
 export type ClassSessionFormPayload = Omit<CreateClassSessionRequest, 'courseId'>
 
 export const ClassSessionStatus = {
@@ -66,6 +90,13 @@ export const ClassSessionStatus = {
     UPCOMING: 1,
     LIVE: 2,
     FINISHED: 3,
+} as const
+
+export const ClassLiveStatus = {
+    NOT_STARTED: 0,
+    LIVE: 1,
+    PAUSED: 2,
+    ENDED: 3,
 } as const
 
 export const ClassRoomSize = {

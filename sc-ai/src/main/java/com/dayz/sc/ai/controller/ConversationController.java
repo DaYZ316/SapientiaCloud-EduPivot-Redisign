@@ -4,12 +4,17 @@ import com.dayz.sc.ai.model.dto.CreateConversationRequest;
 import com.dayz.sc.ai.model.dto.UpdateConversationRequest;
 import com.dayz.sc.ai.model.vo.ChatMessageVO;
 import com.dayz.sc.ai.model.vo.ConversationVO;
+import com.dayz.sc.ai.service.AiGenerationExportService;
 import com.dayz.sc.ai.service.ConversationService;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.security.support.JwtPrincipalResolver;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,6 +43,7 @@ import java.util.UUID;
 public class ConversationController {
 
     private final ConversationService conversationService;
+    private final AiGenerationExportService aiGenerationExportService;
 
     @PostMapping
     public ApiResponse<@NonNull UUID> createConversation(
@@ -61,6 +68,26 @@ public class ConversationController {
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         return ApiResponse.ok(conversationService.listMessages(id, userId));
+    }
+
+    @GetMapping("/{id}/messages/{messageId}/export")
+    public ResponseEntity<byte[]> exportMessage(
+            @PathVariable UUID id,
+            @PathVariable UUID messageId,
+            @RequestParam String format,
+            @RequestParam(defaultValue = "false") boolean includeAnswers,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        AiGenerationExportService.ExportFile file = aiGenerationExportService.export(
+                id, messageId, userId, format, includeAnswers);
+        ContentDisposition disposition = ContentDisposition.attachment()
+                .filename(file.filename(), StandardCharsets.UTF_8)
+                .build();
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(file.contentType()))
+                .contentLength(file.bytes().length)
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .body(file.bytes());
     }
 
     @PatchMapping("/{id}")

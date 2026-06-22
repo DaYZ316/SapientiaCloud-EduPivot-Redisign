@@ -49,6 +49,10 @@ services:
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI}
       DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      LIVEKIT_URL: ${LIVEKIT_URL:-wss://livekit.edupivot.xyz}
+      LIVEKIT_SERVER_URL: ${LIVEKIT_SERVER_URL:-http://livekit:7880}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
       ZIPKIN_ENDPOINT: ${ZIPKIN_ENDPOINT:-http://zipkin:9411/api/v2/spans}
     volumes:
       - ./nacos-config:/nacos-config:ro
@@ -197,6 +201,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD}
+      LIVEKIT_URL: ${LIVEKIT_URL:-wss://livekit.edupivot.xyz}
+      LIVEKIT_SERVER_URL: ${LIVEKIT_SERVER_URL:-http://livekit:7880}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
       SERVER_PORT: 28084
       TZ: Asia/Shanghai
     ports:
@@ -463,6 +471,73 @@ services:
     networks:
       - sc-edupivot-net
 
+  livekit-config-init:
+    image: python:3.13-alpine
+    container_name: SC-LiveKit-Config-Init
+    environment:
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
+      LIVEKIT_RTC_TCP_PORT: ${LIVEKIT_RTC_TCP_PORT:-7881}
+      LIVEKIT_RTC_UDP_PORT: ${LIVEKIT_RTC_UDP_PORT:-7882}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - livekit-config:/livekit-config
+    entrypoint:
+      - python
+      - -c
+      - |
+        import json
+        import os
+        from pathlib import Path
+
+        api_key = os.environ.get("LIVEKIT_API_KEY", "").strip()
+        api_secret = os.environ.get("LIVEKIT_API_SECRET", "").strip()
+        if not api_key or not api_secret:
+            raise SystemExit("LIVEKIT_API_KEY and LIVEKIT_API_SECRET must be set")
+
+        tcp_port = int(os.environ.get("LIVEKIT_RTC_TCP_PORT", "7881"))
+        udp_port = int(os.environ.get("LIVEKIT_RTC_UDP_PORT", "7882"))
+        redis_password = os.environ.get("REDIS_PASSWORD", "")
+
+        config = "\n".join([
+            "port: 7880",
+            "bind_addresses:",
+            '  - ""',
+            "rtc:",
+            f"  tcp_port: {tcp_port}",
+            f"  udp_port: {udp_port}",
+            "  use_external_ip: true",
+            "redis:",
+            "  address: redis:6379",
+            f"  password: {json.dumps(redis_password)}",
+            "keys:",
+            f"  {json.dumps(api_key)}: {json.dumps(api_secret)}",
+            "",
+        ])
+        Path("/livekit-config/livekit.yaml").write_text(config, encoding="utf-8")
+    restart: "no"
+    networks:
+      - sc-edupivot-net
+
+  livekit:
+    image: ${LIVEKIT_IMAGE:-livekit/livekit-server:latest}
+    container_name: SC-LiveKit
+    restart: unless-stopped
+    depends_on:
+      livekit-config-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    command: [ "--config", "/livekit-config/livekit.yaml" ]
+    volumes:
+      - livekit-config:/livekit-config:ro
+    ports:
+      - "${LIVEKIT_API_BIND_HOST:-127.0.0.1}:${LIVEKIT_HTTP_PORT:-7880}:7880/tcp"
+      - "${LIVEKIT_RTC_BIND_HOST:-0.0.0.0}:${LIVEKIT_RTC_TCP_PORT:-7881}:7881/tcp"
+      - "${LIVEKIT_RTC_BIND_HOST:-0.0.0.0}:${LIVEKIT_RTC_UDP_PORT:-7882}:${LIVEKIT_RTC_UDP_PORT:-7882}/udp"
+    networks:
+      - sc-edupivot-net
+
   kafka:
     image: apache/kafka:3.9.0
     container_name: SC-Kafka
@@ -567,6 +642,8 @@ volumes:
     name: SC-Nacos-Logs
   kafka-data:
     name: SC-Kafka-Data
+  livekit-config:
+    name: SC-LiveKit-Config
 
 networks:
   sc-edupivot-net:

@@ -274,7 +274,7 @@ const aiReturnLauncherVisible = ref(false)
 const globalAiDrawerRef = ref<GlobalAiDrawerInstance | null>(null)
 const aiReturnLauncherRef = ref<AiTrailLauncherInstance | null>(null)
 const aiModeTransitionOverlayRef = ref<AiModeTransitionOverlayInstance | null>(null)
-const {unreadCount, start: startUnreadCount, stop: stopUnreadCount} = useUnreadCount()
+const {unreadCount} = useUnreadCount()
 
 const isAdmin = computed(() => authStore.user?.role === 0)
 const isTeacher = computed(() => authStore.user?.role === 2)
@@ -287,7 +287,7 @@ const brandLogoSrc = computed(() =>
 )
 const isAiPage = computed(() => {
     const routeName = router.currentRoute.value.name
-    return routeName === 'ai-workspace' || routeName === 'ai-history'
+    return routeName === 'ai-workspace' || routeName === 'ai-history' || routeName === 'ai-favorites'
 })
 const isSidebarShell = computed(() => uiPreferences.isSidebarLayout || isAiPage.value)
 const isCollapsibleSidebar = computed(() => isSidebarShell.value)
@@ -328,12 +328,10 @@ function handleClickOutside(event: MouseEvent) {
 }
 
 onMounted(() => {
-  startUnreadCount()
   document.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
-  stopUnreadCount()
   document.removeEventListener('click', handleClickOutside)
 })
 

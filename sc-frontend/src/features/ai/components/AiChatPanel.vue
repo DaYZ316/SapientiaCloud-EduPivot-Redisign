@@ -34,18 +34,30 @@
         class="state-block"
         role="status"
       >
-        <div class="loading-message-card loading-message-card--user">
-          <div class="loading-copy">
-            <span class="loading-line loading-line--medium shimmer" />
-            <span class="loading-line loading-line--short shimmer" />
+        <div class="loading-track">
+          <div class="loading-message-card loading-message-card--user loading-message-card--prompt">
+            <span class="loading-user-bar shimmer" />
           </div>
-        </div>
-        <div class="loading-message-card loading-message-card--assistant">
-          <span class="loading-avatar shimmer" />
-          <div class="loading-copy">
-            <span class="loading-line loading-line--title shimmer" />
-            <span class="loading-line shimmer" />
-            <span class="loading-line loading-line--short shimmer" />
+          <div class="loading-message-card loading-message-card--assistant">
+            <span class="loading-avatar shimmer" />
+            <div class="loading-copy">
+              <span class="loading-line loading-line--title shimmer" />
+              <span class="loading-line shimmer" />
+              <span class="loading-line loading-line--medium shimmer" />
+            </div>
+          </div>
+          <div class="loading-message-card loading-message-card--user">
+            <div class="loading-copy">
+              <span class="loading-line loading-line--medium shimmer" />
+              <span class="loading-line loading-line--short shimmer" />
+            </div>
+          </div>
+          <div class="loading-message-card loading-message-card--assistant loading-message-card--compact">
+            <span class="loading-avatar shimmer" />
+            <div class="loading-copy">
+              <span class="loading-line shimmer" />
+              <span class="loading-line loading-line--short shimmer" />
+            </div>
           </div>
         </div>
       </div>
@@ -54,11 +66,16 @@
         <article
           v-for="message in aiStore.messages"
           :key="message.id"
-          :class="[messageClass(message.role), {failed: message.failed, streaming: message.pending && !message.failed}]"
+          :class="[messageClass(message.role), {
+            failed: message.failed,
+            streaming: message.pending && !message.failed,
+            'has-generation-card': isGenerationMessage(message),
+            'has-generation-request': isGenerationRequestMessage(message),
+          }]"
           class="message-row"
         >
           <div
-            v-if="message.messageType && message.messageType !== 'TEXT'"
+            v-if="message.messageType && message.messageType !== 'TEXT' && !isGenerationMessage(message)"
             class="message-meta"
           >
             <small>
@@ -66,12 +83,22 @@
             </small>
           </div>
           <div class="message-bubble">
+            <AiGenerationProgressCard
+              v-if="isGenerationMessage(message)"
+              :active="aiStore.activeGenerationMessageId === message.id"
+              :message="message"
+              @view-trace="openGenerationTrace"
+            />
             <AiPendingBrushLoader
-              v-if="message.pending && isAssistantMessage(message.role) && !message.content"
+              v-else-if="message.pending && isAssistantMessage(message.role) && !message.content"
               class="pending-brush"
             />
+            <AiGenerationRequestCard
+              v-else-if="isGenerationRequestMessage(message)"
+              :message="message"
+            />
             <div
-              v-if="message.content"
+              v-if="message.content && !isGenerationMessage(message) && !isGenerationRequestMessage(message)"
               class="message-content"
             >
               <AiMarkdownMessage
@@ -82,7 +109,10 @@
                 {{ message.content }}
               </template>
             </div>
-            <AiAgentSearchEvidence :payload="agentSearchPayload(message)" />
+            <AiAgentSearchEvidence
+              v-if="!isGenerationMessage(message)"
+              :payload="agentSearchPayload(message)"
+            />
           </div>
         </article>
       </template>
@@ -187,9 +217,13 @@ import {Mic, Plus, Send, Square} from 'lucide-vue-next'
 import {useAiStore} from '@/features/ai/stores/ai'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import AiAgentSearchEvidence from '@/features/ai/components/AiAgentSearchEvidence.vue'
+import AiGenerationProgressCard from '@/features/ai/components/AiGenerationProgressCard.vue'
+import AiGenerationRequestCard from '@/features/ai/components/AiGenerationRequestCard.vue'
 import AiMarkdownMessage from '@/features/ai/components/AiMarkdownMessage.vue'
 import AiPendingBrushLoader from '@/features/ai/components/AiPendingBrushLoader.vue'
 import type {AgentSearchPayload, AiAgentMode, AiMessageRole, ChatMessage, GenerationRequest} from '@/features/ai/types/ai'
+import {hasGenerationRequestPayload} from '@/features/ai/utils/generationRequestPayload'
+import {isGenerationMessage} from '@/features/ai/utils/generationTrace'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
 const props = withDefaults(defineProps<{
@@ -199,12 +233,16 @@ const props = withDefaults(defineProps<{
   modelValue?: AiAgentMode
   generation?: GenerationRequest
 }>(), {
-  title: 'AI 教学助手',
+  title: '天枢教学助手',
   showHeader: true,
   showComposer: true,
   modelValue: undefined,
   generation: undefined,
 })
+
+const emit = defineEmits<{
+  'view-generation': [message: ChatMessage]
+}>()
 
 const aiStore = useAiStore()
 const authStore = useAuthStore()
@@ -279,6 +317,12 @@ onBeforeUnmount(() => {
 async function submit() {
   const message = draft.value.trim()
   if (!message) return
+  const generationRequest = activeMode.value === 'CHAT'
+    ? undefined
+    : normalizedGeneration({
+        ...props.generation,
+        requirement: message,
+      }, activeMode.value)
 
   cancelSpeechInput()
   draft.value = ''
@@ -287,7 +331,7 @@ async function submit() {
   await aiStore.sendMessage(message, {
     agentMode: activeMode.value,
     courseId: aiStore.context.courseId,
-    generation: activeMode.value === 'CHAT' ? undefined : normalizedGeneration(props.generation),
+    generation: generationRequest,
   })
 }
 
@@ -393,11 +437,11 @@ function getSpeechRecognitionConstructor() {
   return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition
 }
 
-function normalizedGeneration(generation?: GenerationRequest): GenerationRequest {
+function normalizedGeneration(generation?: GenerationRequest, mode: AiAgentMode = 'QUESTION'): GenerationRequest {
   const value = generation ?? {}
   return {
     ...value,
-    questionCount: Math.max(1, Math.min(50, Number(value.questionCount) || 5)),
+    questionCount: Math.max(1, Math.min(50, Number(value.questionCount) || (mode === 'PAPER' ? 10 : 5))),
     paperName: value.paperName?.trim() || null,
     paperType: value.paperType?.trim() || null,
     requirement: value.requirement?.trim() || null,
@@ -406,6 +450,13 @@ function normalizedGeneration(generation?: GenerationRequest): GenerationRequest
 
 function createNewConversation() {
   aiStore.openNewConversationDraft()
+}
+
+function openGenerationTrace(messageId: string) {
+  const message = aiStore.messages.find(item => item.id === messageId)
+  if (message) {
+    emit('view-generation', message)
+  }
 }
 
 function queueScrollToBottom(behavior: ScrollBehavior = 'auto') {
@@ -442,6 +493,10 @@ function messageClass(role: AiMessageRole) {
 
 function isAssistantMessage(role: AiMessageRole) {
   return role.toLowerCase() !== 'user'
+}
+
+function isGenerationRequestMessage(message: ChatMessage) {
+  return !isAssistantMessage(message.role) && hasGenerationRequestPayload(message)
 }
 
 function agentSearchPayload(message: ChatMessage): AgentSearchPayload | null {
@@ -509,7 +564,6 @@ interface SpeechRecognitionErrorEventLike {
 .ai-chat-panel {
   display: flex;
   position: relative;
-  min-width: 0;
   min-height: 0;
   height: 100%;
   flex-direction: column;
@@ -596,6 +650,10 @@ interface SpeechRecognitionErrorEventLike {
   justify-items: end;
 }
 
+.message-row.has-generation-card .message-bubble :deep(.generation-card) {
+  width: 80%;
+}
+
 .message-meta {
   display: inline-flex;
   align-items: center;
@@ -636,6 +694,19 @@ interface SpeechRecognitionErrorEventLike {
   background: var(--color-primary);
   border-color: transparent;
   color: var(--color-on-primary);
+}
+
+.from-user.has-generation-request {
+  justify-items: end;
+}
+
+.from-user.has-generation-request .message-bubble {
+  width: 80%;
+  max-width: 620px;
+  padding: 16px;
+  background: var(--color-surface-container-lowest);
+  border-color: var(--color-outline-light);
+  color: var(--color-on-surface);
 }
 
 .from-user .message-content {
@@ -811,8 +882,7 @@ interface SpeechRecognitionErrorEventLike {
   -webkit-line-clamp: 2;
 }
 
-.empty-chat,
-.state-block {
+.empty-chat {
   display: grid;
   flex: 1;
   place-items: center;
@@ -823,22 +893,53 @@ interface SpeechRecognitionErrorEventLike {
 }
 
 .state-block {
-  width: min(100%, 720px);
-  gap: 18px;
-  margin: auto;
-  padding: 10px 0;
+  display: grid;
+  width: 60%;
+  min-width: 0;
+  flex: 0 0 auto;
+  gap: 0;
+  align-content: start;
+  justify-items: stretch;
+  margin: clamp(var(--space-md), 8vh, 72px) auto var(--space-lg);
+  padding: 0;
+  color: var(--color-muted);
+  text-align: left;
   animation: messageEnter 0.22s ease-out;
+}
+
+.loading-track {
+  display: grid;
+  position: relative;
+  gap: 16px;
+  width: 100%;
+}
+
+.loading-track::before {
+  content: '';
+  position: absolute;
+  top: 58px;
+  bottom: 12px;
+  left: 16px;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--color-outline-light) 82%, transparent) 16%,
+    color-mix(in srgb, var(--color-outline-light) 42%, transparent) 72%,
+    transparent
+  );
 }
 
 .loading-message-card {
   display: grid;
-  width: min(100%, 560px);
+  position: relative;
+  width: 100%;
   align-items: start;
   gap: 14px;
-  padding: 16px;
-  background: color-mix(in srgb, var(--color-surface-container) 76%, transparent);
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-lg);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
 }
 
 .loading-message-card--assistant {
@@ -847,9 +948,28 @@ interface SpeechRecognitionErrorEventLike {
 }
 
 .loading-message-card--user {
-  width: min(78%, 420px);
+  width: min(60%, 420px);
   justify-self: end;
-  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface-container));
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--color-primary) 90%, var(--color-surface-card));
+  border-radius: var(--radius-lg);
+}
+
+.loading-message-card--prompt {
+  width: min(48%, 360px);
+  padding: 0;
+  background: transparent;
+}
+
+.loading-message-card--compact .loading-copy {
+  width: min(72%, 520px);
+}
+
+.loading-user-bar {
+  display: block;
+  width: 100%;
+  height: 42px;
+  border-radius: var(--radius-lg);
 }
 
 .loading-avatar {
@@ -860,8 +980,10 @@ interface SpeechRecognitionErrorEventLike {
 
 .loading-copy {
   display: grid;
-  gap: 9px;
+  gap: 10px;
   width: 100%;
+  min-width: 0;
+  padding-top: 5px;
 }
 
 .loading-line {
@@ -872,12 +994,11 @@ interface SpeechRecognitionErrorEventLike {
 }
 
 .loading-line--title {
-  width: 36%;
+  width: 34%;
 }
 
 .loading-line--medium {
   width: 72%;
-  justify-self: end;
 }
 
 .loading-line--short {
@@ -886,6 +1007,11 @@ interface SpeechRecognitionErrorEventLike {
 
 .loading-message-card--user .loading-line {
   justify-self: end;
+}
+
+.loading-message-card--user .loading-copy {
+  gap: 9px;
+  padding-top: 0;
 }
 
 .empty-chat {
@@ -920,6 +1046,26 @@ interface SpeechRecognitionErrorEventLike {
   );
   background-size: 200% 100%;
   animation: shimmer 1.55s ease-in-out infinite;
+}
+
+.loading-message-card--user .shimmer {
+  background: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--color-on-primary) 13%, transparent) 8%,
+    color-mix(in srgb, var(--color-on-primary) 24%, transparent) 18%,
+    color-mix(in srgb, var(--color-on-primary) 13%, transparent) 33%
+  );
+  background-size: 200% 100%;
+}
+
+.loading-message-card--prompt .loading-user-bar {
+  background: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--color-primary) 88%, var(--color-surface-card)) 8%,
+    var(--color-primary) 18%,
+    color-mix(in srgb, var(--color-primary) 88%, var(--color-surface-card)) 33%
+  );
+  background-size: 200% 100%;
 }
 
 .inline-error {
@@ -1135,6 +1281,11 @@ interface SpeechRecognitionErrorEventLike {
     max-width: min(58ch, 88%);
   }
 
+  .from-user.has-generation-request .message-bubble {
+    width: 100%;
+    max-width: 100%;
+  }
+
   .message-list {
     padding: var(--space-md) 18px var(--space-sm);
   }
@@ -1145,6 +1296,10 @@ interface SpeechRecognitionErrorEventLike {
 
   .loading-message-card--user {
     width: min(88%, 420px);
+  }
+
+  .loading-message-card--prompt {
+    width: min(74%, 360px);
   }
 
   .ai-chat-panel.is-empty .message-list {

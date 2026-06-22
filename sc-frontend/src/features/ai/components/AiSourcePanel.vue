@@ -78,7 +78,7 @@
           <button
             class="session-link"
             type="button"
-            @click="aiStore.loadMessages(conversation.id)"
+            @click="openConversation(conversation.id)"
           >
             <span>{{ conversation.title }}</span>
           </button>
@@ -194,6 +194,14 @@ async function openHistory() {
 async function openFavorites() {
   closeMenu()
   await router.push({name: 'ai-favorites'})
+}
+
+async function openConversation(id: string) {
+  closeMenu()
+  await aiStore.loadMessages(id)
+  if (route.name !== 'ai-workspace') {
+    await router.push({name: 'ai-workspace'})
+  }
 }
 
 function toggleMenu(id: string) {

@@ -46,12 +46,17 @@ export interface ClassroomModelRoute {
 }
 
 export interface SeatSyncMessage {
-    type: 'seat_snapshot' | 'seat_upsert' | 'seat_remove'
+    type: 'seat_snapshot' | 'seat_upsert' | 'seat_remove' | 'live_started' | 'live_paused' | 'live_resumed' | 'live_stopped'
     sessionId: string
     participants?: ClassParticipant[]
     participant?: ClassParticipant
     userId?: string
     seatIndex?: number | null
+    liveStatus?: number
+    liveStatusText?: string
+    liveStartedAt?: string | null
+    livePausedAt?: string | null
+    liveEndedAt?: string | null
 }
 
 export function getRoomSpec(roomSize: number): ClassroomRoomSpec {

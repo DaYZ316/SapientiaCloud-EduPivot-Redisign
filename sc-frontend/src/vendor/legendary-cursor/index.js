@@ -4,6 +4,9 @@ import { linev, linef } from "./js/shaders/line";
 import { sparklev, sparklef } from "./js/shaders/sparkle";
 import { lightshaftv, lightshaftf } from "./js/shaders/lightshaft";
 import { quadclearv, quadclearf } from "./js/shaders/quadclear";
+import t3TextureUrl from "./assets/t3.jpg";
+import t6TextureUrl from "./assets/t6_1.jpg";
+import tsTextureUrl from "./assets/ts.png";
 
 let vec3 = function(x,y,z) {
     return new THREE.Vector3(x,y,z);
@@ -24,6 +27,7 @@ let texture1;
 let texture2;
 let texture3;
 let initToken = 0;
+let paused = false;
 
 let linePoints  = [];
 let sparkles    = [];
@@ -48,38 +52,35 @@ let autoPilotSpeed;
 let textureOffset = new THREE.Vector2(0, 0);
 let targetTextureOffset = new THREE.Vector2(0, 0);
 let nextTextureOffsetAt = 0;
+let defaultTextureUrls = {
+    1: t3TextureUrl,
+    2: t6TextureUrl,
+    3: tsTextureUrl,
+};
 
 LegendaryCursor.init = function(args) {
-    LegendaryCursor.destroy();
     if(!args) args = { };
+    if(renderer && scene && camera && timer) {
+        applyConfig(args);
+        resetState();
+        paused = false;
+        setRendererVisible(true);
+        if(renderer.domElement) {
+            renderer.domElement.style.zIndex = String(args.zIndex || 1890);
+        }
+        onResize();
+        if(lineMaterial && sparkleMaterial && !animationFrame) {
+            timer.update();
+            animate();
+        }
+        return;
+    }
+
+    LegendaryCursor.destroy();
     let token = ++initToken;
-    
-    lineExpFactor    = args.lineExpFactor  || 0.6;
-    speedExpFactor   = args.speedExpFactor || 0.8;
-    lineSize         = args.lineSize || 0.15;
-    opacityDecrement = args.opacityDecrement || 0.55;
-    sparklesCount    = args.sparklesCount || 65;
-    maxOpacity       = args.maxOpacity || 1;
-    autoPilot        = Boolean(args.autoPilot);
-    autoPilotCenter  = args.autoPilotCenter || { x: window.innerWidth - 60, y: window.innerHeight - 60 };
-    autoPilotRadius  = args.autoPilotRadius || 42;
-    autoPilotSpeed   = args.autoPilotSpeed || 2.4;
-    linePoints       = [];
-    sparkles         = [];
-    lightShafts      = [];
-    mouseDown        = false;
-    mouseMixer       = 0;
-    cumulativeUvy    = 0;
-    followCumulative = 0;
-    velocityExp      = 0;
-    currMousePos     = vec3(0,0,0);
-    lastMousePos     = vec3(0,0,0);
-    textureDisp      = new THREE.Vector2(0, 0);
-    lastTextureDisp  = new THREE.Vector2(0, 0);
-    textureOffset    = new THREE.Vector2(0, 0);
-    targetTextureOffset = new THREE.Vector2(Math.random(), Math.random());
-    nextTextureOffsetAt = 0;
-    aspectRatio      = window.innerWidth / window.innerHeight;
+    paused = false;
+    applyConfig(args);
+    resetState();
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, premultipliedAlpha: true });
     renderer.autoClear = false;
@@ -100,38 +101,18 @@ LegendaryCursor.init = function(args) {
     timer = new THREE.Timer();
 
     let t1, t2, t4;
-    new THREE.TextureLoader().load(args.texture1 || "https://domenicobrz.github.io/assets/legendary-cursor/t3.jpg", function(texture) {
-        if(token !== initToken) {
-            texture.dispose();
-            return;
-        }
-        // setting these values will prevent the texture from being downscaled internally by three.js
-        texture.generateMipmaps = false;
-        texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
-        texture.minFilter = THREE.LinearFilter;
+    loadCursorTexture(args.texture1, 1, token, function(texture) {
         texture1 = t1 = texture;
         onDl();
     });
 
-    new THREE.TextureLoader().load(args.texture2 || "https://domenicobrz.github.io/assets/legendary-cursor/t6_1.jpg", function(texture) {
-        if(token !== initToken) {
-            texture.dispose();
-            return;
-        }
-        // setting these values will prevent the texture from being downscaled internally by three.js
-        texture.generateMipmaps = false;
-        texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
-        texture.minFilter = THREE.LinearFilter;
-        texture2 = t2 = texture;        
+    loadCursorTexture(args.texture2, 2, token, function(texture) {
+        texture2 = t2 = texture;
         onDl();
     });
 
-    new THREE.TextureLoader().load(args.texture3 || "https://domenicobrz.github.io/assets/legendary-cursor/ts.png", function(texture) {
-        if(token !== initToken) {
-            texture.dispose();
-            return;
-        }
-        texture3 = t4 = texture;        
+    loadCursorTexture(args.texture3, 3, token, function(texture) {
+        texture3 = t4 = texture;
         onDl();
     });
 
@@ -223,7 +204,9 @@ LegendaryCursor.init = function(args) {
         }
     
         timer.update();
-        animate();
+        if(!paused) {
+            animate();
+        }
     }
 
     if(!autoPilot) {
@@ -233,8 +216,19 @@ LegendaryCursor.init = function(args) {
     window.addEventListener("resize", onResize); 
 }
 
+LegendaryCursor.pause = function() {
+    paused = true;
+    setRendererVisible(false);
+    clearVisualState();
+    if(animationFrame) {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = 0;
+    }
+}
+
 LegendaryCursor.destroy = function() {
     initToken++;
+    paused = false;
     if(animationFrame) {
         cancelAnimationFrame(animationFrame);
         animationFrame = 0;
@@ -289,6 +283,7 @@ LegendaryCursor.setAutoPilotCenter = function(center) {
 let followCumulative = 0;
 let velocityExp      = 0;
 function animate(now) {
+    if(paused) return;
     if(!renderer || !scene || !camera || !timer || !lineMaterial || !sparkleMaterial) return;
     animationFrame = requestAnimationFrame(animate);
 
@@ -440,6 +435,143 @@ function animate(now) {
     // if(scene.getObjectByName("lightShafts"))
     //     scene.getObjectByName("lightShafts").material.visible = false;
     renderer.render(scene, camera);
+}
+
+function applyConfig(args) {
+    lineExpFactor    = args.lineExpFactor  || 0.6;
+    speedExpFactor   = args.speedExpFactor || 0.8;
+    lineSize         = args.lineSize || 0.15;
+    opacityDecrement = args.opacityDecrement || 0.55;
+    sparklesCount    = args.sparklesCount || 65;
+    maxOpacity       = args.maxOpacity || 1;
+    autoPilot        = Boolean(args.autoPilot);
+    autoPilotCenter  = args.autoPilotCenter || { x: window.innerWidth - 60, y: window.innerHeight - 60 };
+    autoPilotRadius  = args.autoPilotRadius || 42;
+    autoPilotSpeed   = args.autoPilotSpeed || 2.4;
+    aspectRatio      = window.innerWidth / window.innerHeight;
+}
+
+function resetState() {
+    clearVisualState();
+    mouseDown        = false;
+    mouseMixer       = 0;
+    cumulativeUvy    = 0;
+    followCumulative = 0;
+    velocityExp      = 0;
+    currMousePos     = vec3(0,0,0);
+    lastMousePos     = vec3(0,0,0);
+    textureDisp      = new THREE.Vector2(0, 0);
+    lastTextureDisp  = new THREE.Vector2(0, 0);
+    textureOffset    = new THREE.Vector2(0, 0);
+    targetTextureOffset = new THREE.Vector2(Math.random(), Math.random());
+    nextTextureOffsetAt = 0;
+}
+
+function clearVisualState() {
+    linePoints = [];
+    sparkles = [];
+    lightShafts = [];
+    if(!scene) return;
+    for(const name of ["line", "sparkles", "lightShafts", "quadClear"]) {
+        let child = scene.getObjectByName(name);
+        if(!child) continue;
+        scene.remove(child);
+        if(child.geometry) child.geometry.dispose();
+    }
+}
+
+function setRendererVisible(visible) {
+    if(renderer?.domElement) {
+        renderer.domElement.style.display = visible ? "block" : "none";
+    }
+}
+
+function loadCursorTexture(url, kind, token, onLoaded) {
+    let fallbackTexture = createFallbackTexture(kind);
+    onLoaded(fallbackTexture);
+
+    let textureUrl = url || defaultTextureUrls[kind];
+    if(!textureUrl) return;
+
+    new THREE.TextureLoader().load(textureUrl, function(texture) {
+        if(token !== initToken) {
+            texture.dispose();
+            return;
+        }
+        prepareTexture(texture);
+        replaceCursorTexture(kind, texture);
+    });
+}
+
+function prepareTexture(texture) {
+    texture.generateMipmaps = false;
+    texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.needsUpdate = true;
+}
+
+function replaceCursorTexture(kind, texture) {
+    let previousTexture;
+    if(kind === 1) {
+        previousTexture = texture1;
+        texture1 = texture;
+        if(lineMaterial) lineMaterial.uniforms.uTexture1.value = texture;
+        if(sparkleMaterial) sparkleMaterial.uniforms.uTexture1.value = texture;
+    } else if(kind === 2) {
+        previousTexture = texture2;
+        texture2 = texture;
+        if(lineMaterial) lineMaterial.uniforms.uTexture2.value = texture;
+        if(sparkleMaterial) sparkleMaterial.uniforms.uTexture2.value = texture;
+    } else if(kind === 3) {
+        previousTexture = texture3;
+        texture3 = texture;
+        if(sparkleMaterial) sparkleMaterial.uniforms.uTexture3.value = texture;
+    }
+
+    if(previousTexture && previousTexture !== texture) {
+        previousTexture.dispose();
+    }
+}
+
+function createFallbackTexture(kind) {
+    let canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    let context = canvas.getContext("2d");
+    let gradient = context.createLinearGradient(0, 0, 128, 128);
+
+    if(kind === 2) {
+        gradient.addColorStop(0, "#7dd3fc");
+        gradient.addColorStop(0.42, "#f0abfc");
+        gradient.addColorStop(1, "#fde68a");
+    } else if(kind === 3) {
+        gradient = context.createRadialGradient(64, 64, 8, 64, 64, 62);
+        gradient.addColorStop(0, "rgba(255,255,255,1)");
+        gradient.addColorStop(0.35, "rgba(125,211,252,0.82)");
+        gradient.addColorStop(1, "rgba(255,255,255,0)");
+    } else {
+        gradient.addColorStop(0, "#fef3c7");
+        gradient.addColorStop(0.36, "#f9a8d4");
+        gradient.addColorStop(0.72, "#93c5fd");
+        gradient.addColorStop(1, "#a7f3d0");
+    }
+
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 128, 128);
+
+    if(kind !== 3) {
+        context.globalAlpha = 0.16;
+        for(let i = 0; i < 180; i++) {
+            context.fillStyle = i % 2 ? "#ffffff" : "#111827";
+            context.fillRect(Math.random() * 128, Math.random() * 128, 1, 1);
+        }
+    }
+
+    let texture = new THREE.CanvasTexture(canvas);
+    prepareTexture(texture);
+    return texture;
 }
 
 // let omncesaf = 0;

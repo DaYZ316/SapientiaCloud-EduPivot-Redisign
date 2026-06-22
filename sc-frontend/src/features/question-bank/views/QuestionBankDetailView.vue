@@ -133,7 +133,10 @@
 
             <section class="preview-section">
               <h3>{{ t('questionBank.questionStem') }}</h3>
-              <p>{{ selectedQuestion.questionContent || selectedQuestion.questionTitle }}</p>
+              <RichMathContent
+                :content="selectedQuestion.questionContent || selectedQuestion.questionTitle"
+                class="question-content rich-content"
+              />
             </section>
 
             <section v-if="selectedQuestionHasOptions" class="preview-section">
@@ -147,7 +150,10 @@
                     class="option-row"
                 >
                   <span class="option-label">{{ option.optionLabel }}</span>
-                  <span>{{ option.optionContent }}</span>
+                  <RichMathContent
+                    :content="option.optionContent"
+                    class="option-content rich-content"
+                  />
                 </div>
               </div>
               <p v-else class="muted-text">{{ t('questionBank.noOptions') }}</p>
@@ -157,16 +163,22 @@
               <h3>{{ t('questionBank.correctAnswer') }}</h3>
               <p v-if="selectedQuestionLoading" class="muted-text">{{ t('questionBank.loadingDetail') }}</p>
               <div v-else-if="answerItems.length" class="answer-list">
-                <div v-for="answer in answerItems" :key="answer" class="answer-row">
-                  {{ answer }}
-                </div>
+                <RichMathContent
+                  v-for="answer in answerItems"
+                  :key="answer"
+                  :content="answer"
+                  class="answer-row rich-content"
+                />
               </div>
               <p v-else class="muted-text">{{ t('questionBank.noAnswer') }}</p>
             </section>
 
             <section v-if="showAnswer" class="preview-section">
               <h3>{{ t('questionBank.explanation') }}</h3>
-              <p>{{ explanationText }}</p>
+              <RichMathContent
+                :content="explanationText"
+                class="explanation-content rich-content"
+              />
             </section>
 
             <section v-if="selectedQuestion.tags?.length" class="preview-section">
@@ -374,6 +386,7 @@ import type {Question, QuestionBank} from '@/features/question-bank/types/questi
 import AiQuestionToolsPanel from '@/features/ai/components/AiQuestionToolsPanel.vue'
 import BaseNumberStepper from '@/shared/components/BaseNumberStepper.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
+import RichMathContent from '@/shared/components/RichMathContent.vue'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
@@ -1321,6 +1334,18 @@ async function handleDeleteQuestion() {
   line-height: 1.65;
 }
 
+.rich-content {
+  max-width: none;
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.rich-content :deep(p) {
+  margin: 0;
+}
+
 .option-list {
   display: grid;
   gap: 8px;
@@ -1354,6 +1379,16 @@ async function handleDeleteQuestion() {
   font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.5;
+}
+
+.option-content.rich-content,
+.answer-row.rich-content {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.answer-row.rich-content {
+  color: var(--color-on-surface);
 }
 
 .option-row.correct {

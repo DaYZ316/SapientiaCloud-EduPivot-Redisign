@@ -13,6 +13,7 @@ import com.nimbusds.jwt.SignedJWT;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
@@ -30,10 +31,14 @@ public class LiveKitTokenService {
 
     private final LiveKitProperties properties;
 
-    public LiveKitTokenVO createToken(UUID userId, String roomName, boolean canPublish) {
+    public void requireConfigured() {
         if (!properties.configured()) {
             throw new BusinessException(ErrorCodes.SERVICE_UNAVAILABLE, "LiveKit is not configured");
         }
+    }
+
+    public LiveKitTokenVO createToken(UUID userId, String roomName, boolean canPublish) {
+        requireConfigured();
 
         Instant now = Instant.now();
         Instant expiresAt = now.plus(properties.getTokenTtl());
@@ -57,5 +62,30 @@ public class LiveKitTokenService {
             throw new BusinessException(ErrorCodes.SERVICE_UNAVAILABLE, "LiveKit token signing failed");
         }
         return new LiveKitTokenVO(properties.getUrl(), roomName, jwt.serialize(), expiresAt);
+    }
+
+    public String createRoomAdminToken(String roomName) {
+        requireConfigured();
+
+        Instant now = Instant.now();
+        Instant expiresAt = now.plus(Duration.ofMinutes(5));
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .issuer(properties.getApiKey())
+                .subject("sc-course-live-room-admin")
+                .issueTime(Date.from(now))
+                .expirationTime(Date.from(expiresAt))
+                .claim("video", Map.of(
+                        "roomAdmin", true,
+                        "room", roomName
+                ))
+                .build();
+
+        SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
+        try {
+            jwt.sign(new MACSigner(properties.getApiSecret()));
+        } catch (JOSEException e) {
+            throw new BusinessException(ErrorCodes.SERVICE_UNAVAILABLE, "LiveKit token signing failed");
+        }
+        return jwt.serialize();
     }
 }

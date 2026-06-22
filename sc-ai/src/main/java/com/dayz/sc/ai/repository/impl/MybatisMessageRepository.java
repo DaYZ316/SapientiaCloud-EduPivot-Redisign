@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -26,6 +27,11 @@ public class MybatisMessageRepository implements MessageRepository {
     public ChatMessage save(ChatMessage message) {
         messageMapper.insert(message);
         return message;
+    }
+
+    @Override
+    public Optional<ChatMessage> findById(UUID id) {
+        return Optional.ofNullable(messageMapper.selectById(id));
     }
 
     @Override

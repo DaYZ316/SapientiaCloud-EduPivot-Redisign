@@ -17,6 +17,7 @@ declare const LegendaryCursor: {
     texture3?: string
   }): void
   setAutoPilotCenter(center: { x: number; y: number }): void
+  pause(): void
   destroy(): void
 }
 

@@ -1,5 +1,5 @@
 <template>
-  <div
+  <span
     ref="anchorRef"
     aria-label="AI is generating a response"
     class="pending-brush-loader"
@@ -10,20 +10,36 @@
         v-if="brushCenter"
         :center-x="brushCenter.x"
         :center-y="brushCenter.y"
-        :radius="30"
-        :size="40"
-        :speed="4.1"
-        :z-index="2600"
+        :radius="radius"
+        :size="size"
+        :speed="speed"
+        :z-index="zIndex"
         class="pending-brush-overlay"
       />
     </Teleport>
-  </div>
+  </span>
 </template>
 
 <script lang="ts" setup>
 import {nextTick, onBeforeUnmount, onMounted, ref} from 'vue'
 
 import AiBrushEffect from '@/features/ai/components/AiBrushEffect.vue'
+
+const props = withDefaults(defineProps<{
+  anchorSize?: number
+  centerOnAnchor?: boolean
+  radius?: number
+  size?: number
+  speed?: number
+  zIndex?: number
+}>(), {
+  anchorSize: 1,
+  centerOnAnchor: false,
+  radius: 30,
+  size: 40,
+  speed: 4.1,
+  zIndex: 2600,
+})
 
 type BrushCenter = {
   x: number
@@ -35,6 +51,7 @@ const brushCenter = ref<BrushCenter | null>(null)
 let resizeObserver: ResizeObserver | undefined
 let scrollParent: HTMLElement | Window | undefined
 let frame = 0
+let trackingFrame = 0
 
 onMounted(async () => {
   await nextTick()
@@ -46,6 +63,9 @@ onMounted(async () => {
   if (anchorRef.value) {
     resizeObserver.observe(anchorRef.value)
   }
+  if (props.centerOnAnchor) {
+    startAnchorTracking()
+  }
 })
 
 onBeforeUnmount(() => {
@@ -54,6 +74,9 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   if (frame) {
     cancelAnimationFrame(frame)
+  }
+  if (trackingFrame) {
+    cancelAnimationFrame(trackingFrame)
   }
 })
 
@@ -64,14 +87,35 @@ function updateBrushCenter() {
 
   frame = requestAnimationFrame(() => {
     frame = 0
-    const rect = anchorRef.value?.getBoundingClientRect()
-    if (!rect) return
-
-    brushCenter.value = {
-      x: rect.left - 34,
-      y: rect.top + 10,
-    }
+    measureBrushCenter()
   })
+}
+
+function measureBrushCenter() {
+  const rect = anchorRef.value?.getBoundingClientRect()
+  if (!rect) return
+
+  if (props.centerOnAnchor) {
+    brushCenter.value = {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    }
+    return
+  }
+
+  brushCenter.value = {
+    x: rect.left - 34,
+    y: rect.top + 10,
+  }
+}
+
+function startAnchorTracking() {
+  const track = () => {
+    measureBrushCenter()
+    trackingFrame = requestAnimationFrame(track)
+  }
+
+  trackingFrame = requestAnimationFrame(track)
 }
 
 function findScrollParent(element: HTMLElement | null) {
@@ -91,8 +135,8 @@ function findScrollParent(element: HTMLElement | null) {
 <style scoped>
 .pending-brush-loader {
   display: block;
-  width: 1px;
-  height: 1px;
+  width: v-bind('`${props.anchorSize}px`');
+  height: v-bind('`${props.anchorSize}px`');
   pointer-events: none;
 }
 

@@ -44,6 +44,7 @@ const emit = defineEmits<{
   left: []
   exit: []
   'participants-change': [participants: ClassParticipant[]]
+  'live-status-change': [message: SeatSyncMessage]
   'loading-progress': [payload: {progress: number; label: string}]
   ready: []
   loadError: [message: string]
@@ -374,6 +375,13 @@ function handleSeatSyncMessage(raw: string) {
     }
     if (message.type === 'seat_remove') {
       removeParticipant(message.userId || '', message.seatIndex)
+      return
+    }
+    if (message.type === 'live_started'
+        || message.type === 'live_paused'
+        || message.type === 'live_resumed'
+        || message.type === 'live_stopped') {
+      emit('live-status-change', message)
     }
   } catch {
     // Ignore malformed WebSocket payloads.

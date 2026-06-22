@@ -134,7 +134,7 @@ onBeforeUnmount(() => {
 
 async function loadConversations() {
   try {
-    await aiStore.loadConversations()
+    await aiStore.ensureConversationsLoaded()
   } catch {
     notify.error(t('common.ai.notify.loadFailed'))
   }

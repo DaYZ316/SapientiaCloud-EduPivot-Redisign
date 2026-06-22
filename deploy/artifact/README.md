@@ -32,6 +32,8 @@ Double-click `deploy_artifact.bat` to open the menu. Run `all` for the first dep
 
 Set `EDUPIVOT_BIND_HOST=0.0.0.0` in `.env` when server ports should be reachable from outside the host. Use firewall or cloud security-group rules to restrict sensitive ports such as PostgreSQL, Redis, Nacos, Kafka, and MinIO to trusted IP addresses.
 
+Classroom live streaming uses the self-hosted `livekit` container. Set `LIVEKIT_URL`, `LIVEKIT_SERVER_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` in the server `.env`; see `docs/livekit-docker-deployment.md` for DNS, certificate, and firewall requirements.
+
 Backend service targets:
 
 ```text

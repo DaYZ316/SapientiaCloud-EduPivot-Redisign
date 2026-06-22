@@ -139,6 +139,38 @@ public class ClassSessionController {
         return ApiResponse.ok(classSessionService.createLiveToken(id, userId, JwtPrincipalResolver.role(jwt)));
     }
 
+    @PostMapping("/{id}/live/start")
+    public ApiResponse<@NonNull ClassSessionVO> startLive(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        return ApiResponse.ok(classSessionService.startLive(id, userId, JwtPrincipalResolver.role(jwt)));
+    }
+
+    @PostMapping("/{id}/live/pause")
+    public ApiResponse<@NonNull ClassSessionVO> pauseLive(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        return ApiResponse.ok(classSessionService.pauseLive(id, userId, JwtPrincipalResolver.role(jwt)));
+    }
+
+    @PostMapping("/{id}/live/resume")
+    public ApiResponse<@NonNull ClassSessionVO> resumeLive(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        return ApiResponse.ok(classSessionService.resumeLive(id, userId, JwtPrincipalResolver.role(jwt)));
+    }
+
+    @PostMapping("/{id}/live/stop")
+    public ApiResponse<@NonNull ClassSessionVO> stopLive(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        return ApiResponse.ok(classSessionService.stopLive(id, userId, JwtPrincipalResolver.role(jwt)));
+    }
+
     @GetMapping("/{id}/barrages/stream")
     public SseEmitter streamBarrages(
             @PathVariable UUID id,

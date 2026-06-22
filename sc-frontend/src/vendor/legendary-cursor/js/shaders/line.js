@@ -227,7 +227,7 @@ void main() {
     }
 
 
-    gl_FragColor = vec4(col, a);
+    gl_FragColor = vec4(col * 1.2, a);
 }
 `;
 

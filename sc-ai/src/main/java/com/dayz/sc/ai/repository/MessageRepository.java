@@ -3,6 +3,7 @@ package com.dayz.sc.ai.repository;
 import com.dayz.sc.ai.model.entity.ChatMessage;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -20,6 +21,8 @@ public interface MessageRepository {
      * @return 保存后的消息实体
      */
     ChatMessage save(ChatMessage message);
+
+    Optional<ChatMessage> findById(UUID id);
 
     /**
      * 根据会话ID查询所有消息

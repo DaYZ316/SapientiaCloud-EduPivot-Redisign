@@ -57,6 +57,21 @@ public class KafkaErrorHandlerAutoConfiguration {
     }
 
     @Bean
+    public NewTopic questionGenerationRequestsTopic() {
+        return topic(KafkaTopicConstants.QUESTION_GENERATION_REQUESTS);
+    }
+
+    @Bean
+    public NewTopic questionGenerationProgressTopic() {
+        return topic(KafkaTopicConstants.QUESTION_GENERATION_PROGRESS);
+    }
+
+    @Bean
+    public NewTopic questionGenerationResponsesTopic() {
+        return topic(KafkaTopicConstants.QUESTION_GENERATION_RESPONSES);
+    }
+
+    @Bean
     public NewTopic courseEventsDltTopic() {
         return topic(KafkaTopicConstants.COURSE_EVENTS + KafkaTopicConstants.DLT_SUFFIX);
     }
@@ -74,6 +89,21 @@ public class KafkaErrorHandlerAutoConfiguration {
     @Bean
     public NewTopic aiGradingResultsDltTopic() {
         return topic(KafkaTopicConstants.AI_GRADING_RESULTS + KafkaTopicConstants.DLT_SUFFIX);
+    }
+
+    @Bean
+    public NewTopic questionGenerationRequestsDltTopic() {
+        return topic(KafkaTopicConstants.QUESTION_GENERATION_REQUESTS + KafkaTopicConstants.DLT_SUFFIX);
+    }
+
+    @Bean
+    public NewTopic questionGenerationProgressDltTopic() {
+        return topic(KafkaTopicConstants.QUESTION_GENERATION_PROGRESS + KafkaTopicConstants.DLT_SUFFIX);
+    }
+
+    @Bean
+    public NewTopic questionGenerationResponsesDltTopic() {
+        return topic(KafkaTopicConstants.QUESTION_GENERATION_RESPONSES + KafkaTopicConstants.DLT_SUFFIX);
     }
 
     private NewTopic topic(String name) {

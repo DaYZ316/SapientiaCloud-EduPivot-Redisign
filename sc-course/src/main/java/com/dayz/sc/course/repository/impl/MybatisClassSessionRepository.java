@@ -9,6 +9,7 @@ import com.dayz.sc.course.repository.ClassSessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -87,6 +88,17 @@ public class MybatisClassSessionRepository implements ClassSessionRepository {
             }
         });
         return counts;
+    }
+
+    @Override
+    public List<ClassSession> findLiveSessionsPastEnd(Instant now, int endedLiveStatus, int limit) {
+        LambdaQueryWrapper<ClassSession> wrapper = new LambdaQueryWrapper<>();
+        wrapper.isNotNull(ClassSession::getPublishedAt);
+        wrapper.le(ClassSession::getScheduledEndAt, now);
+        wrapper.ne(ClassSession::getLiveStatus, endedLiveStatus);
+        wrapper.orderByAsc(ClassSession::getScheduledEndAt);
+        wrapper.last("LIMIT " + Math.max(1, limit));
+        return classSessionMapper.selectList(wrapper);
     }
 
     private Object value(Map<String, Object> row, String snakeCaseKey, String camelCaseKey) {

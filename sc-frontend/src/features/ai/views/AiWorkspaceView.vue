@@ -1,7 +1,7 @@
 <template>
   <main class="monolith-ai-page">
     <section
-      :class="{'with-question-panel': isQuestionPanelVisible}"
+      :class="{'with-question-panel': isRightPanelVisible}"
       class="monolith-ai-shell"
     >
       <header class="workspace-topbar">
@@ -26,7 +26,15 @@
             />
           </button>
           <button
-            :class="{active: chatMode === 'CHAT'}"
+            v-if="isPreviewPanelVisible"
+            class="workspace-preview-tab active"
+            type="button"
+            @click="activatePreviewPanel"
+          >
+            {{ t('common.ai.workspace.preview') }}
+          </button>
+          <button
+            :class="{active: chatMode === 'CHAT' && !isPreviewPanelVisible}"
             type="button"
             @click="setChatMode('CHAT')"
           >
@@ -57,16 +65,19 @@
             :show-composer="!isQuestionPanelVisible"
             :show-header="false"
             :title="t('common.ai.workspace.title')"
+            @view-generation="openGenerationPanel"
           />
         </div>
 
         <div
-          :class="{'is-visible': isQuestionPanelVisible}"
+          :class="{'is-visible': isRightPanelVisible}"
           class="question-panel-wrapper"
         >
           <AiStudioPanel
+            v-model:artifact-tab="artifactTab"
             v-model:generation="generation"
             :mode="toolPanelMode"
+            :trace-message="aiStore.activeGenerationMessage"
             @close="closeTools"
             @generate="generateFromPanel"
           />
@@ -86,7 +97,8 @@ import AiChatPanel from '@/features/ai/components/AiChatPanel.vue'
 import AiStudioPanel from '@/features/ai/components/AiStudioPanel.vue'
 import {useAiStore} from '@/features/ai/stores/ai'
 import {useUiPreferencesStore} from '@/features/settings/stores/uiPreferences'
-import type {AiAgentMode, GenerationRequest} from '@/features/ai/types/ai'
+import type {AiAgentMode, ChatMessage, GenerationRequest} from '@/features/ai/types/ai'
+import {isGenerationMessage} from '@/features/ai/utils/generationTrace'
 
 const route = useRoute()
 const aiStore = useAiStore()
@@ -94,22 +106,43 @@ const uiPreferences = useUiPreferencesStore()
 const {t} = useI18n()
 const chatMode = ref<AiAgentMode>('CHAT')
 const generation = ref<GenerationRequest>(createGenerationDefaults('QUESTION'))
+const artifactTab = ref<ArtifactTab>('single')
+const panelDismissed = ref(false)
 
 const activeTitle = computed(() => aiStore.activeConversation?.title || t('common.ai.workspace.newInquiry'))
-const isQuestionPanelVisible = computed(() =>
-  chatMode.value !== 'CHAT' || Boolean(aiStore.latestArtifact),
+const latestGeneratedArtifact = computed(() =>
+  [...aiStore.messages].reverse().find(message => isGenerationMessage(message)) || null,
 )
-
+const visibleArtifact = computed(() => aiStore.activeGenerationMessage || latestGeneratedArtifact.value || aiStore.latestArtifact)
+const completedArtifact = computed(() =>
+  visibleArtifact.value && !visibleArtifact.value.pending && !visibleArtifact.value.failed,
+)
+const isQuestionPanelVisible = computed(() =>
+  chatMode.value !== 'CHAT'
+  || Boolean(aiStore.activeGenerationMessage)
+  || (Boolean(completedArtifact.value) && !panelDismissed.value),
+)
+const isRightPanelVisible = computed(() =>
+  isQuestionPanelVisible.value || Boolean(aiStore.activeGenerationMessage),
+)
 const toolPanelMode = computed(() =>
   chatMode.value === 'CHAT' ? undefined : chatMode.value,
+)
+const isPreviewPanelVisible = computed(() =>
+  !toolPanelMode.value
+  && Boolean(visibleArtifact.value)
+  && !panelDismissed.value
 )
 
 onMounted(() => {
   aiStore.setContext({sourceRoute: route.fullPath})
+  void aiStore.refreshActiveGeneration()
 })
 
 watch(chatMode, (mode) => {
   if (mode === 'QUESTION' || mode === 'PAPER') {
+    panelDismissed.value = false
+    artifactTab.value = 'single'
     generation.value = {
       ...createGenerationDefaults(mode),
       requirement: generation.value.requirement,
@@ -117,25 +150,89 @@ watch(chatMode, (mode) => {
   }
 })
 
+watch(() => aiStore.activeGenerationMessageId, (messageId) => {
+  if (messageId) {
+    const message = aiStore.activeGenerationMessage
+    panelDismissed.value = false
+    artifactTab.value = message && !message.pending && !message.failed ? 'single' : 'trace'
+  }
+})
+
+watch(() => aiStore.loadingMessages, (loading, wasLoading) => {
+  if (!loading && (wasLoading || aiStore.messages.length > 0)) {
+    syncDefaultGenerationPanel()
+  }
+}, {immediate: true})
+
+watch(() => [
+  latestGeneratedArtifact.value?.id,
+  latestGeneratedArtifact.value?.pending,
+  latestGeneratedArtifact.value?.failed,
+], ([artifactId]) => {
+  const artifact = latestGeneratedArtifact.value
+  if (artifactId && artifact) {
+    openArtifactPanel(artifact)
+  }
+})
+
 function setChatMode(mode: AiAgentMode) {
+  panelDismissed.value = mode === 'CHAT'
+  artifactTab.value = 'single'
+  aiStore.closeGenerationTrace()
   chatMode.value = mode
 }
 
-function closeTools() {
+function activatePreviewPanel() {
+  panelDismissed.value = false
   chatMode.value = 'CHAT'
+}
+
+function syncDefaultGenerationPanel() {
+  const artifact = latestGeneratedArtifact.value
+  if (artifact) {
+    openArtifactPanel(artifact)
+    return
+  }
+
+  panelDismissed.value = true
+  artifactTab.value = 'single'
+  aiStore.closeGenerationTrace()
+}
+
+function openArtifactPanel(message: ChatMessage) {
+  panelDismissed.value = false
+  artifactTab.value = message.pending || message.failed ? 'trace' : 'single'
+  aiStore.openGenerationTrace(message.id)
+}
+
+function closeTools() {
+  panelDismissed.value = true
+  artifactTab.value = 'single'
+  chatMode.value = 'CHAT'
+  aiStore.closeGenerationTrace()
+}
+
+function openGenerationPanel(message: ChatMessage) {
+  openArtifactPanel(message)
 }
 
 async function generateFromPanel() {
   if (chatMode.value !== 'QUESTION' && chatMode.value !== 'PAPER') return
 
-  const message = generation.value.requirement?.trim()
-    || (chatMode.value === 'PAPER'
+  const mode = chatMode.value
+  const generationRequest = {
+    ...normalizeGeneration(generation.value),
+    questionBankId: generation.value.questionBankId || aiStore.context.questionBankId || null,
+  }
+  const message = generationRequest.requirement
+    || (mode === 'PAPER'
       ? t('common.ai.workspace.defaultPaperPrompt')
       : t('common.ai.workspace.defaultQuestionPrompt'))
+  closeTools()
   await aiStore.sendMessage(message, {
-    agentMode: chatMode.value,
+    agentMode: mode,
     courseId: aiStore.context.courseId,
-    generation: normalizeGeneration(generation.value),
+    generation: generationRequest,
   })
 }
 
@@ -164,6 +261,8 @@ function normalizeGeneration(value: GenerationRequest): GenerationRequest {
     requirement: value.requirement?.trim() || null,
   }
 }
+
+type ArtifactTab = 'single' | 'overall' | 'trace'
 </script>
 
 <style scoped>
@@ -245,7 +344,7 @@ function normalizeGeneration(value: GenerationRequest): GenerationRequest {
 }
 
 .workspace-content {
-  --question-panel-width: 40%;
+  --question-panel-width: 60%;
 
   display: flex;
   min-height: 0;
@@ -302,7 +401,29 @@ function normalizeGeneration(value: GenerationRequest): GenerationRequest {
   max-width: calc(100% - var(--question-panel-width));
 }
 
+.monolith-ai-shell.with-question-panel .chat-main-column :deep(.message-list) {
+  padding-right: 2.5%;
+  padding-left: 2.5%;
+}
+
+.monolith-ai-shell.with-question-panel .chat-main-column :deep(.composer) {
+  padding-right: 2.5%;
+  padding-left: 2.5%;
+}
+
 .monolith-ai-shell.with-question-panel .chat-main-column :deep(.message-row) {
+  width: 100%;
+}
+
+.monolith-ai-shell.with-question-panel .chat-main-column :deep(.message-row.has-generation-card .generation-card) {
+  width: 100%;
+}
+
+.monolith-ai-shell.with-question-panel .chat-main-column :deep(.state-block) {
+  width: 100%;
+}
+
+.monolith-ai-shell.with-question-panel .chat-main-column :deep(.composer-shell) {
   width: 100%;
 }
 

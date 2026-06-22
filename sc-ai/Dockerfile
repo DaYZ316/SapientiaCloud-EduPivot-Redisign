@@ -16,7 +16,10 @@ ENV TZ=Asia/Shanghai
 ENV JAVA_OPTS=""
 COPY --from=build /workspace/sc-ai/target/sc-ai-*.jar app.jar
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl fontconfig fonts-noto-cjk \
+    && fc-match "Noto Sans CJK SC" \
+    && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 28086
 
