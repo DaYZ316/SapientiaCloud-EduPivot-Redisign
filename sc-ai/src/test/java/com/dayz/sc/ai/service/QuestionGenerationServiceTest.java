@@ -120,6 +120,47 @@ class QuestionGenerationServiceTest {
     }
 
     @Test
+    void generatePaperShouldKeepAiScoresWhenScorePerQuestionIsZero() {
+        ChatFixture fixture = chatFixture(
+                shortAnswerJson("low score", "low content", 2),
+                shortAnswerJson("high score", "high content", 8));
+        QuestionGenerationService service = service(fixture.chatClient());
+
+        AiAgentResult result = service.generatePaper(
+                "让 AI 自行分配每题分值",
+                new GenerationRequest(UUID.randomUUID(), 2, 4, 2, BigDecimal.ZERO,
+                        null, null, "AI 分值试卷", null, null, null, null, null),
+                null);
+
+        PaperBlueprint blueprint = (PaperBlueprint) result.payload().get("blueprint");
+        assertThat(blueprint.totalScore()).isNull();
+        assertThat(blueprint.sections())
+                .extracting(PaperSectionPlan::scorePerQuestion)
+                .containsOnlyNulls();
+        assertThat(questions(result))
+                .extracting(question -> question.get("score"))
+                .containsExactly(new BigDecimal("2"), new BigDecimal("8"));
+    }
+
+    @Test
+    void generatePaperShouldAllocateTotalScoreUsingAiScoresWhenScorePerQuestionIsZero() {
+        ChatFixture fixture = chatFixture(
+                shortAnswerJson("low score", "low content", 2),
+                shortAnswerJson("high score", "high content", 8));
+        QuestionGenerationService service = service(fixture.chatClient());
+
+        AiAgentResult result = service.generatePaper(
+                "按 AI 分值权重分配总分",
+                new GenerationRequest(UUID.randomUUID(), 2, 4, 2, BigDecimal.ZERO,
+                        BigDecimal.valueOf(20), null, "AI 分值试卷", null, null, null, null, null),
+                null);
+
+        assertThat(questions(result))
+                .extracting(question -> question.get("score"))
+                .containsExactly(new BigDecimal("4"), new BigDecimal("16"));
+    }
+
+    @Test
     void generateQuestionsShouldRetrySectionWhenBlockingIssueExists() {
         ChatFixture fixture = chatFixture(
                 """
@@ -551,6 +592,22 @@ class QuestionGenerationServiceTest {
         }
         builder.append("]}");
         return builder.toString();
+    }
+
+    private String shortAnswerJson(String title, String content, int score) {
+        return """
+                {"questions":[{
+                  "questionTitle":"%s",
+                  "questionContent":"%s",
+                  "questionType":4,
+                  "difficulty":2,
+                  "score":%d,
+                  "estimatedTime":5,
+                  "tags":["基础"],
+                  "options":[],
+                  "answers":[{"answerContent":"参考答案","score":%d,"sortOrder":1}]
+                }]}
+                """.formatted(title, content, score, score);
     }
 
     private String questionObject(int type, String title, String content) {

@@ -19,6 +19,13 @@ spring:
                 - Path=/api/auth/**/internal/**
               filters:
                 - SetStatus=403
+            - id: block-notification-internal
+              uri: no://op
+              order: -100
+              predicates:
+                - Path=/api/notifications/internal/**
+              filters:
+                - SetStatus=403
             # ── 业务路由 ──
             - id: auth-route
               uri: lb://sc-auth
@@ -31,7 +38,7 @@ spring:
             - id: course-route
               uri: lb://sc-course
               predicates:
-                - Path=/api/courses/**,/api/class-sessions/**,/api/live-practices/**,/api/enrollments/**,/api/chapters/**,/api/forums/**,/api/question-banks/**,/api/invitations/**
+                - Path=/api/dashboard/**,/api/courses/**,/api/class-sessions/**,/api/live-practices/**,/api/enrollments/**,/api/chapters/**,/api/forums/**,/api/question-banks/**,/api/invitations/**
             - id: storage-route
               uri: lb://sc-storage
               predicates:

@@ -2,6 +2,7 @@ package com.dayz.sc.notification.controller;
 
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.dashboard.DashboardNotificationSummary;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.ratelimit.RateLimited;
@@ -25,9 +26,9 @@ import org.jspecify.annotations.NonNull;
 import java.util.UUID;
 
 /**
- * 通知接口
+ * 閫氱煡鎺ュ彛
  * <p>
- * 角色校验通过 Gateway 传递的 X-User-Role 请求头实现
+ * 瑙掕壊鏍￠獙閫氳繃 Gateway 浼犻€掔殑 X-User-Role 璇锋眰澶村疄鐜?
  *
  * @author DaYZ
  * @since 2026-06-09
@@ -41,8 +42,8 @@ public class NotificationController {
     private final NotificationSseEmitter sseEmitter;
 
     /**
-     * 发送通知（仅管理员和教师可调用）
-     * 角色通过 Gateway 注入的 X-User-Role 请求头获取
+     * 鍙戦€侀€氱煡锛堜粎绠＄悊鍛樺拰鏁欏笀鍙皟鐢級
+     * 瑙掕壊閫氳繃 Gateway 娉ㄥ叆鐨?X-User-Role 璇锋眰澶磋幏鍙?
      */
     @PostMapping
     @RateLimited
@@ -75,6 +76,13 @@ public class NotificationController {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         UnreadCountVO response = notificationService.getUnreadCount(userId);
         return ApiResponse.ok(response);
+    }
+
+    @GetMapping("/internal/dashboard/summary")
+    public ApiResponse<@NonNull DashboardNotificationSummary> getDashboardSummaryInternal(
+            @RequestParam UUID userId,
+            @RequestParam(defaultValue = "false") boolean includeDistribution) {
+        return ApiResponse.ok(notificationService.getDashboardSummary(userId, includeDistribution));
     }
 
     @PutMapping("/{id}/read")
@@ -118,7 +126,7 @@ public class NotificationController {
     }
 
     /**
-     * 撤回通知（仅发送者可操作，对所有接收者生效）
+     * 鎾ゅ洖閫氱煡锛堜粎鍙戦€佽€呭彲鎿嶄綔锛屽鎵€鏈夋帴鏀惰€呯敓鏁堬級
      */
     @DeleteMapping("/{id}/recall")
     @RateLimited

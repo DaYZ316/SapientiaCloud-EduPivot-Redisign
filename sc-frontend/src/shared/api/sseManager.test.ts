@@ -196,6 +196,26 @@ describe('sseManager', () => {
         expect(mocks.fetchEventSource).toHaveBeenCalledTimes(1)
     })
 
+    it('does not retry after a fatal 4xx response', async () => {
+        vi.useFakeTimers()
+        mocks.fetchEventSource.mockImplementation(async (_url: string, options: FetchEventSourceInit) => {
+            await options.onopen?.(new Response(null, {status: 404}))
+        })
+
+        subscribeSse<{value: number}>({
+            key: 'class-barrage:missing',
+            url: '/api/class-sessions/missing/barrages/stream',
+            eventNames: ['barrage'],
+            onMessage: vi.fn(),
+        })
+        await Promise.resolve()
+        await Promise.resolve()
+        await vi.advanceTimersByTimeAsync(30000)
+
+        expect(mocks.fetchEventSource).toHaveBeenCalledTimes(1)
+        expect(mocks.refreshSession).not.toHaveBeenCalled()
+    })
+
     it('replays state through existing query callbacks after reconnecting', async () => {
         vi.useFakeTimers()
         const replays = vi.fn()

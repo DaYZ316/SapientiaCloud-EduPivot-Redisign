@@ -19,6 +19,9 @@ import com.dayz.sc.auth.repository.TeacherRepository;
 import com.dayz.sc.auth.repository.UserAccountRepository;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.dashboard.DashboardChartPoint;
+import com.dayz.sc.common.dashboard.DashboardUserActivity;
+import com.dayz.sc.common.dashboard.DashboardUserSummary;
 import com.dayz.sc.common.feign.client.StorageInternalClient;
 import com.dayz.sc.common.feign.dto.InternalUserProfile;
 import com.dayz.sc.common.feign.dto.StorageObjectInfo;
@@ -39,7 +42,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * 处理系统用户分页查询、资料更新与关联登录来源聚合
+ * 澶勭悊绯荤粺鐢ㄦ埛鍒嗛〉鏌ヨ銆佽祫鏂欐洿鏂颁笌鍏宠仈鐧诲綍鏉ユ簮鑱氬悎
  *
  * @author DaYZ
  * @since 2026-05-08
@@ -129,7 +132,7 @@ public class UserManagementService {
     }
 
     /**
-     * 批量获取用户基本信息（displayName, avatarUrl），用于服务间通信
+     * 鎵归噺鑾峰彇鐢ㄦ埛鍩烘湰淇℃伅锛坉isplayName, avatarUrl锛夛紝鐢ㄤ簬鏈嶅姟闂撮€氫俊
      */
     public List<UserBasicInfo> getUsersBasicInfo(List<UUID> ids) {
         if (ids == null || ids.isEmpty()) {
@@ -160,6 +163,56 @@ public class UserManagementService {
                 user.getRole());
     }
 
+    public DashboardUserSummary getDashboardSummary() {
+        Instant todayStart = Instant.now(clock).atZone(clock.getZone()).toLocalDate()
+                .atStartOfDay(clock.getZone())
+                .toInstant();
+        long total = countUsers(null, null);
+        long students = countUsers(null, UserRole.STUDENT.getCode());
+        long teachers = countUsers(null, UserRole.TEACHER.getCode());
+        long admins = countUsers(null, UserRole.ADMIN.getCode());
+        long disabled = countUsers(UserStatus.DISABLED, null);
+        long todayUsers = userAccountRepository.countUsers(new LambdaQueryWrapper<User>()
+                .ge(User::getCreatedAt, todayStart));
+        long incompleteProfiles = userAccountRepository.countUsers(new LambdaQueryWrapper<User>()
+                .and(wrapper -> wrapper
+                        .isNull(User::getDisplayName)
+                        .or()
+                        .eq(User::getDisplayName, "")
+                        .or()
+                        .eq(User::getEmailVerified, false)
+                        .or()
+                        .isNull(User::getEmailVerified)));
+        long oauthUsers = userAccountRepository.countUsers(new LambdaQueryWrapper<User>()
+                .ne(User::getCreatedProvider, OauthProvider.LOCAL));
+        int oauthPercent = total == 0 ? 0 : (int) Math.round(oauthUsers * 100.0 / total);
+        List<User> recentUsers = userAccountRepository.findUsers(new LambdaQueryWrapper<User>()
+                .orderByDesc(User::getCreatedAt)
+                .last("LIMIT 8"));
+        return new DashboardUserSummary(
+                total,
+                students,
+                teachers,
+                admins,
+                disabled,
+                todayUsers,
+                incompleteProfiles,
+                oauthPercent,
+                List.of(
+                        new DashboardChartPoint("瀛︾敓", students),
+                        new DashboardChartPoint("鏁欏笀", teachers),
+                        new DashboardChartPoint("绠＄悊鍛?鍏朵粬", Math.max(0, total - students - teachers))
+                ),
+                recentUsers.stream()
+                        .map(user -> new DashboardUserActivity(
+                                user.getId(),
+                                user.getDisplayName(),
+                                user.getEmail(),
+                                user.getCreatedAt(),
+                                user.getLastLoginAt()))
+                        .toList());
+    }
+
     public UserProfileVO getUser(UUID id) {
         if (id == null) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST);
@@ -170,6 +223,17 @@ public class UserManagementService {
 
         return toUserProfile(user, userAccountRepository.findLinkedProviders(user.getId()),
                 loadStudentInfo(user.getId()), loadTeacherInfo(user.getId()));
+    }
+
+    private long countUsers(UserStatus status, Integer role) {
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        if (status != null) {
+            wrapper.eq(User::getStatus, status);
+        }
+        if (role != null) {
+            wrapper.eq(User::getRole, role);
+        }
+        return userAccountRepository.countUsers(wrapper);
     }
 
     @Transactional(rollbackFor = Exception.class)

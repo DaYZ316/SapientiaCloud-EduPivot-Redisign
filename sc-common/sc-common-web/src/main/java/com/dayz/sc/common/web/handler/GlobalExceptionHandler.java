@@ -6,6 +6,7 @@ import com.dayz.sc.common.response.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
@@ -27,6 +28,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException exception) {
         return ResponseEntity
                 .status(exception.getHttpStatus())
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.fail(exception.getErrorCode(), exception.getMessage()));
     }
 
@@ -73,12 +75,14 @@ public class GlobalExceptionHandler {
         log.error("Unhandled web exception", exception);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.fail(ErrorCodes.SYSTEM_ERROR));
     }
 
     private ResponseEntity<ApiResponse<Void>> badRequest(String message) {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.fail(ErrorCodes.BAD_REQUEST, message));
     }
 }

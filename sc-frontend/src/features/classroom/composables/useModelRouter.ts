@@ -15,32 +15,26 @@ const MODEL_ROUTES: Record<number, ClassroomModelRoute> = {
     },
     [ClassRoomSize.MEDIUM]: {
         classroom: {
-            model: `${CLASSROOM_BASE}/classroomMiddle.gltf`,
-            texture: `${CLASSROOM_BASE}/texture/classroomMiddle_baked.jpg`,
+            model: `${CLASSROOM_BASE}/classroomMiddle.glb`,
         },
         desk: {
-            model: `${DESK_BASE}/deskChairMiddle.gltf`,
-            texture: `${DESK_BASE}/texture/deskChairMiddle_baked.jpg`,
+            model: `${DESK_BASE}/deskChairMiddle.glb`,
         },
     },
     [ClassRoomSize.LARGE]: {
         classroom: {
-            model: `${CLASSROOM_BASE}/classroomPro.gltf`,
-            texture: `${CLASSROOM_BASE}/texture/classroomPro_baked.jpg`,
+            model: `${CLASSROOM_BASE}/classroomPro.glb`,
         },
         desk: {
-            model: `${DESK_BASE}/deskChairPro.gltf`,
-            texture: `${DESK_BASE}/texture/deskChairPro_baked.jpg`,
+            model: `${DESK_BASE}/deskChairPro.glb`,
         },
     },
     [ClassRoomSize.XLARGE]: {
         classroom: {
-            model: `${CLASSROOM_BASE}/classroomUltra.gltf`,
-            texture: `${CLASSROOM_BASE}/texture/classroomUltra_baked.jpg`,
+            model: `${CLASSROOM_BASE}/classroomUltra.glb`,
         },
         desk: {
-            model: `${DESK_BASE}/deskChairUltra.gltf`,
-            texture: `${DESK_BASE}/texture/deskChairUltra_baked.jpg`,
+            model: `${DESK_BASE}/deskChairUltra.glb`,
         },
     },
 }

@@ -12,6 +12,13 @@
                 - Path=/api/storage/internal/**
               filters:
                 - SetStatus=403
+            - id: block-notification-internal
+              uri: no://op
+              order: -100
+              predicates:
+                - Path=/api/notifications/internal/**
+              filters:
+                - SetStatus=403
             # 业务路由
             - id: auth-route
               uri: lb://sc-auth
@@ -25,6 +32,10 @@
               uri: lb://sc-course
               predicates:
                 - Path=/api/courses/**
+            - id: course-dashboard-route
+              uri: lb://sc-course
+              predicates:
+                - Path=/api/dashboard/**
             - id: course-enrollments-route
               uri: lb://sc-course
               predicates:

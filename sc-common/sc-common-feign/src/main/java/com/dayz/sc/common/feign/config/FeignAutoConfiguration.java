@@ -2,6 +2,8 @@ package com.dayz.sc.common.feign.config;
 
 import com.dayz.sc.common.feign.client.AuthInternalClientFallback;
 import com.dayz.sc.common.feign.client.CourseAiContextClientFallback;
+import com.dayz.sc.common.feign.client.AuthDashboardInternalClientFallback;
+import com.dayz.sc.common.feign.client.NotificationDashboardInternalClientFallback;
 import com.dayz.sc.common.feign.client.StorageInternalClientFallback;
 import feign.RequestInterceptor;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,7 +23,13 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  */
 @AutoConfiguration
 @EnableFeignClients(basePackages = "com.dayz.sc")
-@Import({AuthInternalClientFallback.class, CourseAiContextClientFallback.class, StorageInternalClientFallback.class})
+@Import({
+        AuthDashboardInternalClientFallback.class,
+        AuthInternalClientFallback.class,
+        CourseAiContextClientFallback.class,
+        NotificationDashboardInternalClientFallback.class,
+        StorageInternalClientFallback.class
+})
 public class FeignAutoConfiguration {
 
     private static final String HEADER_USER_ID = "X-User-Id";

@@ -2,6 +2,9 @@ package com.dayz.sc.notification.service;
 
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.dashboard.DashboardChartPoint;
+import com.dayz.sc.common.dashboard.DashboardNotificationItem;
+import com.dayz.sc.common.dashboard.DashboardNotificationSummary;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.common.util.UuidV7Generator;
@@ -28,7 +31,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * 通知业务服务
+ * 閫氱煡涓氬姟鏈嶅姟
  *
  * @author DaYZ
  * @since 2026-06-09
@@ -74,7 +77,7 @@ public class NotificationService {
 
         notificationRepository.save(notification);
 
-        // 指定用户时写入目标记录（排除发送者自己）
+        // 鎸囧畾鐢ㄦ埛鏃跺啓鍏ョ洰鏍囪褰曪紙鎺掗櫎鍙戦€佽€呰嚜宸憋級
         if (targetType == TargetType.USER) {
             List<UUID> targetUserIds = request.userIds().stream()
                     .distinct()
@@ -83,14 +86,14 @@ public class NotificationService {
             if (!targetUserIds.isEmpty()) {
                 notificationTargetRepository.saveAllUsers(notification.getId(), targetUserIds);
             }
-            // 更新 Redis 未读计数并推送（携带精确 count）
+            // 鏇存柊 Redis 鏈璁℃暟骞舵帹閫侊紙鎼哄甫绮剧‘ count锛?
             for (UUID uid : targetUserIds) {
                 UnreadCountVO countVO = unreadCountService.increment(uid, request.type());
                 long count = countVO != null ? countVO.total() : -1;
                 sseEmitter.sendToUser(uid, toNotificationVO(notification, false), count);
             }
         } else {
-            // 广播：无法精确 increment 所有用户，SSE 携带 count=-1 让前端兜底查询
+            // 骞挎挱锛氭棤娉曠簿纭?increment 鎵€鏈夌敤鎴凤紝SSE 鎼哄甫 count=-1 璁╁墠绔厹搴曟煡璇?
             pushNotification(targetType, senderId, request.userIds(), toNotificationVO(notification, false));
         }
         return notification.getId();
@@ -118,6 +121,31 @@ public class NotificationService {
         return unreadCountService.getOrInitFromDb(userId, readStatusRepository);
     }
 
+    public DashboardNotificationSummary getDashboardSummary(UUID userId, boolean includeDistribution) {
+        UnreadCountVO unreadCount = getUnreadCount(userId);
+        PageResponse<@NonNull NotificationVO> recent = getNotifications(userId, 1, 5, null, false);
+        List<DashboardNotificationItem> recentItems = recent.records().stream()
+                .map(item -> new DashboardNotificationItem(
+                        item.id(),
+                        item.type(),
+                        item.title(),
+                        item.createdAt(),
+                        Boolean.TRUE.equals(item.read())))
+                .toList();
+        List<DashboardChartPoint> distribution = includeDistribution
+                ? List.of(
+                new DashboardChartPoint("绯荤粺鏈", unreadCount.system()),
+                new DashboardChartPoint("鏁欏鏈", unreadCount.teaching()),
+                new DashboardChartPoint("杩戞湡宸茶", recentItems.stream().filter(DashboardNotificationItem::read).count()))
+                : List.of();
+        return new DashboardNotificationSummary(
+                unreadCount.total(),
+                unreadCount.system(),
+                unreadCount.teaching(),
+                recentItems,
+                distribution);
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public void markAsRead(UUID notificationId, UUID userId) {
         Notification notification = notificationRepository.findById(notificationId)
@@ -134,7 +162,7 @@ public class NotificationService {
                             readStatus.setUserId(userId);
                             readStatus.setReadAt(Instant.now());
                             readStatusRepository.save(readStatus);
-                            // 更新 Redis 未读计数
+                            // 鏇存柊 Redis 鏈璁℃暟
                             unreadCountService.decrement(userId, notification.getType());
                         }
                 );
@@ -143,7 +171,7 @@ public class NotificationService {
     @Transactional(rollbackFor = Exception.class)
     public void markAllAsRead(UUID userId, Integer type) {
         readStatusRepository.markAllAsRead(userId, type);
-        // 全部已读后重置 Redis 计数
+        // 鍏ㄩ儴宸茶鍚庨噸缃?Redis 璁℃暟
         unreadCountService.reset(userId);
     }
 
@@ -154,11 +182,11 @@ public class NotificationService {
         if (userId.equals(notification.getSenderId())) {
             throw new BusinessException(ErrorCodes.NOTIFICATION_RECALL_FORBIDDEN);
         }
-        // 如果未读，先递减计数
+        // 濡傛灉鏈锛屽厛閫掑噺璁℃暟
         readStatusRepository.findByNotificationIdAndUserId(notificationId, userId)
                 .ifPresentOrElse(
                         readStatus -> {
-                            // 已读，不影响计数
+                            // 宸茶锛屼笉褰卞搷璁℃暟
                         },
                         () -> unreadCountService.decrement(userId, notification.getType())
                 );
@@ -168,18 +196,18 @@ public class NotificationService {
     @Transactional(rollbackFor = Exception.class)
     public void deleteAllNotifications(UUID userId, Integer type) {
         notificationTargetRepository.markAllDeleted(userId, type);
-        // 删除全部后重置 Redis 计数
+        // 鍒犻櫎鍏ㄩ儴鍚庨噸缃?Redis 璁℃暟
         unreadCountService.reset(userId);
     }
 
     /**
-     * 撤回通知（发送者或管理员可操作，对所有接收者生效）
+     * 鎾ゅ洖閫氱煡锛堝彂閫佽€呮垨绠＄悊鍛樺彲鎿嶄綔锛屽鎵€鏈夋帴鏀惰€呯敓鏁堬級
      */
     @Transactional(rollbackFor = Exception.class)
     public void recallNotification(UUID notificationId, UUID senderId, Integer role) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOTIFICATION_NOT_FOUND));
-        // 非管理员只能撤回自己发出的通知
+        // 闈炵鐞嗗憳鍙兘鎾ゅ洖鑷繁鍙戝嚭鐨勯€氱煡
         if (!SecurityUtils.isAdmin(role)) {
             if (!senderId.equals(notification.getSenderId())) {
                 throw new BusinessException(ErrorCodes.NOTIFICATION_RECALL_FORBIDDEN);

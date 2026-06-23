@@ -80,8 +80,11 @@
           <div v-else-if="filteredTeacherCourses.length > 0" class="course-list">
             <article v-for="course in filteredTeacherCourses" :key="course.id" class="course-row">
               <div class="course-mark">
-                <img v-if="course.coverUrl" :src="course.coverUrl" :alt="t('myEnrollments.courseCoverAlt', { title: course.title })" />
-                <BookOpen v-else :size="22" stroke-width="1.5" />
+                <img
+                  :src="getCourseCoverUrl(course.coverUrl)"
+                  :alt="t('myEnrollments.courseCoverAlt', { title: course.title })"
+                  @error="handleCourseCoverError"
+                />
               </div>
 
               <div class="course-main">
@@ -381,6 +384,7 @@ import BaseSelect from '@/shared/components/BaseSelect.vue'
 import { notify } from '@/shared/composables/useGlobalNotification'
 import InviteAssistantModal from '@/features/course/components/InviteAssistantModal.vue'
 import { getAvatarInitials } from '@/shared/utils/avatar'
+import { getCourseCoverUrl, handleCourseCoverError } from '@/shared/utils/courseCover'
 
 import { createCourse, deleteCourse, getCourses, getTeacherCourses, updateCourse } from '@/features/course/api/course'
 import { useAuthStore } from '@/features/auth/stores/auth'

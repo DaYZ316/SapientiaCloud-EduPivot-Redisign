@@ -141,10 +141,9 @@
                 :to="`/courses/${item.id}`"
                 class="side-recent-link"
             >
-              <div v-if="item.coverUrl" class="recent-cover">
-                <img :src="item.coverUrl" alt=""/>
+              <div class="recent-cover">
+                <img :src="getCourseCoverUrl(item.coverUrl)" alt="" @error="handleCourseCoverError"/>
               </div>
-              <BookOpen v-else :size="16" stroke-width="1.8"/>
               <span class="recent-title">{{ item.title }}</span>
             </router-link>
           </nav>
@@ -252,6 +251,7 @@ import AiTrailLauncher from '@/features/ai/components/AiTrailLauncher.vue'
 import AiModeTransitionOverlay from '@/features/ai/components/AiModeTransitionOverlay.vue'
 import AiSourcePanel from '@/features/ai/components/AiSourcePanel.vue'
 import {getAvatarInitials} from '@/shared/utils/avatar'
+import {getCourseCoverUrl, handleCourseCoverError} from '@/shared/utils/courseCover'
 
 type GlobalAiDrawerInstance = InstanceType<typeof GlobalAiDrawer>
 type AiTrailLauncherInstance = InstanceType<typeof AiTrailLauncher>

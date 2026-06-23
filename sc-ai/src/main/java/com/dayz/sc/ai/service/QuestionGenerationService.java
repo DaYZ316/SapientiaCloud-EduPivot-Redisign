@@ -363,7 +363,7 @@ public class QuestionGenerationService {
         int totalCount = request.questionCount() == null ? 1 : request.questionCount();
         BigDecimal totalScore = request.totalScore() != null
                 ? request.totalScore()
-                : scorePerQuestion(request).multiply(BigDecimal.valueOf(totalCount));
+                : scorePerQuestionSpecifiedAsZero(request) ? null : scorePerQuestion(request).multiply(BigDecimal.valueOf(totalCount));
         Integer totalEstimatedTime = request.totalEstimatedTime() != null
                 ? request.totalEstimatedTime()
                 : recommendedTotalEstimatedTime(request, totalCount);
@@ -419,16 +419,20 @@ public class QuestionGenerationService {
             int sectionNo = i + 1;
             int sectionTime = timeAllocations.get(i);
             int perQuestionTime = Math.max(1, Math.round((float) sectionTime / Math.max(1, seed.count())));
-            BigDecimal scorePerQuestion = scoreAllocations.get(i)
-                    .divide(BigDecimal.valueOf(Math.max(1, seed.count())), 2, RoundingMode.HALF_UP)
-                    .stripTrailingZeros();
+            BigDecimal scorePerQuestion = scoreAllocations.isEmpty()
+                    ? null
+                    : scoreAllocations.get(i)
+                            .divide(BigDecimal.valueOf(Math.max(1, seed.count())), 2, RoundingMode.HALF_UP)
+                            .stripTrailingZeros();
             sections.add(new PaperSectionPlan(
                     sectionNo,
                     questionTypeName(seed.questionType()),
                     seed.questionType(),
                     normalizeDifficulty(request.difficulty(), ((sectionNo - 1) % 3) + 1),
                     seed.count(),
-                    scorePerQuestion.scale() < 0 ? scorePerQuestion.setScale(0, RoundingMode.UNNECESSARY) : scorePerQuestion,
+                    scorePerQuestion != null && scorePerQuestion.scale() < 0
+                            ? scorePerQuestion.setScale(0, RoundingMode.UNNECESSARY)
+                            : scorePerQuestion,
                     perQuestionTime,
                     sectionTime,
                     knowledgePoints));
@@ -453,6 +457,9 @@ public class QuestionGenerationService {
 
     private List<BigDecimal> allocateSectionScores(List<SectionSeed> seeds, GenerationRequest request, BigDecimal targetTotalScore) {
         BigDecimal scorePerQuestion = normalizePositiveScore(request.scorePerQuestion());
+        if (scorePerQuestionSpecifiedAsZero(request)) {
+            return List.of();
+        }
         if (scorePerQuestion != null && normalizePositiveScore(request.totalScore()) == null) {
             return seeds.stream()
                     .map(seed -> scorePerQuestion.multiply(BigDecimal.valueOf(seed.count())))
@@ -1578,7 +1585,9 @@ public class QuestionGenerationService {
                             intValue(question.get("difficulty"), 2));
                 })
                 .toList();
-        List<BigDecimal> scores = allocateWeightedScores(weights, requestedTotalScore);
+        List<BigDecimal> scores = scorePerQuestionSpecifiedAsZero(request)
+                ? allocateWeightedScores(weights, requestedTotalScore, 0L)
+                : allocateWeightedScores(weights, requestedTotalScore);
         for (int i = 0; i < questions.size(); i++) {
             questions.get(i).put("score", scores.get(i));
             synchronizeNestedScore(questions.get(i));
@@ -2089,6 +2098,10 @@ public class QuestionGenerationService {
         return BigDecimal.valueOf(5);
     }
 
+    private boolean scorePerQuestionSpecifiedAsZero(GenerationRequest request) {
+        return request.scorePerQuestion() != null && request.scorePerQuestion().compareTo(BigDecimal.ZERO) == 0;
+    }
+
     private int recommendEstimatedTime(Integer questionType, Integer difficulty) {
         int normalizedDifficulty = normalizeDifficulty(difficulty, 2);
         return switch (questionType != null ? questionType : -1) {
@@ -2470,13 +2483,17 @@ public class QuestionGenerationService {
     }
 
     private List<BigDecimal> allocateWeightedScores(List<Long> weights, BigDecimal targetTotal) {
+        return allocateWeightedScores(weights, targetTotal, 1L);
+    }
+
+    private List<BigDecimal> allocateWeightedScores(List<Long> weights, BigDecimal targetTotal, long minimumPerItem) {
         int itemCount = weights == null ? 0 : weights.size();
         if (itemCount == 0 || targetTotal == null) {
             return List.of();
         }
         int scale = resolveScoreAllocationScale(targetTotal, itemCount);
         long targetUnits = toScaledUnits(targetTotal, scale);
-        List<Long> allocations = allocateWeightedUnits(weights, targetUnits, 1L);
+        List<Long> allocations = allocateWeightedUnits(weights, targetUnits, minimumPerItem);
         List<BigDecimal> results = new ArrayList<>(allocations.size());
         for (Long allocation : allocations) {
             results.add(normalizeAllocatedScore(BigDecimal.valueOf(allocation).movePointLeft(scale)));
@@ -2489,7 +2506,8 @@ public class QuestionGenerationService {
         if (itemCount == 0) {
             return List.of();
         }
-        long minimumTotal = itemCount * Math.max(1L, minimumPerItem);
+        long minimum = Math.max(0L, minimumPerItem);
+        long minimumTotal = itemCount * minimum;
         long effectiveTarget = Math.max(targetUnits, minimumTotal);
         long remaining = effectiveTarget - minimumTotal;
         long totalWeight = weights.stream().mapToLong(value -> Math.max(1L, value == null ? 1L : value)).sum();
@@ -2498,7 +2516,7 @@ public class QuestionGenerationService {
         List<Double> remainders = new ArrayList<>(itemCount);
         long allocatedExtra = 0L;
         for (Long weightValue : weights) {
-            allocations.add(Math.max(1L, minimumPerItem));
+            allocations.add(minimum);
             if (remaining == 0 || totalWeight <= 0) {
                 remainders.add(0D);
                 continue;
@@ -2506,7 +2524,7 @@ public class QuestionGenerationService {
             long weight = Math.max(1L, weightValue == null ? 1L : weightValue);
             double rawExtra = (double) remaining * weight / totalWeight;
             long extra = (long) Math.floor(rawExtra);
-            allocations.set(allocations.size() - 1, Math.max(1L, minimumPerItem) + extra);
+            allocations.set(allocations.size() - 1, minimum + extra);
             remainders.add(rawExtra - extra);
             allocatedExtra += extra;
         }

@@ -61,8 +61,11 @@
         <div v-else-if="filteredCourses.length > 0" class="course-list">
           <article v-for="course in filteredCourses" :key="course.id" class="course-row">
             <div class="course-mark">
-              <img v-if="course.coverUrl" :alt="t('myEnrollments.courseCoverAlt', {title: course.title})" :src="course.coverUrl"/>
-              <BookOpen v-else :size="22" stroke-width="1.5"/>
+              <img
+                :alt="t('myEnrollments.courseCoverAlt', {title: course.title})"
+                :src="getCourseCoverUrl(course.coverUrl)"
+                @error="handleCourseCoverError"
+              />
             </div>
 
             <div class="course-main">
@@ -216,7 +219,6 @@ import {useRouter} from 'vue-router'
 import {
   Activity,
   AlertTriangle,
-  BookOpen,
   CalendarDays,
   Filter,
   GraduationCap,
@@ -231,6 +233,7 @@ import type {Enrollment} from '@/features/course/types/course'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import {getAvatarInitials} from '@/shared/utils/avatar'
+import {getCourseCoverUrl, handleCourseCoverError} from '@/shared/utils/courseCover'
 
 interface CourseWorkspaceItem {
   id: string

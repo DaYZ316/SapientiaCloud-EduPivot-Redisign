@@ -8,6 +8,7 @@ import com.dayz.sc.auth.service.UserManagementService;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.feign.dto.InternalUserProfile;
+import com.dayz.sc.common.dashboard.DashboardUserSummary;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.ratelimit.RateLimited;
@@ -24,7 +25,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 系统用户分页查询与账号资料维护接口
+ * 绯荤粺鐢ㄦ埛鍒嗛〉鏌ヨ涓庤处鍙疯祫鏂欑淮鎶ゆ帴鍙?
  *
  * @author DaYZ
  * @since 2026-05-08
@@ -76,8 +77,8 @@ public class UserManagementController {
     }
 
     /**
-     * 已登录用户可用：批量获取用户基本信息（displayName, avatarUrl）
-     * 用于前端论坛、评论等场景展示用户头像和昵称
+     * 宸茬櫥褰曠敤鎴峰彲鐢細鎵归噺鑾峰彇鐢ㄦ埛鍩烘湰淇℃伅锛坉isplayName, avatarUrl锛?
+     * 鐢ㄤ簬鍓嶇璁哄潧銆佽瘎璁虹瓑鍦烘櫙灞曠ず鐢ㄦ埛澶村儚鍜屾樀绉?
      */
     @GetMapping("/basic")
     public ApiResponse<@NonNull List<@NonNull UserBasicInfo>> getUsersBasicInfo(
@@ -88,8 +89,8 @@ public class UserManagementController {
     }
 
     /**
-     * 内部接口：批量获取用户基本信息（displayName, avatarUrl）
-     * 用于服务间通信，如课程服务获取教师信息
+     * 鍐呴儴鎺ュ彛锛氭壒閲忚幏鍙栫敤鎴峰熀鏈俊鎭紙displayName, avatarUrl锛?
+     * 鐢ㄤ簬鏈嶅姟闂撮€氫俊锛屽璇剧▼鏈嶅姟鑾峰彇鏁欏笀淇℃伅
      */
     @GetMapping("/internal/basic")
     public ApiResponse<@NonNull List<@NonNull UserBasicInfo>> getUsersBasicInfoInternal(@RequestParam List<UUID> ids) {
@@ -101,8 +102,13 @@ public class UserManagementController {
         return ApiResponse.ok(userManagementService.getInternalUserProfile(id));
     }
 
+    @GetMapping("/internal/dashboard/summary")
+    public ApiResponse<@NonNull DashboardUserSummary> getDashboardSummaryInternal() {
+        return ApiResponse.ok(userManagementService.getDashboardSummary());
+    }
+
     /**
-     * 已登录用户可用：按 ID 查看其他用户公开资料
+     * 宸茬櫥褰曠敤鎴峰彲鐢細鎸?ID 鏌ョ湅鍏朵粬鐢ㄦ埛鍏紑璧勬枡
      */
     @GetMapping("/{id}")
     public ApiResponse<@NonNull UserProfileVO> getUser(@PathVariable UUID id,
@@ -113,7 +119,7 @@ public class UserManagementController {
 
 
     /**
-     * 教师可调用：按角色查询用户列表（仅限 role=2 教师）
+     * 鏁欏笀鍙皟鐢細鎸夎鑹叉煡璇㈢敤鎴峰垪琛紙浠呴檺 role=2 鏁欏笀锛?
      */
     @GetMapping("/teachers")
     public ApiResponse<@NonNull PageResponse<@NonNull UserProfileVO>> listTeachers(
@@ -126,7 +132,7 @@ public class UserManagementController {
 
 
     /**
-     * 已登录用户可用：查询用户列表（通知选人等场景）
+     * 宸茬櫥褰曠敤鎴峰彲鐢細鏌ヨ鐢ㄦ埛鍒楄〃锛堥€氱煡閫変汉绛夊満鏅級
      */
     @GetMapping("/all")
     public ApiResponse<@NonNull PageResponse<@NonNull UserProfileVO>> listAllUsers(

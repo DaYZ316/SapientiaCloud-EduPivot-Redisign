@@ -44,7 +44,6 @@ const emit = defineEmits<{
   left: []
   exit: []
   'participants-change': [participants: ClassParticipant[]]
-  'live-status-change': [message: SeatSyncMessage]
   'loading-progress': [payload: {progress: number; label: string}]
   ready: []
   loadError: [message: string]
@@ -207,8 +206,8 @@ async function loadModels(scene: THREE.Scene, camera: THREE.PerspectiveCamera, c
     ...(route.desk.texture ? [{key: 'deskTexture', weight: 1}] : []),
   ], assetLoadingLabel)
   const [classroom, desk, classroomTexture, deskTexture] = await Promise.all([
-    loadGltf(route.classroom.model, progress.track('classroom')),
-    loadGltf(route.desk.model, progress.track('desk')),
+    loadGlb(route.classroom.model, progress.track('classroom')),
+    loadGlb(route.desk.model, progress.track('desk')),
     loadTexture(route.classroom.texture, route.classroom.texture ? progress.track('classroomTexture') : undefined),
     loadTexture(route.desk.texture, route.desk.texture ? progress.track('deskTexture') : undefined),
   ])
@@ -375,13 +374,6 @@ function handleSeatSyncMessage(raw: string) {
     }
     if (message.type === 'seat_remove') {
       removeParticipant(message.userId || '', message.seatIndex)
-      return
-    }
-    if (message.type === 'live_started'
-        || message.type === 'live_paused'
-        || message.type === 'live_resumed'
-        || message.type === 'live_stopped') {
-      emit('live-status-change', message)
     }
   } catch {
     // Ignore malformed WebSocket payloads.
@@ -675,14 +667,14 @@ function createAssetProgressReporter(start: number, end: number, items: AssetPro
   }
 }
 
-function loadGltf(path: string, onProgress?: (event?: ProgressEvent<EventTarget>) => void) {
+function loadGlb(path: string, onProgress?: (event?: ProgressEvent<EventTarget>) => void) {
   const loader = new GLTFLoader()
   return new Promise<Awaited<ReturnType<GLTFLoader['loadAsync']>>>((resolve, reject) => {
     loader.load(
         path,
-        (gltf) => {
+        (glb) => {
           onProgress?.()
-          resolve(gltf)
+          resolve(glb)
         },
         onProgress,
         reject,
@@ -752,9 +744,18 @@ function disposeObject(object: THREE.Object3D) {
 }
 
 function buildSeatSocketUrl(token: string) {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined
-  const apiUrl = baseUrl ? new URL(baseUrl, window.location.origin) : new URL(window.location.origin)
-  apiUrl.protocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:'
+  const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+  const protocol = baseUrl.startsWith('https') ? 'wss:' : 'ws:'
+  
+  let apiUrl: URL
+  if (baseUrl) {
+    apiUrl = new URL(baseUrl)
+    apiUrl.protocol = protocol
+  } else {
+    apiUrl = new URL(window.location.origin)
+    apiUrl.protocol = protocol
+  }
+  
   apiUrl.pathname = '/api/class-sessions/seats/ws'
   apiUrl.search = new URLSearchParams({
     sessionId: props.session.id,

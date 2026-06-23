@@ -20,6 +20,7 @@ export interface SseConnectionOptions<T> {
 const DEFAULT_RETRY_MS = 3000
 const MAX_RETRY_MS = 30000
 const NO_SUBSCRIBER_IDLE_MS = 0
+const FATAL_SSE_STATUSES = new Set([400, 403, 404, 406, 410])
 
 const connections = new Map<SseConnectionKey, SseConnection<unknown>>()
 
@@ -27,6 +28,13 @@ class UnauthorizedSseError extends Error {
     constructor() {
         super('SSE connection unauthorized')
         this.name = 'UnauthorizedSseError'
+    }
+}
+
+class FatalSseError extends Error {
+    constructor(status: number) {
+        super(`SSE connection failed permanently: ${status}`)
+        this.name = 'FatalSseError'
     }
 }
 
@@ -156,6 +164,9 @@ async function connectLoop<T>(connection: SseConnection<T>) {
                     if (response.status === 401) {
                         throw new UnauthorizedSseError()
                     }
+                    if (isFatalStatus(response.status)) {
+                        throw new FatalSseError(response.status)
+                    }
                     throw new Error(`SSE connection failed: ${response.status}`)
                 },
                 onmessage(event) {
@@ -185,6 +196,10 @@ async function connectLoop<T>(connection: SseConnection<T>) {
                     continue
                 }
                 closeAllSseConnections()
+                break
+            }
+            if (error instanceof FatalSseError) {
+                closeConnection(connection)
                 break
             }
             await delay(connection.retryMs)
@@ -250,6 +265,10 @@ function closeConnection<T>(connection: SseConnection<T>) {
     clearIdleTimer(connection)
     connection.controller?.abort()
     connections.delete(connection.key)
+}
+
+function isFatalStatus(status: number) {
+    return FATAL_SSE_STATUSES.has(status)
 }
 
 function clearIdleTimer<T>(connection: SseConnection<T>) {

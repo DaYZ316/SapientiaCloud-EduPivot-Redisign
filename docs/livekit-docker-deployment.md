@@ -3,7 +3,7 @@
 本项目使用自部署 LiveKit Server 承载课堂直播音视频转发，浏览器入口固定为：
 
 ```text
-wss://livekit.edupivot.xyz
+wss://edupivot.xyz/livekit
 ```
 
 ## 必要环境变量
@@ -11,7 +11,7 @@ wss://livekit.edupivot.xyz
 在服务器 `.env` 中补充以下变量；`.env` 已被 `.gitignore` 忽略，不要提交真实密钥。
 
 ```text
-LIVEKIT_URL=wss://livekit.edupivot.xyz
+LIVEKIT_URL=wss://edupivot.xyz/livekit
 LIVEKIT_SERVER_URL=http://livekit:7880
 LIVEKIT_API_KEY=replace-with-livekit-api-key
 LIVEKIT_API_SECRET=replace-with-livekit-api-secret
@@ -27,9 +27,9 @@ LIVEKIT_RTC_BIND_HOST=0.0.0.0
 
 ## DNS 与证书
 
-- 添加 DNS：`livekit.edupivot.xyz` 指向部署主机公网 IP。
-- Nginx 已增加 `livekit.edupivot.xyz` server 块，反代 LiveKit API/WebSocket 到 `7880`。
-- 证书路径沿用现有 `/etc/nginx/cert/edupivot.xyz.pem` 和 `/etc/nginx/cert/edupivot.xyz.key`。如果现有证书不包含 `livekit.edupivot.xyz`，需要换成通配符证书或单独签发该子域名证书。
+- 默认使用现有主域名路径 `/livekit/`，不需要额外 DNS。
+- Nginx 已增加 `/livekit/` 反代，转发 LiveKit API/WebSocket 到 `7880`。
+- 如需改回 `livekit.edupivot.xyz` 独立子域名，需要先添加 DNS，并确保证书包含该子域名。
 
 ## 端口要求
 
@@ -55,7 +55,7 @@ docker compose logs -f livekit
 
 课堂直播联调检查：
 
-- 后端 `/api/class-sessions/{id}/live-token` 返回 `url=wss://livekit.edupivot.xyz`。
+- 后端 `/api/class-sessions/{id}/live-token` 返回 `url=wss://edupivot.xyz/livekit`。
 - 教师开始直播后可发布摄像头、麦克风、屏幕共享。
 - 学生入座后可观看画面并听到声音。
 - 学生离座后直播断开，课程结束后 LiveKit 房间被 best-effort 删除。
