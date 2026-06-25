@@ -59,12 +59,24 @@ function formatTime(value: string) {
   position: relative;
   display: grid;
   gap: 10px;
+  overflow: hidden;
   padding: 18px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline);
   border-radius: var(--radius-sm);
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.16);
+  box-shadow: var(--shadow-card);
   color: var(--color-on-surface);
+  animation: practicePopupEnter 0.24s ease-out both;
+}
+
+.live-practice-popup::before {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 0%, color-mix(in srgb, var(--color-primary) 16%, transparent) 42%, transparent 78%);
+  content: '';
+  pointer-events: none;
+  transform: translateX(-100%);
+  animation: practicePopupSweep 0.9s ease-out both;
 }
 
 .popup-close {
@@ -119,6 +131,23 @@ function formatTime(value: string) {
   cursor: pointer;
   font-family: var(--font-label);
   font-size: 14px;
+}
+
+@keyframes practicePopupEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes practicePopupSweep {
+  to {
+    transform: translateX(100%);
+  }
 }
 
 @media (max-width: 640px) {

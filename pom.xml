@@ -41,7 +41,7 @@
         <resilience4j.version>2.3.0</resilience4j.version>
         <poi.version>5.3.0</poi.version>
         <jodconverter.version>4.4.8</jodconverter.version>
-        <openhtmltopdf.version>1.0.10</openhtmltopdf.version>
+        <pdfbox.version>3.0.0</pdfbox.version>
         <jlatexmath.version>1.0.7</jlatexmath.version>
         <spring-ai.version>2.0.0</spring-ai.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>

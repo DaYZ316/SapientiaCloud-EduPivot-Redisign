@@ -67,6 +67,30 @@ public class MybatisClassSessionRepository implements ClassSessionRepository {
     }
 
     @Override
+    public List<ClassSession> findOngoingByTeacherId(UUID teacherId, Instant now, int limit) {
+        LambdaQueryWrapper<ClassSession> wrapper = new LambdaQueryWrapper<>();
+        wrapper.isNotNull(ClassSession::getPublishedAt);
+        wrapper.eq(ClassSession::getTeacherId, teacherId);
+        wrapper.le(ClassSession::getScheduledStartAt, now);
+        wrapper.gt(ClassSession::getScheduledEndAt, now);
+        wrapper.orderByAsc(ClassSession::getScheduledEndAt);
+        wrapper.last("LIMIT " + Math.max(1, limit));
+        return classSessionMapper.selectList(wrapper);
+    }
+
+    @Override
+    public List<ClassSession> findOngoingByStudentId(UUID studentId, int activeStatus, int completedStatus, Instant now, int limit) {
+        LambdaQueryWrapper<ClassSession> wrapper = new LambdaQueryWrapper<>();
+        wrapper.isNotNull(ClassSession::getPublishedAt);
+        wrapper.le(ClassSession::getScheduledStartAt, now);
+        wrapper.gt(ClassSession::getScheduledEndAt, now);
+        wrapper.exists("SELECT 1 FROM edu_enrollment e WHERE e.course_id = edu_class_session.course_id AND e.student_id = {0} AND e.status IN ({1}, {2})", studentId, activeStatus, completedStatus);
+        wrapper.orderByAsc(ClassSession::getScheduledEndAt);
+        wrapper.last("LIMIT " + Math.max(1, limit));
+        return classSessionMapper.selectList(wrapper);
+    }
+
+    @Override
     public Map<UUID, Long> countPublishedByCourseIds(List<UUID> courseIds) {
         if (courseIds.isEmpty()) {
             return Map.of();

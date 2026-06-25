@@ -31,6 +31,10 @@ export interface LivePracticeSubmission {
     submitStatusText: string
     isCorrect: number | null
     earnedScore: number
+    aiGradingStatus: string
+    aiGradingFeedback: string | null
+    aiGradingError: string | null
+    aiGradedAt: string | null
     submittedAt: string
 }
 
@@ -48,6 +52,7 @@ export interface LivePracticeAnalysis {
     averageScore: number
     optionCounts: Record<string, number>
     notSubmittedStudents: LivePracticeStudent[]
+    submissions: LivePracticeSubmission[]
 }
 
 export interface LivePracticeQuestion {
@@ -81,6 +86,8 @@ export interface LivePracticeGroup {
     availableStartAt: string
     availableEndAt: string
     allowLateSubmission: number
+    aiGradingEnabled: number
+    aiGradingRequirement: string | null
     publishOrder: number
     publishedAt: string
     totalQuestions: number
@@ -120,6 +127,8 @@ export interface CreateLivePracticeRequest {
     availableStartAt: string
     availableEndAt: string
     allowLateSubmission: number
+    aiGradingEnabled?: number
+    aiGradingRequirement?: string
     selectedQuestionIds?: string[]
     createdQuestions?: CreateLivePracticeQuestionRequest[]
 }

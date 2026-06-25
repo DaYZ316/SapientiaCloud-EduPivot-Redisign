@@ -87,6 +87,7 @@ refreshEnabled: false
 - Redis 连接（向量库与缓存共用）
 
 > 注意：sc-ai 需要 `DASHSCOPE_API_KEY` 环境变量（通义百炼 API Key），通过 `.env` 注入。
+> 课堂实时总结还会复用同一 Key 作为音频识别认证，实时总结间隔、增量阈值和 ASR WebSocket 地址统一在 `edupivot.ai.live-summary.*` 下配置。
 
 ### sc-gateway
 

@@ -12,8 +12,14 @@ import type {
   IngestDocumentRequest,
   ChatMessage,
   KnowledgeDoc,
+  LiveSummaryAudioToken,
+  LiveSummaryErrorEvent,
+  LiveSummarySession,
+  LiveSummarySnapshot,
+  LiveTranscriptSegment,
   UpdateConversationRequest,
 } from '@/features/ai/types/ai'
+import {subscribeSse, sseUrl, type SseSubscription} from '@/shared/api/sseManager'
 
 export type GeneratedArtifactExportFormat = 'pdf' | 'docx'
 
@@ -66,6 +72,14 @@ export function deleteConversation(conversationId: string) {
   })
 }
 
+export function terminateGeneration(conversationId: string, messageId: string) {
+  return request<void>({
+    method: 'POST',
+    url: `/api/ai/conversations/${conversationId}/messages/${messageId}/terminate`,
+    silent: true,
+  })
+}
+
 export async function exportGeneratedArtifact(
   conversationId: string,
   messageId: string,
@@ -86,9 +100,13 @@ export async function exportGeneratedArtifact(
     response = await http.request<Blob>(config)
   } catch (error) {
     if (!isUnauthorizedResponse(error) || !await refreshSession()) {
-      throw error
+      throw await normalizeExportError(error)
     }
-    response = await http.request<Blob>(config)
+    try {
+      response = await http.request<Blob>(config)
+    } catch (retryError) {
+      throw await normalizeExportError(retryError)
+    }
   }
 
   return {
@@ -122,6 +140,91 @@ export function deleteKnowledgeDoc(docId: string) {
   })
 }
 
+export function startLiveSummary(classSessionId: string) {
+  return request<LiveSummarySession>({
+    method: 'POST',
+    url: `/api/ai/live-summaries/class-sessions/${classSessionId}/start`,
+    silent: true,
+  })
+}
+
+export function stopLiveSummary(classSessionId: string) {
+  return request<LiveSummarySession>({
+    method: 'POST',
+    url: `/api/ai/live-summaries/class-sessions/${classSessionId}/stop`,
+    silent: true,
+  })
+}
+
+export function getLiveSummary(classSessionId: string) {
+  return request<LiveSummarySession>({
+    method: 'GET',
+    url: `/api/ai/live-summaries/class-sessions/${classSessionId}`,
+    silent: true,
+  })
+}
+
+export function issueLiveSummaryAudioToken(classSessionId: string) {
+  return request<LiveSummaryAudioToken>({
+    method: 'POST',
+    url: `/api/ai/live-summaries/class-sessions/${classSessionId}/audio-token`,
+    silent: true,
+  })
+}
+
+export function subscribeLiveSummary(
+  classSessionId: string,
+  handlers: {
+    onStatus?: (session: LiveSummarySession) => void
+    onTranscript?: (segment: LiveTranscriptSegment) => void
+    onSnapshot?: (snapshot: LiveSummarySnapshot) => void
+    onError?: (event: LiveSummaryErrorEvent) => void
+    replayOnReconnect?: () => void | Promise<void>
+  },
+): SseSubscription {
+  type EventPayload = LiveSummarySession | LiveTranscriptSegment | LiveSummarySnapshot | LiveSummaryErrorEvent
+  return subscribeSse<EventPayload>({
+    key: `ai-live-summary:${classSessionId}`,
+    url: sseUrl(`/api/ai/live-summaries/class-sessions/${classSessionId}/stream`),
+    eventNames: ['status', 'transcript', 'summary_snapshot', 'error'],
+    idleTimeoutMs: 30000,
+    replayOnReconnect: handlers.replayOnReconnect,
+    onMessage(payload) {
+      if (isLiveSummarySession(payload)) {
+        handlers.onStatus?.(payload)
+        return
+      }
+      if (isLiveSummarySnapshot(payload)) {
+        handlers.onSnapshot?.(payload)
+        return
+      }
+      if (isLiveTranscriptSegment(payload)) {
+        handlers.onTranscript?.(payload)
+        return
+      }
+      handlers.onError?.(payload as LiveSummaryErrorEvent)
+    },
+  })
+}
+
+export function buildLiveSummaryAudioSocketUrl(classSessionId: string, token: string) {
+  const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+  const protocol = baseUrl.startsWith('https') ? 'wss:' : 'ws:'
+
+  let url: URL
+  if (baseUrl) {
+    url = new URL(baseUrl)
+    url.protocol = protocol
+  } else {
+    url = new URL(window.location.origin)
+    url.protocol = protocol
+  }
+
+  url.pathname = `/api/ai/live-summaries/class-sessions/${classSessionId}/audio`
+  url.search = new URLSearchParams({sessionId: classSessionId, token}).toString()
+  return url.toString()
+}
+
 export async function streamChat(
   data: ChatRequest,
   handlers: {
@@ -140,6 +243,28 @@ export async function streamChat(
   } catch (error) {
     if (error instanceof UnauthorizedSseError && await refreshSession()) {
       await connectChatStream(data, handlers)
+      return
+    }
+    throw error
+  }
+}
+
+export async function subscribeGenerationProgress(
+  conversationId: string,
+  messageId: string,
+  handlers: {
+    onSnapshot?: (message: ChatMessage) => void
+    onAgentSearch?: (event: AgentSearchEvent) => void
+    onGenerationStage?: (event: GenerationStageEvent) => void
+    onError?: (error: Error) => void
+    signal?: AbortSignal
+  },
+) {
+  try {
+    await connectGenerationProgress(conversationId, messageId, handlers)
+  } catch (error) {
+    if (error instanceof UnauthorizedSseError && await refreshSession()) {
+      await connectGenerationProgress(conversationId, messageId, handlers)
       return
     }
     throw error
@@ -218,9 +343,83 @@ async function connectChatStream(
   })
 }
 
+async function connectGenerationProgress(
+  conversationId: string,
+  messageId: string,
+  handlers: {
+    onSnapshot?: (message: ChatMessage) => void
+    onAgentSearch?: (event: AgentSearchEvent) => void
+    onGenerationStage?: (event: GenerationStageEvent) => void
+    onError?: (error: Error) => void
+    signal?: AbortSignal
+  },
+) {
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+  if (!token) {
+    throw new UnauthorizedSseError()
+  }
+
+  await fetchEventSource(apiUrl(`/api/ai/conversations/${conversationId}/messages/${messageId}/generation-progress`), {
+    method: 'GET',
+    headers: {
+      Accept: 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      ...(token ? {Authorization: `Bearer ${token}`} : {}),
+    },
+    signal: handlers.signal,
+    openWhenHidden: true,
+    onmessage(event) {
+      if (!event.data) {
+        return
+      }
+      if (event.event === 'generation_snapshot') {
+        handlers.onSnapshot?.(JSON.parse(event.data) as ChatMessage)
+      } else if (event.event === 'agent_search') {
+        handlers.onAgentSearch?.(JSON.parse(event.data) as AgentSearchEvent)
+      } else if (event.event === 'generation_stage') {
+        handlers.onGenerationStage?.(JSON.parse(event.data) as GenerationStageEvent)
+      } else if (event.event === 'error') {
+        throw new Error(event.data)
+      }
+    },
+    async onopen(response) {
+      const contentType = response.headers.get('content-type') || ''
+      if (response.ok && contentType.includes('text/event-stream')) {
+        return
+      }
+
+      if (response.status === 401) {
+        throw new UnauthorizedSseError()
+      }
+
+      throw new Error(await readStreamError(response))
+    },
+    onerror(error) {
+      if (error instanceof UnauthorizedSseError) {
+        throw error
+      }
+      const normalizedError = error instanceof Error ? error : new Error(String(error))
+      handlers.onError?.(normalizedError)
+      throw normalizedError
+    },
+  })
+}
+
 function apiUrl(path: string) {
   const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
   return `${baseUrl}${path}`
+}
+
+function isLiveSummarySession(payload: unknown): payload is LiveSummarySession {
+  return Boolean(payload && typeof payload === 'object' && 'status' in payload && 'recentTranscripts' in payload)
+}
+
+function isLiveSummarySnapshot(payload: unknown): payload is LiveSummarySnapshot {
+  return Boolean(payload && typeof payload === 'object' && 'transcriptUntilSequenceNo' in payload && 'payload' in payload)
+}
+
+function isLiveTranscriptSegment(payload: unknown): payload is LiveTranscriptSegment {
+  return Boolean(payload && typeof payload === 'object' && 'text' in payload && 'final' in payload)
 }
 
 function headerValue(headers: unknown, name: string) {
@@ -257,6 +456,50 @@ function isUnauthorizedResponse(error: unknown) {
   }).response
 
   return response?.status === 401 || response?.data?.code === UNAUTHORIZED_CODE
+}
+
+async function normalizeExportError(error: unknown) {
+  const message = await readExportErrorMessage(error)
+  return message ? new Error(message) : error
+}
+
+async function readExportErrorMessage(error: unknown) {
+  const data = (error as {response?: {data?: unknown}}).response?.data
+  if (!data) return ''
+
+  if (data instanceof Blob) {
+    try {
+      return errorMessageFromText(await data.text())
+    } catch {
+      return ''
+    }
+  }
+
+  if (typeof data === 'string') {
+    return errorMessageFromText(data)
+  }
+
+  if (typeof data === 'object') {
+    return textValue((data as {message?: unknown}).message)
+  }
+
+  return ''
+}
+
+function errorMessageFromText(text: string) {
+  const value = text.trim()
+  if (!value) return ''
+
+  try {
+    const payload = JSON.parse(value) as {message?: unknown}
+    return textValue(payload.message) || value
+  } catch {
+    return value
+  }
+}
+
+function textValue(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
 }
 
 async function readStreamError(response: Response) {

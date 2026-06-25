@@ -14,18 +14,6 @@
           class="workspace-tabs"
         >
           <button
-            v-if="uiPreferences.sidebarCollapsed"
-            :aria-label="t('common.layout.expandSidebar')"
-            class="sidebar-open-tab"
-            type="button"
-            @click="uiPreferences.toggleSidebarCollapsed"
-          >
-            <PanelLeftOpen
-              :size="18"
-              stroke-width="1.9"
-            />
-          </button>
-          <button
             v-if="isPreviewPanelVisible"
             class="workspace-preview-tab active"
             type="button"
@@ -91,23 +79,21 @@
 import {computed, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute} from 'vue-router'
-import {PanelLeftOpen} from 'lucide-vue-next'
 
 import AiChatPanel from '@/features/ai/components/AiChatPanel.vue'
 import AiStudioPanel from '@/features/ai/components/AiStudioPanel.vue'
 import {useAiStore} from '@/features/ai/stores/ai'
-import {useUiPreferencesStore} from '@/features/settings/stores/uiPreferences'
 import type {AiAgentMode, ChatMessage, GenerationRequest} from '@/features/ai/types/ai'
 import {isGenerationMessage} from '@/features/ai/utils/generationTrace'
 
 const route = useRoute()
 const aiStore = useAiStore()
-const uiPreferences = useUiPreferencesStore()
 const {t} = useI18n()
 const chatMode = ref<AiAgentMode>('CHAT')
 const generation = ref<GenerationRequest>(createGenerationDefaults('QUESTION'))
 const artifactTab = ref<ArtifactTab>('single')
 const panelDismissed = ref(false)
+let loadingRouteConversationId = ''
 
 const activeTitle = computed(() => aiStore.activeConversation?.title || t('common.ai.workspace.newInquiry'))
 const latestGeneratedArtifact = computed(() =>
@@ -115,7 +101,7 @@ const latestGeneratedArtifact = computed(() =>
 )
 const visibleArtifact = computed(() => aiStore.activeGenerationMessage || latestGeneratedArtifact.value || aiStore.latestArtifact)
 const completedArtifact = computed(() =>
-  visibleArtifact.value && !visibleArtifact.value.pending && !visibleArtifact.value.failed,
+  visibleArtifact.value && !visibleArtifact.value.pending && !visibleArtifact.value.failed && !visibleArtifact.value.terminated,
 )
 const isQuestionPanelVisible = computed(() =>
   chatMode.value !== 'CHAT'
@@ -136,7 +122,26 @@ const isPreviewPanelVisible = computed(() =>
 
 onMounted(() => {
   aiStore.setContext({sourceRoute: route.fullPath})
+  syncModeFromRoute()
 })
+
+watch(
+  () => route.fullPath,
+  () => aiStore.setContext({sourceRoute: route.fullPath}),
+)
+
+watch(
+  () => route.query.mode,
+  () => syncModeFromRoute(),
+)
+
+watch(
+  () => route.query.conversationId,
+  () => {
+    void loadConversationFromRoute()
+  },
+  {immediate: true},
+)
 
 watch(chatMode, (mode) => {
   if (mode === 'QUESTION' || mode === 'PAPER') {
@@ -153,7 +158,7 @@ watch(() => aiStore.activeGenerationMessageId, (messageId) => {
   if (messageId) {
     const message = aiStore.activeGenerationMessage
     panelDismissed.value = false
-    artifactTab.value = message && !message.pending && !message.failed ? 'single' : 'trace'
+    artifactTab.value = message && !message.pending && !message.failed && !message.terminated ? 'single' : 'trace'
   }
 })
 
@@ -181,6 +186,39 @@ function setChatMode(mode: AiAgentMode) {
   chatMode.value = mode
 }
 
+function syncModeFromRoute() {
+  const mode = normalizeRouteMode(route.query.mode)
+  if (mode) setChatMode(mode)
+}
+
+async function loadConversationFromRoute() {
+  const conversationId = normalizeRouteText(route.query.conversationId)
+  if (!conversationId || conversationId === aiStore.activeConversationId || conversationId === loadingRouteConversationId) {
+    return
+  }
+
+  loadingRouteConversationId = conversationId
+  try {
+    await aiStore.loadMessages(conversationId)
+  } catch {
+    // Request handling already shows the load failure notification.
+  } finally {
+    if (loadingRouteConversationId === conversationId) {
+      loadingRouteConversationId = ''
+    }
+  }
+}
+
+function normalizeRouteMode(value: unknown): Exclude<AiAgentMode, 'CHAT'> | null {
+  const mode = normalizeRouteText(value)
+  return mode === 'QUESTION' || mode === 'PAPER' ? mode : null
+}
+
+function normalizeRouteText(value: unknown) {
+  const text = Array.isArray(value) ? value[0] : value
+  return typeof text === 'string' ? text.trim() : ''
+}
+
 function activatePreviewPanel() {
   panelDismissed.value = false
   chatMode.value = 'CHAT'
@@ -200,7 +238,7 @@ function syncDefaultGenerationPanel() {
 
 function openArtifactPanel(message: ChatMessage) {
   panelDismissed.value = false
-  artifactTab.value = message.pending || message.failed ? 'trace' : 'single'
+  artifactTab.value = message.pending || message.failed || message.terminated ? 'trace' : 'single'
   aiStore.openGenerationTrace(message.id)
 }
 
@@ -338,10 +376,6 @@ type ArtifactTab = 'single' | 'overall' | 'trace'
   color: var(--color-on-primary);
 }
 
-.workspace-tabs .sidebar-open-tab {
-  display: none;
-}
-
 .workspace-content {
   --question-panel-width: 60%;
 
@@ -443,12 +477,6 @@ type ArtifactTab = 'single' | 'overall' | 'trace'
     min-height: 42px;
   }
 
-  .workspace-tabs .sidebar-open-tab {
-    flex: 0 0 46px;
-    min-width: 46px;
-    padding: 0;
-  }
-
   .monolith-ai-shell.with-question-panel .chat-main-column,
   .chat-main-column {
     flex-basis: 100%;
@@ -472,11 +500,6 @@ type ArtifactTab = 'single' | 'overall' | 'trace'
 
   .thread-label {
     padding: 0 16px;
-  }
-
-  .workspace-tabs .sidebar-open-tab {
-    display: grid;
-    place-items: center;
   }
 }
 </style>

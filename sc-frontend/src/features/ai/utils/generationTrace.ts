@@ -21,11 +21,12 @@ const STAGE_PROGRESS: Record<GenerationStage, number> = {
   ASSEMBLED: 94,
   RESPONDED: 100,
   FAILED: 100,
+  TERMINATED: 100,
 }
 
 const STAGE_LABELS: Record<GenerationStage, string> = {
   RECEIVED: '接收请求',
-  CONTEXT_READY: '整理资料',
+  CONTEXT_READY: '联网搜索资料',
   PLANNED: '生成方案',
   GENERATED: '生成草稿',
   VALIDATED: '质量校验',
@@ -33,9 +34,10 @@ const STAGE_LABELS: Record<GenerationStage, string> = {
   ASSEMBLED: '组装结果',
   RESPONDED: '生成完成',
   FAILED: '生成失败',
+  TERMINATED: '已终止',
 }
 
-const TECHNICAL_DETAIL_TYPES = new Set(['section_attempt', 'repair_attempt', 'placeholder_result'])
+const TECHNICAL_DETAIL_TYPES = new Set(['section_attempt', 'repair_attempt', 'placeholder_result', 'raw_ai_output'])
 const HIDDEN_ISSUE_CODES = new Set(['MISSING_QUESTION_BANK_ID'])
 const EMPTY_RESULT_ISSUE_CODES = new Set(['EMPTY_RESULT'])
 
@@ -89,6 +91,9 @@ export function generationTitle(message: ChatMessage) {
   if (currentGenerationStage(message) === 'RESPONDED') {
     return message.messageType === 'PAPER' ? '出卷完成' : '出题完成'
   }
+  if (currentGenerationStage(message) === 'TERMINATED' || message.terminated) {
+    return message.messageType === 'PAPER' ? '出卷已终止' : '出题已终止'
+  }
 
   const latest = generationTrace(message).at(-1)
   if (latest?.title) return latest.title
@@ -100,6 +105,7 @@ export function generationTitle(message: ChatMessage) {
 export function generationSummary(message: ChatMessage) {
   const latest = generationTrace(message).at(-1)
   if (latest?.summary) return latest.summary
+  if (currentGenerationStage(message) === 'TERMINATED' || message.terminated) return '用户已终止本次生成任务。'
   if (message.pending) return '正在规划题目结构和资料检索步骤。'
   return '已保存结构化生成结果。'
 }

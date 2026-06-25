@@ -197,8 +197,9 @@ function formatFileSize(sizeBytes: number) {
   overflow: hidden;
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline);
+  border-radius: var(--radius-md);
   color: var(--color-on-surface);
-  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.24);
+  box-shadow: var(--shadow-card);
 }
 
 .panel-header {

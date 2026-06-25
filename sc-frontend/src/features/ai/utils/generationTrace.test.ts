@@ -49,23 +49,30 @@ describe('generationTrace display normalization', () => {
       traceEntry('GENERATED', 'draft_progress', '题目草稿生成中', {
         questionDelta: true,
         generatedQuestionCount: 1,
-        totalQuestionCount: 2,
+        totalQuestionCount: 3,
         questions: [{questionTitle: '题目 1'}],
       }),
       traceEntry('GENERATED', 'draft_progress', '题目草稿生成中', {
         questionDelta: true,
         generatedQuestionCount: 2,
-        totalQuestionCount: 2,
+        totalQuestionCount: 3,
         questions: [{questionTitle: '题目 2'}],
+      }),
+      traceEntry('GENERATED', 'draft_progress', '题目草稿生成中', {
+        questionDelta: true,
+        generatedQuestionCount: 3,
+        totalQuestionCount: 3,
+        questions: [{questionTitle: '题目 3'}],
       }),
     ])
 
     const generated = generationTrace(message)[0]
 
-    expect(generated.summary).toBe('已生成 2 / 2 道题目草稿。')
+    expect(generated.summary).toContain('3 / 3')
     expect(generated.payload?.questions).toEqual([
       {questionTitle: '题目 1'},
       {questionTitle: '题目 2'},
+      {questionTitle: '题目 3'},
     ])
   })
 

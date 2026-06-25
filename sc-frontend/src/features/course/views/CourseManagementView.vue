@@ -1119,6 +1119,7 @@ onMounted(() => {
 
 .my-courses-page .courses-primary {
   min-width: 0;
+  border-radius: 0;
 }
 
 .my-courses-page .panel-heading {

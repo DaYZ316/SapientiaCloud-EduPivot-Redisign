@@ -6,9 +6,12 @@ import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.feign.dto.AiCourseContext;
 import com.dayz.sc.common.feign.dto.AgentSearchItem;
 import com.dayz.sc.common.feign.dto.AgentSearchResult;
+import com.dayz.sc.common.feign.dto.ClassSessionAiAccess;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.course.model.entity.*;
 import com.dayz.sc.course.model.enums.ChapterStatus;
+import com.dayz.sc.course.model.enums.ClassLiveStatus;
+import com.dayz.sc.course.model.enums.ClassSessionStatus;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
 import com.dayz.sc.course.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -62,6 +65,7 @@ public class AiCourseContextService {
     private final QuestionRepository questionRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final CourseTeacherRepository courseTeacherRepository;
+    private final ClassSessionRepository classSessionRepository;
     private final CourseFileRepository courseFileRepository;
     private final PracticeSessionRepository practiceSessionRepository;
     private final LivePracticeGroupRepository livePracticeGroupRepository;
@@ -182,6 +186,38 @@ public class AiCourseContextService {
                 .limit(resultLimit)
                 .map(chapter -> chapterItem(chapter, course, relationLabel))
                 .toList();
+    }
+
+    public ClassSessionAiAccess classSessionAccess(UUID classSessionId, UUID userId, Integer role) {
+        ClassSession session = classSessionRepository.findById(classSessionId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        boolean canManage = SecurityUtils.isAdmin(role)
+                || courseTeacherRepository.existsByCourseIdAndTeacherId(session.getCourseId(), userId);
+        boolean canView = canManage || enrollmentRepository.findByCourseIdAndStudentId(session.getCourseId(), userId)
+                .filter(this::activeOrCompleted)
+                .isPresent();
+        if (!canView) {
+            throw new BusinessException(ErrorCodes.FORBIDDEN);
+        }
+        ClassSessionStatus classStatus = ClassSessionStatus.calculate(
+                session.getPublishedAt(),
+                session.getScheduledStartAt(),
+                session.getScheduledEndAt(),
+                java.time.Instant.now());
+        ClassLiveStatus liveStatus = ClassLiveStatus.fromCode(session.getLiveStatus());
+        return new ClassSessionAiAccess(
+                session.getId(),
+                session.getCourseId(),
+                session.getTeacherId(),
+                session.getTitle(),
+                classStatus.getCode(),
+                classStatus.getDescription(),
+                liveStatus.getCode(),
+                liveStatus.getDescription(),
+                session.getScheduledStartAt(),
+                session.getScheduledEndAt(),
+                canView,
+                canManage);
     }
 
     private List<Course> accessibleCourses(UUID userId, Integer role) {

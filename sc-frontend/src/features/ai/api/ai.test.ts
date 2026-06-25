@@ -4,7 +4,7 @@ import type {AxiosResponse} from 'axios'
 
 import * as requestApi from '@/shared/api/request'
 import {ACCESS_TOKEN_KEY, http} from '@/shared/api/request'
-import {exportGeneratedArtifact, streamChat} from '@/features/ai/api/ai'
+import {exportGeneratedArtifact, streamChat, subscribeGenerationProgress, terminateGeneration} from '@/features/ai/api/ai'
 
 const mocks = vi.hoisted(() => ({
   fetchEventSource: vi.fn(),
@@ -158,6 +158,93 @@ describe('streamChat', () => {
   })
 })
 
+describe('subscribeGenerationProgress', () => {
+  beforeEach(() => {
+    vi.unstubAllEnvs()
+    mocks.fetchEventSource.mockReset()
+    localStorage.clear()
+    localStorage.setItem(ACCESS_TOKEN_KEY, 'token')
+  })
+
+  it('parses generation snapshot and stage events', async () => {
+    mocks.fetchEventSource.mockImplementation(async (_url: string, init: FetchEventSourceInit) => {
+      init.onmessage?.({
+        event: 'generation_snapshot',
+        data: JSON.stringify({
+          id: 'message-1',
+          role: 'ASSISTANT',
+          content: '',
+          messageType: 'PAPER',
+          payload: {
+            generationStatus: 'processing',
+          },
+          createdAt: '2026-06-24T00:00:00.000Z',
+        }),
+        id: '',
+        retry: undefined,
+      } satisfies EventSourceMessage)
+      init.onmessage?.({
+        event: 'generation_stage',
+        data: JSON.stringify({
+          requestId: 'request-1',
+          mode: 'PAPER',
+          stage: 'GENERATED',
+          status: 'processing',
+          payload: {questionCount: 1},
+        }),
+        id: '',
+        retry: undefined,
+      } satisfies EventSourceMessage)
+    })
+    const onSnapshot = vi.fn()
+    const onGenerationStage = vi.fn()
+
+    await subscribeGenerationProgress('conversation-1', 'message-1', {
+      onSnapshot,
+      onGenerationStage,
+    })
+
+    expect(onSnapshot).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'message-1',
+      messageType: 'PAPER',
+    }))
+    expect(onGenerationStage).toHaveBeenCalledWith(expect.objectContaining({
+      requestId: 'request-1',
+      stage: 'GENERATED',
+    }))
+  })
+
+  it('uses configured api base url for generation progress stream', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:39080/')
+    mocks.fetchEventSource.mockResolvedValue(undefined)
+
+    await subscribeGenerationProgress('conversation-1', 'message-1', {})
+
+    expect(mocks.fetchEventSource).toHaveBeenCalledWith(
+      'http://localhost:39080/api/ai/conversations/conversation-1/messages/message-1/generation-progress',
+      expect.any(Object),
+    )
+  })
+})
+
+describe('terminateGeneration', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('posts to the generation termination endpoint', async () => {
+    const requestSpy = vi.spyOn(requestApi, 'request').mockResolvedValue(undefined)
+
+    await terminateGeneration('conversation-1', 'message-1')
+
+    expect(requestSpy).toHaveBeenCalledWith({
+      method: 'POST',
+      url: '/api/ai/conversations/conversation-1/messages/message-1/terminate',
+      silent: true,
+    })
+  })
+})
+
 describe('exportGeneratedArtifact', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -251,5 +338,22 @@ describe('exportGeneratedArtifact', () => {
 
     expect(refreshSpy).toHaveBeenCalledTimes(1)
     expect(requestSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('throws the backend export error message from blob responses', async () => {
+    const errorBlob = new Blob([JSON.stringify({message: 'PDF export failed: empty questions'})], {
+      type: 'application/json',
+    })
+    vi.spyOn(http, 'request').mockRejectedValueOnce({
+      response: {
+        status: 400,
+        data: errorBlob,
+      },
+    })
+
+    await expect(exportGeneratedArtifact('conversation-1', 'message-1', {
+      format: 'pdf',
+      includeAnswers: true,
+    })).rejects.toThrow('PDF export failed: empty questions')
   })
 })

@@ -247,6 +247,7 @@
                 />
               </label>
             </div>
+            <p class="duration-note">{{ t('courseDetail.classSession.durationTooLong') }}</p>
 
             <label class="form-group">
               <span>{{ t('courseDetail.classSession.descriptionLabel') }}</span>
@@ -398,6 +399,7 @@ const previewSession = ref<ClassSession | null>(null)
 const occupiedSeatIndexes = ref(new Set<number>())
 const errorMessage = ref('')
 const STUDENT_PARTICIPANT_ROLE = 1
+const MAX_SESSION_DURATION_MS = 2 * 60 * 60 * 1000
 let occupiedSeatsRequestId = 0
 
 const form = reactive({
@@ -652,6 +654,10 @@ async function handleSubmit() {
   }
   if (endDate <= startDate) {
     errorMessage.value = t('courseDetail.classSession.endAfterStart')
+    return
+  }
+  if (endDate.getTime() - startDate.getTime() > MAX_SESSION_DURATION_MS) {
+    notify.warn(t('courseDetail.classSession.durationTooLong'))
     return
   }
 
@@ -1289,6 +1295,14 @@ function normalizedRoomSize(value: number) {
   gap: 14px;
 }
 
+.duration-note {
+  margin: -8px 0 0;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .input-field {
   width: 100%;
   min-height: 46px;
@@ -1377,7 +1391,9 @@ textarea.input-field:focus {
 .form-group :deep(.modal-date-control .base-date-picker-year),
 .form-group :deep(.modal-date-control .base-date-picker-month),
 .form-group :deep(.modal-date-control .base-date-picker-day),
-.form-group :deep(.modal-date-control .base-date-picker-time) {
+.form-group :deep(.modal-date-control .base-date-picker-time),
+.form-group :deep(.modal-date-control .base-date-picker-time-panel),
+.form-group :deep(.modal-date-control .base-date-picker-time-option) {
   border-radius: 0;
 }
 

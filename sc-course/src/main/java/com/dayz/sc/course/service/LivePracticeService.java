@@ -58,6 +58,7 @@ public class LivePracticeService {
     private static final int QUESTION_TYPE_SINGLE_CHOICE = 0;
     private static final int QUESTION_TYPE_MULTI_CHOICE = 1;
     private static final int QUESTION_TYPE_TRUE_FALSE = 2;
+    private static final int QUESTION_TYPE_SHORT_ANSWER = 4;
     private static final int PARTIAL_CREDIT_SCALE = 2;
 
     private final LivePracticeGroupRepository livePracticeGroupRepository;
@@ -90,15 +91,18 @@ public class LivePracticeService {
         }
 
         List<Question> selectedQuestions = loadSelectedQuestions(request.selectedQuestionIds(), session.getCourseId());
-        Map<UUID, Integer> aiGradingFlags = new HashMap<>();
-        selectedQuestions.forEach(question -> aiGradingFlags.put(question.getId(), FLAG_OFF));
         List<Question> createdQuestions = createAdHocQuestions(
-                request.createdQuestions(), session.getCourseId(), userId, aiGradingFlags);
+                request.createdQuestions(), session.getCourseId(), userId);
         List<Question> allQuestions = new ArrayList<>();
         allQuestions.addAll(selectedQuestions);
         allQuestions.addAll(createdQuestions);
         if (allQuestions.isEmpty()) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Live practice needs at least one question");
+        }
+        int aiGradingEnabled = flag(request.aiGradingEnabled());
+        String aiGradingRequirement = normalizeGradingRequirement(request.aiGradingRequirement(), aiGradingEnabled);
+        if (aiGradingEnabled == FLAG_ON && allQuestions.stream().noneMatch(this::isShortAnswerQuestion)) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "AI grading requires at least one short answer question");
         }
 
         LivePracticeGroup group = new LivePracticeGroup();
@@ -110,6 +114,8 @@ public class LivePracticeService {
         group.setAvailableStartAt(request.availableStartAt());
         group.setAvailableEndAt(request.availableEndAt());
         group.setAllowLateSubmission(flag(request.allowLateSubmission()));
+        group.setAiGradingEnabled(aiGradingEnabled);
+        group.setAiGradingRequirement(aiGradingRequirement);
         group.setPublishOrder((int) groupCount + 1);
         group.setPublishedAt(Instant.now());
         livePracticeGroupRepository.save(group);
@@ -118,7 +124,7 @@ public class LivePracticeService {
         for (int index = 0; index < allQuestions.size(); index += 1) {
             Question question = allQuestions.get(index);
             snapshots.add(snapshotQuestion(
-                    group, session, question, index + 1, aiGradingFlags.getOrDefault(question.getId(), FLAG_OFF)));
+                    group, session, question, index + 1, aiGradingFlagForSnapshot(question, aiGradingEnabled)));
         }
         livePracticeQuestionRepository.saveBatch(snapshots);
 
@@ -171,6 +177,9 @@ public class LivePracticeService {
         int submitStatus = resolveSubmitStatus(group, now);
         GradeResult grade = grade(question, request);
         boolean aiGradingRequired = aiGradingRequired(question);
+        if (aiGradingRequired && isBlank(request.textAnswer())) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Text answer is required for AI grading");
+        }
         if (aiGradingRequired) {
             grade = new GradeResult(null, BigDecimal.ZERO);
         }
@@ -251,8 +260,7 @@ public class LivePracticeService {
 
     private List<Question> createAdHocQuestions(List<CreateLivePracticeQuestionRequest> requests,
                                                 UUID courseId,
-                                                UUID userId,
-                                                Map<UUID, Integer> aiGradingFlags) {
+                                                UUID userId) {
         if (requests == null || requests.isEmpty()) {
             return List.of();
         }
@@ -279,7 +287,6 @@ public class LivePracticeService {
             question.setStatus(QuestionStatus.PUBLISHED.getCode());
             questionRepository.save(question);
             saveQuestionChildren(question, request.options(), request.answers());
-            aiGradingFlags.put(question.getId(), aiGradingFlag(request));
             questions.add(question);
         }
         return questions;
@@ -415,6 +422,8 @@ public class LivePracticeService {
                 group.getAvailableStartAt(),
                 group.getAvailableEndAt(),
                 group.getAllowLateSubmission(),
+                group.getAiGradingEnabled(),
+                group.getAiGradingRequirement(),
                 group.getPublishOrder(),
                 group.getPublishedAt(),
                 questions.size(),
@@ -495,7 +504,10 @@ public class LivePracticeService {
                 (int) submissions.stream().filter(s -> Objects.equals(s.getIsCorrect(), FLAG_ON)).count(),
                 averageScore,
                 optionCounts(question, submissions),
-                notSubmittedStudents
+                notSubmittedStudents,
+                submissions.stream()
+                        .map(submission -> toSubmissionVO(submission, userInfoMap))
+                        .toList()
         );
     }
 
@@ -566,6 +578,10 @@ public class LivePracticeService {
             return new GradeResult(FLAG_ON, valueOrZero(question.getScore()));
         }
         if (Objects.equals(question.getAllowPartialCredit(), FLAG_ON) && questionType == QUESTION_TYPE_MULTI_CHOICE && !correctIds.isEmpty()) {
+            boolean hasWrongSelected = selectedIds.stream().anyMatch(selectedId -> !correctIds.contains(selectedId));
+            if (hasWrongSelected) {
+                return new GradeResult(FLAG_OFF, BigDecimal.ZERO);
+            }
             long correctSelected = selectedIds.stream().filter(correctIds::contains).count();
             BigDecimal earnedScore = valueOrZero(question.getScore())
                     .multiply(BigDecimal.valueOf(correctSelected))
@@ -596,6 +612,9 @@ public class LivePracticeService {
                         ))
                         .toList(),
                 submission.getTextAnswer(),
+                livePracticeGroupRepository.findById(submission.getGroupId())
+                        .map(LivePracticeGroup::getAiGradingRequirement)
+                        .orElse(null),
                 "LIVE_PRACTICE_AI_GRADING_REQUESTED",
                 Instant.now(),
                 "sc-course"
@@ -605,14 +624,21 @@ public class LivePracticeService {
 
     private boolean aiGradingRequired(LivePracticeQuestion question) {
         return Objects.equals(question.getAiGradingEnabled(), FLAG_ON)
-                && !isObjectiveQuestionType(question.getQuestionType());
+                && isShortAnswerQuestion(question.getQuestionType());
     }
 
-    private int aiGradingFlag(CreateLivePracticeQuestionRequest request) {
-        if (!Objects.equals(request.aiGradingEnabled(), FLAG_ON) || isObjectiveQuestionType(request.questionType())) {
-            return FLAG_OFF;
-        }
-        return FLAG_ON;
+    private int aiGradingFlagForSnapshot(Question question, int groupAiGradingEnabled) {
+        return groupAiGradingEnabled == FLAG_ON && isShortAnswerQuestion(question)
+                ? FLAG_ON
+                : FLAG_OFF;
+    }
+
+    private boolean isShortAnswerQuestion(Question question) {
+        return question != null && isShortAnswerQuestion(question.getQuestionType());
+    }
+
+    private boolean isShortAnswerQuestion(Integer questionType) {
+        return Objects.equals(questionType, QUESTION_TYPE_SHORT_ANSWER);
     }
 
     private boolean isObjectiveQuestionType(int questionType) {
@@ -684,6 +710,24 @@ public class LivePracticeService {
         if (startAt == null || endAt == null || !endAt.isAfter(startAt)) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Live practice end time must be after start time");
         }
+    }
+
+    private String normalizeGradingRequirement(String requirement, int aiGradingEnabled) {
+        if (aiGradingEnabled != FLAG_ON) {
+            return null;
+        }
+        if (isBlank(requirement)) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "AI grading requirement is required");
+        }
+        String trimmed = requirement.trim();
+        if (trimmed.length() > 2000) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "AI grading requirement cannot exceed 2000 characters");
+        }
+        return trimmed;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private int flag(Integer value) {

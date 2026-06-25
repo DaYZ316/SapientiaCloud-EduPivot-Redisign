@@ -31,6 +31,8 @@ public interface ClassParticipantRepository {
      */
     List<ClassParticipant> findBySessionId(UUID sessionId);
 
+    List<ClassParticipant> findBySessionIdAndUserIds(UUID sessionId, List<UUID> userIds);
+
     /**
      * 根据课堂会话ID和座位索引查询参与者
      *

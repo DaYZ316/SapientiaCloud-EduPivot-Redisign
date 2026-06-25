@@ -3,6 +3,7 @@ package com.dayz.sc.common.feign.client;
 import com.dayz.sc.common.feign.dto.AiCourseContext;
 import com.dayz.sc.common.feign.dto.AgentSearchItem;
 import com.dayz.sc.common.feign.dto.AgentSearchResult;
+import com.dayz.sc.common.feign.dto.ClassSessionAiAccess;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.response.ApiResponse;
 import org.jspecify.annotations.NonNull;
@@ -46,6 +47,12 @@ public class CourseAiContextClientFallback implements CourseAiContextClient {
     @Override
     public ApiResponse<@NonNull List<AgentSearchItem>> chapters(
             UUID courseId, String courseTitle, Integer limit, String userId, String userRole) {
+        return ApiResponse.failOf(ErrorCodes.SERVICE_UNAVAILABLE);
+    }
+
+    @Override
+    public ApiResponse<@NonNull ClassSessionAiAccess> classSessionAccess(
+            UUID classSessionId, String userId, String userRole) {
         return ApiResponse.failOf(ErrorCodes.SERVICE_UNAVAILABLE);
     }
 }

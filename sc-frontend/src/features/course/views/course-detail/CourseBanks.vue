@@ -6,14 +6,14 @@
         <h2>{{ t('questionBank.title') }}</h2>
         <p>{{ t('courseDetail.banksDescription') }}</p>
       </div>
-      <button v-if="canManageCourse" class="btn-add" type="button" @click="showCreateDialog = true">
+      <button v-if="canManageCourse" class="btn-add" type="button" @click="openCreateDialog">
         <Plus :size="14" stroke-width="2"/>
         {{ t('courseDetail.newBank') }}
       </button>
     </div>
     <CourseTabLoadingSkeleton
         v-if="loading"
-        :actions="canManageCourse ? 2 : isStudent && canAccessCourseContent ? 1 : 0"
+        :actions="canManageCourse ? 2 : 0"
         :count="4"
     />
     <div v-else-if="banks.length === 0" class="empty-tab">
@@ -34,18 +34,12 @@
           <p>{{ bank.description || t('courseDetail.noBankDescription') }}</p>
           <div class="item-meta">
             <span>{{ bank.questionCount }} {{ t('questionBank.questionCount') }}</span>
+            <span>{{ bankTypeName(bank.bankType) }}</span>
+            <span :class="'diff-' + bank.difficulty" class="difficulty">{{ difficultyName(bank.difficulty) }}</span>
             <span>{{ formatDate(bank.updatedAt || bank.createdAt) }}</span>
           </div>
         </div>
         <div class="bank-actions" @click.stop>
-          <button
-              v-if="isStudent && canAccessCourseContent"
-              class="btn-practice"
-              type="button"
-              @click="router.push('/question-banks/' + bank.id + '/practice')"
-          >
-            {{ t('questionBank.practice') }}
-          </button>
           <button
               v-if="canManageCourse"
               :title="t('courseDetail.editBank')"
@@ -80,42 +74,18 @@
     />
 
     <!-- 创建/编辑题库对话�?-->
-    <Teleport to="body">
-      <div v-if="showCreateDialog || showEditDialog" class="modal-overlay" @click.self="closeDialogs">
-        <div class="modal-content">
-          <h3>{{ showEditDialog ? t('courseDetail.editBank') : t('courseDetail.newBank') }}</h3>
-          <form @submit.prevent="handleSubmit">
-            <label>
-              {{ t('questionBank.bankName') }} *
-              <input v-model="form.bankName" maxlength="200" required type="text"/>
-            </label>
-            <label>
-              {{ t('questionBank.bankDescription') }}
-              <textarea v-model="form.description" maxlength="2000" rows="3"></textarea>
-            </label>
-            <label>
-              {{ t('questionBank.bankType') }}
-              <BaseSelect v-model="form.bankType" :options="bankTypeOptions"/>
-            </label>
-            <label>
-              {{ t('questionBank.difficulty') }}
-              <BaseSelect v-model="form.difficulty" :options="difficultyOptions"/>
-            </label>
-            <div class="modal-actions">
-              <button class="btn-cancel" type="button" @click="closeDialogs">{{ t('courseDetail.cancel') }}</button>
-              <button :disabled="submitting || !form.bankName.trim()" class="btn-submit" type="submit">
-                {{ t('courseDetail.save') }}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </Teleport>
+    <QuestionBankEditorDialog
+        :bank="editingBank"
+        :submitting="submitting"
+        :visible="showEditorDialog"
+        @close="closeDialog"
+        @submit="handleSubmit"
+    />
   </section>
 </template>
 
 <script lang="ts" setup>
-import {computed, reactive, ref} from 'vue'
+import {ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import {Database, Pencil, Plus, Trash2} from 'lucide-vue-next'
@@ -123,10 +93,13 @@ import {createQuestionBank, deleteQuestionBank, updateQuestionBank} from '@/feat
 import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import BasePagination from '@/shared/components/BasePagination.vue'
-import BaseSelect from '@/shared/components/BaseSelect.vue'
 import CourseTabLoadingSkeleton from '@/features/course/components/CourseTabLoadingSkeleton.vue'
 import type {CourseDetail} from '@/features/course/types/course'
 import type {QuestionBank} from '@/features/question-bank/types/questionBank'
+import {QuestionDifficulty} from '@/features/question-bank/types/questionBank'
+import QuestionBankEditorDialog, {
+  type QuestionBankEditorPayload,
+} from '@/features/question-bank/components/QuestionBankEditorDialog.vue'
 
 const props = withDefaults(defineProps<{
   courseId: string
@@ -155,77 +128,57 @@ const emit = defineEmits<{
 const {t} = useI18n()
 const router = useRouter()
 
-const showCreateDialog = ref(false)
-const showEditDialog = ref(false)
+const showEditorDialog = ref(false)
 const submitting = ref(false)
 const editingBank = ref<QuestionBank | null>(null)
-
-const form = reactive({
-  bankName: '',
-  description: '',
-  bankType: 0,
-  difficulty: 2,
-})
-
-const bankTypeOptions = computed(() => [
-  {label: t('questionBank.bankTypePractice'), value: 0},
-  {label: t('questionBank.bankTypeExam'), value: 1},
-  {label: t('questionBank.bankTypeHomework'), value: 2},
-])
-
-const difficultyOptions = computed(() => [
-  {label: t('questionBank.difficultyEasy'), value: 1},
-  {label: t('questionBank.difficultyMedium'), value: 2},
-  {label: t('questionBank.difficultyHard'), value: 3},
-])
 
 function handleBankOpen(bankId: string) {
   if (!props.canAccessCourseContent) return
   router.push('/question-banks/' + bankId)
 }
 
+function bankTypeName(type: number) {
+  const labels: Record<number, string> = {
+    0: t('questionBank.bankTypePractice'),
+    1: t('questionBank.bankTypeExam'),
+    2: t('questionBank.bankTypeHomework'),
+  }
+  return labels[type] || t('questionBank.defaultBankType')
+}
+
+function difficultyName(difficulty: number) {
+  return QuestionDifficulty[difficulty] || t('questionBank.unknown')
+}
+
+function openCreateDialog() {
+  editingBank.value = null
+  showEditorDialog.value = true
+}
+
 function startEdit(bank: QuestionBank) {
   editingBank.value = bank
-  form.bankName = bank.bankName
-  form.description = bank.description || ''
-  form.bankType = bank.bankType
-  form.difficulty = bank.difficulty
-  showEditDialog.value = true
+  showEditorDialog.value = true
 }
 
-function closeDialogs() {
-  showCreateDialog.value = false
-  showEditDialog.value = false
+function closeDialog() {
+  showEditorDialog.value = false
   editingBank.value = null
-  form.bankName = ''
-  form.description = ''
-  form.bankType = 0
-  form.difficulty = 2
 }
 
-async function handleSubmit() {
-  if (!form.bankName.trim()) return
+async function handleSubmit(payload: QuestionBankEditorPayload) {
   submitting.value = true
   try {
     if (editingBank.value) {
-      await updateQuestionBank(editingBank.value.id, {
-        bankName: form.bankName,
-        description: form.description || undefined,
-        bankType: form.bankType,
-        difficulty: form.difficulty,
-      })
+      await updateQuestionBank(editingBank.value.id, payload)
       notify.success(t('courseDetail.bankUpdated'))
     } else {
       await createQuestionBank({
         courseId: props.courseId,
-        bankName: form.bankName,
-        description: form.description || undefined,
-        bankType: form.bankType,
-        difficulty: form.difficulty,
+        ...payload,
       })
       notify.success(t('courseDetail.bankCreated'))
     }
-    closeDialogs()
+    closeDialog()
     emit('refresh')
   } catch {
     notify.error(t('courseDetail.saveChapterFailed'))
@@ -284,8 +237,7 @@ async function handleDelete(bank: QuestionBank) {
   line-height: 1.55;
 }
 
-.btn-add,
-.btn-practice {
+.btn-add {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -304,8 +256,7 @@ async function handleDelete(bank: QuestionBank) {
   transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
-.btn-add:hover,
-.btn-practice:hover {
+.btn-add:hover {
   background: var(--color-surface-container-high);
   border-color: var(--color-outline);
 }
@@ -403,6 +354,18 @@ async function handleDelete(bank: QuestionBank) {
   line-height: 1.45;
 }
 
+.difficulty.diff-1 {
+  color: #22c55e;
+}
+
+.difficulty.diff-2 {
+  color: #eab308;
+}
+
+.difficulty.diff-3 {
+  color: #ef4444;
+}
+
 .bank-actions {
   display: flex;
   align-items: center;
@@ -435,105 +398,6 @@ async function handleDelete(bank: QuestionBank) {
   font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.55;
-}
-
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 1000;
-}
-
-.modal-content {
-  width: min(480px, 90vw);
-  padding: 24px;
-  background: var(--color-surface-card);
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-md);
-}
-
-.modal-content h3 {
-  margin: 0 0 20px;
-  color: var(--color-on-surface);
-  font-family: var(--font-heading);
-  font-size: 20px;
-  font-weight: 400;
-}
-
-.modal-content form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.modal-content label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  color: var(--color-muted);
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 400;
-}
-
-.modal-content input,
-.modal-content textarea {
-  padding: 10px 12px;
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-container);
-  color: var(--color-on-surface);
-  font-family: var(--font-body);
-  font-size: 14px;
-}
-
-.modal-content input:focus,
-.modal-content textarea:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
-
-.modal-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-  margin-top: 4px;
-}
-
-.btn-cancel {
-  padding: 10px 20px;
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-muted);
-  font-family: var(--font-label);
-  font-size: 13px;
-  font-weight: 400;
-  cursor: pointer;
-}
-
-.btn-cancel:hover {
-  background: var(--color-surface-container);
-  border-color: var(--color-outline);
-}
-
-.btn-submit {
-  padding: 10px 20px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  font-family: var(--font-label);
-  font-size: 13px;
-  font-weight: 400;
-  cursor: pointer;
-}
-
-.btn-submit:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 @media (max-width: 760px) {

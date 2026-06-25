@@ -1,8 +1,24 @@
 import * as THREE from 'three'
 
-import type {ClassParticipant} from '@/features/course/types/classSession'
+import {ClassRoomSize, type ClassParticipant} from '@/features/course/types/classSession'
+import {getAvatarInitials} from '@/shared/utils/avatar'
 
 const TEXTURE_SIZE = 192
+const SPRITE_POSITION_OFFSETS: Record<number, THREE.Vector3> = {
+    [ClassRoomSize.SMALL]: new THREE.Vector3(-1, 0.3, 1.75),
+    [ClassRoomSize.MEDIUM]: new THREE.Vector3(-1.5, 0.3, 0.4),
+    [ClassRoomSize.LARGE]: new THREE.Vector3(8.3, -0.82, 4),
+    [ClassRoomSize.XLARGE]: new THREE.Vector3(0, 0.72, 0),
+}
+
+export function mapSeatPositionToSpritePosition(
+    seatPosition: THREE.Vector3,
+    roomSize: number,
+): THREE.Vector3 {
+    const spritePosition = seatPosition.clone()
+    spritePosition.add(SPRITE_POSITION_OFFSETS[roomSize] ?? SPRITE_POSITION_OFFSETS[ClassRoomSize.MEDIUM])
+    return spritePosition
+}
 
 export class SeatSpriteManager {
     private readonly scene: THREE.Scene
@@ -12,7 +28,7 @@ export class SeatSpriteManager {
     private readonly textures = new Map<number, THREE.Texture>()
     private readonly defaultTexture: THREE.Texture
 
-    constructor(scene: THREE.Scene, positions: THREE.Vector3[]) {
+    constructor(scene: THREE.Scene, positions: THREE.Vector3[], roomSize: number) {
         this.scene = scene
         this.defaultTexture = createAvatarTexture('', '#64748b')
         positions.forEach((position, index) => {
@@ -25,7 +41,7 @@ export class SeatSpriteManager {
             })
             const sprite = new THREE.Sprite(material)
             sprite.name = `seat_avatar_${index}`
-            sprite.position.copy(position)
+            sprite.position.copy(mapSeatPositionToSpritePosition(position, roomSize))
             sprite.scale.set(0.78, 0.78, 1)
             sprite.visible = false
             this.scene.add(sprite)
@@ -139,7 +155,7 @@ async function createParticipantTexture(participant: ClassParticipant) {
             return loadedTexture
         }
     }
-    return createAvatarTexture(initials(participant.displayName || participant.userId), colorFromId(participant.userId))
+    return createAvatarTexture(getAvatarInitials(participant.displayName || participant.userId))
 }
 
 function loadImageTexture(url: string): Promise<THREE.Texture | null> {
@@ -174,7 +190,7 @@ function createCircularImageTexture(image: HTMLImageElement) {
     return canvasTexture(canvas)
 }
 
-function createAvatarTexture(label: string, color: string) {
+function createAvatarTexture(label: string, color = themeValue('--color-primary', '#f5f5f5')) {
     const canvas = document.createElement('canvas')
     canvas.width = TEXTURE_SIZE
     canvas.height = TEXTURE_SIZE
@@ -188,8 +204,8 @@ function createAvatarTexture(label: string, color: string) {
     context.fillStyle = color
     context.fill()
     drawAvatarBorder(context)
-    context.fillStyle = '#ffffff'
-    context.font = '700 64px sans-serif'
+    context.fillStyle = themeValue('--color-on-primary', '#0e0e0e')
+    context.font = `700 64px ${themeValue('--font-heading', 'serif')}`
     context.textAlign = 'center'
     context.textBaseline = 'middle'
     context.fillText(label.slice(0, 2).toUpperCase(), TEXTURE_SIZE / 2, TEXTURE_SIZE / 2 + 2)
@@ -209,19 +225,10 @@ function drawAvatarBorder(context: CanvasRenderingContext2D) {
     context.beginPath()
     context.arc(TEXTURE_SIZE / 2, TEXTURE_SIZE / 2, TEXTURE_SIZE / 2 - 7, 0, Math.PI * 2)
     context.lineWidth = 10
-    context.strokeStyle = 'rgba(255, 255, 255, 0.92)'
+    context.strokeStyle = themeValue('--color-outline-light', 'rgba(255, 255, 255, 0.92)')
     context.stroke()
 }
 
-function initials(value: string) {
-    return value.trim().split(/\s+/).map((part) => part[0]).join('').slice(0, 2) || '?'
-}
-
-function colorFromId(value: string) {
-    const colors = ['#0f766e', '#2563eb', '#7c3aed', '#be123c', '#c2410c', '#4d7c0f']
-    let hash = 0
-    for (let index = 0; index < value.length; index += 1) {
-        hash = (hash * 31 + value.charCodeAt(index)) % colors.length
-    }
-    return colors[hash]
+function themeValue(name: string, fallback: string) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
 }

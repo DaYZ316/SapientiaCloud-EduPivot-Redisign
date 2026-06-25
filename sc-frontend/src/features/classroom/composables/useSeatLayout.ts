@@ -7,7 +7,14 @@ const LARGE_SEATS_PER_DESK = 4
 const DEFAULT_ROOM_DIMENSIONS = {x: 18, z: 20}
 const MEDIUM_COLUMNS = 8
 const LARGE_DESK_COLUMNS = 4
+const LARGE_DESK_ROWS = 10
+const LARGE_ROW_SPACING = 1.82
+const LARGE_BACK_MARGIN = 0.8
+const LARGE_LEFT_SHIFT_SEGMENTS = 4
+const LARGE_REAR_SHIFT = 5
+const LARGE_DOWN_SHIFT = 0.6
 const XLARGE_FIRST_RING_SEATS = 16
+const XLARGE_FORWARD_SHIFT = 0
 
 export interface RoomPlanDimensions {
     x: number | null
@@ -60,7 +67,7 @@ export function getSeatPosition(
     }
     if (roomSize === ClassRoomSize.XLARGE) {
         position.y += 1.4
-        position.z -= 1
+        position.z += 0.2
         return position
     }
     position.y += 1.05
@@ -114,7 +121,7 @@ function middleDeskPosition(index: number, dimensions: RoomPlanDimensions): THRE
     const rowIndex = Math.floor(index / MEDIUM_COLUMNS)
 
     return new THREE.Vector3(
-        safeX / 2 - safeX / MEDIUM_COLUMNS * (0.5 + columnIndex),
+        safeX / 2 - safeX / MEDIUM_COLUMNS * (columnIndex),
         0,
         safeZ / 2 - 1.8 * rowIndex - 5,
     )
@@ -128,16 +135,18 @@ function largeDeskPosition(index: number, dimensions: RoomPlanDimensions): THREE
     const segmentCount = 10
     const segmentWidth = width / segmentCount
     const deskCenterSegments = [0, 3, 5, 8]
-    const centerSegment = deskCenterSegments[columnIndex] ?? deskCenterSegments[deskCenterSegments.length - 1]
+    const centerSegment = deskCenterSegments[columnIndex]
     const halfWidth = width / 2
     const halfDepth = depth / 2
-    const startZ = halfDepth - 8.4
-    const backZ = -halfDepth
-    const z = Math.max(startZ - rowIndex * 2, backZ)
+    const startZ = halfDepth - 10.4
+    const backZ = -halfDepth + LARGE_BACK_MARGIN
+    const compactRowSpacing = (startZ - backZ) / (LARGE_DESK_ROWS - 1)
+    const rowSpacing = Math.min(LARGE_ROW_SPACING, Math.max(compactRowSpacing, 0))
+    const z = startZ - rowIndex * rowSpacing - LARGE_REAR_SHIFT
 
     return new THREE.Vector3(
-        -halfWidth + centerSegment * segmentWidth + segmentWidth / 2,
-        -0.8 + rowIndex * 0.18,
+        -halfWidth + centerSegment * segmentWidth + segmentWidth - segmentWidth * LARGE_LEFT_SHIFT_SEGMENTS,
+        0.75 + rowIndex * 0.18 - LARGE_DOWN_SHIFT,
         z,
     )
 }
@@ -147,7 +156,7 @@ function extraLargeDeskPosition(index: number): THREE.Vector3 {
     const firstIndex = fanRingStart(ring)
     let indexInRing = index - firstIndex + 1
     const count = fanRingCount(ring)
-    const radius = 11.8 + (ring / 9) * (29.6 - 11.8)
+    const radius = 11.6 + (ring / 9) * (29.6 - 11.8)
     const angleSpanDeg = 110
     const angleStart = THREE.MathUtils.degToRad(180 - (180 - angleSpanDeg) / 2)
     const angleStep = THREE.MathUtils.degToRad(angleSpanDeg) / (count + 1)
@@ -164,8 +173,8 @@ function extraLargeDeskPosition(index: number): THREE.Vector3 {
 
     return new THREE.Vector3(
         Math.cos(angle) * radius,
-        0.8 + ring * 0.6,
-        -Math.sin(angle) * radius + 10,
+        1.2 + ring * 0.6,
+        -Math.sin(angle) * radius + 10 + XLARGE_FORWARD_SHIFT,
     )
 }
 

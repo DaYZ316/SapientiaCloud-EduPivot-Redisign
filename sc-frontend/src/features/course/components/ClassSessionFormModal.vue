@@ -54,6 +54,7 @@
               />
             </label>
           </div>
+          <p class="duration-note">{{ t('courseDetail.classSession.durationTooLong') }}</p>
 
           <label class="form-group">
             <span>{{ t('courseDetail.classSession.roomSizeLabel') }}</span>
@@ -88,6 +89,7 @@ import {X} from 'lucide-vue-next'
 
 import BaseDatePicker from '@/shared/components/BaseDatePicker.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
+import {notify} from '@/shared/composables/useGlobalNotification'
 import type {ClassSession, ClassSessionFormPayload} from '@/features/course/types/classSession'
 import {ClassRoomSize, ClassRoomSizeLabel} from '@/features/course/types/classSession'
 
@@ -166,7 +168,7 @@ function handleSubmit() {
     return
   }
   if (endDate.getTime() - startDate.getTime() > MAX_SESSION_DURATION_MS) {
-    errorMessage.value = t('courseDetail.classSession.durationTooLong')
+    notify.warn(t('courseDetail.classSession.durationTooLong'))
     return
   }
 
@@ -300,6 +302,14 @@ function normalizedRoomSize(value: number) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.duration-note {
+  margin: -8px 0 0;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .form-error {

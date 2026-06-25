@@ -1,5 +1,9 @@
 <template>
-  <aside class="ai-studio-panel">
+  <aside
+    :aria-busy="Boolean(exportingFormat)"
+    :class="{'is-exporting': Boolean(exportingFormat)}"
+    class="ai-studio-panel"
+  >
     <header
       :class="{'has-artifact-tabs': artifact && !mode}"
       class="studio-header"
@@ -508,6 +512,22 @@
       <h3>{{ t('common.ai.studio.emptyTitle') }}</h3>
       <p>{{ t('common.ai.studio.emptyDescription') }}</p>
     </section>
+
+    <div
+      v-if="exportingFormat"
+      aria-live="polite"
+      class="export-lock-overlay"
+      role="status"
+    >
+      <div class="export-lock-panel">
+        <FileDown
+          :size="22"
+          stroke-width="1.8"
+        />
+        <strong>{{ exportOverlayText }}</strong>
+        <p>{{ t('common.ai.studio.exportLockedHint') }}</p>
+      </div>
+    </div>
   </aside>
 
   <Teleport to="body">
@@ -764,6 +784,7 @@ const canExportArtifact = computed(() => Boolean(
   && artifact.value
   && !artifact.value.pending
   && !artifact.value.failed
+  && !artifact.value.terminated
   && questionCount.value > 0
   && aiStore.activeConversationId,
 ))
@@ -772,8 +793,12 @@ const canImportArtifact = computed(() => Boolean(
   && artifact.value
   && !artifact.value.pending
   && !artifact.value.failed
+  && !artifact.value.terminated
   && questionCount.value > 0,
 ))
+const exportOverlayText = computed(() => exportingFormat.value === 'docx'
+  ? t('common.ai.studio.exportingWord')
+  : t('common.ai.studio.exportingPdf'))
 const importableQuestionItems = computed(() => questions.value.map((question, index) => ({
   key: importQuestionKey(question, index),
   question,
@@ -1221,8 +1246,8 @@ async function exportArtifact(format: ExportFormat) {
     })
     downloadBlob(result.blob, result.filename)
     notify.success(t('common.ai.studio.exportSuccess'))
-  } catch {
-    notify.error(t('common.ai.studio.exportFailed'))
+  } catch (error) {
+    notify.error(error instanceof Error && error.message ? error.message : t('common.ai.studio.exportFailed'))
   } finally {
     exportingFormat.value = null
   }
@@ -1242,6 +1267,7 @@ function downloadBlob(blob: Blob, filename: string) {
 
 <style scoped>
 .ai-studio-panel {
+  position: relative;
   display: flex;
   min-width: 0;
   min-height: 0;
@@ -1250,6 +1276,45 @@ function downloadBlob(blob: Blob, filename: string) {
   background: var(--color-surface-card);
   border: 1px solid var(--color-outline-light);
   color: var(--color-on-surface);
+}
+
+.export-lock-overlay {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--color-surface-card) 74%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.export-lock-panel {
+  display: grid;
+  width: min(300px, 100%);
+  justify-items: center;
+  gap: 10px;
+  padding: 22px;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-outline-light);
+  color: var(--color-on-surface);
+  text-align: center;
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.24);
+}
+
+.export-lock-panel strong {
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.18;
+}
+
+.export-lock-panel p {
+  margin: 0;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .studio-header {

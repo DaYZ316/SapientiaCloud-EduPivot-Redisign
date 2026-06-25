@@ -19,6 +19,7 @@ public record LivePracticeAnalysisVO(
         @JsonProperty Integer correctCount,
         @JsonProperty BigDecimal averageScore,
         @JsonProperty Map<String, Integer> optionCounts,
-        @JsonProperty List<LivePracticeStudentVO> notSubmittedStudents
+        @JsonProperty List<LivePracticeStudentVO> notSubmittedStudents,
+        @JsonProperty List<LivePracticeSubmissionVO> submissions
 ) {
 }

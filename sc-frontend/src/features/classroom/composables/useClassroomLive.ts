@@ -1,20 +1,47 @@
-import {onUnmounted, ref, shallowRef} from 'vue'
-import {createLocalTracks, Room, RoomEvent, Track} from 'livekit-client'
+import {computed, onUnmounted, ref, shallowRef, unref, type MaybeRef} from 'vue'
+import {createLocalTracks, Room, RoomEvent, Track, type ConnectionQuality, type Participant} from 'livekit-client'
 
 import {issueClassLiveToken} from '@/features/course/api/classSession'
-import type {ClassSession} from '@/features/course/types/classSession'
+import type {ClassParticipant, ClassSession} from '@/features/course/types/classSession'
+import {
+    EMPTY_LIVE_NETWORK_STATS,
+    mergeOnlineParticipants,
+    normalizeTrackStats,
+    type LiveNetworkStats,
+    type LiveOnlineParticipant,
+} from '@/features/classroom/composables/livePresence'
 
-export function useClassroomLive(session: ClassSession, isTeacher: boolean) {
+const CAMERA_OVERLAY_TOPIC = 'classroom-camera-overlay-position'
+const CAMERA_OVERLAY_MESSAGE_TYPE = 'camera_overlay_position'
+const CAMERA_OVERLAY_POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const
+const NETWORK_STATS_INTERVAL_MS = 2000
+
+export type CameraOverlayPosition = (typeof CAMERA_OVERLAY_POSITIONS)[number]
+
+export function useClassroomLive(session: MaybeRef<ClassSession>, isTeacher: MaybeRef<boolean>) {
     const room = shallowRef<Room | null>(null)
     const localVideoEl = shallowRef<HTMLVideoElement | null>(null)
+    const localCameraVideoEl = shallowRef<HTMLVideoElement | null>(null)
     const remoteVideoEl = shallowRef<HTMLVideoElement | null>(null)
+    const remoteCameraVideoEl = shallowRef<HTMLVideoElement | null>(null)
     const remoteAudioEl = shallowRef<HTMLAudioElement | null>(null)
     const connected = ref(false)
     const connecting = ref(false)
     const cameraEnabled = ref(false)
     const microphoneEnabled = ref(false)
     const screenShareEnabled = ref(false)
+    const remoteCameraVisible = ref(false)
+    const remoteScreenShareVisible = ref(false)
+    const cameraOverlayPosition = ref<CameraOverlayPosition>('bottom-right')
+    const sessionParticipants = ref<ClassParticipant[]>([])
+    const connectionQualityByIdentity = ref<Record<string, string>>({})
+    const onlineParticipants = ref<LiveOnlineParticipant[]>([])
+    const networkStats = ref<LiveNetworkStats>({...EMPTY_LIVE_NETWORK_STATS})
     const errorMessage = ref('')
+    const textDecoder = new TextDecoder()
+    const textEncoder = new TextEncoder()
+    let networkStatsTimer: number | null = null
+    const onlineCount = computed(() => onlineParticipants.value.length)
 
     async function connect() {
         if (connecting.value || connected.value) {
@@ -23,28 +50,80 @@ export function useClassroomLive(session: ClassSession, isTeacher: boolean) {
         connecting.value = true
         errorMessage.value = ''
         try {
-            const token = await issueClassLiveToken(session.id)
+            const token = await issueClassLiveToken(unref(session).id)
             const nextRoom = new Room()
             room.value = nextRoom
             nextRoom.on(RoomEvent.TrackSubscribed, (track) => {
-                if (track.kind === Track.Kind.Video && remoteVideoEl.value) {
-                    track.attach(remoteVideoEl.value)
+                if (track.kind === Track.Kind.Video) {
+                    attachRemoteTracks()
                 }
                 if (track.kind === Track.Kind.Audio && remoteAudioEl.value) {
                     track.attach(remoteAudioEl.value)
                 }
             })
+            nextRoom.on(RoomEvent.TrackUnsubscribed, (track) => {
+                if (track.kind === Track.Kind.Video) {
+                    detachVideoTrack(track, remoteVideoEl.value)
+                    detachVideoTrack(track, remoteCameraVideoEl.value)
+                    attachRemoteTracks()
+                }
+                if (track.kind === Track.Kind.Audio && remoteAudioEl.value) {
+                    track.detach(remoteAudioEl.value)
+                    attachRemoteAudioTracks()
+                }
+            })
+            nextRoom.on(RoomEvent.LocalTrackPublished, (publication) => {
+                if (publication.source === Track.Source.Camera) {
+                    cameraEnabled.value = true
+                }
+                if (publication.source === Track.Source.ScreenShare) {
+                    screenShareEnabled.value = true
+                }
+                attachLocalTracks()
+            })
+            nextRoom.on(RoomEvent.LocalTrackUnpublished, (publication) => {
+                if (publication.source === Track.Source.Camera) {
+                    cameraEnabled.value = false
+                }
+                if (publication.source === Track.Source.ScreenShare) {
+                    screenShareEnabled.value = false
+                }
+                attachLocalTracks()
+            })
+            nextRoom.on(RoomEvent.ParticipantConnected, () => {
+                refreshPresence()
+                if (unref(isTeacher)) {
+                    void publishCameraOverlayPosition().catch(() => undefined)
+                }
+            })
+            nextRoom.on(RoomEvent.ParticipantDisconnected, (participant) => {
+                delete connectionQualityByIdentity.value[participant.identity]
+                connectionQualityByIdentity.value = {...connectionQualityByIdentity.value}
+                refreshPresence()
+            })
+            nextRoom.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
+                updateConnectionQuality(participant, quality)
+            })
+            nextRoom.on(RoomEvent.Reconnected, () => {
+                refreshConnectionQualities()
+                refreshPresence()
+                void sampleNetworkStats()
+            })
+            nextRoom.on(RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
+                handleCameraOverlayMessage(payload, topic)
+            })
             nextRoom.on(RoomEvent.Disconnected, () => {
-                connected.value = false
-                cameraEnabled.value = false
-                microphoneEnabled.value = false
-                screenShareEnabled.value = false
+                stopNetworkStatsSampler()
+                resetLiveState()
             })
             await nextRoom.connect(token.url, token.token)
             connected.value = true
+            refreshConnectionQualities()
+            refreshPresence()
             attachRemoteTracks()
             attachRemoteAudioTracks()
             attachLocalTracks()
+            startNetworkStatsSampler()
         } catch (error) {
             errorMessage.value = error instanceof Error ? error.message : '直播连接失败'
             await disconnect()
@@ -54,40 +133,46 @@ export function useClassroomLive(session: ClassSession, isTeacher: boolean) {
     }
 
     async function enableCamera() {
-        if (!isTeacher || !room.value || cameraEnabled.value) {
+        if (!unref(isTeacher) || !room.value || cameraEnabled.value) {
             return
         }
         const [track] = await createLocalTracks({audio: false, video: true})
         await room.value.localParticipant.publishTrack(track)
-        if (localVideoEl.value && track.kind === Track.Kind.Video) {
-            track.attach(localVideoEl.value)
-        }
+        attachLocalTracks()
         cameraEnabled.value = true
     }
 
     function attachLocalTracks() {
-        const element = localVideoEl.value
         const currentRoom = room.value
-        if (!element || !currentRoom) {
+        if (!currentRoom) {
+            clearVideoTrack(localVideoEl.value)
+            clearVideoTrack(localCameraVideoEl.value)
             return
         }
-        for (const publication of currentRoom.localParticipant.videoTrackPublications.values()) {
-            publication.track?.attach(element)
-        }
+        const tracks = pickVideoTracks(currentRoom.localParticipant.videoTrackPublications.values())
+        const mainTrack = tracks.screenShareTrack || tracks.cameraTrack || tracks.fallbackTrack
+        const overlayTrack = tracks.screenShareTrack && tracks.cameraTrack ? tracks.cameraTrack : null
+        attachVideoTrack(localVideoEl.value, mainTrack)
+        attachVideoTrack(localCameraVideoEl.value, overlayTrack)
     }
 
     function attachRemoteTracks() {
-        const element = remoteVideoEl.value
         const currentRoom = room.value
-        if (!element || !currentRoom) {
+        if (!currentRoom) {
+            remoteCameraVisible.value = false
+            remoteScreenShareVisible.value = false
+            clearVideoTrack(remoteVideoEl.value)
+            clearVideoTrack(remoteCameraVideoEl.value)
             return
         }
-        for (const participant of currentRoom.remoteParticipants.values()) {
-            for (const publication of participant.videoTrackPublications.values()) {
-                publication.track?.attach(element)
-                return
-            }
-        }
+        const tracks = pickRemoteVideoTracks()
+        const mainTrack = tracks.screenShareTrack || tracks.cameraTrack || tracks.fallbackTrack
+        const overlayTrack = tracks.screenShareTrack && tracks.cameraTrack ? tracks.cameraTrack : null
+        remoteCameraVisible.value = Boolean(tracks.cameraTrack)
+        remoteScreenShareVisible.value = Boolean(tracks.screenShareTrack)
+        attachVideoTrack(remoteVideoEl.value, mainTrack)
+        attachVideoTrack(remoteCameraVideoEl.value, overlayTrack)
+        void sampleNetworkStats()
     }
 
     function attachRemoteAudioTracks() {
@@ -119,7 +204,7 @@ export function useClassroomLive(session: ClassSession, isTeacher: boolean) {
     }
 
     async function enableMicrophone() {
-        if (!isTeacher || !room.value || microphoneEnabled.value) {
+        if (!unref(isTeacher) || !room.value || microphoneEnabled.value) {
             return
         }
         await room.value.localParticipant.setMicrophoneEnabled(true)
@@ -151,17 +236,21 @@ export function useClassroomLive(session: ClassSession, isTeacher: boolean) {
     }
 
     async function toggleScreenShare() {
-        if (!isTeacher || !room.value) {
+        if (!unref(isTeacher) || !room.value) {
             return
         }
         const nextEnabled = !screenShareEnabled.value
         await room.value.localParticipant.setScreenShareEnabled(nextEnabled)
         screenShareEnabled.value = nextEnabled
+        attachLocalTracks()
     }
 
     async function publishDefaults() {
-        await enableCamera()
-        await enableMicrophone()
+        await disableCamera()
+        await disableMicrophone()
+        if (screenShareEnabled.value) {
+            await toggleScreenShare()
+        }
     }
 
     async function pausePublishing() {
@@ -175,13 +264,240 @@ export function useClassroomLive(session: ClassSession, isTeacher: boolean) {
     async function disconnect() {
         const currentRoom = room.value
         room.value = null
+        stopNetworkStatsSampler()
         if (currentRoom) {
             currentRoom.disconnect()
         }
+        resetLiveState()
+    }
+
+    function setSessionParticipants(participants: ClassParticipant[]) {
+        sessionParticipants.value = participants
+        refreshPresence()
+    }
+
+    async function setCameraOverlayPosition(position: CameraOverlayPosition) {
+        if (!isCameraOverlayPosition(position)) {
+            return
+        }
+        cameraOverlayPosition.value = position
+        if (!unref(isTeacher) || !room.value || !connected.value) {
+            return
+        }
+        await publishCameraOverlayPosition()
+    }
+
+    async function publishCameraOverlayPosition() {
+        if (!room.value || !connected.value) {
+            return
+        }
+        const payload = textEncoder.encode(JSON.stringify({
+            type: CAMERA_OVERLAY_MESSAGE_TYPE,
+            position: cameraOverlayPosition.value,
+        }))
+        await room.value.localParticipant.publishData(payload, {
+            reliable: true,
+            topic: CAMERA_OVERLAY_TOPIC,
+        })
+    }
+
+    function handleCameraOverlayMessage(payload: Uint8Array, topic?: string) {
+        if (topic !== CAMERA_OVERLAY_TOPIC) {
+            return
+        }
+        try {
+            const message = JSON.parse(textDecoder.decode(payload)) as {type?: unknown; position?: unknown}
+            if (message.type === CAMERA_OVERLAY_MESSAGE_TYPE && isCameraOverlayPosition(message.position)) {
+                cameraOverlayPosition.value = message.position
+            }
+        } catch {
+            // Ignore unrelated malformed data packets from the room.
+        }
+    }
+
+    function isCameraOverlayPosition(value: unknown): value is CameraOverlayPosition {
+        return CAMERA_OVERLAY_POSITIONS.includes(value as CameraOverlayPosition)
+    }
+
+    function pickRemoteVideoTracks() {
+        const currentRoom = room.value
+        let cameraTrack: Track | null = null
+        let fallbackTrack: Track | null = null
+        if (!currentRoom) {
+            return {screenShareTrack: null, cameraTrack, fallbackTrack}
+        }
+        for (const participant of currentRoom.remoteParticipants.values()) {
+            const tracks = pickVideoTracks(participant.videoTrackPublications.values())
+            if (tracks.screenShareTrack) {
+                return tracks
+            }
+            cameraTrack ||= tracks.cameraTrack
+            fallbackTrack ||= tracks.fallbackTrack
+        }
+        return {screenShareTrack: null, cameraTrack, fallbackTrack}
+    }
+
+    function pickPrimaryStatsTrack() {
+        const currentRoom = room.value
+        if (!currentRoom) {
+            return null
+        }
+        const localTracks = pickVideoTracks(currentRoom.localParticipant.videoTrackPublications.values())
+        const localTrack = localTracks.screenShareTrack || localTracks.cameraTrack || localTracks.fallbackTrack
+        if (localTrack) {
+            return localTrack
+        }
+        const remoteTracks = pickRemoteVideoTracks()
+        return remoteTracks.screenShareTrack || remoteTracks.cameraTrack || remoteTracks.fallbackTrack
+    }
+
+    function pickVideoTracks(publications: Iterable<{source: Track.Source; track?: Track}>) {
+        let screenShareTrack: Track | null = null
+        let cameraTrack: Track | null = null
+        let fallbackTrack: Track | null = null
+        for (const publication of publications) {
+            const track = publication.track
+            if (!track || track.kind !== Track.Kind.Video) {
+                continue
+            }
+            if (publication.source === Track.Source.ScreenShare) {
+                screenShareTrack = track
+            } else if (publication.source === Track.Source.Camera) {
+                cameraTrack = track
+            } else {
+                fallbackTrack = track
+            }
+        }
+        return {screenShareTrack, cameraTrack, fallbackTrack}
+    }
+
+    function attachVideoTrack(element: HTMLVideoElement | null, track: Track | null) {
+        if (!element) {
+            return
+        }
+        if (track) {
+            track.attach(element)
+            return
+        }
+        clearVideoTrack(element)
+    }
+
+    function detachVideoTrack(track: Track, element: HTMLVideoElement | null) {
+        if (element) {
+            track.detach(element)
+        }
+    }
+
+    function clearVideoTrack(element: HTMLVideoElement | null) {
+        if (element) {
+            element.srcObject = null
+        }
+    }
+
+    function clearVideoElements() {
+        clearVideoTrack(localVideoEl.value)
+        clearVideoTrack(localCameraVideoEl.value)
+        clearVideoTrack(remoteVideoEl.value)
+        clearVideoTrack(remoteCameraVideoEl.value)
+    }
+
+    function updateConnectionQuality(participant: Participant, quality: ConnectionQuality) {
+        connectionQualityByIdentity.value = {
+            ...connectionQualityByIdentity.value,
+            [participant.identity]: quality,
+        }
+        refreshPresence()
+    }
+
+    function refreshConnectionQualities() {
+        const currentRoom = room.value
+        if (!currentRoom) {
+            connectionQualityByIdentity.value = {}
+            return
+        }
+        const nextQualities: Record<string, string> = {
+            [currentRoom.localParticipant.identity]: currentRoom.localParticipant.connectionQuality,
+        }
+        for (const participant of currentRoom.remoteParticipants.values()) {
+            nextQualities[participant.identity] = participant.connectionQuality
+        }
+        connectionQualityByIdentity.value = nextQualities
+    }
+
+    function refreshPresence() {
+        const currentRoom = room.value
+        if (!currentRoom || !connected.value) {
+            onlineParticipants.value = []
+            return
+        }
+        onlineParticipants.value = mergeOnlineParticipants(
+            currentRoom.localParticipant,
+            currentRoom.remoteParticipants.values(),
+            sessionParticipants.value,
+            connectionQualityByIdentity.value,
+        )
+    }
+
+    function startNetworkStatsSampler() {
+        stopNetworkStatsSampler()
+        void sampleNetworkStats()
+        networkStatsTimer = window.setInterval(() => {
+            void sampleNetworkStats()
+        }, NETWORK_STATS_INTERVAL_MS)
+    }
+
+    function stopNetworkStatsSampler() {
+        if (networkStatsTimer == null) {
+            return
+        }
+        window.clearInterval(networkStatsTimer)
+        networkStatsTimer = null
+    }
+
+    async function sampleNetworkStats() {
+        const statsTrack = pickPrimaryStatsTrack() as (Track & {
+            getSenderStats?: () => Promise<unknown>
+            getReceiverStats?: () => Promise<unknown>
+            getRTCStatsReport?: () => Promise<unknown>
+        }) | null
+        const currentRoom = room.value
+        if (!statsTrack && !currentRoom) {
+            networkStats.value = {...EMPTY_LIVE_NETWORK_STATS}
+            return
+        }
+        try {
+            const trackStats = statsTrack && typeof statsTrack.getRTCStatsReport === 'function'
+                ? await statsTrack.getRTCStatsReport()
+                : statsTrack && typeof statsTrack.getSenderStats === 'function'
+                    ? await statsTrack.getSenderStats()
+                    : await statsTrack?.getReceiverStats?.()
+            const roomStats = await getRoomPeerConnectionStats(currentRoom)
+            networkStats.value = normalizeTrackStats([trackStats, roomStats])
+        } catch {
+            networkStats.value = {...EMPTY_LIVE_NETWORK_STATS}
+        }
+    }
+
+    async function getRoomPeerConnectionStats(currentRoom: Room | null) {
+        const pcManager = currentRoom?.engine?.pcManager
+        const subscriberStats = await pcManager?.subscriber?.getStats?.()
+        if (subscriberStats) {
+            return subscriberStats
+        }
+        return pcManager?.publisher?.getStats?.()
+    }
+
+    function resetLiveState() {
         connected.value = false
         cameraEnabled.value = false
         microphoneEnabled.value = false
         screenShareEnabled.value = false
+        remoteCameraVisible.value = false
+        remoteScreenShareVisible.value = false
+        connectionQualityByIdentity.value = {}
+        onlineParticipants.value = []
+        networkStats.value = {...EMPTY_LIVE_NETWORK_STATS}
+        clearVideoElements()
     }
 
     onUnmounted(() => {
@@ -190,13 +506,22 @@ export function useClassroomLive(session: ClassSession, isTeacher: boolean) {
 
     return {
         localVideoEl,
+        localCameraVideoEl,
         remoteVideoEl,
+        remoteCameraVideoEl,
         remoteAudioEl,
         connected,
         connecting,
         cameraEnabled,
         microphoneEnabled,
         screenShareEnabled,
+        remoteCameraVisible,
+        remoteScreenShareVisible,
+        cameraOverlayPosition,
+        onlineParticipants,
+        onlineCount,
+        connectionQualityByIdentity,
+        networkStats,
         errorMessage,
         connect,
         disconnect,
@@ -205,6 +530,8 @@ export function useClassroomLive(session: ClassSession, isTeacher: boolean) {
         toggleMicrophone,
         toggleScreenShare,
         publishDefaults,
+        setCameraOverlayPosition,
+        setSessionParticipants,
         attachLocalTracks,
         attachRemoteTracks,
         attachRemoteAudioTracks,

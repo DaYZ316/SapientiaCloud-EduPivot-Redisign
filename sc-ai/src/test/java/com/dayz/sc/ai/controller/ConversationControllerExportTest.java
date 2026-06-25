@@ -2,6 +2,7 @@ package com.dayz.sc.ai.controller;
 
 import com.dayz.sc.ai.service.AiGenerationExportService;
 import com.dayz.sc.ai.service.ConversationService;
+import com.dayz.sc.ai.service.RagChatService;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
@@ -74,7 +75,8 @@ class ConversationControllerExportTest {
     private static MockMvc mockMvc(UUID userId, AiGenerationExportService exportService) {
         ConversationController controller = new ConversationController(
                 mock(ConversationService.class),
-                exportService);
+                exportService,
+                mock(RagChatService.class));
         Jwt jwt = Jwt.withTokenValue("token")
                 .header("alg", "none")
                 .subject(userId.toString())

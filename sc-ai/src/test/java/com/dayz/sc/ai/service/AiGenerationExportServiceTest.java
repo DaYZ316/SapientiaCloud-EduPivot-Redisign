@@ -7,14 +7,16 @@ import com.dayz.sc.ai.repository.ConversationRepository;
 import com.dayz.sc.ai.repository.MessageRepository;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
-import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,15 +40,20 @@ class AiGenerationExportServiceTest {
                 conversationId, message.getId(), userId, "docx", false);
 
         assertThat(file.contentType()).isEqualTo("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-        assertThat(file.filename()).endsWith("-学生版.docx");
+        assertThat(file.filename()).isEqualTo("Midterm Practice.docx");
         String text = docxText(file.bytes());
         assertThat(text)
                 .contains("Midterm Practice")
-                .contains("Choice Section")
+                .contains("题目数：1")
+                .contains("总分：5")
+                .contains("预计时长：3分钟")
+                .contains("导出版本：试题版")
+                .contains("第1部分 单选题（共1题，5分）")
                 .contains("1. HashMap load factor")
                 .contains("A. 0.75");
         assertThat(text)
-                .doesNotContain("Answer:")
+                .doesNotContain("参考答案与解析")
+                .doesNotContain("正确答案：A")
                 .doesNotContain("The default load factor is 0.75");
     }
 
@@ -61,19 +68,23 @@ class AiGenerationExportServiceTest {
                 conversationId, message.getId(), userId, "pdf", true);
 
         assertThat(file.contentType()).isEqualTo("application/pdf");
-        assertThat(file.filename()).endsWith("-教师版.pdf");
+        assertThat(file.filename()).isEqualTo("Midterm Practice.pdf");
         assertThat(new String(file.bytes(), 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
 
-        String html = service.renderHtml(service.buildDocument(message, true));
-        assertThat(html)
+        String text = compact(pdfText(file.bytes()));
+        assertThat(text)
+                .contains("MidtermPractice")
+                .contains("题目数:1总分:5预计时长:3分钟导出版本:答案版")
+                .contains("第1部分单选题(共1题,5分)")
                 .contains("参考答案与解析")
-                .contains("Answer: A")
-                .contains("The default load factor is 0.75");
-        assertThat(html.indexOf("参考答案与解析")).isGreaterThan(html.indexOf("HashMap load factor"));
+                .contains("正确答案:A")
+                .contains("A解析:0.75istheusualdefault")
+                .contains("解析:Thedefaultloadfactoris0.75");
+        assertThat(text.indexOf("参考答案与解析")).isGreaterThan(text.indexOf("HashMaploadfactor"));
     }
 
     @Test
-    void exportShouldCreateStudentPdfAsFormalPaperWithoutAnswers() throws Exception {
+    void exportShouldCreatePdfWithoutAnswersWhenDisabled() throws Exception {
         UUID conversationId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         ChatMessage message = message(conversationId, AiMessageType.PAPER, paperPayload());
@@ -82,46 +93,66 @@ class AiGenerationExportServiceTest {
         AiGenerationExportService.ExportFile file = service.export(
                 conversationId, message.getId(), userId, "pdf", false);
 
-        assertThat(new String(file.bytes(), 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
-        String html = service.renderHtml(service.buildDocument(message, false));
-        assertThat(html)
-                .contains("姓名")
-                .contains("班级")
-                .contains("学号")
-                .contains("得分")
-                .contains("注意事项")
-                .contains("大题")
-                .contains("题量")
-                .contains("满分")
-                .contains("Choice Section")
-                .contains("<strong>A.</strong>")
-                .contains("<p>0.75</p>")
-                .doesNotContain("<ol")
+        String text = compact(pdfText(file.bytes()));
+        assertThat(file.filename()).isEqualTo("Midterm Practice.pdf");
+        assertThat(text)
+                .contains("导出版本:试题版")
+                .contains("第1部分单选题(共1题,5分)")
                 .doesNotContain("参考答案与解析")
-                .doesNotContain("Answer: A")
-                .doesNotContain("The default load factor is 0.75");
+                .doesNotContain("正确答案:A")
+                .doesNotContain("Thedefaultloadfactoris0.75");
     }
 
     @Test
-    void exportShouldKeepQuestionSetPdfExportableWhenBlueprintMissing() throws Exception {
+    void exportShouldKeepTitleOnlyPayloadQuestionAsStemInPdf() throws Exception {
         UUID conversationId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        ChatMessage message = message(conversationId, AiMessageType.QUESTION_SET, Map.of(
-                "title", "Question Set",
-                "questions", List.of(question("First question", "A"), question("Second question", "B"))));
+        ChatMessage message = message(conversationId, AiMessageType.PAPER, Map.of(
+                "title", "Title Only Paper",
+                "questions", List.of(Map.of(
+                        "questionTitle", "阅读下面材料，回答 Java 中 HashMap 默认负载因子是多少？",
+                        "questionType", 0,
+                        "difficulty", 2,
+                        "score", 5,
+                        "estimatedTime", 3,
+                        "options", List.of(
+                                Map.of("optionLabel", "A", "optionContent", "0.75", "isCorrect", true),
+                                Map.of("optionLabel", "B", "optionContent", "1.0", "isCorrect", false))))));
         AiGenerationExportService service = service(conversationId, userId, message);
 
         AiGenerationExportService.ExportFile file = service.export(
                 conversationId, message.getId(), userId, "pdf", false);
 
-        assertThat(new String(file.bytes(), 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
-        String html = service.renderHtml(service.buildDocument(message, false));
-        assertThat(html)
-                .contains("Question Set")
-                .contains("题目")
-                .contains("First question")
-                .contains("Second question");
-        assertThat(html).doesNotContain("1. A. 0.75");
+        String text = compact(pdfText(file.bytes()));
+        assertThat(text)
+                .contains("1.(难度:中等,分值:5,预计:3分钟)阅读下面材料,回答Java中HashMap默认负载因子是多少?")
+                .doesNotContain("1.阅读下面材料");
+    }
+
+    @Test
+    void exportShouldGroupMixedQuestionTypesInOldProjectOrder() throws Exception {
+        UUID conversationId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        ChatMessage message = message(conversationId, AiMessageType.PAPER, Map.of(
+                "title", "Mixed Paper",
+                "questions", List.of(
+                        question("Other question", 99, "A"),
+                        question("Short answer question", 4, "A"),
+                        question("Single choice question", 0, "A"),
+                        question("Fill blank question", 3, "A"),
+                        question("True false question", 2, "A"),
+                        question("Multiple choice question", 1, "A"))));
+        AiGenerationExportService service = service(conversationId, userId, message);
+
+        AiGenerationExportService.ExportFile file = service.export(
+                conversationId, message.getId(), userId, "docx", false);
+
+        String text = docxText(file.bytes());
+        assertThat(text.indexOf("第1部分 单选题")).isLessThan(text.indexOf("第2部分 多选题"));
+        assertThat(text.indexOf("第2部分 多选题")).isLessThan(text.indexOf("第3部分 判断题"));
+        assertThat(text.indexOf("第3部分 判断题")).isLessThan(text.indexOf("第4部分 填空题"));
+        assertThat(text.indexOf("第4部分 填空题")).isLessThan(text.indexOf("第5部分 简答题"));
+        assertThat(text.indexOf("第5部分 简答题")).isLessThan(text.indexOf("第6部分 其他题型"));
     }
 
     @Test
@@ -134,15 +165,16 @@ class AiGenerationExportServiceTest {
         AiGenerationExportService.ExportFile file = service.export(
                 conversationId, message.getId(), userId, "pdf", true);
 
-        String text = pdfText(file.bytes());
+        String text = compact(pdfText(file.bytes()));
         assertThat(text)
-                .contains("Servlet")
-                .doesNotContain("#")
+                .contains("中文试卷")
+                .contains("Servlet生命周期")
+                .contains("方法")
                 .doesNotContain("\\texttt");
     }
 
     @Test
-    void exportShouldRenderLatexAsImagesInDocx() throws Exception {
+    void exportShouldPreferOmmlAndFallbackToFormulaImageInDocx() throws Exception {
         UUID conversationId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         ChatMessage message = message(conversationId, AiMessageType.PAPER, chineseLatexPayload());
@@ -157,38 +189,40 @@ class AiGenerationExportServiceTest {
                     .contains("中文试卷")
                     .contains("Servlet 生命周期")
                     .doesNotContain("\\texttt");
+            assertThat(document.getDocument().xmlText()).contains("oMath");
             assertThat(document.getAllPictures()).isNotEmpty();
         }
     }
 
     @Test
-    void buildDocumentShouldKeepQuestionSetInOriginalOrderWhenBlueprintMissing() {
+    void buildExportRequestShouldKeepQuestionSetPayloadOrder() {
         ChatMessage message = message(UUID.randomUUID(), AiMessageType.QUESTION_SET, Map.of(
                 "title", "Question Set",
-                "questions", List.of(question("First question", "A"), question("Second question", "B"))));
+                "questions", List.of(question("First question", 0, "A"), question("Second question", 0, "B"))));
         AiGenerationExportService service = service(UUID.randomUUID(), UUID.randomUUID(), message);
 
-        AiGenerationExportService.ExportDocument document = service.buildDocument(message, true);
+        QuestionPaperExportRequestDTO request = service.buildExportRequest(message, true);
 
-        assertThat(document.sections()).hasSize(1);
-        assertThat(document.sections().getFirst().questions())
-                .extracting(AiGenerationExportService.ExportQuestion::title)
+        assertThat(request.getPaperName()).isEqualTo("Question Set");
+        assertThat(request.getIncludeAnswers()).isTrue();
+        assertThat(request.getQuestions())
+                .extracting(QuestionResponseDTO::getQuestionTitle)
                 .containsExactly("First question", "Second question");
     }
 
     @Test
-    void buildDocumentShouldAcceptSchemaVersionTwoPayload() {
+    void buildExportRequestShouldAcceptSchemaVersionTwoPayload() {
         ChatMessage message = message(UUID.randomUUID(), AiMessageType.QUESTION_SET, Map.of(
                 "schemaVersion", 2,
                 "title", "Question Set",
-                "questions", List.of(question("Schema v2 question", "A"))));
+                "questions", List.of(question("Schema v2 question", 0, "A"))));
         AiGenerationExportService service = service(UUID.randomUUID(), UUID.randomUUID(), message);
 
-        AiGenerationExportService.ExportDocument document = service.buildDocument(message, true);
+        QuestionPaperExportRequestDTO request = service.buildExportRequest(message, true);
 
-        assertThat(document.title()).isEqualTo("Question Set");
-        assertThat(document.sections().getFirst().questions())
-                .extracting(AiGenerationExportService.ExportQuestion::title)
+        assertThat(request.getPaperName()).isEqualTo("Question Set");
+        assertThat(request.getQuestions())
+                .extracting(QuestionResponseDTO::getQuestionTitle)
                 .containsExactly("Schema v2 question");
     }
 
@@ -217,6 +251,20 @@ class AiGenerationExportServiceTest {
     }
 
     @Test
+    void exportShouldRejectEmptyQuestions() {
+        UUID conversationId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        ChatMessage message = message(conversationId, AiMessageType.PAPER, Map.of(
+                "title", "Empty Paper",
+                "questions", List.of()));
+        AiGenerationExportService service = service(conversationId, userId, message);
+
+        assertThatThrownBy(() -> service.export(conversationId, message.getId(), userId, "docx", false))
+                .isInstanceOfSatisfying(BusinessException.class, error ->
+                        assertThat(error.getCode()).isEqualTo(ErrorCodes.BAD_REQUEST.code()));
+    }
+
+    @Test
     void exportShouldRejectMessageFromAnotherConversation() {
         UUID conversationId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
@@ -236,9 +284,15 @@ class AiGenerationExportServiceTest {
     }
 
     private static String pdfText(byte[] bytes) throws Exception {
-        try (PDDocument document = PDDocument.load(bytes)) {
+        try (PDDocument document = Loader.loadPDF(bytes)) {
             return new PDFTextStripper().getText(document);
         }
+    }
+
+    private static String compact(String text) {
+        return Normalizer.normalize(text, Normalizer.Form.NFKC)
+                .replace('⻓', '长')
+                .replaceAll("\\s+", "");
     }
 
     private static AiGenerationExportService service(UUID conversationId, UUID userId, ChatMessage message) {
@@ -254,8 +308,7 @@ class AiGenerationExportServiceTest {
         return new AiGenerationExportService(
                 conversationService,
                 messageRepository,
-                new LatexImageRenderer(),
-                new ExportFontResolver());
+                new QuestionPaperExportFormatter());
     }
 
     private static ChatMessage message(UUID conversationId, AiMessageType messageType, Map<String, Object> payload) {
@@ -278,44 +331,42 @@ class AiGenerationExportServiceTest {
                                 "sectionNo", 1,
                                 "sectionTitle", "Choice Section",
                                 "targetCount", 1))),
-                "questions", List.of(question("HashMap load factor", "A")));
+                "questions", List.of(question("HashMap load factor", 0, "A")));
     }
 
     private static Map<String, Object> chineseLatexPayload() {
         return Map.of(
                 "title", "中文试卷",
-                "generation", Map.of("paperType", "Quiz", "totalScore", 10, "totalEstimatedTime", 5),
-                "blueprint", Map.of(
-                        "sections", List.of(Map.of(
-                                "sectionNo", 1,
-                                "sectionTitle", "基础题",
-                                "targetCount", 1))),
                 "questions", List.of(Map.of(
                         "questionTitle", "Servlet 生命周期",
-                        "questionContent", "方法 $\\texttt{init()}$ 的作用是什么？",
+                        "questionContent", "方法 $x^2$ 与 $\\texttt{init()}$ 的作用是什么？",
                         "questionType", 0,
                         "difficulty", 2,
                         "score", 5,
                         "estimatedTime", 3,
                         "options", List.of(
-                                Map.of("optionLabel", "A", "optionContent", "初始化方法 $\\texttt{init()}$", "isCorrect", true),
+                                Map.of("optionLabel", "A", "optionContent", "初始化方法 $x^2$", "isCorrect", true),
                                 Map.of("optionLabel", "B", "optionContent", "销毁方法 $\\texttt{destroy()}$", "isCorrect", false)),
-                        "answers", List.of(Map.of("answerContent", "答案：A")),
-                        "explanation", "解析：$\\texttt{init()}$ 在实例创建后调用。")));
+                        "answers", List.of(Map.of("answerContent", "A")),
+                        "explanation", "$\\texttt{init()}$ 在实例创建后调用。")));
     }
 
-    private static Map<String, Object> question(String title, String answerLabel) {
+    private static Map<String, Object> question(String title, Integer type, String answerLabel) {
         return Map.of(
                 "questionTitle", title,
                 "questionContent", "Choose the correct answer.",
-                "questionType", 0,
+                "questionType", type,
                 "difficulty", 2,
                 "score", 5,
                 "estimatedTime", 3,
                 "options", List.of(
-                        Map.of("optionLabel", "A", "optionContent", "0.75", "isCorrect", "A".equals(answerLabel)),
+                        Map.of(
+                                "optionLabel", "A",
+                                "optionContent", "0.75",
+                                "isCorrect", "A".equals(answerLabel),
+                                "explanation", "0.75 is the usual default"),
                         Map.of("optionLabel", "B", "optionContent", "1.0", "isCorrect", "B".equals(answerLabel))),
-                "answers", List.of(Map.of("answerContent", "Answer: " + answerLabel)),
+                "answers", List.of(Map.of("answerContent", answerLabel)),
                 "explanation", "The default load factor is 0.75");
     }
 }

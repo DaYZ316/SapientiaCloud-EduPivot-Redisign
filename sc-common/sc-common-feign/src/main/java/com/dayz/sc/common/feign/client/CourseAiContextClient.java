@@ -3,6 +3,7 @@ package com.dayz.sc.common.feign.client;
 import com.dayz.sc.common.feign.dto.AiCourseContext;
 import com.dayz.sc.common.feign.dto.AgentSearchResult;
 import com.dayz.sc.common.feign.dto.AgentSearchItem;
+import com.dayz.sc.common.feign.dto.ClassSessionAiAccess;
 import com.dayz.sc.common.response.ApiResponse;
 import org.jspecify.annotations.NonNull;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -56,6 +57,12 @@ public interface CourseAiContextClient {
             @RequestParam(value = "courseId", required = false) UUID courseId,
             @RequestParam(value = "courseTitle", required = false) String courseTitle,
             @RequestParam(value = "limit", required = false) Integer limit,
+            @RequestHeader(value = HEADER_USER_ID, required = false) String userId,
+            @RequestHeader(value = HEADER_USER_ROLE, required = false) String userRole);
+
+    @GetMapping("/class-session-access")
+    ApiResponse<@NonNull ClassSessionAiAccess> classSessionAccess(
+            @RequestParam("classSessionId") UUID classSessionId,
             @RequestHeader(value = HEADER_USER_ID, required = false) String userId,
             @RequestHeader(value = HEADER_USER_ROLE, required = false) String userRole);
 }

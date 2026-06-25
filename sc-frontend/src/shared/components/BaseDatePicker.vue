@@ -115,7 +115,55 @@
 
       <div v-if="showTime" class="base-date-picker-time">
         <Clock3 :size="16" stroke-width="1.8"/>
-        <input :aria-label="timeLabel" :step="timeStep" :value="selectedTime" type="time" @input="updateTime"/>
+        <button
+            :aria-expanded="timePanelOpen"
+            :aria-label="timeLabel"
+            class="base-date-picker-time-trigger"
+            type="button"
+            @click="toggleTimePanel"
+            @keydown="handleTimeTriggerKeydown"
+        >
+          <span>{{ selectedTime }}</span>
+          <ChevronDown :size="14" stroke-width="1.8"/>
+        </button>
+
+        <div
+            v-if="timePanelOpen"
+            ref="timePanel"
+            :aria-label="timeLabel"
+            class="base-date-picker-time-panel"
+            role="group"
+        >
+          <div :aria-label="timeHourLabel" class="base-date-picker-time-options" role="listbox">
+            <button
+                v-for="hour in hourOptions"
+                :key="hour"
+                :aria-selected="hour === selectedHour"
+                :class="{ selected: hour === selectedHour }"
+                class="base-date-picker-time-option"
+                role="option"
+                type="button"
+                @click="selectTimePart('hour', hour)"
+            >
+              {{ hour }}
+            </button>
+          </div>
+          <span class="base-date-picker-time-separator">:</span>
+          <div :aria-label="timeMinuteLabel" class="base-date-picker-time-options" role="listbox">
+            <button
+                v-for="minute in minuteOptions"
+                :key="minute"
+                :aria-selected="minute === selectedMinute"
+                :class="{ selected: minute === selectedMinute }"
+                class="base-date-picker-time-option"
+                role="option"
+                type="button"
+                @click="selectTimePart('minute', minute)"
+            >
+              {{ minute }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="base-date-picker-footer">
@@ -172,7 +220,9 @@ const {t, locale} = useI18n()
 
 const root = ref<HTMLElement | null>(null)
 const popover = ref<HTMLElement | null>(null)
+const timePanel = ref<HTMLElement | null>(null)
 const pickerOpen = ref(false)
+const timePanelOpen = ref(false)
 const popoverStyle = ref<Record<string, string>>({})
 const activePanel = ref<DatePickerPanel>('calendar')
 const pickerMonth = ref(startOfMonth(parseDateValue(props.modelValue) ?? new Date()))
@@ -198,10 +248,30 @@ const selectedDateDisplay = computed(() => {
 })
 
 const selectedTime = computed(() => parseTimeValue(props.modelValue) || normalizeTimeValue(props.defaultTime))
+const selectedHour = computed(() => selectedTime.value.slice(0, 2))
+const selectedMinute = computed(() => selectedTime.value.slice(3, 5))
 const selectedDateValue = computed(() => {
   const date = parseDateValue(props.modelValue)
   return date ? toDateValue(date) : ''
 })
+
+const hourOptions = computed(() => Array.from({length: 24}, (_, hour) => String(hour).padStart(2, '0')))
+
+const minuteOptions = computed(() => {
+  const stepMinutes = Math.min(Math.max(1, Math.floor(props.timeStep / 60)), 60)
+  const options = Array.from({length: Math.ceil(60 / stepMinutes)}, (_, index) =>
+      String(index * stepMinutes).padStart(2, '0'),
+  ).filter((minute) => Number(minute) < 60)
+
+  if (!options.includes(selectedMinute.value)) {
+    return [...options, selectedMinute.value].sort((a, b) => Number(a) - Number(b))
+  }
+
+  return options
+})
+
+const timeHourLabel = computed(() => `${props.timeLabel} hour`)
+const timeMinuteLabel = computed(() => `${props.timeLabel} minute`)
 
 const visibleYears = computed(() =>
     Array.from({length: 12}, (_, index) => yearPageStart.value - index).filter((year) => year >= 1900),
@@ -357,11 +427,13 @@ function syncPickerMonth() {
 
 function openPicker() {
   syncPickerMonth()
+  timePanelOpen.value = false
   pickerOpen.value = true
 }
 
 function closePicker() {
   activePanel.value = 'calendar'
+  timePanelOpen.value = false
   pickerOpen.value = false
 }
 
@@ -373,6 +445,7 @@ function handleTriggerKeydown(event: KeyboardEvent) {
 
 function togglePanel(panel: DatePickerPanel) {
   activePanel.value = activePanel.value === panel ? 'calendar' : panel
+  timePanelOpen.value = false
   if (activePanel.value === 'year') {
     yearPageStart.value = getYearPageStart(pickerMonth.value.getFullYear())
   }
@@ -419,13 +492,43 @@ function selectToday() {
   closePicker()
 }
 
-function updateTime(event: Event) {
-  const input = event.target as HTMLInputElement
+function toggleTimePanel() {
+  timePanelOpen.value = !timePanelOpen.value
+}
+
+function handleTimeTriggerKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    event.stopPropagation()
+    timePanelOpen.value = false
+    return
+  }
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    timePanelOpen.value = true
+  }
+}
+
+function selectTimePart(part: 'hour' | 'minute', value: string) {
+  const hour = part === 'hour' ? value : selectedHour.value
+  const minute = part === 'minute' ? value : selectedMinute.value
+
+  updateTime(`${hour}:${minute}`)
+}
+
+function updateTime(timeValue: string) {
   const dateValue = props.modelValue
       ? toDateValue(parseDateValue(props.modelValue) ?? new Date())
       : toDateValue(new Date())
 
-  emit('update:modelValue', withTime(dateValue, normalizeTimeValue(input.value)))
+  emit('update:modelValue', withTime(dateValue, normalizeTimeValue(timeValue)))
+}
+
+async function revealSelectedTime() {
+  await nextTick()
+  timePanel.value?.querySelectorAll<HTMLElement>('.base-date-picker-time-option.selected').forEach((option) => {
+    option.scrollIntoView({block: 'nearest'})
+  })
 }
 
 function handleOutsideClick(event: MouseEvent) {
@@ -493,6 +596,13 @@ watch(pickerOpen, async (open) => {
   if (!pickerOpen.value) return
   updatePopoverPosition()
   addPositionListeners()
+})
+
+watch([timePanelOpen, selectedTime], ([open]) => {
+  if (open) {
+    void revealSelectedTime()
+    void nextTick(updatePopoverPosition)
+  }
 })
 </script>
 
@@ -758,6 +868,8 @@ watch(pickerOpen, async (open) => {
 }
 
 .base-date-picker-time {
+  position: relative;
+  z-index: 2;
   min-height: 42px;
   display: flex;
   align-items: center;
@@ -774,22 +886,91 @@ watch(pickerOpen, async (open) => {
   flex-shrink: 0;
 }
 
-.base-date-picker-time input {
+.base-date-picker-time-trigger {
   width: 100%;
   min-width: 0;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0;
   background: transparent;
   border: 0;
   color: var(--color-on-surface);
   font-family: var(--font-label);
   font-size: 14px;
   font-weight: 800;
-  outline: none;
+  cursor: pointer;
 }
 
-.base-date-picker-time input::-webkit-calendar-picker-indicator {
+.base-date-picker-time-trigger:focus-visible {
+  outline: 1px solid var(--color-outline);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.base-date-picker-time-trigger svg {
+  color: var(--color-muted);
+  transition: transform 0.2s;
+}
+
+.base-date-picker-time-trigger[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+.base-date-picker-time-panel {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  background: var(--color-surface-canvas);
+  border: 1px solid var(--color-outline-light);
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+}
+
+.base-date-picker-time-options {
+  max-height: 134px;
+  display: grid;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.base-date-picker-time-option {
+  min-height: 30px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--color-on-surface);
+  font-family: var(--font-label);
+  font-size: 13px;
+  font-weight: 800;
   cursor: pointer;
-  filter: invert(1);
-  opacity: 0.72;
+  transition: background 0.2s,
+  color 0.2s;
+}
+
+.base-date-picker-time-option:hover {
+  background: var(--color-surface-container);
+}
+
+.base-date-picker-time-option.selected {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.base-date-picker-time-separator {
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 16px;
+  font-weight: 800;
 }
 
 .base-date-picker-footer button {

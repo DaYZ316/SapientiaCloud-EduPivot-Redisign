@@ -4,6 +4,7 @@ import {mount} from '@vue/test-utils'
 import AiMarkdownMessage from '@/features/ai/components/AiMarkdownMessage.vue'
 import RichMathContent from '@/shared/components/RichMathContent.vue'
 import {renderAiMarkdown} from '@/features/ai/components/aiMarkdownRenderer'
+import {fitRichMathToContainer} from '@/shared/utils/richMathRenderer'
 
 async function mountRenderedMessage(content: string) {
   const wrapper = mount(AiMarkdownMessage, {
@@ -13,6 +14,10 @@ async function mountRenderedMessage(content: string) {
   })
   await wrapper.vm.$nextTick()
   return wrapper
+}
+
+function renderedMathRows(wrapper: Awaited<ReturnType<typeof mountRenderedMessage>>) {
+  return (wrapper.html().match(/<mtr\b/g) ?? []).length
 }
 
 describe('renderAiMarkdown', () => {
@@ -82,6 +87,109 @@ describe('renderAiMarkdown', () => {
 
     expect(wrapper.find('.katex-display').exists()).toBe(true)
     expect(wrapper.html()).toContain('mtable')
+  })
+
+  it('normalizes loose multiline matrix rows before rendering', async () => {
+    const wrapper = await mountRenderedMessage('$$\n\\begin{bmatrix}\n1 0\n0 1\n\\end{bmatrix}\n$$')
+
+    expect(wrapper.find('.katex-error').exists()).toBe(false)
+    expect(wrapper.find('.katex-display').exists()).toBe(true)
+    expect(wrapper.html()).toContain('mtable')
+    expect(renderedMathRows(wrapper)).toBeGreaterThanOrEqual(2)
+    const annotation = wrapper.find('annotation[encoding="application/x-tex"]').text()
+    expect(annotation).toContain('1 & 0')
+    expect(annotation).toContain('0 & 1')
+  })
+
+  it('infers square matrix rows from loose single-line matrix cells', async () => {
+    const wrapper = await mountRenderedMessage('$$\\begin{bmatrix}1 0 0 1\\end{bmatrix}$$')
+
+    expect(wrapper.find('.katex-error').exists()).toBe(false)
+    expect(wrapper.find('.katex-display').exists()).toBe(true)
+    expect(wrapper.html()).toContain('mtable')
+    expect(renderedMathRows(wrapper)).toBeGreaterThanOrEqual(2)
+    const annotation = wrapper.find('annotation[encoding="application/x-tex"]').text()
+    expect(annotation).toContain('1 & 0')
+    expect(annotation).toContain('0 & 1')
+  })
+
+  it('preserves markdown inline matrix row separators before KaTeX rendering', async () => {
+    const wrapper = await mountRenderedMessage(
+      '设矩阵 $A = \\begin{bmatrix} 1 & 2 & 3 \\\\ 2 & 4 & 6 \\\\ 1 & 0 & -1 \\end{bmatrix}$，则 $\\operatorname{rank}(A)$ 等于多少？',
+    )
+
+    expect(wrapper.find('.katex-error').exists()).toBe(false)
+    expect(wrapper.findAll('.katex')).toHaveLength(2)
+    expect(wrapper.html()).toContain('mtable')
+    expect(renderedMathRows(wrapper)).toBeGreaterThanOrEqual(3)
+    const annotation = wrapper.find('annotation[encoding="application/x-tex"]').text()
+    expect(annotation).toContain('1 & 2 & 3 \\\\ 2 & 4 & 6')
+    expect(annotation).toContain('2 & 4 & 6 \\\\ 1 & 0 & -1')
+  })
+
+  it('renders braced inline equation systems as vertical arrays', async () => {
+    const wrapper = await mountRenderedMessage(
+      '齐次线性方程组 $\\{c_1 + c_2 - c_3 = 0 \\\\ 2c_1 + 2c_2 - 2c_3 = 0\\}$ 的通解是什么？',
+    )
+
+    expect(wrapper.find('.katex-error').exists()).toBe(false)
+    expect(wrapper.html()).toContain('mtable')
+    expect(renderedMathRows(wrapper)).toBeGreaterThanOrEqual(2)
+    const annotation = wrapper.find('annotation[encoding="application/x-tex"]').text()
+    expect(annotation).toContain('\\left\\{\\begin{array}{l}')
+    expect(annotation).toContain('c_1 + c_2 - c_3 = 0 \\\\ 2c_1 + 2c_2 - 2c_3 = 0')
+  })
+
+  it('keeps matrix row-reduction chains as one valid display formula', async () => {
+    const content = '对 $A$ 进行**初等行变换**，化为行阶梯形（REF）：\n\n' +
+        '$$\n' +
+        'A = \n' +
+        '\\begin{bmatrix}\n' +
+        '1 & 2 & 3 \\\\\n' +
+        '2 & 4 & 6 \\\\\n' +
+        '1 & 0 & -1\n' +
+        '\\end{bmatrix}\n' +
+        '\\quad\n' +
+        '\\overset{R_2 \\leftarrow R_2 - 2R_1}{\\longrightarrow}\n' +
+        '\\quad\n' +
+        '\\begin{bmatrix}\n' +
+        '1 & 2 & 3 \\\\\n' +
+        '0 & 0 & 0 \\\\\n' +
+        '1 & 0 & -1\n' +
+        '\\end{bmatrix}\n' +
+        '\\quad\n' +
+        '\\overset{R_3 \\leftarrow R_3 - R_1}{\\longrightarrow}\n' +
+        '\\quad\n' +
+        '\\begin{bmatrix}\n' +
+        '1 & 2 & 3 \\\\\n' +
+        '0 & 0 & 0 \\\\\n' +
+        '0 & -2 & -4\n' +
+        '\\end{bmatrix}\n' +
+        '$$\n\n' +
+        '交换 $R_2$ 与 $R_3$（不改变秩）：'
+    const wrapper = await mountRenderedMessage(content)
+
+    expect(wrapper.find('.katex-error').exists()).toBe(false)
+    expect(wrapper.find('.katex-display').exists()).toBe(true)
+    expect(wrapper.find('.split-display-math').exists()).toBe(false)
+    expect(wrapper.html().match(/<mtable\b/g)).toHaveLength(3)
+    expect(renderedMathRows(wrapper)).toBeGreaterThanOrEqual(9)
+    expect(wrapper.find('.katex-display').text()).toContain('R2')
+  })
+
+  it('scales oversized display formulas to the available message width', async () => {
+    const wrapper = await mountRenderedMessage(
+      '$$det A = 1 \\cdot (4 \\cdot (-1) - 6 \\cdot 0) - 2 \\cdot (2 \\cdot (-1) - 6 \\cdot 1) + 3 \\cdot (2 \\cdot 0 - 4 \\cdot 1)$$',
+    )
+    const displayMath = wrapper.find('.katex-display').element as HTMLElement
+    const katexNode = displayMath.querySelector('.katex') as HTMLElement
+
+    Object.defineProperty(displayMath, 'clientWidth', {configurable: true, value: 240})
+    Object.defineProperty(katexNode, 'scrollWidth', {configurable: true, value: 960})
+    fitRichMathToContainer(wrapper.element as HTMLElement)
+
+    expect(displayMath.classList.contains('rich-math-scaled')).toBe(true)
+    expect(displayMath.style.getPropertyValue('--rich-math-scale')).toBe('0.2500')
   })
 
   it('renders multiline display math as separate visual rows', async () => {

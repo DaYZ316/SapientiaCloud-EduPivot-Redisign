@@ -18,9 +18,6 @@
         </div>
       </div>
       <div class="header-actions">
-        <button v-if="isStudent && bank.questionCount > 0" class="btn-primary" type="button" @click="openPractice">
-          {{ t('questionBank.startPractice') }}
-        </button>
         <button v-if="isTeacher" class="btn-secondary" type="button" @click="openCreateEditor">
           <Plus :size="14"/>
           {{ t('questionBank.newQuestion') }}
@@ -208,9 +205,6 @@
                   </button>
                 </template>
               </template>
-              <button v-if="isStudent" class="btn-primary compact" type="button" @click="openPractice">
-                {{ t('questionBank.startPractice') }}
-              </button>
             </div>
           </template>
         </aside>
@@ -430,7 +424,6 @@ const showAnswer = ref(false)
 
 const isAdmin = computed(() => authStore.user?.role === 0)
 const isTeacher = computed(() => authStore.user?.role === 2 || isAdmin.value)
-const isStudent = computed(() => authStore.user?.role === 1)
 const isEditing = computed(() => editingQuestionId.value !== null)
 const currentUserId = computed(() => authStore.user?.id)
 
@@ -651,10 +644,6 @@ function bankTypeName(type: number) {
 function formatDate(dateStr?: string | null) {
   if (!dateStr) return t('questionBank.notUpdated')
   return new Intl.DateTimeFormat(undefined, {month: '2-digit', day: '2-digit'}).format(new Date(dateStr))
-}
-
-function openPractice() {
-  router.push('/question-banks/' + bankId + '/practice')
 }
 
 function openCreateEditor() {

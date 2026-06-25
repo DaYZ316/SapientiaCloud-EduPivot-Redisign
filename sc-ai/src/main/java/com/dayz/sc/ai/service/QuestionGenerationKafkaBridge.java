@@ -166,6 +166,31 @@ public class QuestionGenerationKafkaBridge {
         publishCompleted(QuestionGenerationCompletedEvent.failed(requestId, errorMessage));
     }
 
+    public void cancel(String requestId, AiAgentMode mode) {
+        if (!hasText(requestId)) {
+            return;
+        }
+        GenerationStageEvent stage = GenerationStageEvent.of(
+                requestId,
+                mode == null ? AiAgentMode.QUESTION.name() : mode.name(),
+                "TERMINATED",
+                "terminated",
+                "任务已终止",
+                "用户已终止本次生成任务。",
+                Map.of());
+        emitProgressLocally(new QuestionGenerationProgressEvent(
+                UuidV7Generator.generate(),
+                requestId,
+                "generation_stage",
+                objectPayload(stage),
+                Instant.now()));
+        Sinks.One<QuestionGenerationCompletedEvent> responseSink = responseSinks.get(requestId);
+        if (responseSink != null) {
+            responseSink.tryEmitEmpty();
+        }
+        cleanup(requestId);
+    }
+
     @KafkaListener(topics = KafkaTopicConstants.QUESTION_GENERATION_PROGRESS, groupId = "sc-ai-question-generation-progress")
     public void onProgress(QuestionGenerationProgressEvent event, Acknowledgment acknowledgment) {
         try {
@@ -187,6 +212,7 @@ public class QuestionGenerationKafkaBridge {
                 if (sink != null) {
                     sink.tryEmitValue(event);
                 }
+                completeProgress(event.requestId());
             }
         } finally {
             acknowledge(acknowledgment);
@@ -286,6 +312,13 @@ public class QuestionGenerationKafkaBridge {
         Sinks.Many<QuestionGenerationProgressEvent> sink = progressSinks.get(event.requestId());
         if (sink != null) {
             sink.tryEmitNext(event);
+        }
+    }
+
+    private void completeProgress(String requestId) {
+        Sinks.Many<QuestionGenerationProgressEvent> progressSink = progressSinks.get(requestId);
+        if (progressSink != null) {
+            progressSink.tryEmitComplete();
         }
     }
 

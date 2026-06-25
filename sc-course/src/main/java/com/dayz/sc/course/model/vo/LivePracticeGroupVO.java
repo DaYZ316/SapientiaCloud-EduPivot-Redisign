@@ -21,6 +21,8 @@ public record LivePracticeGroupVO(
         @JsonProperty Instant availableStartAt,
         @JsonProperty Instant availableEndAt,
         @JsonProperty Integer allowLateSubmission,
+        @JsonProperty Integer aiGradingEnabled,
+        @JsonProperty String aiGradingRequirement,
         @JsonProperty Integer publishOrder,
         @JsonProperty Instant publishedAt,
         @JsonProperty Integer totalQuestions,

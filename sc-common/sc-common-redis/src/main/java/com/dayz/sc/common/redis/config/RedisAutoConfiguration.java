@@ -71,7 +71,8 @@ public class RedisAutoConfiguration {
                 .disableCachingNullValues();
 
         Map<String, RedisCacheConfiguration> cacheConfigs = Map.of(
-                "courseDetail", defaultConfig.entryTtl(Duration.ofMinutes(10))
+                "courseDetail", defaultConfig.entryTtl(Duration.ofMinutes(10)),
+                "userBasicInfo", defaultConfig.entryTtl(Duration.ofMinutes(5))
         );
 
         return RedisCacheManager.builder(connectionFactory)

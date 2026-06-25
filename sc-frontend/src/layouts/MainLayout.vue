@@ -198,6 +198,19 @@
       </div>
     </aside>
 
+    <button
+      v-if="!isFullscreenPage && isAiPage && uiPreferences.sidebarCollapsed"
+      :aria-label="t('common.layout.expandSidebar')"
+      class="ai-sidebar-pull-tab"
+      type="button"
+      @click="uiPreferences.setSidebarCollapsed(false)"
+    >
+      <PanelLeftOpen
+        :size="22"
+        stroke-width="1.9"
+      />
+    </button>
+
     <!-- Main Content -->
     <main class="main-content">
       <div class="content-container">
@@ -717,6 +730,10 @@ async function preloadAiWorkspaceData() {
   color: var(--color-on-surface);
 }
 
+.ai-sidebar-pull-tab {
+  display: none;
+}
+
 .side-nav-links {
   display: flex;
   flex-direction: column;
@@ -1225,6 +1242,33 @@ async function preloadAiWorkspaceData() {
 
   .layout-ai-mode.sidebar-collapsed .main-content {
     margin-left: 0;
+  }
+
+  .layout-ai-mode.sidebar-collapsed .ai-sidebar-pull-tab {
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + 96px);
+    left: 0;
+    z-index: 125;
+    display: grid;
+    width: 42px;
+    height: 56px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--color-outline-light);
+    border-left: 0;
+    border-radius: 0 14px 14px 0;
+    background: var(--color-surface-card);
+    box-shadow: 10px 8px 24px rgba(15, 23, 42, 0.14);
+    color: var(--color-on-surface);
+    cursor: pointer;
+    transition: transform 0.18s ease, color 0.18s ease, background 0.18s ease;
+  }
+
+  .layout-ai-mode.sidebar-collapsed .ai-sidebar-pull-tab:hover,
+  .layout-ai-mode.sidebar-collapsed .ai-sidebar-pull-tab:focus-visible {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    transform: translateX(2px);
   }
 
   .layout-ai-mode .content-container {

@@ -215,6 +215,8 @@ public class CourseService {
 
         long currentStudents = enrollmentRepository.countActiveByCourseId(courseId);
         List<UUID> teacherIds = courseTeacherRepository.findTeacherIdsByCourseId(courseId);
+        long publishedClassSessionCount = classSessionRepository.countPublishedByCourseIds(List.of(courseId))
+                .getOrDefault(courseId, 0L);
         Map<UUID, UserBasicInfo> teacherInfoMap = loadTeacherInfoMap(List.of(course.getTeacherId()));
         Map<UUID, String> coverUrls = loadCoverUrls(List.of(course));
         Map<UUID, UserBasicInfo> assistantInfoMap = teacherIds.isEmpty() ? Map.of() : loadTeacherInfoMap(teacherIds);
@@ -258,7 +260,9 @@ public class CourseService {
                 course.getStatus(),
                 enrolled,
                 course.getCreatedAt(),
-                course.getUpdatedAt()
+                course.getUpdatedAt(),
+                publishedClassSessionCount,
+                CourseProgressCalculator.calculate(course.getTotalClassHours(), publishedClassSessionCount)
         );
     }
 

@@ -12,10 +12,23 @@
         <strong>{{ chapter?.chapterName || t('chapter.chapterContent') }}</strong>
       </div>
 
-      <div v-if="chapter" class="command-metrics">
-        <span :class="{draft: chapter.status !== 1}" class="status-chip">{{ statusLabel }}</span>
-        <span><Eye :size="14" stroke-width="1.8"/> {{ chapter.viewCount }} {{ t('chapter.viewCount') }}</span>
-        <span><Heart :size="14" stroke-width="1.8"/> {{ chapter.likeCount }} {{ t('chapter.likeCount') }}</span>
+      <div class="chapter-command-tools">
+        <div v-if="canManageCourse" class="chapter-command-actions">
+          <button type="button" @click="openChapterEditor">
+            <Plus :size="14" stroke-width="1.8"/>
+            {{ t('chapter.addChapter') }}
+          </button>
+          <button v-if="chapter" type="button" @click="handleEditChapter(chapter)">
+            <Pencil :size="14" stroke-width="1.8"/>
+            {{ t('chapter.editChapter') }}
+          </button>
+        </div>
+
+        <div v-if="chapter" class="command-metrics">
+          <span :class="{draft: chapter.status !== 1}" class="status-chip">{{ statusLabel }}</span>
+          <span><Eye :size="14" stroke-width="1.8"/> {{ chapter.viewCount }} {{ t('chapter.viewCount') }}</span>
+          <span><Heart :size="14" stroke-width="1.8"/> {{ chapter.likeCount }} {{ t('chapter.likeCount') }}</span>
+        </div>
       </div>
     </header>
 
@@ -89,6 +102,14 @@
           </dl>
 
           <div class="rail-actions">
+            <button v-if="canManageCourse" type="button" @click="handleAddChildChapter(chapter)">
+              <Plus :size="16" stroke-width="1.8"/>
+              {{ t('chapter.addSubChapter') }}
+            </button>
+            <button v-if="canManageCourse" type="button" @click="handleEditChapter(chapter)">
+              <Pencil :size="16" stroke-width="1.8"/>
+              {{ t('chapter.editChapter') }}
+            </button>
             <button type="button" @click="goToDiscussion">
               <MessageCircle :size="16" stroke-width="1.8"/>
               {{ t('chapter.discussionArea') }}
@@ -110,7 +131,20 @@
       <BookOpen :size="34" stroke-width="1.4"/>
       <p>{{ t('chapter.noContent') }}</p>
       <span>{{ t('chapter.selectLessonHint') }}</span>
+      <button v-if="canManageCourse" class="empty-action" type="button" @click="openChapterEditor">
+        <Plus :size="15" stroke-width="1.8"/>
+        {{ t('chapter.addChapter') }}
+      </button>
     </div>
+
+    <ChapterEditor
+        :chapter="editingChapter"
+        :course-id="courseId"
+        :parent-chapter-id="parentChapterId"
+        :visible="showChapterEditor"
+        @close="closeChapterEditor"
+        @save="handleSaveChapter"
+    />
   </div>
 </template>
 
@@ -118,21 +152,40 @@
 import {computed, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
-import {ArrowLeft, BookOpen, Eye, Heart, MessageCircle, Paperclip} from 'lucide-vue-next'
-import {getChapter, getChapterTree, likeChapter, unlikeChapter, viewChapter} from '@/features/course/api/chapter'
-import type {Chapter, ChapterInteraction} from '@/features/course/types/chapter'
+import {ArrowLeft, BookOpen, Eye, Heart, MessageCircle, Paperclip, Pencil, Plus} from 'lucide-vue-next'
+import {
+  createChapter,
+  getChapter,
+  getChapterTree,
+  likeChapter,
+  unlikeChapter,
+  updateChapter,
+  viewChapter,
+} from '@/features/course/api/chapter'
+import {getCourse} from '@/features/course/api/course'
+import type {Chapter, ChapterInteraction, CreateChapterRequest, UpdateChapterRequest} from '@/features/course/types/chapter'
+import type {CourseDetail} from '@/features/course/types/course'
+import {useAuthStore} from '@/features/auth/stores/auth'
 import ChapterContent from '@/features/course/components/ChapterContent.vue'
+import ChapterEditor from '@/features/course/components/ChapterEditor.vue'
 import ChapterTree from '@/features/course/components/ChapterTree.vue'
+import {notify} from '@/shared/composables/useGlobalNotification'
 
 const {t, locale} = useI18n()
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 
 const loading = ref(true)
 const chapter = ref<Chapter | null>(null)
 const chapterTree = ref<Chapter[]>([])
+const course = ref<CourseDetail | null>(null)
 const courseId = ref(String(route.params.courseId || ''))
 const chapterId = ref<string | null>(normalizeQueryValue(route.query.chapterId))
+const showChapterEditor = ref(false)
+const editingChapter = ref<Chapter | null>(null)
+const parentChapterId = ref<string | null>(null)
+const handledCreateQueryKey = ref<string | null>(null)
 
 function flattenChapters(chapters: Chapter[]): Chapter[] {
   return chapters.flatMap(item => [item, ...flattenChapters(item.children || [])])
@@ -142,6 +195,12 @@ const flatChapters = computed(() => flattenChapters(chapterTree.value))
 const currentIndex = computed(() => flatChapters.value.findIndex(item => item.id === chapterId.value))
 const attachmentCount = computed(() => chapter.value?.attachments?.length || 0)
 const statusLabel = computed(() => chapter.value?.status === 1 ? t('chapter.published') : t('chapter.draft'))
+const isAdmin = computed(() => authStore.user?.role === 0)
+const canManageCourse = computed(() => {
+  const userId = authStore.user?.id
+  if (!userId || !course.value) return isAdmin.value
+  return isAdmin.value || course.value.teacherId === userId || Boolean(course.value.teacherIds?.includes(userId))
+})
 const chapterPosition = computed(() => {
   if (currentIndex.value < 0 || flatChapters.value.length === 0) return '-'
   return `${currentIndex.value + 1}/${flatChapters.value.length}`
@@ -163,11 +222,23 @@ watch(
     {immediate: true}
 )
 
+watch(
+    () => route.query.create,
+    () => {
+      if (!loading.value) openChapterEditorFromQuery()
+    }
+)
+
 async function loadChapterDetail(nextCourseId: string, requestedChapterId: string | null) {
   loading.value = true
   try {
-    const treeData = await getChapterTree(nextCourseId)
+    const [courseData, treeData] = await Promise.all([
+      getCourse(nextCourseId),
+      getChapterTree(nextCourseId),
+    ])
+    course.value = courseData
     chapterTree.value = treeData || []
+    openChapterEditorFromQuery()
 
     const targetChapterId = requestedChapterId || flatChapters.value[0]?.id || null
     chapterId.value = targetChapterId
@@ -180,6 +251,7 @@ async function loadChapterDetail(nextCourseId: string, requestedChapterId: strin
     chapter.value = await getChapter(targetChapterId)
     recordView(targetChapterId)
   } catch {
+    course.value = null
     chapter.value = null
   } finally {
     loading.value = false
@@ -223,6 +295,71 @@ async function loadChapter(targetChapterId: string) {
   } catch {
     chapter.value = null
   }
+}
+
+function openChapterEditor() {
+  editingChapter.value = null
+  parentChapterId.value = null
+  showChapterEditor.value = true
+}
+
+function openChapterEditorFromQuery() {
+  const createQuery = normalizeQueryValue(route.query.create)
+  if (createQuery !== '1') {
+    handledCreateQueryKey.value = null
+    return
+  }
+
+  const requestKey = `${courseId.value}:create`
+  if (!canManageCourse.value || handledCreateQueryKey.value === requestKey) return
+  handledCreateQueryKey.value = requestKey
+  openChapterEditor()
+}
+
+function handleEditChapter(targetChapter: Chapter) {
+  editingChapter.value = targetChapter
+  parentChapterId.value = null
+  showChapterEditor.value = true
+}
+
+function handleAddChildChapter(targetChapter: Chapter) {
+  parentChapterId.value = targetChapter.id
+  editingChapter.value = null
+  showChapterEditor.value = true
+}
+
+function closeChapterEditor() {
+  showChapterEditor.value = false
+  editingChapter.value = null
+  parentChapterId.value = null
+}
+
+async function handleSaveChapter(data: CreateChapterRequest | UpdateChapterRequest) {
+  try {
+    let targetChapterId = editingChapter.value?.id || chapterId.value
+    if (editingChapter.value) {
+      await updateChapter(editingChapter.value.id, data as UpdateChapterRequest)
+      notify.success(t('courseDetail.alert.updateChapterSuccess'))
+    } else {
+      targetChapterId = await createChapter(data as CreateChapterRequest)
+      notify.success(t('courseDetail.alert.createChapterSuccess'))
+    }
+    closeChapterEditor()
+    await refreshChapterTree(targetChapterId)
+  } catch {
+    notify.error(t('courseDetail.alert.saveChapterFailed'))
+  }
+}
+
+async function refreshChapterTree(preferredChapterId: string | null = chapterId.value) {
+  const treeData = await getChapterTree(courseId.value)
+  chapterTree.value = treeData || []
+  const targetChapterId = preferredChapterId && flatChapters.value.some(item => item.id === preferredChapterId)
+      ? preferredChapterId
+      : flatChapters.value[0]?.id || null
+  chapterId.value = targetChapterId
+  chapter.value = targetChapterId ? await getChapter(targetChapterId) : null
+  if (targetChapterId) recordView(targetChapterId)
 }
 
 function goToDiscussion() {
@@ -271,7 +408,9 @@ function formatDate(dateStr?: string | null) {
 }
 
 .back-link,
+.chapter-command-actions button,
 .command-metrics span,
+.empty-action,
 .status-chip,
 .rail-actions button {
   display: inline-flex;
@@ -303,6 +442,8 @@ function formatDate(dateStr?: string | null) {
 }
 
 .back-link:active,
+.chapter-command-actions button:active,
+.empty-action:active,
 .rail-actions button:active {
   transform: translateY(1px);
 }
@@ -324,6 +465,42 @@ function formatDate(dateStr?: string | null) {
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.chapter-command-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.chapter-command-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.chapter-command-actions button,
+.empty-action {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--color-outline-light);
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-on-surface);
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.chapter-command-actions button:hover,
+.chapter-command-actions button:focus-visible,
+.empty-action:hover,
+.empty-action:focus-visible {
+  background: var(--color-surface-container);
+  border-color: var(--color-outline);
+  outline: none;
 }
 
 .command-metrics {
@@ -545,9 +722,11 @@ function formatDate(dateStr?: string | null) {
   color: var(--color-on-primary);
 }
 
-:global(:root[data-theme='light']) .rail-actions .primary-rail-action:hover:not(:disabled),
-:global(:root[data-theme='light']) .rail-actions .primary-rail-action:focus-visible:not(:disabled) {
-  color: var(--color-on-surface);
+.rail-actions .primary-rail-action:hover:not(:disabled),
+.rail-actions .primary-rail-action:focus-visible:not(:disabled) {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-soft);
+  color: var(--color-on-primary);
 }
 
 .skeleton-panel {
@@ -629,6 +808,12 @@ function formatDate(dateStr?: string | null) {
   line-height: 1.5;
 }
 
+.empty-action {
+  margin-top: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+}
+
 .shimmer {
   background: linear-gradient(110deg, var(--color-surface-container-high) 8%, var(--color-surface-canvas) 18%, var(--color-surface-container-high) 33%);
   background-size: 200% 100%;
@@ -663,6 +848,8 @@ function formatDate(dateStr?: string | null) {
     align-items: stretch;
   }
 
+  .chapter-command-actions,
+  .chapter-command-tools,
   .command-metrics {
     justify-content: flex-start;
   }

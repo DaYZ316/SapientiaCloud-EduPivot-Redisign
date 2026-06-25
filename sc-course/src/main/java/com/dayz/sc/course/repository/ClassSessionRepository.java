@@ -65,6 +65,10 @@ public interface ClassSessionRepository {
      */
     Page<ClassSession> findByCourseId(UUID courseId, int page, int size, boolean includeDrafts);
 
+    List<ClassSession> findOngoingByTeacherId(UUID teacherId, Instant now, int limit);
+
+    List<ClassSession> findOngoingByStudentId(UUID studentId, int activeStatus, int completedStatus, Instant now, int limit);
+
     /**
      * 批量统计课程已发布开课数量
      *

@@ -44,6 +44,7 @@ const emit = defineEmits<{
   left: []
   exit: []
   'participants-change': [participants: ClassParticipant[]]
+  'live-status-change': [message: SeatSyncMessage]
   'loading-progress': [payload: {progress: number; label: string}]
   ready: []
   loadError: [message: string]
@@ -71,7 +72,7 @@ const classroomCameraBounds = shallowRef<THREE.Box3 | null>(null)
 let frameId = 0
 let resizeObserver: ResizeObserver | null = null
 let websocket: WebSocket | null = null
-let reconnectTimer = 0
+let seatSocketStarted = false
 let destroyed = false
 const modelInstanceManager = new ModelInstanceManager()
 const deskInstancedMeshes: THREE.InstancedMesh[] = []
@@ -113,7 +114,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   destroyed = true
-  window.clearTimeout(reconnectTimer)
   websocket?.close()
   resizeObserver?.disconnect()
   interactionRef.value?.dispose()
@@ -242,7 +242,7 @@ async function loadModels(scene: THREE.Scene, camera: THREE.PerspectiveCamera, c
 }
 
 function setupSprites(scene: THREE.Scene) {
-  const manager = new SeatSpriteManager(scene, getAllSeatPositions(props.session.roomSize, classroomDimensions.value))
+  const manager = new SeatSpriteManager(scene, getAllSeatPositions(props.session.roomSize, classroomDimensions.value), props.session.roomSize)
   spriteManagerRef.value = manager
   manager.applySnapshot(Array.from(participantsBySeat.value.values()))
 }
@@ -336,26 +336,35 @@ async function handleSeatContextMenu(seatIndex: number) {
 }
 
 async function connectSeatSocket() {
-  if (destroyed) {
+  if (destroyed || seatSocketStarted || isSeatSocketActive()) {
     return
   }
+  seatSocketStarted = true
   try {
     const token = await issueClassSessionSeatSyncToken(props.session.id)
-    websocket = new WebSocket(buildSeatSocketUrl(token.token))
-    websocket.onmessage = (event) => handleSeatSyncMessage(event.data)
-    websocket.onclose = () => {
-      if (!destroyed) {
-        reconnectTimer = window.setTimeout(connectSeatSocket, 1800)
+    if (destroyed) {
+      return
+    }
+    const socket = new WebSocket(buildSeatSocketUrl(token.token))
+    websocket = socket
+    socket.onmessage = (event) => handleSeatSyncMessage(event.data)
+    socket.onclose = () => {
+      if (websocket === socket) {
+        websocket = null
       }
     }
-    websocket.onerror = () => {
-      websocket?.close()
+    socket.onerror = () => {
+      if (websocket === socket) {
+        socket.close()
+      }
     }
   } catch {
-    if (!destroyed) {
-      reconnectTimer = window.setTimeout(connectSeatSocket, 3000)
-    }
+    // Seat sync is best effort. The initial participants request still renders the classroom.
   }
+}
+
+function isSeatSocketActive() {
+  return websocket?.readyState === WebSocket.OPEN || websocket?.readyState === WebSocket.CONNECTING
 }
 
 function handleSeatSyncMessage(raw: string) {
@@ -374,6 +383,15 @@ function handleSeatSyncMessage(raw: string) {
     }
     if (message.type === 'seat_remove') {
       removeParticipant(message.userId || '', message.seatIndex)
+      return
+    }
+    if (
+      message.type === 'live_started' ||
+      message.type === 'live_paused' ||
+      message.type === 'live_resumed' ||
+      message.type === 'live_stopped'
+    ) {
+      emit('live-status-change', message)
     }
   } catch {
     // Ignore malformed WebSocket payloads.

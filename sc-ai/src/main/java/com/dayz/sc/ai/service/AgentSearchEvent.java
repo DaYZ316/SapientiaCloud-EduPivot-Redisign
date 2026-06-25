@@ -13,7 +13,12 @@ public record AgentSearchEvent(
         String query,
         String occurredAt,
         int total,
-        List<AgentSearchItem> items
+        List<AgentSearchItem> items,
+        AgentSearchStatus status,
+        String reason,
+        String provider,
+        Long durationMs,
+        Boolean retryable
 ) {
     public AgentSearchEvent(String phase,
                             String domain,
@@ -21,7 +26,8 @@ public record AgentSearchEvent(
                             String query,
                             int total,
                             List<AgentSearchItem> items) {
-        this(newSearchId(), phase, domain, label, query, now(), total, items == null ? List.of() : items);
+        this(newSearchId(), phase, domain, label, query, now(), total, items == null ? List.of() : items,
+                null, null, null, null, null);
     }
 
     public static AgentSearchEvent started(String domain, String label, String query) {
@@ -29,7 +35,8 @@ public record AgentSearchEvent(
     }
 
     public static AgentSearchEvent started(String searchId, String domain, String label, String query) {
-        return new AgentSearchEvent(searchId, "started", domain, label, query, now(), 0, List.of());
+        return new AgentSearchEvent(searchId, "started", domain, label, query, now(), 0, List.of(),
+                null, null, null, null, null);
     }
 
     public static AgentSearchEvent results(String domain, String label, String query, List<AgentSearchItem> items) {
@@ -50,7 +57,35 @@ public record AgentSearchEvent(
                 query,
                 now(),
                 safeItems.size(),
-                safeItems);
+                safeItems,
+                safeItems.isEmpty() ? AgentSearchStatus.EMPTY : AgentSearchStatus.OK,
+                null,
+                null,
+                null,
+                null);
+    }
+
+    public static AgentSearchEvent outcome(String searchId, AgentSearchOutcome outcome) {
+        List<AgentSearchItem> safeItems = outcome.items() == null ? List.of() : outcome.items();
+        String phase = switch (outcome.status()) {
+            case OK -> safeItems.isEmpty() ? "empty" : "results";
+            case EMPTY -> "empty";
+            case DISABLED, MISCONFIGURED, FAILED -> "error";
+        };
+        return new AgentSearchEvent(
+                searchId,
+                phase,
+                outcome.domain(),
+                outcome.label(),
+                outcome.query(),
+                now(),
+                safeItems.size(),
+                safeItems,
+                outcome.status(),
+                outcome.reason(),
+                outcome.provider(),
+                outcome.durationMs(),
+                outcome.retryable());
     }
 
     public static AgentSearchEvent error(String domain, String label, String query) {
@@ -58,11 +93,13 @@ public record AgentSearchEvent(
     }
 
     public static AgentSearchEvent error(String searchId, String domain, String label, String query) {
-        return new AgentSearchEvent(searchId, "error", domain, label, query, now(), 0, List.of());
+        return new AgentSearchEvent(searchId, "error", domain, label, query, now(), 0, List.of(),
+                AgentSearchStatus.FAILED, null, null, null, null);
     }
 
     public static AgentSearchEvent completed() {
-        return new AgentSearchEvent(newSearchId(), "completed", "agentSearch", "检索完成", "", now(), 0, List.of());
+        return new AgentSearchEvent(newSearchId(), "completed", "agentSearch", "检索完成", "", now(), 0, List.of(),
+                null, null, null, null, null);
     }
 
     private static String newSearchId() {

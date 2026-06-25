@@ -121,8 +121,9 @@ public class PracticeSessionService {
             if (isCorrect) {
                 earnedScore = question.getScore();
             } else if (question.getAllowPartialCredit() == 1 && questionType == QUESTION_TYPE_MULTI_CHOICE) {
-                long correctSelected = selectedIds.stream().filter(correctIds::contains).count();
-                if (!correctIds.isEmpty()) {
+                boolean hasWrongSelected = selectedIds.stream().anyMatch(selectedId -> !correctIds.contains(selectedId));
+                if (!hasWrongSelected && !correctIds.isEmpty()) {
+                    long correctSelected = selectedIds.stream().filter(correctIds::contains).count();
                     earnedScore = question.getScore().multiply(BigDecimal.valueOf(correctSelected))
                             .divide(BigDecimal.valueOf(correctIds.size()), PARTIAL_CREDIT_SCALE, RoundingMode.HALF_UP);
                 }

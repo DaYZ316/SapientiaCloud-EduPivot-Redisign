@@ -143,11 +143,6 @@ export const router = createRouter({
                     component: () => import('@/features/question-bank/views/QuestionBankDetailView.vue'),
                 },
                 {
-                    path: 'question-banks/:id/practice',
-                    name: 'question-bank-practice',
-                    component: () => import('@/features/question-bank/views/PracticeView.vue'),
-                },
-                {
                     path: 'my-enrollments',
                     name: 'my-enrollments',
                     component: () => import('@/features/course/views/MyEnrollmentsView.vue'),
@@ -175,7 +170,7 @@ export const router = createRouter({
                     path: 'course-management',
                     name: 'course-management',
                     component: () => import('@/features/course/views/CourseManagementView.vue'),
-                    meta: {requiredRole: 2},
+                    meta: {requiredRole: 0},
                 },
                 {
                     path: 'profile',
@@ -226,6 +221,14 @@ export const router = createRouter({
             },
         },
         {
+            path: '/class-sessions/:sessionId/live',
+            name: 'class-session-live',
+            component: () => import('@/features/classroom/views/ClassSessionLiveView.vue'),
+            meta: {
+                requiresAuth: true,
+            },
+        },
+        {
             path: '/:pathMatch(.*)*',
             name: 'not-found',
             redirect: '/dashboard',
@@ -258,6 +261,13 @@ router.beforeEach((to) => {
     if (to.meta.guestOnly && authStore.isAuthenticated) {
         return {
             name: 'dashboard',
+        }
+    }
+
+    if (to.name === 'course-management' && authStore.user?.role === 2) {
+        return {
+            name: 'teacher-courses',
+            query: {role: 'primary'},
         }
     }
 

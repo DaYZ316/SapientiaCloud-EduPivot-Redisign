@@ -13,6 +13,8 @@ import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.ObjectProvider;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -25,6 +27,35 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AgentSearchServiceTest {
+
+    @Test
+    void getCurrentDateTimeShouldReturnSystemTimeOutcome() {
+        ZoneId zoneId = ZoneId.of("Asia/Shanghai");
+        LocalDate before = LocalDate.now(zoneId);
+        AgentSearchService service = serviceWith(mock(VectorStore.class));
+
+        AgentSearchOutcome outcome = service.getCurrentDateTime();
+
+        LocalDate after = LocalDate.now(zoneId);
+        assertThat(outcome.status()).isEqualTo(AgentSearchStatus.OK);
+        assertThat(outcome.domain()).isEqualTo("time");
+        assertThat(outcome.provider()).isEqualTo("server-clock");
+        assertThat(outcome.query()).isEqualTo("当前日期时间");
+        assertThat(outcome.durationMs()).isNotNull();
+        assertThat(outcome.items()).singleElement().satisfies(item -> {
+            assertThat(item.sourceType()).isEqualTo("SYSTEM_TIME");
+            assertThat(item.sourceLabel()).isEqualTo("系统时间");
+            assertThat(item.metadata())
+                    .containsEntry("zoneId", "Asia/Shanghai")
+                    .containsEntry("provider", "server-clock")
+                    .containsKey("time")
+                    .containsKey("instant")
+                    .containsKey("weekday");
+            assertThat(item.metadata().get("date")).isIn(before.toString(), after.toString());
+            assertThat(item.sourceId()).isEqualTo(item.metadata().get("date"));
+            assertThat(item.indexInfo()).containsEntry("zoneId", "Asia/Shanghai");
+        });
+    }
 
     @Test
     void searchPersonalKnowledgeShouldFilterByUserIdAndSourceType() {
@@ -267,6 +298,41 @@ class AgentSearchServiceTest {
         assertThat(result).isEqualTo(item);
     }
 
+    @Test
+    void searchWebShouldDelegateWithoutUserContext() {
+        WebSearchClient webSearchClient = mock(WebSearchClient.class);
+        AgentSearchItem item = new AgentSearchItem(
+                "WEB_SEARCH",
+                "网页",
+                "https://example.com",
+                null,
+                "Example",
+                "https://example.com",
+                "Example snippet",
+                "联网搜索",
+                Map.of("url", "https://example.com"),
+                Map.of("url", "https://example.com"));
+        when(webSearchClient.search("AI news", 3)).thenReturn(AgentSearchOutcome.ok(
+                "web",
+                "tavily-compatible",
+                "AI news",
+                "找到 1 条网页结果",
+                12L,
+                List.of(item)));
+        AgentSearchService service = serviceWith(
+                mock(VectorStore.class),
+                mock(CourseAiContextClient.class),
+                mock(AuthInternalClient.class),
+                mock(PlatformApiSearchClient.class),
+                webSearchClient);
+
+        var results = service.searchWeb("AI news", 3);
+
+        assertThat(results.status()).isEqualTo(AgentSearchStatus.OK);
+        assertThat(results.items()).containsExactly(item);
+        verify(webSearchClient).search("AI news", 3);
+    }
+
     @SuppressWarnings("unchecked")
     private AgentSearchService serviceWith(VectorStore vectorStore) {
         return serviceWith(vectorStore, mock(CourseAiContextClient.class));
@@ -289,6 +355,15 @@ class AgentSearchServiceTest {
                                            CourseAiContextClient client,
                                            AuthInternalClient authClient,
                                            PlatformApiSearchClient platformClient) {
+        return serviceWith(vectorStore, client, authClient, platformClient, mock(WebSearchClient.class));
+    }
+
+    @SuppressWarnings("unchecked")
+    private AgentSearchService serviceWith(VectorStore vectorStore,
+                                           CourseAiContextClient client,
+                                           AuthInternalClient authClient,
+                                           PlatformApiSearchClient platformClient,
+                                           WebSearchClient webSearchClient) {
         ObjectProvider<@org.jspecify.annotations.NonNull VectorStore> provider = mock(ObjectProvider.class);
         when(provider.getObject()).thenReturn(vectorStore);
         ChatVectorMemoryService memoryService = mock(ChatVectorMemoryService.class);
@@ -297,6 +372,7 @@ class AgentSearchServiceTest {
                 client,
                 authClient,
                 platformClient,
+                webSearchClient,
                 provider,
                 memoryService,
                 new AiProperties(),

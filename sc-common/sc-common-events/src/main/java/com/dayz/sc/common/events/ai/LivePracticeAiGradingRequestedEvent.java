@@ -18,6 +18,7 @@ public record LivePracticeAiGradingRequestedEvent(
         BigDecimal score,
         List<AnswerReference> answers,
         String textAnswer,
+        String gradingRequirement,
         String eventType,
         Instant timestamp,
         String source

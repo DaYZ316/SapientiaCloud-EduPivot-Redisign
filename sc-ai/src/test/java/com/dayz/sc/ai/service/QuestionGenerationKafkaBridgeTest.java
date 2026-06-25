@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -234,6 +235,34 @@ class QuestionGenerationKafkaBridgeTest {
                 eq(KafkaTopicConstants.QUESTION_GENERATION_REQUESTS),
                 eq("request-1"),
                 any());
+    }
+
+    @Test
+    void cancelShouldEmitTerminalProgressAndCompletePendingSubmit() {
+        KafkaTemplate<@NonNull String, @NonNull Object> kafkaTemplate = kafkaTemplate();
+        QuestionGenerationKafkaBridge bridge = new QuestionGenerationKafkaBridge(provider(kafkaTemplate));
+        String requestId = "request-1";
+        List<QuestionGenerationProgressEvent> received = new CopyOnWriteArrayList<>();
+        AtomicBoolean completed = new AtomicBoolean(false);
+        bridge.progress(requestId)
+                .doOnComplete(() -> completed.set(true))
+                .subscribe(received::add);
+
+        var resultMono = bridge.submit(
+                new ChatRequest(UUID.randomUUID(), "generate questions", "QUESTION", null, null),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                2,
+                AiAgentMode.QUESTION,
+                requestId,
+                UUID.randomUUID());
+        bridge.cancel(requestId, AiAgentMode.QUESTION);
+
+        assertThat(resultMono.block(Duration.ofSeconds(1))).isNull();
+        assertThat(completed).isTrue();
+        assertThat(received).hasSize(1);
+        assertThat(received.getFirst().eventType()).isEqualTo("generation_stage");
+        assertThat(received.getFirst().payload().get("event").toString()).contains("TERMINATED");
     }
 
     @SuppressWarnings("unchecked")

@@ -1,7 +1,7 @@
 <template>
   <button
     :aria-pressed="active"
-    :class="{ 'is-complete': isComplete, 'is-failed': isFailed, 'is-active': active, 'is-pending': message.pending }"
+    :class="{ 'is-complete': isComplete, 'is-failed': isFailed, 'is-terminated': isTerminated, 'is-active': active, 'is-pending': message.pending }"
     class="generation-card"
     type="button"
     @click="$emit('view-trace', message.id)"
@@ -74,8 +74,9 @@ const stage = computed(() => currentGenerationStage(props.message))
 const progress = computed(() => (props.message.pending ? generationProgress(props.message) : 100))
 const traceCount = computed(() => generationTrace(props.message).length)
 const questionCount = computed(() => generatedQuestionCount(props.message))
-const isFailed = computed(() => props.message.failed || stage.value === 'FAILED')
-const isComplete = computed(() => !isFailed.value && !props.message.pending)
+const isTerminated = computed(() => props.message.terminated || stage.value === 'TERMINATED')
+const isFailed = computed(() => !isTerminated.value && (props.message.failed || stage.value === 'FAILED'))
+const isComplete = computed(() => !isFailed.value && !isTerminated.value && !props.message.pending)
 const title = computed(() => generationTitle(props.message))
 const summary = computed(() => generationSummary(props.message))
 const generationTime = computed(() =>
@@ -98,6 +99,7 @@ const generationTimeTitle = computed(
 )
 const actionLabel = computed(() => (props.message.messageType === 'PAPER' ? '天枢出卷' : '天枢出题'))
 const footerText = computed(() => {
+  if (isTerminated.value) return `${actionLabel.value}已终止`
   if (isFailed.value) return `${actionLabel.value}失败`
   if (props.message.pending)
     return traceCount.value > 0
@@ -131,8 +133,7 @@ function formatGenerationTime(value: string, options: Intl.DateTimeFormatOptions
   text-align: left;
   transition:
     background 0.18s ease,
-    border-color 0.18s ease,
-    transform 0.18s ease;
+    border-color 0.18s ease;
 }
 
 .generation-card:hover {
@@ -150,10 +151,6 @@ function formatGenerationTime(value: string, options: Intl.DateTimeFormatOptions
   border-color: var(--color-primary);
   outline: 3px solid color-mix(in srgb, var(--color-primary) 18%, transparent);
   outline-offset: 2px;
-}
-
-.generation-card:active {
-  transform: translateY(1px);
 }
 
 .generation-card.is-pending {

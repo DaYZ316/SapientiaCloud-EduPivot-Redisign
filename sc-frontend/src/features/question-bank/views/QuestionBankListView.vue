@@ -7,7 +7,7 @@
         </button>
         <h1>{{ t('questionBank.title') }}</h1>
       </div>
-      <button v-if="isTeacher" class="btn-primary" @click="showEditor = true">
+      <button v-if="isTeacher" class="btn-primary" @click="openCreateEditor">
         <Plus :size="16"/>
         {{ t('questionBank.newBank') }}
       </button>
@@ -30,76 +30,53 @@
           class="bank-card"
           @click="router.push('/question-banks/' + bank.id)"
       >
-        <div class="bank-icon">
-          <Database :size="24"/>
-        </div>
         <h3 class="bank-name">{{ bank.bankName }}</h3>
         <p v-if="bank.description" class="bank-desc">{{ bank.description }}</p>
         <div class="bank-meta">
           <span><FileText :size="14"/> {{ bank.questionCount }} {{ t('questionBank.questionCount') }}</span>
+          <span>{{ bankTypeName(bank.bankType) }}</span>
           <span :class="'diff-' + bank.difficulty" class="difficulty">{{ difficultyName(bank.difficulty) }}</span>
+        </div>
+        <div v-if="isTeacher" class="bank-actions" @click.stop>
+          <button :title="t('courseDetail.editBank')" class="btn-icon" type="button" @click="openEditEditor(bank)">
+            <Pencil :size="14" stroke-width="1.8"/>
+          </button>
+          <button :title="t('courseDetail.deleteBank')" class="btn-icon danger" type="button" @click="handleDeleteBank(bank)">
+            <Trash2 :size="14" stroke-width="1.8"/>
+          </button>
         </div>
       </div>
     </div>
 
-    <div v-if="showEditor" class="editor-overlay" @click.self="showEditor = false">
-      <div class="editor-dialog">
-        <div class="editor-header">
-          <h2>{{ t('questionBank.newBank') }}</h2>
-          <button class="close-btn" @click="showEditor = false">
-            <X :size="18"/>
-          </button>
-        </div>
-        <div class="editor-body">
-          <div class="field">
-            <label>{{ t('questionBank.bankName') }} *</label>
-            <input v-model="newBank.bankName" class="input" type="text"/>
-          </div>
-          <div class="field">
-            <label>{{ t('questionBank.bankDescription') }}</label>
-            <textarea v-model="newBank.description" class="textarea" rows="3"></textarea>
-          </div>
-          <div class="field-row">
-            <div class="field">
-              <label>{{ t('questionBank.bankType') }}</label>
-              <select v-model="newBank.bankType" class="input">
-                <option :value="0">练习</option>
-                <option :value="1">考试</option>
-                <option :value="2">作业</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>{{ t('questionBank.difficulty') }}</label>
-              <select v-model="newBank.difficulty" class="input">
-                <option :value="1">简单</option>
-                <option :value="2">中等</option>
-                <option :value="3">困难</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        <div class="editor-footer">
-          <button class="btn-cancel" @click="showEditor = false">{{ t('chapter.cancel') }}</button>
-          <button :disabled="!newBank.bankName.trim()" class="btn-save" @click="handleCreateBank">{{
-              t('chapter.save')
-            }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <QuestionBankEditorDialog
+        :bank="editingBank"
+        :submitting="submitting"
+        :visible="showEditor"
+        @close="closeEditor"
+        @submit="handleSubmit"
+    />
   </div>
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, ref} from 'vue'
+import {computed, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
-import {ArrowLeft, Database, FileText, Plus, X} from 'lucide-vue-next'
-import {createQuestionBank, getCourseQuestionBanks} from '@/features/question-bank/api/questionBank'
+import {ArrowLeft, Database, FileText, Pencil, Plus, Trash2} from 'lucide-vue-next'
+import {
+  createQuestionBank,
+  deleteQuestionBank,
+  getCourseQuestionBanks,
+  updateQuestionBank,
+} from '@/features/question-bank/api/questionBank'
 import type {QuestionBank} from '@/features/question-bank/types/questionBank'
 import {QuestionDifficulty} from '@/features/question-bank/types/questionBank'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {notify} from '@/shared/composables/useGlobalNotification'
+import {confirmDialog} from '@/shared/composables/useConfirmDialog'
+import QuestionBankEditorDialog, {
+  type QuestionBankEditorPayload,
+} from '@/features/question-bank/components/QuestionBankEditorDialog.vue'
 
 const {t} = useI18n()
 const route = useRoute()
@@ -118,44 +95,98 @@ const courseId = route.params.courseId as string
 const loading = ref(true)
 const banks = ref<QuestionBank[]>([])
 const showEditor = ref(false)
+const submitting = ref(false)
+const editingBank = ref<QuestionBank | null>(null)
+const handledCreateQuery = ref(false)
 
 const isTeacher = computed(() => authStore.user?.role === 2 || authStore.user?.role === 0)
 
-const newBank = ref({
-  bankName: '',
-  description: '',
-  bankType: 0,
-  difficulty: 2,
-})
-
 function difficultyName(d: number) {
-  return QuestionDifficulty[d] || '未知'
+  return QuestionDifficulty[d] || t('questionBank.unknown')
+}
+
+function bankTypeName(type: number) {
+  const labels: Record<number, string> = {
+    0: t('questionBank.bankTypePractice'),
+    1: t('questionBank.bankTypeExam'),
+    2: t('questionBank.bankTypeHomework'),
+  }
+  return labels[type] || t('questionBank.defaultBankType')
 }
 
 onMounted(async () => {
+  await loadBanks()
+  openEditorFromQuery()
+})
+
+watch(
+    () => route.query.create,
+    () => openEditorFromQuery()
+)
+
+async function loadBanks() {
+  loading.value = true
   try {
-    if (courseId) {
-      banks.value = await getCourseQuestionBanks(courseId)
-    }
+    if (courseId) banks.value = await getCourseQuestionBanks(courseId)
   } finally {
     loading.value = false
   }
-})
+}
 
-async function handleCreateBank() {
+function openCreateEditor() {
+  editingBank.value = null
+  showEditor.value = true
+}
+
+function openEditEditor(bank: QuestionBank) {
+  editingBank.value = bank
+  showEditor.value = true
+}
+
+function closeEditor() {
+  showEditor.value = false
+  editingBank.value = null
+}
+
+function openEditorFromQuery() {
+  if (handledCreateQuery.value || route.query.create !== '1' || !isTeacher.value) return
+  handledCreateQuery.value = true
+  openCreateEditor()
+}
+
+async function handleSubmit(payload: QuestionBankEditorPayload) {
+  if (submitting.value) return
+  submitting.value = true
   try {
-    const id = await createQuestionBank({
-      courseId,
-      bankName: newBank.value.bankName,
-      description: newBank.value.description || undefined,
-      bankType: newBank.value.bankType,
-      difficulty: newBank.value.difficulty,
-    })
-    showEditor.value = false
-    notify.success('题库创建成功')
-    router.push('/question-banks/' + id)
+    if (editingBank.value) {
+      await updateQuestionBank(editingBank.value.id, payload)
+      notify.success(t('courseDetail.bankUpdated'))
+      closeEditor()
+      await loadBanks()
+    } else {
+      const id = await createQuestionBank({
+        courseId,
+        ...payload,
+      })
+      closeEditor()
+      notify.success(t('courseDetail.bankCreated'))
+      router.push('/question-banks/' + id)
+    }
   } catch {
-    notify.error('创建失败')
+    notify.error(t('courseDetail.alert.saveChapterFailed'))
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function handleDeleteBank(bank: QuestionBank) {
+  if (!(await confirmDialog({message: t('courseDetail.confirmDeleteBank'), confirmVariant: 'danger'}))) return
+  try {
+    await deleteQuestionBank(bank.id)
+    notify.success(t('courseDetail.bankDeleted'))
+    await loadBanks()
+  } catch {
+    notify.error(t('courseDetail.alert.saveChapterFailed'))
   }
 }
 </script>
@@ -247,14 +278,35 @@ async function handleCreateBank() {
   border-color: var(--color-on-surface);
 }
 
-.bank-icon {
-  width: 40px;
-  height: 40px;
+.bank-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.btn-icon {
   display: grid;
   place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-muted);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.btn-icon:hover {
   background: var(--color-surface-container-high);
-  border-radius: 12px;
+  border-color: var(--color-outline);
   color: var(--color-on-surface);
+}
+
+.btn-icon.danger:hover {
+  color: #ef4444;
 }
 
 .bank-name {
@@ -351,135 +403,4 @@ async function handleCreateBank() {
   }
 }
 
-.editor-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--color-overlay);
-  display: grid;
-  place-items: center;
-  z-index: 1000;
-  padding: 24px;
-}
-
-.editor-dialog {
-  width: 100%;
-  max-width: 500px;
-  background: var(--color-surface-card);
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-lg);
-}
-
-.editor-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 24px 28px 16px;
-}
-
-.editor-header h2 {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: 22px;
-  font-weight: 400;
-  color: var(--color-on-surface);
-}
-
-.close-btn {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: none;
-  color: var(--color-muted);
-  cursor: pointer;
-  border-radius: 8px;
-}
-
-.close-btn:hover {
-  background: var(--color-surface-container);
-  color: var(--color-on-surface);
-}
-
-.editor-body {
-  padding: 0 28px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.field label {
-  font-family: var(--font-body);
-  font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-}
-
-.input, .textarea, select.input {
-  width: 100%;
-  padding: 10px 14px;
-  background: var(--color-surface-container);
-  border: 1px solid var(--color-outline-light);
-  border-radius: var(--radius-sm);
-  color: var(--color-on-surface);
-  font-family: var(--font-body);
-  font-size: 14px;
-  outline: none;
-}
-
-.input:focus, .textarea:focus, select.input:focus {
-  border-color: var(--color-on-surface);
-}
-
-.textarea {
-  resize: vertical;
-  min-height: 60px;
-}
-
-.field-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.editor-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 28px 24px;
-  border-top: 1px solid var(--color-outline-light);
-}
-
-.btn-cancel, .btn-save {
-  padding: 10px 20px;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 400;
-  cursor: pointer;
-}
-
-.btn-cancel {
-  background: var(--color-surface-container);
-  color: var(--color-on-surface);
-}
-
-.btn-save {
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-}
-
-.btn-save:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 </style>

@@ -117,23 +117,39 @@
           <router-view
               :assistants="assistantOnlyInfos"
               :banks="courseBanks"
+              :banks-loaded="banksLoaded"
+              :banks-total="banksTotal"
               :can-access-course-content="canAccessCourseContent"
               :can-comment="canComment"
+              :can-enter-class-sessions="canEnterClassSessions"
               :can-manage-assistants="canManageAssistants"
               :can-manage-course="canManageCourse"
+              :can-view-assistants="canViewAssistants"
+              :can-view-live-practices="canViewLivePractices"
+              :can-view-students="canViewStudents"
               :chapter-tree="chapterTree"
               :chapters-loading="chaptersLoading"
+              :class-sessions="classSessions"
+              :class-sessions-loaded="classSessionsLoaded"
+              :class-sessions-loading="classSessionsLoading"
               :course="course"
               :course-id="courseId"
               :create-request-key="classSessionCreateRequestKey"
               :current-user-id="authStore.user?.id"
+              :enrolling="enrolling"
               :files="courseFiles"
+              :files-loaded="filesLoaded"
+              :files-total="filesTotal"
               :format-date="formatDate"
               :is-admin="isAdmin"
               :is-student="isStudent"
               :students="courseStudents"
+              :students-loaded="studentsLoaded"
+              :students-total="studentsTotal"
               v-bind="activeListPaginationProps"
               @refresh="reloadActiveTabData"
+              @enroll="handlePrimaryAction"
+              @open-class-session-creator="openClassSessionCreator"
               @open-chapter-editor="openChapterEditor"
               @select-chapter="handleChapterSelect"
               @edit-chapter="handleEditChapter"
@@ -290,12 +306,14 @@ import {
 } from 'lucide-vue-next'
 
 import {createChapter, deleteChapter, getChapterTree, updateChapter} from '@/features/course/api/chapter'
+import {getCourseClassSessions} from '@/features/course/api/classSession'
 import {enroll, getCourse, getCourseEnrollments, listCourseFiles, updateCourse} from '@/features/course/api/course'
 import {getQuestionBanks} from '@/features/question-bank/api/questionBank'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import {useAuthStore} from '@/features/auth/stores/auth'
 
 import type {Chapter, CreateChapterRequest, UpdateChapterRequest} from '@/features/course/types/chapter'
+import type {ClassSession} from '@/features/course/types/classSession'
 import type {CourseDetail, CourseFile, Enrollment, UpdateCourseRequest,} from '@/features/course/types/course'
 import type {QuestionBank} from '@/features/question-bank/types/questionBank'
 
@@ -321,9 +339,11 @@ const chaptersLoading = ref(false)
 const banksLoading = ref(false)
 const filesLoading = ref(false)
 const studentsLoading = ref(false)
+const classSessionsLoading = ref(false)
 const enrolling = ref(false)
 const course = ref<CourseDetail | null>(null)
 const chapterTree = ref<Chapter[]>([])
+const classSessions = ref<ClassSession[]>([])
 const courseBanks = ref<QuestionBank[]>([])
 const courseFiles = ref<CourseFile[]>([])
 const courseStudents = ref<Enrollment[]>([])
@@ -331,6 +351,7 @@ const chaptersLoaded = ref(false)
 const banksLoaded = ref(false)
 const filesLoaded = ref(false)
 const studentsLoaded = ref(false)
+const classSessionsLoaded = ref(false)
 const banksPage = ref(1)
 const banksTotal = ref(0)
 const filesPage = ref(1)
@@ -625,14 +646,17 @@ function resetCourseData() {
   courseBanks.value = []
   courseFiles.value = []
   courseStudents.value = []
+  classSessions.value = []
   chaptersLoading.value = false
   banksLoading.value = false
   filesLoading.value = false
   studentsLoading.value = false
+  classSessionsLoading.value = false
   chaptersLoaded.value = false
   banksLoaded.value = false
   filesLoaded.value = false
   studentsLoaded.value = false
+  classSessionsLoaded.value = false
   banksPage.value = 1
   banksTotal.value = 0
   filesPage.value = 1
@@ -783,6 +807,10 @@ async function openClassSessionCreator() {
 
 async function ensureActiveTabData() {
   switch (activeTabKey.value) {
+    case 'overview':
+      if (!chaptersLoaded.value && !chaptersLoading.value) await reloadChapters()
+      if (!classSessionsLoading.value) await reloadClassSessionsForOverview()
+      break
     case 'chapters':
       if (!chaptersLoaded.value && !chaptersLoading.value) await reloadChapters()
       break
@@ -804,6 +832,7 @@ async function reloadActiveTabData() {
   switch (activeTabKey.value) {
     case 'overview':
       await reloadCourse()
+      await reloadClassSessionsForOverview()
       break
     case 'chapters':
       await reloadChapters()
@@ -926,6 +955,26 @@ async function reloadStudents(page = studentsPage.value) {
   }
 }
 
+async function reloadClassSessionsForOverview() {
+  const targetCourseId = courseId.value
+  if (classSessionsLoading.value || !canEnterClassSessions.value) return
+  classSessionsLoading.value = true
+  try {
+    const pageSize = Math.max(DETAIL_PAGE_SIZE, Math.min(course.value?.totalClassHours || 0, 100))
+    const resp = await getCourseClassSessions(targetCourseId, 1, pageSize)
+    if (targetCourseId !== courseId.value) return
+    classSessions.value = resp.records || []
+    classSessionsLoaded.value = true
+  } catch {
+    if (targetCourseId === courseId.value) {
+      classSessions.value = []
+      classSessionsLoaded.value = true
+    }
+  } finally {
+    if (targetCourseId === courseId.value) classSessionsLoading.value = false
+  }
+}
+
 async function reloadCourse() {
   const targetCourseId = courseId.value
   const courseData = await getCourse(targetCourseId)
@@ -990,7 +1039,6 @@ function useFallbackImage(event: Event, fallback: string) {
 .primary-action:active,
 .secondary-action:active,
 .btn-add:active,
-.btn-practice:active,
 .text-action:active {
   transform: translateY(1px);
 }

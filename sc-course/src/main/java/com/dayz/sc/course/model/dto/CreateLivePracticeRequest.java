@@ -20,6 +20,8 @@ public record CreateLivePracticeRequest(
         @NotNull Instant availableStartAt,
         @NotNull Instant availableEndAt,
         Integer allowLateSubmission,
+        Integer aiGradingEnabled,
+        @Size(max = 2000) String aiGradingRequirement,
         List<UUID> selectedQuestionIds,
         @Valid List<CreateLivePracticeQuestionRequest> createdQuestions
 ) {

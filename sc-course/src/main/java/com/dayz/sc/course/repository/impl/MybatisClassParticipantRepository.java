@@ -40,6 +40,17 @@ public class MybatisClassParticipantRepository implements ClassParticipantReposi
     }
 
     @Override
+    public List<ClassParticipant> findBySessionIdAndUserIds(UUID sessionId, List<UUID> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+        LambdaQueryWrapper<ClassParticipant> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ClassParticipant::getSessionId, sessionId);
+        wrapper.in(ClassParticipant::getUserId, userIds);
+        return classParticipantMapper.selectList(wrapper);
+    }
+
+    @Override
     public Optional<ClassParticipant> findBySessionIdAndSeatIndex(UUID sessionId, Integer seatIndex) {
         LambdaQueryWrapper<ClassParticipant> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ClassParticipant::getSessionId, sessionId);

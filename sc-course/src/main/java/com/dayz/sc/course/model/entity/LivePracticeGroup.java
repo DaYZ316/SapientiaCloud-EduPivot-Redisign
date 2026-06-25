@@ -35,6 +35,10 @@ public class LivePracticeGroup {
 
     private Integer allowLateSubmission;
 
+    private Integer aiGradingEnabled;
+
+    private String aiGradingRequirement;
+
     private Integer publishOrder;
 
     private Instant publishedAt;

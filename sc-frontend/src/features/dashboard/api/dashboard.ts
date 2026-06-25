@@ -117,6 +117,7 @@ export interface StudentDashboard {
     enrollments: Enrollment[]
     sessions: ClassSession[]
     recommendations: Course[]
+    ongoingSessions: ClassSession[]
     liveSession: ClassSession | null
     continueCourse: Enrollment | null
     practiceFocus: DashboardAction

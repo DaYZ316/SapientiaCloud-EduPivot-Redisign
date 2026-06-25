@@ -8,11 +8,14 @@ import com.dayz.sc.ai.model.enums.AiMessageType;
 import com.dayz.sc.ai.model.enums.MessageRole;
 import com.dayz.sc.ai.model.vo.AiAgentResult;
 import com.dayz.sc.ai.repository.MessageRepository;
+import com.dayz.sc.common.events.ai.QuestionGenerationProgressEvent;
+import com.dayz.sc.common.feign.dto.AgentSearchItem;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -24,6 +27,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.codec.ServerSentEvent;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -170,7 +174,10 @@ class RagChatServiceTest {
         assertThat(messages.get(2)).isInstanceOf(AssistantMessage.class);
         assertThat(messages.get(3)).isInstanceOf(UserMessage.class);
         assertThat(messages.get(3).getText()).isEqualTo("what is my name?");
-        assertThat(messages.getFirst().getText()).contains("当前登录用户角色：未知。");
+        assertThat(messages.getFirst().getText())
+                .contains("当前登录用户角色：未知。")
+                .contains("getCurrentDateTime")
+                .doesNotContain("当前日期：");
     }
 
     @Test
@@ -203,8 +210,50 @@ class RagChatServiceTest {
         assertThat(messages.getFirst()).isInstanceOf(SystemMessage.class);
         assertThat(messages.getFirst().getText())
                 .contains("当前登录用户角色：教师。")
+                .doesNotContain("当前日期：")
                 .doesNotContain("role=2")
                 .doesNotContain("用户 ID");
+    }
+
+    @Test
+    void modelMessagesShouldIncludeWebSearchInstruction() {
+        RagChatService service = serviceWith(mock(VectorStore.class), new AiProperties());
+
+        List<Message> messages = service.modelMessages("SYSTEM", List.of(), "查一下最新 AI 新闻", 2);
+
+        assertThat(messages.getFirst()).isInstanceOf(SystemMessage.class);
+        assertThat(messages.getFirst().getText())
+                .contains("Use searchWeb only when the user explicitly asks to search the web")
+                .contains("Prefer platform and course search tools for")
+                .contains("do not present web")
+                .contains("getCurrentDateTime")
+                .contains("SYSTEM_TIME")
+                .contains("Do not assume a stale year or month")
+                .contains("If searchWeb returns EMPTY")
+                .contains("DISABLED, MISCONFIGURED, or FAILED")
+                .contains("do not answer fresh/current facts from memory");
+    }
+
+    @Test
+    void modelMessagesShouldIncludeAgentSearchPreflightContext() {
+        RagChatService service = serviceWith(mock(VectorStore.class), new AiProperties());
+
+        List<Message> messages = service.modelMessages(
+                "SYSTEM",
+                List.of(),
+                "查一下最新 AI 新闻",
+                2,
+                List.of(systemTimeOutcome("2026-06-24")));
+
+        assertThat(messages.getFirst()).isInstanceOf(SystemMessage.class);
+        assertThat(messages.getFirst().getText())
+                .contains("AgentSearch preflight context")
+                .contains("domain=time")
+                .contains("status=OK")
+                .contains("provider=server-clock")
+                .contains("sourceType=SYSTEM_TIME")
+                .contains("date=2026-06-24")
+                .contains("zoneId=Asia/Shanghai");
     }
 
     @Test
@@ -384,7 +433,148 @@ class RagChatServiceTest {
                 any(),
                 any(),
                 any(),
-                any());
+                        any());
+    }
+
+    @Test
+    void newQuestionGenerationConversationShouldGenerateTitleWithRequestContext() {
+        UUID conversationId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        ConversationService conversationService = mock(ConversationService.class);
+        when(conversationService.createConversation(
+                org.mockito.ArgumentMatchers.anyString(),
+                any())).thenReturn(conversationId);
+        AiAgentService aiAgentService = mock(AiAgentService.class);
+        when(aiAgentService.runGeneration(
+                any(ChatRequest.class),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()))
+                .thenReturn(new AiAgentResult("generated", AiMessageType.QUESTION_SET, Map.<String, Object>of()));
+        ChatClient chatClient = mock(ChatClient.class);
+        ChatClient.ChatClientRequestSpec titleSpec = mock(ChatClient.ChatClientRequestSpec.class, RETURNS_SELF);
+        ChatClient.CallResponseSpec titleCallSpec = mock(ChatClient.CallResponseSpec.class);
+        when(chatClient.prompt()).thenReturn(titleSpec);
+        when(titleSpec.call()).thenReturn(titleCallSpec);
+        when(titleCallSpec.content()).thenReturn("HashMap 出题");
+        RagChatService service = serviceWith(
+                mock(VectorStore.class),
+                new AiProperties(),
+                messageRepository,
+                conversationService,
+                aiAgentService,
+                chatClient,
+                mock(AgentSearchTools.class));
+        GenerationRequest generation = new GenerationRequest(
+                null,
+                5,
+                0,
+                2,
+                BigDecimal.valueOf(4),
+                null,
+                null,
+                null,
+                null,
+                "覆盖 HashMap 默认负载因子",
+                null,
+                List.of("HashMap"),
+                List.of("理解底层原理"));
+
+        List<ServerSentEvent<String>> events = service.stream(
+                        new ChatRequest(null, "帮我出题", "QUESTION", null, generation),
+                        userId,
+                        2,
+                        null)
+                .collectList()
+                .block();
+
+        assertThat(events).isNotNull();
+        assertThat(events).extracting(ServerSentEvent::event)
+                .containsExactly("conversation", "generation_result", "chunk", "conversation");
+        assertThat(events.getFirst().data()).contains("帮我出题");
+        assertThat(events.getLast().data()).contains("HashMap 出题");
+        verify(conversationService).updateConversationTitle(conversationId, "HashMap 出题", userId);
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(titleSpec).user(promptCaptor.capture());
+        assertThat(promptCaptor.getValue())
+                .contains("生成任务：出题")
+                .contains("要求：覆盖 HashMap 默认负载因子")
+                .contains("知识点：[HashMap]")
+                .contains("能力目标：[理解底层原理]");
+    }
+
+    @Test
+    void newPaperGenerationConversationShouldGenerateTitleWithRequestContext() {
+        UUID conversationId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        ConversationService conversationService = mock(ConversationService.class);
+        when(conversationService.createConversation(
+                org.mockito.ArgumentMatchers.anyString(),
+                any())).thenReturn(conversationId);
+        AiAgentService aiAgentService = mock(AiAgentService.class);
+        when(aiAgentService.runGeneration(
+                any(ChatRequest.class),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()))
+                .thenReturn(new AiAgentResult("paper content", AiMessageType.PAPER, Map.<String, Object>of()));
+        ChatClient chatClient = mock(ChatClient.class);
+        ChatClient.ChatClientRequestSpec titleSpec = mock(ChatClient.ChatClientRequestSpec.class, RETURNS_SELF);
+        ChatClient.CallResponseSpec titleCallSpec = mock(ChatClient.CallResponseSpec.class);
+        when(chatClient.prompt()).thenReturn(titleSpec);
+        when(titleSpec.call()).thenReturn(titleCallSpec);
+        when(titleCallSpec.content()).thenReturn("期中 Java 试卷");
+        RagChatService service = serviceWith(
+                mock(VectorStore.class),
+                new AiProperties(),
+                messageRepository,
+                conversationService,
+                aiAgentService,
+                chatClient,
+                mock(AgentSearchTools.class));
+        GenerationRequest generation = new GenerationRequest(
+                null,
+                10,
+                5,
+                3,
+                null,
+                BigDecimal.valueOf(100),
+                90,
+                "Java 期中测试",
+                "期中考试",
+                "覆盖集合框架和异常处理",
+                null,
+                List.of("集合框架", "异常处理"),
+                null);
+
+        List<ServerSentEvent<String>> events = service.stream(
+                        new ChatRequest(null, "帮我出卷", "PAPER", null, generation),
+                        userId,
+                        2,
+                        null)
+                .collectList()
+                .block();
+
+        assertThat(events).isNotNull();
+        assertThat(events).extracting(ServerSentEvent::event)
+                .containsExactly("conversation", "generation_result", "chunk", "conversation");
+        assertThat(events.getFirst().data()).contains("帮我出卷");
+        assertThat(events.getLast().data()).contains("期中 Java 试卷");
+        verify(conversationService).updateConversationTitle(conversationId, "期中 Java 试卷", userId);
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(titleSpec).user(promptCaptor.capture());
+        assertThat(promptCaptor.getValue())
+                .contains("生成任务：出卷")
+                .contains("试卷名称：Java 期中测试")
+                .contains("试卷类型：期中考试")
+                .contains("要求：覆盖集合框架和异常处理")
+                .contains("知识点：[集合框架, 异常处理]");
     }
 
     @Test
@@ -439,6 +629,130 @@ class RagChatServiceTest {
         Map<?, ?> resultPayload = (Map<?, ?>) data.get("payload");
         assertThat(resultPayload.get("schemaVersion")).isEqualTo(2);
         assertThat((List<?>) resultPayload.get("questions")).hasSize(1);
+    }
+
+    @Test
+    void generationProgressShouldEmitSnapshotAndProgressEvents() throws Exception {
+        UUID conversationId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        String requestId = "request-1";
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        ChatMessage message = message(messageId, MessageRole.ASSISTANT, AiMessageType.PAPER, "",
+                Map.of(
+                        "generationRequestId", requestId,
+                        "generationStatus", "processing",
+                        "generationStage", "PLANNED"));
+        message.setConversationId(conversationId);
+        when(messageRepository.findById(messageId)).thenReturn(java.util.Optional.of(message));
+        ConversationService conversationService = mock(ConversationService.class);
+        QuestionGenerationKafkaBridge kafkaBridge = mock(QuestionGenerationKafkaBridge.class);
+        when(kafkaBridge.progress(requestId)).thenReturn(reactor.core.publisher.Flux.just(
+                new QuestionGenerationProgressEvent(
+                        UUID.randomUUID(),
+                        requestId,
+                        "generation_stage",
+                        Map.of("event", Map.of(
+                                "requestId", requestId,
+                                "mode", "PAPER",
+                                "stage", "GENERATED",
+                                "status", "processing",
+                                "title", "Draft generated",
+                                "summary", "Generated 1 draft question.",
+                                "payload", Map.of("questionCount", 1))),
+                        Instant.now())));
+        RagChatService service = serviceWith(
+                mock(VectorStore.class),
+                new AiProperties(),
+                messageRepository,
+                conversationService,
+                mock(AiAgentService.class),
+                kafkaBridgeProvider(kafkaBridge));
+
+        List<ServerSentEvent<String>> events = service.streamGenerationProgress(conversationId, messageId, userId)
+                .collectList()
+                .block();
+
+        verify(conversationService).requireOwnedConversation(conversationId, userId);
+        assertThat(events).isNotNull();
+        assertThat(events).extracting(ServerSentEvent::event)
+                .containsExactly("generation_snapshot", "generation_stage");
+        Map<String, Object> snapshot = new ObjectMapper().readValue(events.getFirst().data(), new TypeReference<>() {
+        });
+        assertThat(snapshot).containsEntry("id", messageId.toString());
+        Map<String, Object> stage = new ObjectMapper().readValue(events.get(1).data(), new TypeReference<>() {
+        });
+        assertThat(stage)
+                .containsEntry("messageId", messageId.toString())
+                .containsEntry("requestId", requestId)
+                .containsEntry("stage", "GENERATED");
+    }
+
+    @Test
+    void generationProgressShouldOnlyEmitSnapshotWhenMessageCompleted() {
+        UUID conversationId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        ChatMessage message = message(messageId, MessageRole.ASSISTANT, AiMessageType.QUESTION_SET, "done",
+                Map.of(
+                        "generationRequestId", "request-1",
+                        "generationStatus", "completed",
+                        "generationStage", "RESPONDED"));
+        message.setConversationId(conversationId);
+        when(messageRepository.findById(messageId)).thenReturn(java.util.Optional.of(message));
+        ConversationService conversationService = mock(ConversationService.class);
+        QuestionGenerationKafkaBridge kafkaBridge = mock(QuestionGenerationKafkaBridge.class);
+        RagChatService service = serviceWith(
+                mock(VectorStore.class),
+                new AiProperties(),
+                messageRepository,
+                conversationService,
+                mock(AiAgentService.class),
+                kafkaBridgeProvider(kafkaBridge));
+
+        List<ServerSentEvent<String>> events = service.streamGenerationProgress(conversationId, messageId, userId)
+                .collectList()
+                .block();
+
+        assertThat(events).isNotNull();
+        assertThat(events).extracting(ServerSentEvent::event).containsExactly("generation_snapshot");
+        verify(kafkaBridge, never()).progress(any());
+    }
+
+    @Test
+    void terminateGenerationShouldPersistTerminatedStateAndCancelBridge() {
+        UUID conversationId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        String requestId = "request-1";
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        ChatMessage message = message(messageId, MessageRole.ASSISTANT, AiMessageType.PAPER, "",
+                Map.of(
+                        "generationRequestId", requestId,
+                        "generationMode", "PAPER",
+                        "generationStatus", "processing",
+                        "generationStage", "PLANNED",
+                        "generationTrace", List.of()));
+        message.setConversationId(conversationId);
+        when(messageRepository.findById(messageId)).thenReturn(java.util.Optional.of(message));
+        ConversationService conversationService = mock(ConversationService.class);
+        QuestionGenerationKafkaBridge kafkaBridge = mock(QuestionGenerationKafkaBridge.class);
+        RagChatService service = serviceWith(
+                mock(VectorStore.class),
+                new AiProperties(),
+                messageRepository,
+                conversationService,
+                mock(AiAgentService.class),
+                kafkaBridgeProvider(kafkaBridge));
+
+        service.terminateGeneration(conversationId, messageId, userId);
+
+        verify(conversationService).requireOwnedConversation(conversationId, userId);
+        verify(kafkaBridge).cancel(requestId, com.dayz.sc.ai.model.enums.AiAgentMode.PAPER);
+        verify(messageRepository).update(argThat(updated ->
+                "terminated".equals(updated.getPayload().get("generationStatus"))
+                        && "TERMINATED".equals(updated.getPayload().get("generationStage"))));
     }
 
     @Test
@@ -519,12 +833,15 @@ class RagChatServiceTest {
                     (AgentSearchEventEmitter) context.get(AgentSearchTools.CONTEXT_EVENT_EMITTER);
             AgentSearchEvent started = AgentSearchEvent.started("courses", "正在检索课程", "课程");
             emitter.emit(started);
-            emitter.emit(AgentSearchEvent.results(
+            emitter.emit(AgentSearchEvent.outcome(
                     started.searchId(),
-                    "courses",
-                    "找到 1 门课程",
-                    "课程",
-                    List.of(new com.dayz.sc.common.feign.dto.AgentSearchItem(
+                    AgentSearchOutcome.ok(
+                            "courses",
+                            "platform",
+                            "课程",
+                            "找到 1 门课程",
+                            18L,
+                            List.of(new com.dayz.sc.common.feign.dto.AgentSearchItem(
                             "COURSE",
                             "课程",
                             "course-a",
@@ -534,7 +851,7 @@ class RagChatServiceTest {
                             "课程简介",
                             "主讲课程",
                             Map.of("status", 1),
-                            Map.of("sourceType", "COURSE", "sourceId", "course-a", "courseId", "course-a")))));
+                                    Map.of("sourceType", "COURSE", "sourceId", "course-a", "courseId", "course-a"))))));
             return requestSpec;
         });
         RagChatService service = serviceWith(
@@ -560,7 +877,12 @@ class RagChatServiceTest {
         assertThat(events).anySatisfy(event ->
                 assertThat(event.data()).contains("\"phase\":\"started\"", "\"searchId\""));
         assertThat(events).anySatisfy(event ->
-                assertThat(event.data()).contains("\"phase\":\"results\"", "\"sourceId\":\"course-a\""));
+                assertThat(event.data()).contains(
+                        "\"phase\":\"results\"",
+                        "\"status\":\"OK\"",
+                        "\"provider\":\"platform\"",
+                        "\"durationMs\":18",
+                        "\"sourceId\":\"course-a\""));
         assertThat(events.get(3).data()).contains("\"phase\":\"completed\"");
         assertThat(events.getLast().data()).contains("我是李文昊");
         verify(messageRepository, atLeastOnce()).save(argThat(message -> {
@@ -575,6 +897,9 @@ class RagChatServiceTest {
                     && searches.size() == 1
                     && items.size() == 1
                     && searches.getFirst().toString().contains("course-a")
+                    && searches.getFirst().toString().contains("status=OK")
+                    && searches.getFirst().toString().contains("provider=platform")
+                    && searches.getFirst().toString().contains("durationMs=18")
                     && items.getFirst().toString().contains("sourceId=course-a");
         }));
         verify(requestSpec).tools(agentSearchTools);
@@ -585,7 +910,85 @@ class RagChatServiceTest {
                         && conversationId.toString().equals(context.get("conversationId"))));
         verify(requestSpec).messages(org.mockito.ArgumentMatchers.<List<Message>>argThat(messages ->
                 messages.stream().noneMatch(message -> message.getText().contains("Bearer user-token"))));
+        verify(agentSearchTools, never()).getCurrentDateTime(any(ToolContext.class));
         verify(requestSpec, never()).stream();
+    }
+
+    @Test
+    void chatModeShouldPreflightCurrentDateForTimeSensitiveQuestion() {
+        UUID conversationId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        VectorStore vectorStore = mock(VectorStore.class);
+        when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of());
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        when(messageRepository.findRecentByConversationId(conversationId, 13)).thenReturn(List.of());
+        ConversationService conversationService = mock(ConversationService.class);
+        ChatClient chatClient = mock(ChatClient.class);
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class, RETURNS_SELF);
+        ChatClient.CallResponseSpec callSpec = mock(ChatClient.CallResponseSpec.class);
+        AgentSearchTools agentSearchTools = mock(AgentSearchTools.class);
+        AgentSearchOutcome timeOutcome = systemTimeOutcome("2026-06-24");
+        when(agentSearchTools.getCurrentDateTime(any(ToolContext.class))).thenAnswer(invocation -> {
+            ToolContext toolContext = invocation.getArgument(0);
+            AgentSearchEventEmitter emitter = (AgentSearchEventEmitter) toolContext.getContext()
+                    .get(AgentSearchTools.CONTEXT_EVENT_EMITTER);
+            AgentSearchEvent started = AgentSearchEvent.started("time", "正在读取当前日期", "当前日期时间");
+            emitter.emit(started);
+            emitter.emit(AgentSearchEvent.outcome(started.searchId(), timeOutcome));
+            return timeOutcome;
+        });
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(callSpec);
+        when(callSpec.content()).thenReturn("根据当前日期检索。");
+        RagChatService service = serviceWith(
+                vectorStore,
+                new AiProperties(),
+                messageRepository,
+                conversationService,
+                mock(AiAgentService.class),
+                chatClient,
+                agentSearchTools);
+
+        List<ServerSentEvent<String>> events = service.stream(
+                        new ChatRequest(conversationId, "查一下最新 AI 新闻", "CHAT", null, null),
+                        userId,
+                        2,
+                        null)
+                .collectList()
+                .block();
+
+        assertThat(events).isNotNull();
+        assertThat(events).extracting(ServerSentEvent::event)
+                .containsExactly("context", "agent_search", "agent_search", "agent_search", "chunk");
+        assertThat(events).anySatisfy(event ->
+                assertThat(event.data()).contains("\"domain\":\"time\"", "\"phase\":\"started\""));
+        assertThat(events).anySatisfy(event ->
+                assertThat(event.data()).contains(
+                        "\"domain\":\"time\"",
+                        "\"phase\":\"results\"",
+                        "\"sourceType\":\"SYSTEM_TIME\"",
+                        "\"date\":\"2026-06-24\"",
+                        "\"provider\":\"server-clock\""));
+        verify(agentSearchTools).getCurrentDateTime(any(ToolContext.class));
+        verify(requestSpec).messages(org.mockito.ArgumentMatchers.<List<Message>>argThat(messages ->
+                messages.getFirst().getText().contains("AgentSearch preflight context")
+                        && messages.getFirst().getText().contains("sourceType=SYSTEM_TIME")
+                        && messages.getFirst().getText().contains("date=2026-06-24")
+                        && messages.getFirst().getText().contains("getCurrentDateTime")
+                        && !messages.getFirst().getText().contains("Bearer")));
+        verify(messageRepository, atLeastOnce()).save(argThat(message -> {
+            if (!MessageRole.ASSISTANT.name().equals(message.getRole()) || message.getPayload() == null) {
+                return false;
+            }
+            Map<?, ?> agentSearch = (Map<?, ?>) message.getPayload().get("agentSearch");
+            List<?> searches = agentSearch == null ? Collections.emptyList() : (List<?>) agentSearch.get("searches");
+            List<?> items = agentSearch == null ? Collections.emptyList() : (List<?>) agentSearch.get("items");
+            return agentSearch != null
+                    && searches.toString().contains("domain=time")
+                    && searches.toString().contains("status=OK")
+                    && items.toString().contains("sourceType=SYSTEM_TIME")
+                    && items.toString().contains("date=2026-06-24");
+        }));
     }
 
     @Test
@@ -664,8 +1067,25 @@ class RagChatServiceTest {
                 messageRepository,
                 conversationService,
                 aiAgentService,
+                emptyQuestionGenerationKafkaBridgeProvider());
+    }
+
+    @SuppressWarnings("unchecked")
+    private RagChatService serviceWith(VectorStore vectorStore,
+                                       AiProperties properties,
+                                       MessageRepository messageRepository,
+                                       ConversationService conversationService,
+                                       AiAgentService aiAgentService,
+                                       ObjectProvider<@org.jspecify.annotations.NonNull QuestionGenerationKafkaBridge> questionGenerationKafkaBridgeProvider) {
+        return serviceWith(
+                vectorStore,
+                properties,
+                messageRepository,
+                conversationService,
+                aiAgentService,
                 mock(ChatClient.class),
-                mock(AgentSearchTools.class));
+                mock(AgentSearchTools.class),
+                questionGenerationKafkaBridgeProvider);
     }
 
     @SuppressWarnings("unchecked")
@@ -676,6 +1096,26 @@ class RagChatServiceTest {
                                        AiAgentService aiAgentService,
                                        ChatClient chatClient,
                                        AgentSearchTools agentSearchTools) {
+        return serviceWith(
+                vectorStore,
+                properties,
+                messageRepository,
+                conversationService,
+                aiAgentService,
+                chatClient,
+                agentSearchTools,
+                emptyQuestionGenerationKafkaBridgeProvider());
+    }
+
+    @SuppressWarnings("unchecked")
+    private RagChatService serviceWith(VectorStore vectorStore,
+                                       AiProperties properties,
+                                       MessageRepository messageRepository,
+                                       ConversationService conversationService,
+                                       AiAgentService aiAgentService,
+                                       ChatClient chatClient,
+                                       AgentSearchTools agentSearchTools,
+                                       ObjectProvider<@org.jspecify.annotations.NonNull QuestionGenerationKafkaBridge> questionGenerationKafkaBridgeProvider) {
         ObjectProvider<@org.jspecify.annotations.NonNull VectorStore> provider = mock(ObjectProvider.class);
         when(provider.getObject()).thenReturn(vectorStore);
         ChatVectorMemoryService chatVectorMemoryService = mock(ChatVectorMemoryService.class);
@@ -703,9 +1143,29 @@ class RagChatServiceTest {
                 agentSearchTools,
                 new AiProviderCallGuard(),
                 new ObjectMapper(),
-                emptyQuestionGenerationKafkaBridgeProvider(),
+                questionGenerationKafkaBridgeProvider,
                 new GenerationMessageStateService(messageRepository)
         );
+    }
+
+    private ObjectProvider<@org.jspecify.annotations.NonNull QuestionGenerationKafkaBridge> kafkaBridgeProvider(
+            QuestionGenerationKafkaBridge kafkaBridge) {
+        return new ObjectProvider<>() {
+            @Override
+            public QuestionGenerationKafkaBridge getObject(Object... args) {
+                return kafkaBridge;
+            }
+
+            @Override
+            public QuestionGenerationKafkaBridge getIfAvailable() {
+                return kafkaBridge;
+            }
+
+            @Override
+            public QuestionGenerationKafkaBridge getObject() {
+                return kafkaBridge;
+            }
+        };
     }
 
     private ObjectProvider<@org.jspecify.annotations.NonNull QuestionGenerationKafkaBridge> emptyQuestionGenerationKafkaBridgeProvider() {
@@ -767,6 +1227,33 @@ class RagChatServiceTest {
         ChatMessage message = message(id, role, messageType, content);
         message.setPayload(payload);
         return message;
+    }
+
+    private AgentSearchOutcome systemTimeOutcome(String date) {
+        AgentSearchItem item = new AgentSearchItem(
+                "SYSTEM_TIME",
+                "系统时间",
+                date,
+                null,
+                "当前日期：" + date,
+                "Asia/Shanghai",
+                "当前日期是 " + date + "，当前时间是 12:00:00，时区 Asia/Shanghai。",
+                "系统时间",
+                Map.of(
+                        "date", date,
+                        "time", "12:00:00",
+                        "zoneId", "Asia/Shanghai",
+                        "instant", date + "T04:00:00Z",
+                        "weekday", "WEDNESDAY",
+                        "provider", "server-clock"),
+                Map.of("date", date, "zoneId", "Asia/Shanghai"));
+        return AgentSearchOutcome.ok(
+                "time",
+                "server-clock",
+                "当前日期时间",
+                "已读取当前日期",
+                1L,
+                List.of(item));
     }
 
     private void assertLatexRules(String prompt) {

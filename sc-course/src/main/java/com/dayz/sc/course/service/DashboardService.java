@@ -14,8 +14,10 @@ import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.course.model.dto.CoursePageRequest;
 import com.dayz.sc.course.model.enums.ClassLiveStatus;
+import com.dayz.sc.course.model.enums.ClassSessionStatus;
 import com.dayz.sc.course.model.enums.CourseStatus;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
+import com.dayz.sc.course.model.entity.ClassSession;
 import com.dayz.sc.course.model.vo.ClassSessionVO;
 import com.dayz.sc.course.model.vo.CourseVO;
 import com.dayz.sc.course.model.vo.EnrollmentVO;
@@ -31,6 +33,7 @@ import com.dayz.sc.course.model.vo.dashboard.DashboardStudentVO;
 import com.dayz.sc.course.model.vo.dashboard.DashboardSummaryItemVO;
 import com.dayz.sc.course.model.vo.dashboard.DashboardTeacherVO;
 import com.dayz.sc.course.model.vo.dashboard.DashboardTimelineItemVO;
+import com.dayz.sc.course.repository.ClassSessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -50,12 +53,14 @@ public class DashboardService {
     private static final int ROLE_STUDENT = UserRole.STUDENT.getCode();
     private static final int ROLE_TEACHER = UserRole.TEACHER.getCode();
     private static final int SUMMARY_SIZE = 8;
+    private static final int SESSION_DISPLAY_SIZE = 5;
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("MM-dd HH:mm")
             .withZone(ZoneId.systemDefault());
 
     private final CourseService courseService;
     private final EnrollmentService enrollmentService;
     private final ClassSessionService classSessionService;
+    private final ClassSessionRepository classSessionRepository;
     private final QuestionBankService questionBankService;
     private final PracticeSessionService practiceSessionService;
     private final AuthDashboardInternalClient authDashboardInternalClient;
@@ -111,9 +116,9 @@ public class DashboardService {
         DashboardNotificationSummary notifications = loadNotificationSummary(teacherId, false);
         List<CourseVO> primaryCourses = courseService.listTeacherCourses(teacherId, "primary", 1, SUMMARY_SIZE).records();
         List<CourseVO> assistantCourses = courseService.listTeacherCourses(teacherId, "assistant", 1, 6).records();
-        List<ClassSessionVO> sessions = loadSessions(primaryCourses.stream().map(CourseVO::id).limit(4).toList(), teacherId, ROLE_TEACHER)
+        List<ClassSessionVO> sessions = loadSessions(primaryCourses.stream().map(CourseVO::id).limit(4).toList(), teacherId, ROLE_TEACHER, 4)
                 .stream()
-                .limit(5)
+                .limit(SESSION_DISPLAY_SIZE)
                 .toList();
 
         return new DashboardTeacherVO(
@@ -122,7 +127,7 @@ public class DashboardService {
                 assistantCourses,
                 primaryCourses.stream().limit(6).toList(),
                 sessions,
-                liveSession(sessions),
+                teacherOngoingSession(teacherId),
                 buildTeacherPending(primaryCourses, notifications.recent()),
                 buildTeacherInsights(primaryCourses),
                 buildQuestionCoverage(primaryCourses),
@@ -139,7 +144,8 @@ public class DashboardService {
         List<ClassSessionVO> sessions = loadSessions(accessibleEnrollments.stream()
                 .map(EnrollmentVO::courseId)
                 .limit(3)
-                .toList(), studentId, ROLE_STUDENT);
+                .toList(), studentId, ROLE_STUDENT, 4);
+        List<ClassSessionVO> ongoingSessions = studentOngoingSessions(studentId);
         List<CourseVO> recommendations = listCourses(CourseStatus.PUBLISHED.getCode(), 1, 4).records();
         List<PracticeSessionVO> practiceSessions = latestPracticeSessions(studentId);
 
@@ -148,7 +154,8 @@ public class DashboardService {
                 enrollments,
                 sessions,
                 recommendations,
-                liveSession(sessions),
+                ongoingSessions,
+                firstSession(ongoingSessions),
                 continueCourse(accessibleEnrollments),
                 buildPracticeFocus(accessibleEnrollments),
                 practiceSessions,
@@ -199,26 +206,76 @@ public class DashboardService {
         return listCourses(status, isPublic, 1).total();
     }
 
-    private List<ClassSessionVO> loadSessions(List<UUID> courseIds, UUID userId, Integer role) {
+    private List<ClassSessionVO> loadSessions(List<UUID> courseIds, UUID userId, Integer role, int size) {
         return courseIds.stream()
-                .flatMap(courseId -> safeSessions(courseId, userId, role).stream())
+                .flatMap(courseId -> safeSessions(courseId, userId, role, size).stream())
                 .sorted(Comparator.comparing(ClassSessionVO::scheduledStartAt, Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList();
     }
 
-    private List<ClassSessionVO> safeSessions(UUID courseId, UUID userId, Integer role) {
+    private List<ClassSessionVO> safeSessions(UUID courseId, UUID userId, Integer role, int size) {
         try {
-            return classSessionService.listByCourse(courseId, 1, 4, userId, role).records();
+            return classSessionService.listByCourse(courseId, 1, size, userId, role).records();
         } catch (BusinessException ignored) {
             return List.of();
         }
     }
 
-    private ClassSessionVO liveSession(List<ClassSessionVO> sessions) {
+    private ClassSessionVO firstSession(List<ClassSessionVO> sessions) {
         return sessions.stream()
-                .filter(session -> session.liveStatus() == ClassLiveStatus.LIVE.getCode())
                 .findFirst()
                 .orElse(null);
+    }
+
+    private ClassSessionVO teacherOngoingSession(UUID teacherId) {
+        return classSessionRepository.findOngoingByTeacherId(teacherId, Instant.now(), 1).stream()
+                .findFirst()
+                .map(this::sessionVO)
+                .orElse(null);
+    }
+
+    private List<ClassSessionVO> studentOngoingSessions(UUID studentId) {
+        return classSessionRepository.findOngoingByStudentId(
+                        studentId,
+                        EnrollmentStatus.ACTIVE.getCode(),
+                        EnrollmentStatus.COMPLETED.getCode(),
+                        Instant.now(),
+                        SESSION_DISPLAY_SIZE
+                ).stream()
+                .map(this::sessionVO)
+                .toList();
+    }
+
+    private ClassSessionVO sessionVO(ClassSession session) {
+        ClassLiveStatus liveStatus = ClassLiveStatus.fromCode(session.getLiveStatus());
+        ClassSessionStatus status = ClassSessionStatus.calculate(
+                session.getPublishedAt(),
+                session.getScheduledStartAt(),
+                session.getScheduledEndAt(),
+                Instant.now()
+        );
+        return new ClassSessionVO(
+                session.getId(),
+                session.getCourseId(),
+                session.getTeacherId(),
+                session.getTitle(),
+                session.getDescription(),
+                session.getScheduledStartAt(),
+                session.getScheduledEndAt(),
+                session.getPublishedAt(),
+                session.getRoomSize(),
+                session.getLiveRoomName(),
+                liveStatus.getCode(),
+                liveStatus.getDescription(),
+                session.getLiveStartedAt(),
+                session.getLivePausedAt(),
+                session.getLiveEndedAt(),
+                status.getCode(),
+                status.getDescription(),
+                false,
+                session.getCreatedAt(),
+                session.getUpdatedAt()
+        );
     }
 
     private List<DashboardQuestionCoverageVO> buildQuestionCoverage(List<CourseVO> courses) {
@@ -292,10 +349,10 @@ public class DashboardService {
                 .filter(session -> !session.scheduledEndAt().isBefore(now))
                 .limit(3)
                 .forEach(session -> items.add(new DashboardTimelineItemVO(
-                        session.liveStatus() == ClassLiveStatus.LIVE.getCode() ? "正在进行的课堂" : "即将开始的课堂",
+                        session.status() == ClassSessionStatus.LIVE.getCode() ? "正在进行的课堂" : "即将开始的课堂",
                         session.title(),
                         formatInstant(session.scheduledStartAt()),
-                        session.liveStatus() == ClassLiveStatus.LIVE.getCode() ? "live" : "normal"
+                        session.status() == ClassSessionStatus.LIVE.getCode() ? "live" : "normal"
                 )));
         notifications.stream().limit(3).forEach(notification -> items.add(new DashboardTimelineItemVO(
                 notification.type() != null && notification.type() == 1 ? "课程通知待查看" : "系统通知待查看",

@@ -48,6 +48,7 @@ export function logout(refreshToken?: string) {
         url: '/api/auth/logout',
         method: 'POST',
         data: refreshToken ? {refreshToken} : undefined,
+        silent: true,
+        suppressSessionExpiredDialog: true,
     }, false)
 }
-

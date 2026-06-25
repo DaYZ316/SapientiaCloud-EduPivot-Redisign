@@ -22,6 +22,7 @@ public class AiProperties {
     private final KnowledgeBase knowledgeBase = new KnowledgeBase();
     private final ChatVectorMemory chatVectorMemory = new ChatVectorMemory();
     private final AgentSearch agentSearch = new AgentSearch();
+    private final LiveSummary liveSummary = new LiveSummary();
 
     /**
      * Chat strategy and prompt configuration.
@@ -137,5 +138,31 @@ public class AiProperties {
         private List<String> openApiSources = List.of("auth", "course", "storage", "notification", "ai");
         private Duration timeout = Duration.ofSeconds(3);
         private int maxResponseChars = 4000;
+        private boolean webSearchEnabled = true;
+        private String webSearchEndpoint = "https://api.tavily.com/search";
+        private String webSearchApiKey = "";
+        private int webSearchMaxResults = 5;
+        private Duration webSearchTimeout = Duration.ofSeconds(5);
+        private int webSearchMaxSnippetChars = 500;
+    }
+
+    @Getter
+    @Setter
+    public static class LiveSummary {
+        private Duration summaryInterval = Duration.ofSeconds(60);
+        private int summaryMinNewChars = 600;
+        private int recentTranscriptLimit = 40;
+        private int maxIncrementChars = 4000;
+        private final Asr asr = new Asr();
+
+        @Getter
+        @Setter
+        public static class Asr {
+            private String apiKey = "";
+            private String websocketUrl = "wss://dashscope.aliyuncs.com/api-ws/v1/inference";
+            private String model = "paraformer-realtime-v2";
+            private String format = "pcm";
+            private int sampleRate = 16000;
+        }
     }
 }

@@ -158,7 +158,7 @@
 
         <div class="tools-right">
           <button
-            v-if="aiStore.streaming"
+            v-if="canStopTask"
             class="btn-secondary secondary-action"
             :title="t('common.ai.chat.stopGenerating')"
             type="button"
@@ -259,6 +259,7 @@ const userDisplayName = computed(() => authStore.user?.displayName || authStore.
 const streamFingerprint = computed(() =>
   aiStore.messages.map((message) => `${message.id}:${message.content.length}:${message.pending ? '1' : '0'}`).join('|'),
 )
+const canStopTask = computed(() => aiStore.streaming || Boolean(aiStore.activeGenerationMessage?.pending))
 const speechButtonLabel = computed(() =>
   isListening.value ? t('common.ai.chat.stopVoiceInput') : t('common.ai.chat.startVoiceInput'),
 )
@@ -625,8 +626,10 @@ interface SpeechRecognitionErrorEventLike {
 .message-list {
   display: flex;
   min-height: 0;
+  min-width: 0;
   flex: 1;
   flex-direction: column;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: var(--space-md) clamp(var(--space-md), 6vw, 120px) var(--space-md);
   scroll-behavior: smooth;
@@ -640,7 +643,9 @@ interface SpeechRecognitionErrorEventLike {
 .message-row {
   display: grid;
   gap: var(--space-xs);
+  min-width: 0;
   width: 60%;
+  max-width: 100%;
   margin-inline: auto;
   margin-bottom: var(--space-md);
   animation: messageEnter 0.18s ease-out;
@@ -671,6 +676,7 @@ interface SpeechRecognitionErrorEventLike {
 }
 
 .message-bubble {
+  min-width: 0;
   width: fit-content;
   max-width: 80%;
   padding: 14px var(--space-md);
@@ -719,6 +725,8 @@ interface SpeechRecognitionErrorEventLike {
 }
 
 .message-content {
+  min-width: 0;
+  max-width: 100%;
   margin: 0;
   white-space: pre-wrap;
   color: inherit;
@@ -728,7 +736,13 @@ interface SpeechRecognitionErrorEventLike {
 }
 
 .message-content {
+  overflow-x: hidden;
   overflow-wrap: anywhere;
+}
+
+.message-content :deep(.ai-markdown-message) {
+  width: 100%;
+  max-width: 100%;
 }
 
 .message-row.streaming .message-content {

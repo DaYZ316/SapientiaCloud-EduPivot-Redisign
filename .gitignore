@@ -6,6 +6,7 @@ deploy_artifact.local.bat
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+*.7z
 
 ### STS ###
 .apt_generated

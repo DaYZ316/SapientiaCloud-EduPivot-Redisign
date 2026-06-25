@@ -184,17 +184,30 @@
                   v-for="option in selectedQuestion.options"
                   :key="option.id"
                   :class="{
-                    correct: canManageCourse && option.isCorrect === 1,
-                    selected: isSelectedOption(option.id),
+                    correct: shouldShowAnswerKey(selectedQuestion) && option.isCorrect === 1,
+                    selected: isSelectedOption(option.id) || isDraftOptionSelected(selectedQuestion.id, option.id),
+                    answerable: canAnswerQuestion(selectedQuestion),
                   }"
                   class="option-row"
+                  @click="toggleDraftOption(selectedQuestion, option.id)"
                 >
-                  <span class="option-label">{{ option.optionLabel }}</span>
+                  <span class="option-choice">
+                    <input
+                      v-if="canAnswerQuestion(selectedQuestion)"
+                      :checked="isDraftOptionSelected(selectedQuestion.id, option.id)"
+                      :disabled="submittingQuestionId === selectedQuestion.id"
+                      :name="selectedQuestion.id"
+                      :type="selectedQuestion.questionType === 1 ? 'checkbox' : 'radio'"
+                      @click.stop
+                      @change="toggleDraftOption(selectedQuestion, option.id)"
+                    >
+                    <span class="option-label">{{ option.optionLabel }}</span>
+                  </span>
                   <RichMathContent
                     :content="option.optionContent"
                     class="option-content rich-content"
                   />
-                  <strong v-if="canManageCourse && option.isCorrect === 1">{{ t('courseDetail.livePractice.correct') }}</strong>
+                  <strong v-if="shouldShowAnswerKey(selectedQuestion) && option.isCorrect === 1">{{ t('courseDetail.livePractice.correct') }}</strong>
                   <strong v-else-if="isSelectedOption(option.id)">{{ t('courseDetail.livePractice.selected') }}</strong>
                 </div>
               </div>
@@ -272,10 +285,38 @@
                   </span>
                 </div>
               </div>
+              <div
+                v-if="selectedQuestion.analysis?.submissions?.length"
+                class="ai-submission-list"
+              >
+                <span>学生提交</span>
+                <article
+                  v-for="submission in selectedQuestion.analysis.submissions"
+                  :key="submission.id"
+                  class="ai-submission-row"
+                >
+                  <div>
+                    <strong>{{ submission.studentName || submission.studentId }}</strong>
+                    <span :class="aiStatusClass(submission.aiGradingStatus)">
+                      {{ aiStatusText(submission.aiGradingStatus) }}
+                    </span>
+                  </div>
+                  <RichMathContent
+                    v-if="submission.textAnswer"
+                    :content="submission.textAnswer"
+                    class="text-answer"
+                  />
+                  <p>
+                    {{ submission.earnedScore }} / {{ selectedQuestion.score }} 分
+                    <template v-if="submission.aiGradingFeedback"> · {{ submission.aiGradingFeedback }}</template>
+                    <template v-else-if="submission.aiGradingError"> · {{ submission.aiGradingError }}</template>
+                  </p>
+                </article>
+              </div>
             </section>
 
             <section
-              v-if="canManageCourse && answerItems.length"
+              v-if="shouldShowAnswerKey(selectedQuestion) && answerItems.length"
               class="preview-section"
             >
               <h4>{{ t('courseDetail.livePractice.referenceAnswers') }}</h4>
@@ -321,13 +362,60 @@
                   :content="selectedQuestion.mySubmission.textAnswer"
                   class="text-answer"
                 />
+                <div
+                  v-if="selectedQuestion.aiGradingEnabled === 1"
+                  class="ai-result-card"
+                >
+                  <span :class="aiStatusClass(selectedQuestion.mySubmission.aiGradingStatus)">
+                    {{ aiStatusText(selectedQuestion.mySubmission.aiGradingStatus) }}
+                  </span>
+                  <p v-if="selectedQuestion.mySubmission.aiGradingFeedback">{{ selectedQuestion.mySubmission.aiGradingFeedback }}</p>
+                  <p v-else-if="selectedQuestion.mySubmission.aiGradingError">{{ selectedQuestion.mySubmission.aiGradingError }}</p>
+                </div>
+                <div
+                  v-if="isObjectiveQuestion(selectedQuestion.questionType) && correctOptionItems.length"
+                  class="correct-answer-block"
+                >
+                  <span>{{ t('courseDetail.livePractice.correctAnswers') }}</span>
+                  <div class="answer-list">
+                    <RichMathContent
+                      v-for="option in correctOptionItems"
+                      :key="option"
+                      :content="option"
+                      class="answer-row correct-answer-row"
+                    />
+                  </div>
+                </div>
               </div>
-              <p
+              <div
                 v-else
-                class="muted-text"
+                class="answer-form"
               >
-                {{ t('courseDetail.livePractice.notSubmittedQuestion') }}
-              </p>
+                <p class="muted-text">{{ t('courseDetail.livePractice.notSubmittedQuestion') }}</p>
+                <label
+                  v-if="!isObjectiveQuestion(selectedQuestion.questionType)"
+                  class="text-answer-input"
+                >
+                  <span>{{ t('courseDetail.livePractice.answerLabel') }}</span>
+                  <textarea
+                    v-model="textAnswers[selectedQuestion.id]"
+                    :disabled="submittingQuestionId === selectedQuestion.id"
+                    :placeholder="t('courseDetail.livePractice.answerPlaceholder')"
+                  />
+                </label>
+                <button
+                  :disabled="!canSubmitAnswer || submittingQuestionId === selectedQuestion.id"
+                  class="submit-answer-button"
+                  type="button"
+                  @click="submitSelectedAnswer"
+                >
+                  {{
+                    submittingQuestionId === selectedQuestion.id
+                      ? t('courseDetail.livePractice.submittingAnswer')
+                      : t('courseDetail.livePractice.submitAnswer')
+                  }}
+                </button>
+              </div>
             </section>
           </template>
         </aside>
@@ -337,7 +425,7 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, ref, watch} from 'vue'
+import {computed, onBeforeUnmount, reactive, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
 import {
@@ -354,11 +442,12 @@ import {
 
 import {getClassSession} from '@/features/course/api/classSession'
 import {getCourse} from '@/features/course/api/course'
-import {getLivePractice} from '@/features/live-practice/api/livePractice'
+import {getLivePractice, submitLivePracticeAnswer} from '@/features/live-practice/api/livePractice'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import type {ClassSession} from '@/features/course/types/classSession'
 import type {CourseDetail} from '@/features/course/types/course'
-import type {LivePracticeGroup} from '@/features/live-practice/types/livePractice'
+import type {LivePracticeGroup, LivePracticeQuestion} from '@/features/live-practice/types/livePractice'
+import {notify} from '@/shared/composables/useGlobalNotification'
 import RichMathContent from '@/shared/components/RichMathContent.vue'
 
 const {t, locale} = useI18n()
@@ -374,6 +463,11 @@ const course = ref<CourseDetail | null>(null)
 const group = ref<LivePracticeGroup | null>(null)
 const classSession = ref<ClassSession | null>(null)
 const selectedQuestionId = ref<string | null>(null)
+const selectedOptionAnswers = reactive<Record<string, string[]>>({})
+const textAnswers = reactive<Record<string, string>>({})
+const submittingQuestionId = ref<string | null>(null)
+let aiRefreshTimer: number | null = null
+let aiRefreshCount = 0
 
 const isAdmin = computed(() => authStore.user?.role === 0)
 const canManageCourse = computed(() => {
@@ -385,11 +479,24 @@ const questions = computed(() => group.value?.questions || [])
 const selectedQuestion = computed(() => {
   return questions.value.find(question => question.id === selectedQuestionId.value) || questions.value[0] || null
 })
+const canSubmitAnswer = computed(() => {
+  const question = selectedQuestion.value
+  if (!question || !canAnswerQuestion(question)) return false
+  if (isObjectiveQuestion(question.questionType)) {
+    return (selectedOptionAnswers[question.id] || []).length > 0
+  }
+  return Boolean((textAnswers[question.id] || '').trim())
+})
 const selectedOptionItems = computed(() => {
   const question = selectedQuestion.value
   const selectedIds = new Set(question?.mySubmission?.selectedOptionIds || [])
   return (question?.options || [])
       .filter(option => selectedIds.has(option.id))
+      .map(option => `${option.optionLabel}. ${option.optionContent}`)
+})
+const correctOptionItems = computed(() => {
+  return (selectedQuestion.value?.options || [])
+      .filter(option => option.isCorrect === 1)
       .map(option => `${option.optionLabel}. ${option.optionContent}`)
 })
 const answerItems = computed(() => {
@@ -424,15 +531,33 @@ async function loadData() {
     course.value = courseData
     group.value = groupData
     classSession.value = sessionData
-    const nextQuestions = groupData.questions || []
-    selectedQuestionId.value = nextQuestions.some(question => question.id === selectedQuestionId.value)
-        ? selectedQuestionId.value
-        : nextQuestions[0]?.id || null
+    syncSelectedQuestion(groupData.questions || [])
+    maybeStartAiRefresh()
   } catch {
     if (targetCourseId === courseId.value && targetGroupId === groupId.value) loadFailed.value = true
   } finally {
     if (targetCourseId === courseId.value && targetGroupId === groupId.value) loading.value = false
   }
+}
+
+async function reloadGroup() {
+  const targetGroupId = groupId.value
+  if (!targetGroupId) return
+  const groupData = await getLivePractice(targetGroupId)
+  if (targetGroupId !== groupId.value) return
+  group.value = groupData
+  syncSelectedQuestion(groupData.questions || [])
+  maybeStartAiRefresh()
+}
+
+onBeforeUnmount(() => {
+  stopAiRefresh()
+})
+
+function syncSelectedQuestion(nextQuestions: LivePracticeQuestion[]) {
+  selectedQuestionId.value = nextQuestions.some(question => question.id === selectedQuestionId.value)
+      ? selectedQuestionId.value
+      : nextQuestions[0]?.id || null
 }
 
 function backToList() {
@@ -492,8 +617,102 @@ function submitStatusLabel(status?: number | null) {
   return t('courseDetail.livePractice.statusNotSubmitted')
 }
 
+function aiStatusText(status?: string | null) {
+  if (status === 'PENDING') return 'AI 批改中'
+  if (status === 'COMPLETED') return 'AI 已批改'
+  if (status === 'FAILED') return 'AI 批改失败'
+  return '无需 AI 判题'
+}
+
+function aiStatusClass(status?: string | null) {
+  if (status === 'COMPLETED') return 'completed'
+  if (status === 'FAILED') return 'failed'
+  if (status === 'PENDING') return 'pending'
+  return 'idle'
+}
+
 function isSelectedOption(optionId: string) {
   return Boolean(selectedQuestion.value?.mySubmission?.selectedOptionIds?.includes(optionId))
+}
+
+function isObjectiveQuestion(type: number) {
+  return type <= 2
+}
+
+function canAnswerQuestion(question: LivePracticeQuestion) {
+  return !canManageCourse.value && !question.mySubmission
+}
+
+function shouldShowAnswerKey(question: LivePracticeQuestion) {
+  return canManageCourse.value || Boolean(question.mySubmission)
+}
+
+function isDraftOptionSelected(questionId: string, optionId: string) {
+  return selectedOptionAnswers[questionId]?.includes(optionId) || false
+}
+
+function toggleDraftOption(question: LivePracticeQuestion, optionId: string) {
+  if (!canAnswerQuestion(question) || submittingQuestionId.value === question.id) return
+  if (question.questionType === 1) {
+    const current = selectedOptionAnswers[question.id] || []
+    selectedOptionAnswers[question.id] = current.includes(optionId)
+        ? current.filter(id => id !== optionId)
+        : [...current, optionId]
+    return
+  }
+  selectedOptionAnswers[question.id] = [optionId]
+}
+
+async function submitSelectedAnswer() {
+  const question = selectedQuestion.value
+  const targetGroup = group.value
+  if (!question || !targetGroup || !canSubmitAnswer.value) return
+  submittingQuestionId.value = question.id
+  try {
+    await submitLivePracticeAnswer(targetGroup.id, question.id, {
+      selectedOptionIds: isObjectiveQuestion(question.questionType) ? selectedOptionAnswers[question.id] : undefined,
+      textAnswer: isObjectiveQuestion(question.questionType) ? undefined : textAnswers[question.id]?.trim(),
+    })
+    delete selectedOptionAnswers[question.id]
+    delete textAnswers[question.id]
+    notify.success(t('courseDetail.livePractice.submitSuccess'))
+    await reloadGroup()
+    maybeStartAiRefresh()
+  } catch {
+    notify.error(t('courseDetail.livePractice.submitFailed'))
+  } finally {
+    submittingQuestionId.value = null
+  }
+}
+
+function maybeStartAiRefresh() {
+  if (!hasPendingAiGrading()) {
+    stopAiRefresh()
+    return
+  }
+  if (aiRefreshTimer) return
+  aiRefreshCount = 0
+  aiRefreshTimer = window.setInterval(() => {
+    aiRefreshCount += 1
+    if (aiRefreshCount > 10 || !hasPendingAiGrading()) {
+      stopAiRefresh()
+      return
+    }
+    void reloadGroup().catch(() => stopAiRefresh())
+  }, 3000)
+}
+
+function stopAiRefresh() {
+  if (!aiRefreshTimer) return
+  window.clearInterval(aiRefreshTimer)
+  aiRefreshTimer = null
+}
+
+function hasPendingAiGrading() {
+  return questions.value.some(question => {
+    if (question.mySubmission?.aiGradingStatus === 'PENDING') return true
+    return Boolean(question.analysis?.submissions?.some(submission => submission.aiGradingStatus === 'PENDING'))
+  })
 }
 </script>
 
@@ -829,7 +1048,7 @@ function isSelectedOption(optionId: string) {
 
 .option-row {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
   min-height: 44px;
@@ -842,16 +1061,47 @@ function isSelectedOption(optionId: string) {
   line-height: 1.5;
 }
 
+.option-row.answerable {
+  cursor: pointer;
+}
+
+.option-row.answerable:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface-container);
+}
+
+.option-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.option-choice input {
+  margin: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
 .option-content.rich-content {
   font-size: 14px;
   line-height: 1.5;
 }
 
-.option-row.correct,
 .option-row.selected {
   border-color: var(--color-primary);
   background: var(--color-surface-container);
   color: var(--color-on-surface);
+}
+
+.option-row.correct {
+  border-color: #16a34a;
+  background: rgba(22, 163, 74, 0.08);
+  color: var(--color-on-surface);
+}
+
+.option-row.correct .option-label {
+  border-color: #16a34a;
+  color: #16a34a;
 }
 
 .option-row strong {
@@ -902,6 +1152,77 @@ function isSelectedOption(optionId: string) {
   gap: 10px;
 }
 
+.ai-submission-list,
+.ai-submission-row,
+.ai-result-card {
+  display: grid;
+  gap: 10px;
+}
+
+.ai-submission-list > span {
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+}
+
+.ai-submission-row,
+.ai-result-card {
+  padding: 12px;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-light);
+}
+
+.ai-submission-row > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ai-submission-row strong {
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+.ai-submission-row p,
+.ai-result-card p {
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ai-submission-row span,
+.ai-result-card span {
+  width: fit-content;
+  padding: 4px 8px;
+  border: 1px solid var(--color-outline-light);
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+}
+
+.ai-submission-row span.completed,
+.ai-result-card span.completed {
+  border-color: #16a34a;
+  color: #16a34a;
+}
+
+.ai-submission-row span.failed,
+.ai-result-card span.failed {
+  border-color: #b65f5f;
+  color: #b65f5f;
+}
+
+.ai-submission-row span.pending,
+.ai-result-card span.pending {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
 .not-submitted div {
   display: flex;
   flex-wrap: wrap;
@@ -933,6 +1254,72 @@ function isSelectedOption(optionId: string) {
 .submission-card {
   display: grid;
   gap: 12px;
+}
+
+.correct-answer-block {
+  display: grid;
+  gap: 8px;
+}
+
+.correct-answer-block > span {
+  color: #16a34a;
+  font-family: var(--font-label);
+  font-size: 12px;
+}
+
+.correct-answer-row {
+  border-color: #16a34a;
+  background: rgba(22, 163, 74, 0.08);
+}
+
+.answer-form,
+.text-answer-input {
+  display: grid;
+  gap: 12px;
+}
+
+.answer-form p {
+  margin: 0;
+}
+
+.text-answer-input span {
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+}
+
+.text-answer-input textarea {
+  min-height: 120px;
+  padding: 12px;
+  background: var(--color-surface-canvas);
+  border: 1px solid var(--color-outline-light);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.text-answer-input textarea:focus {
+  border-color: var(--color-outline);
+  outline: none;
+}
+
+.submit-answer-button {
+  justify-self: start;
+  min-height: 36px;
+  padding: 0 14px;
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  color: var(--color-on-primary);
+  cursor: pointer;
+  font-family: var(--font-label);
+  font-size: 13px;
+}
+
+.submit-answer-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .text-answer {

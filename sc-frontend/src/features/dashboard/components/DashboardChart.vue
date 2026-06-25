@@ -25,6 +25,7 @@ import * as echarts from 'echarts/core'
 import type {EChartsCoreOption, EChartsType} from 'echarts/core'
 import {SVGRenderer} from 'echarts/renderers'
 import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
+import {useI18n} from 'vue-i18n'
 
 echarts.use([
     BarChart,
@@ -46,13 +47,16 @@ const props = withDefaults(defineProps<{
 }>(), {
     hasData: true,
     height: '240px',
-    emptyText: '暂无可视化数据',
-    ariaLabel: '仪表盘图表',
+    emptyText: undefined,
+    ariaLabel: undefined,
 })
 
+const {t} = useI18n()
 const chartEl = ref<HTMLDivElement | null>(null)
 let chart: EChartsType | null = null
 let resizeObserver: ResizeObserver | null = null
+const emptyText = computed(() => props.emptyText || t('success.dashboard.empty.chart'))
+const ariaLabel = computed(() => props.ariaLabel || t('success.dashboard.chart.defaultAria'))
 
 const themePalette = computed(() => {
     if (typeof window === 'undefined') {
@@ -62,6 +66,7 @@ const themePalette = computed(() => {
             primary: '#d6ff5f',
             surface: '#171717',
             outline: '#303030',
+            grid: '#262626',
         }
     }
 
@@ -72,6 +77,7 @@ const themePalette = computed(() => {
         primary: styles.getPropertyValue('--color-primary').trim() || '#d6ff5f',
         surface: styles.getPropertyValue('--color-surface-container').trim() || '#171717',
         outline: styles.getPropertyValue('--color-outline-light').trim() || '#303030',
+        grid: styles.getPropertyValue('--color-outline-light').trim() || '#303030',
     }
 })
 
@@ -113,7 +119,6 @@ function applyTheme(option: EChartsCoreOption): EChartsCoreOption {
     const tooltip = toPlainObject(option.tooltip)
     const tooltipTextStyle = toPlainObject(tooltip.textStyle)
     const legend = toPlainObject(option.legend)
-    const grid = toPlainObject(option.grid)
 
     return {
         ...option,
@@ -126,33 +131,123 @@ function applyTheme(option: EChartsCoreOption): EChartsCoreOption {
             '#c7a6ff',
         ],
         textStyle: {
-            color: palette.text,
-            fontFamily: 'var(--font-label)',
             ...textStyle,
+            fontFamily: 'var(--font-label)',
+            fontSize: 12,
+            color: palette.text,
         },
         tooltip: {
+            ...tooltip,
             trigger: 'item',
             backgroundColor: palette.surface,
             borderColor: palette.outline,
+            borderWidth: 1,
+            padding: [8, 10],
             textStyle: {
-                color: palette.text,
                 ...tooltipTextStyle,
+                fontFamily: 'var(--font-label)',
+                fontSize: 12,
+                color: palette.text,
             },
-            ...tooltip,
         },
         legend: {
-            textStyle: {
-                color: palette.muted,
-            },
             ...legend,
+            itemGap: 14,
+            itemWidth: 16,
+            itemHeight: 8,
+            textStyle: {
+                fontFamily: 'var(--font-label)',
+                fontSize: 12,
+                color: palette.muted,
+                ...toPlainObject(legend.textStyle),
+            },
         },
-        grid: {
-            top: 24,
-            right: 16,
-            bottom: 28,
-            left: 36,
-            containLabel: true,
-            ...grid,
+        grid: applyGridTheme(option.grid),
+        series: applySeriesTheme(option.series),
+        xAxis: applyAxisTheme(option.xAxis, 'x'),
+        yAxis: applyAxisTheme(option.yAxis, 'y'),
+    }
+}
+
+function applyGridTheme(value: unknown) {
+    const grid = toPlainObject(value)
+    return {
+        top: 18,
+        right: 16,
+        bottom: 34,
+        left: 34,
+        containLabel: true,
+        ...grid,
+    }
+}
+
+function applySeriesTheme(value: unknown) {
+    if (!Array.isArray(value)) return value
+
+    const palette = themePalette.value
+    return value.map((item) => {
+        const series = toPlainObject(item)
+        const label = toPlainObject(series.label)
+        return {
+            ...series,
+            label: {
+                ...label,
+                fontFamily: 'var(--font-label)',
+                fontSize: 11,
+                color: palette.text,
+            },
+        }
+    })
+}
+
+function applyAxisTheme(value: unknown, direction: 'x' | 'y') {
+    if (Array.isArray(value)) return value.map((item) => applySingleAxisTheme(item, direction))
+    if (!value) return value
+    return applySingleAxisTheme(value, direction)
+}
+
+function applySingleAxisTheme(value: unknown, direction: 'x' | 'y') {
+    const palette = themePalette.value
+    const axis = toPlainObject(value)
+    const axisLabel = toPlainObject(axis.axisLabel)
+    const axisLine = toPlainObject(axis.axisLine)
+    const axisLineStyle = toPlainObject(axisLine.lineStyle)
+    const splitLine = toPlainObject(axis.splitLine)
+    const splitLineStyle = toPlainObject(splitLine.lineStyle)
+
+    return {
+        ...axis,
+        axisLabel: {
+            ...axisLabel,
+            color: palette.muted,
+            fontFamily: 'var(--font-label)',
+            fontSize: 11,
+            hideOverlap: true,
+            margin: direction === 'x' ? 12 : 8,
+            overflow: direction === 'x' ? 'truncate' : undefined,
+            width: direction === 'x' ? 92 : undefined,
+        },
+        axisLine: {
+            ...axisLine,
+            lineStyle: {
+                ...axisLineStyle,
+                color: palette.outline,
+                width: 1,
+            },
+        },
+        axisTick: {
+            show: false,
+            ...toPlainObject(axis.axisTick),
+        },
+        splitLine: {
+            ...splitLine,
+            show: direction === 'y',
+            lineStyle: {
+                ...splitLineStyle,
+                color: palette.grid,
+                opacity: 0.68,
+                width: 1,
+            },
         },
     }
 }
@@ -178,3 +273,4 @@ function toPlainObject(value: unknown): Record<string, unknown> {
   text-align: center;
 }
 </style>
+

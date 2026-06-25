@@ -1,6 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {flushPromises, mount} from '@vue/test-utils'
 import {createPinia, setActivePinia} from 'pinia'
+import {nextTick} from 'vue'
 
 import AiStudioPanel from '@/features/ai/components/AiStudioPanel.vue'
 import {useAiStore} from '@/features/ai/stores/ai'
@@ -29,6 +30,7 @@ vi.mock('@/features/ai/api/ai', () => ({
   listConversations: vi.fn(),
   listKnowledgeDocs: vi.fn(),
   streamChat: vi.fn(),
+  terminateGeneration: vi.fn(),
   updateConversation: vi.fn(),
 }))
 
@@ -129,8 +131,28 @@ describe('AiStudioPanel export actions', () => {
     expect(wrapper.find('.export-actions').exists()).toBe(false)
   })
 
-  it('shows the existing failure notification when export fails', async () => {
-    mocks.exportGeneratedArtifact.mockRejectedValue(new Error('Export failed'))
+  it('shows an export lock overlay while export is pending', async () => {
+    let resolveExport!: (value: {blob: Blob; filename: string}) => void
+    mocks.exportGeneratedArtifact.mockReturnValue(new Promise(resolve => {
+      resolveExport = resolve
+    }))
+    const wrapper = mountPanel()
+
+    await exportButtons(wrapper)[0].trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('.export-lock-overlay').exists()).toBe(true)
+    expect(wrapper.find('.export-lock-panel').text()).toContain('common.ai.studio.exportingPdf')
+    expect(exportButtons(wrapper).slice(0, 2).every(button => button.attributes('disabled') !== undefined)).toBe(true)
+
+    resolveExport({blob: new Blob(['pdf']), filename: 'paper.pdf'})
+    await flushPromises()
+
+    expect(wrapper.find('.export-lock-overlay').exists()).toBe(false)
+  })
+
+  it('shows the backend failure message when export fails', async () => {
+    mocks.exportGeneratedArtifact.mockRejectedValue(new Error('PDF export failed: empty questions'))
     const wrapper = mountPanel()
 
     await exportButtons(wrapper)[1].trigger('click')
@@ -140,7 +162,7 @@ describe('AiStudioPanel export actions', () => {
       format: 'docx',
       includeAnswers: true,
     })
-    expect(mocks.notify.error).toHaveBeenCalledWith('common.ai.studio.exportFailed')
+    expect(mocks.notify.error).toHaveBeenCalledWith('PDF export failed: empty questions')
   })
 
   it('shows import action for generated question artifacts and opens with no questions selected', async () => {

@@ -35,6 +35,7 @@ public class GatewaySecurityConfiguration {
             "/api/auth/register",
             "/api/auth/password/login",
             "/api/auth/refresh",
+            "/api/ai/live-summaries/class-sessions/*/audio",
             "/api/class-sessions/seats/ws",
             "/actuator/health",
             "/actuator/health/liveness",

@@ -6,6 +6,7 @@ import com.dayz.sc.ai.model.vo.ChatMessageVO;
 import com.dayz.sc.ai.model.vo.ConversationVO;
 import com.dayz.sc.ai.service.AiGenerationExportService;
 import com.dayz.sc.ai.service.ConversationService;
+import com.dayz.sc.ai.service.RagChatService;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.security.support.JwtPrincipalResolver;
 import jakarta.validation.Valid;
@@ -15,6 +16,7 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
+import reactor.core.publisher.Flux;
 
 /**
  * 会话管理控制器
@@ -44,6 +47,7 @@ public class ConversationController {
 
     private final ConversationService conversationService;
     private final AiGenerationExportService aiGenerationExportService;
+    private final RagChatService ragChatService;
 
     @PostMapping
     public ApiResponse<@NonNull UUID> createConversation(
@@ -88,6 +92,31 @@ public class ConversationController {
                 .contentLength(file.bytes().length)
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .body(file.bytes());
+    }
+
+    @GetMapping(
+            path = "/{id}/messages/{messageId}/generation-progress",
+            produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public ResponseEntity<Flux<@NonNull ServerSentEvent<String>>> generationProgress(
+            @PathVariable UUID id,
+            @PathVariable UUID messageId,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        return ResponseEntity.ok()
+                .contentType(MediaType.TEXT_EVENT_STREAM)
+                .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-transform")
+                .header("X-Accel-Buffering", "no")
+                .body(ragChatService.streamGenerationProgress(id, messageId, userId));
+    }
+
+    @PostMapping("/{id}/messages/{messageId}/terminate")
+    public ApiResponse<@NonNull Void> terminateGeneration(
+            @PathVariable UUID id,
+            @PathVariable UUID messageId,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        ragChatService.terminateGeneration(id, messageId, userId);
+        return ApiResponse.ok();
     }
 
     @PatchMapping("/{id}")

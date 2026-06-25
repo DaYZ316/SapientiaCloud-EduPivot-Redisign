@@ -31,7 +31,7 @@ spring:
       base-url: ${DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
       chat:
         options:
-          model: ${DASHSCOPE_CHAT_MODEL:qwen-plus}
+          model: ${DASHSCOPE_CHAT_MODEL:qwen3.6-flash}
       embedding:
         options:
           model: ${DASHSCOPE_EMBEDDING_MODEL:text-embedding-v3}
@@ -96,6 +96,7 @@ edupivot:
       - /actuator/health
       - /actuator/health/liveness
       - /actuator/health/readiness
+      - /api/ai/live-summaries/class-sessions/*/audio
       - /doc.html
       - /scalar
       - /scalar.js
@@ -199,6 +200,17 @@ edupivot:
       max-content-chars: 2000
       top-k: 3
       similarity-threshold: 0.65
+    live-summary:
+      summary-interval: 60s
+      summary-min-new-chars: 600
+      recent-transcript-limit: 40
+      max-increment-chars: 4000
+      asr:
+        api-key: ${DASHSCOPE_ASR_API_KEY:${DASHSCOPE_API_KEY:}}
+        websocket-url: ${DASHSCOPE_ASR_WEBSOCKET_URL:wss://dashscope.aliyuncs.com/api-ws/v1/inference}
+        model: ${DASHSCOPE_ASR_MODEL:paraformer-realtime-v2}
+        format: ${DASHSCOPE_ASR_FORMAT:pcm}
+        sample-rate: ${DASHSCOPE_ASR_SAMPLE_RATE:16000}
     agent-search:
       gateway-base-url: ${AGENT_SEARCH_GATEWAY_BASE_URL:http://localhost:39080}
       open-api-sources:
@@ -209,3 +221,9 @@ edupivot:
         - ai
       timeout: 3s
       max-response-chars: 4000
+      web-search-enabled: ${AGENT_SEARCH_WEB_SEARCH_ENABLED:true}
+      web-search-endpoint: ${AGENT_SEARCH_WEB_SEARCH_ENDPOINT:https://api.tavily.com/search}
+      web-search-api-key: ${AGENT_SEARCH_WEB_SEARCH_API_KEY:}
+      web-search-max-results: ${AGENT_SEARCH_WEB_SEARCH_MAX_RESULTS:5}
+      web-search-timeout: ${AGENT_SEARCH_WEB_SEARCH_TIMEOUT:5s}
+      web-search-max-snippet-chars: ${AGENT_SEARCH_WEB_SEARCH_MAX_SNIPPET_CHARS:500}

@@ -9,6 +9,8 @@ import {
   listConversations,
   listKnowledgeDocs,
   streamChat,
+  subscribeGenerationProgress,
+  terminateGeneration,
   updateConversation,
 } from '@/features/ai/api/ai'
 import type {
@@ -44,6 +46,9 @@ interface LoadConversationsOptions {
 
 const STREAM_FLUSH_INTERVAL_MS = 18
 const CONVERSATION_PAGE_SIZE = 20
+const TERMINATED_STAGE = 'TERMINATED'
+const TERMINATED_STATUS = 'terminated'
+const TERMINATED_MESSAGE = '用户已终止本次任务。'
 
 function messageTypeForMode(mode?: AiAgentMode) {
   if (mode === 'QUESTION') return 'QUESTION_SET'
@@ -90,6 +95,7 @@ export const useAiStore = defineStore('ai', () => {
   const streaming = ref(false)
   const streamError = ref('')
   const abortController = ref<AbortController | null>(null)
+  const generationProgressAbortController = ref<AbortController | null>(null)
   const draftConversationOpen = ref(false)
   const activeGenerationMessageId = ref<string | null>(null)
   const activeGenerationRequestId = ref<string | null>(null)
@@ -97,6 +103,8 @@ export const useAiStore = defineStore('ai', () => {
   let conversationsLoadPromise: Promise<void> | null = null
   let streamFlushTimer: number | null = null
   let activeStreamBuffer: ReturnType<typeof createDisplayStreamBuffer> | null = null
+  let sessionRevision = 0
+  let activeGenerationProgressKey = ''
 
   const activeConversation = computed(() =>
     conversations.value.find((conversation) => conversation.id === activeConversationId.value) || null,
@@ -142,11 +150,14 @@ export const useAiStore = defineStore('ai', () => {
 
   async function loadConversations(options: LoadConversationsOptions = {}) {
     const page = options.page ?? 1
+    const requestRevision = sessionRevision
     if (!options.silent) {
       loadingConversations.value = true
     }
     try {
       const nextConversations = await listConversations(page, CONVERSATION_PAGE_SIZE)
+      if (requestRevision !== sessionRevision) return
+
       conversations.value = options.append
         ? appendConversations(conversations.value, nextConversations)
         : nextConversations
@@ -158,7 +169,7 @@ export const useAiStore = defineStore('ai', () => {
         await loadMessages(activeConversationId.value)
       }
     } finally {
-      if (!options.silent) {
+      if (requestRevision === sessionRevision && !options.silent) {
         loadingConversations.value = false
       }
     }
@@ -198,6 +209,7 @@ export const useAiStore = defineStore('ai', () => {
       messages.value = []
       return
     }
+    const requestRevision = sessionRevision
     if (!options.silent) {
       loadingMessages.value = true
     }
@@ -205,11 +217,15 @@ export const useAiStore = defineStore('ai', () => {
       draftConversationOpen.value = false
       activeConversationId.value = conversationId
       activeGenerationMessageId.value = null
-      messages.value = (await listConversationMessages(conversationId)).map(normalizeLoadedMessage)
+      stopGenerationProgressSubscription()
+      const nextMessages = await listConversationMessages(conversationId)
+      if (requestRevision !== sessionRevision) return
+
+      messages.value = nextMessages.map(normalizeLoadedMessage)
       reconcileGenerationState()
       clearAgentSearchState()
     } finally {
-      if (!options.silent) {
+      if (requestRevision === sessionRevision && !options.silent) {
         loadingMessages.value = false
       }
     }
@@ -223,6 +239,7 @@ export const useAiStore = defineStore('ai', () => {
     activeGenerationMessageId.value = null
     activeGenerationRequestId.value = null
     activeGenerationConversationId.value = null
+    stopGenerationProgressSubscription()
     clearAgentSearchState()
   }
 
@@ -245,6 +262,8 @@ export const useAiStore = defineStore('ai', () => {
     latestChatContext.value = null
     clearAgentSearchState()
     activeGenerationMessageId.value = null
+    activeGenerationRequestId.value = null
+    activeGenerationConversationId.value = null
     abortController.value?.abort()
     abortController.value = new AbortController()
     const streamBuffer = createDisplayStreamBuffer(assistantMessage)
@@ -303,6 +322,15 @@ export const useAiStore = defineStore('ai', () => {
       }
     } catch (error) {
       streamBuffer.clear()
+      if (assistantMessage.terminated || isAbortError(error)) {
+        patchLocalMessage(assistantMessage.id, {
+          content: assistantMessage.content || TERMINATED_MESSAGE,
+          failed: false,
+          pending: false,
+          terminated: true,
+        })
+        return
+      }
       const errorMessage = error instanceof Error ? error.message : 'AI response failed'
       patchLocalMessage(assistantMessage.id, {
         content: errorMessage,
@@ -321,6 +349,24 @@ export const useAiStore = defineStore('ai', () => {
   }
 
   function stopStreaming() {
+    const generationMessage = activeGenerationMessage.value
+      || [...messages.value].reverse().find((message) => isGenerationMessage(message) && message.pending)
+      || null
+    const conversationId = activeGenerationConversationId.value || activeConversationId.value
+    if (generationMessage) {
+      markGenerationTerminated(generationMessage)
+    }
+    const pendingAssistant = messages.value.find((message) =>
+      message.pending && message.role.toLowerCase() !== 'user' && !isGenerationMessage(message),
+    )
+    if (pendingAssistant) {
+      patchLocalMessage(pendingAssistant.id, {
+        content: pendingAssistant.content || TERMINATED_MESSAGE,
+        failed: false,
+        pending: false,
+        terminated: true,
+      })
+    }
     abortController.value?.abort()
     abortController.value = null
     activeStreamBuffer?.clear()
@@ -332,6 +378,13 @@ export const useAiStore = defineStore('ai', () => {
     streaming.value = false
     activeGenerationRequestId.value = null
     activeGenerationConversationId.value = null
+    stopGenerationProgressSubscription()
+    if (generationMessage && conversationId && !isLocalMessageId(generationMessage.id)) {
+      void terminateGeneration(conversationId, generationMessage.id)
+        .catch((error) => {
+          streamError.value = error instanceof Error ? error.message : String(error)
+        })
+    }
   }
 
   function isGenerationMessage(message: ChatMessage) {
@@ -347,11 +400,13 @@ export const useAiStore = defineStore('ai', () => {
     const stage = typeof message.payload?.generationStage === 'string'
       ? message.payload.generationStage
       : ''
-    const failed = status === 'failed' || status === 'error' || stage === 'FAILED'
+    const terminated = status === TERMINATED_STATUS || stage === TERMINATED_STAGE
+    const failed = !terminated && (status === 'failed' || status === 'error' || stage === 'FAILED')
     return {
       ...message,
-      pending: status === 'processing',
+      pending: status === 'processing' && !terminated,
       failed,
+      terminated,
     }
   }
 
@@ -442,6 +497,11 @@ export const useAiStore = defineStore('ai', () => {
       phase: event.phase,
       total: event.total,
       occurredAt: event.occurredAt,
+      status: event.status,
+      reason: event.reason,
+      provider: event.provider,
+      durationMs: event.durationMs,
+      retryable: event.retryable,
       items: event.items?.length ? event.items : index >= 0 ? nextRecords[index].items : [],
     }
     if (index >= 0) {
@@ -476,31 +536,52 @@ export const useAiStore = defineStore('ai', () => {
 
   function applyGenerationStageEvent(message: ChatMessage, event: GenerationStageEvent) {
     const target = bindGenerationMessage(message, event.messageId)
+    if (isTerminatedMessage(target) && !isTerminationEvent(event)) return
     const payload = {...(target.payload || {})}
     const trace = normalizeGenerationTrace(payload.generationTrace)
+    const debugTrace = normalizeGenerationTrace(payload.generationDebugTrace)
+    const detailType = eventDetailType(event)
+    const targetTrace = detailType === 'raw_ai_output' ? debugTrace : trace
+    if (hasDuplicateGenerationStage(targetTrace, event)) {
+      payload.generationStage = event.stage
+      payload.generationStatus = event.status
+      payload.generationRequestId = event.requestId
+      payload.generationMode = event.mode
+      target.payload = payload
+      target.terminated = isTerminationEvent(event)
+      target.failed = !target.terminated && (event.status === 'failed' || event.status === 'error' || event.stage === 'FAILED')
+      target.pending = !target.failed && !target.terminated && event.status !== 'completed' && event.stage !== 'RESPONDED'
+      return
+    }
     const timestamp = event.timestamp || new Date().toISOString()
     const entryId = event.requestId
-      ? `${event.requestId}-${event.stage}-${trace.length}`
-      : `${target.id}-${event.stage}-${trace.length}`
-
-    payload.generationTrace = trace.concat({
+      ? `${event.requestId}-${event.stage}-${targetTrace.length}`
+      : `${target.id}-${event.stage}-${targetTrace.length}`
+    const traceEntry: GenerationTraceEntry = {
       entryId,
       stage: event.stage,
       source: 'question-generation',
-      detailType: String(event.stage).toLowerCase(),
+      detailType,
       title: event.title,
       summary: event.summary,
       payload: event.payload ?? null,
       timestamp,
-    })
+    }
+
+    if (isDebugGenerationEntry(traceEntry)) {
+      payload.generationDebugTrace = debugTrace.concat(traceEntry)
+    } else {
+      payload.generationTrace = trace.concat(traceEntry)
+    }
     payload.generationStage = event.stage
     payload.generationStatus = event.status
     payload.generationRequestId = event.requestId
     payload.generationMode = event.mode
     promoteGeneratedQuestions(payload, event)
     target.payload = payload
-    target.failed = event.status === 'failed' || event.status === 'error' || event.stage === 'FAILED'
-    target.pending = !target.failed && event.status !== 'completed' && event.stage !== 'RESPONDED'
+    target.terminated = isTerminationEvent(event)
+    target.failed = !target.terminated && (event.status === 'failed' || event.status === 'error' || event.stage === 'FAILED')
+    target.pending = !target.failed && !target.terminated && event.status !== 'completed' && event.stage !== 'RESPONDED'
     activeGenerationMessageId.value = target.id
     activeGenerationRequestId.value = event.requestId || null
     if (activeConversationId.value) {
@@ -510,6 +591,7 @@ export const useAiStore = defineStore('ai', () => {
 
   function applyGenerationResultEvent(message: ChatMessage, event: GenerationResultEvent) {
     const target = bindGenerationMessage(message, event.messageId)
+    if (isTerminatedMessage(target)) return
     const payload = {...(event.payload || {})}
     if (event.requestId) {
       payload.generationRequestId = event.requestId
@@ -524,6 +606,7 @@ export const useAiStore = defineStore('ai', () => {
       messageType: event.messageType,
       payload,
       pending: false,
+      terminated: false,
     })
     activeGenerationRequestId.value = event.requestId || null
     if (activeConversationId.value) {
@@ -532,13 +615,13 @@ export const useAiStore = defineStore('ai', () => {
   }
 
   function bindGenerationMessage(message: ChatMessage, messageId?: string) {
-    if (!messageId || message.id === messageId) {
-      return message
+    const current = messages.value.find((item) => item.id === (messageId || message.id))
+    if (current) {
+      return current
     }
 
-    const existing = messages.value.find((item) => item.id === messageId)
-    if (existing) {
-      return existing
+    if (!messageId || message.id === messageId) {
+      return message
     }
 
     const index = messages.value.findIndex((item) => item.id === message.id)
@@ -554,6 +637,40 @@ export const useAiStore = defineStore('ai', () => {
     return message
   }
 
+  function markGenerationTerminated(message: ChatMessage) {
+    const event: GenerationStageEvent = {
+      messageId: isLocalMessageId(message.id) ? undefined : message.id,
+      requestId: typeof message.payload?.generationRequestId === 'string'
+        ? message.payload.generationRequestId
+        : activeGenerationRequestId.value || undefined,
+      mode: typeof message.payload?.generationMode === 'string'
+        ? message.payload.generationMode
+        : message.messageType === 'PAPER' ? 'PAPER' : 'QUESTION',
+      stage: TERMINATED_STAGE,
+      status: TERMINATED_STATUS,
+      title: message.messageType === 'PAPER' ? '出卷已终止' : '出题已终止',
+      summary: TERMINATED_MESSAGE,
+      payload: {},
+      timestamp: new Date().toISOString(),
+    }
+    applyGenerationStageEvent(message, event)
+    message.content ||= TERMINATED_MESSAGE
+  }
+
+  function isTerminationEvent(event: GenerationStageEvent) {
+    return event.status === TERMINATED_STATUS || event.stage === TERMINATED_STAGE
+  }
+
+  function isTerminatedMessage(message: ChatMessage) {
+    return message.terminated
+      || message.payload?.generationStatus === TERMINATED_STATUS
+      || message.payload?.generationStage === TERMINATED_STAGE
+  }
+
+  function isLocalMessageId(messageId: string) {
+    return messageId.startsWith('local-')
+  }
+
   function promoteGeneratedQuestions(payload: Record<string, unknown>, event: GenerationStageEvent) {
     const questions = event.payload?.questions
     if (shouldPromoteQuestions(event.stage) && Array.isArray(questions)) {
@@ -567,15 +684,43 @@ export const useAiStore = defineStore('ai', () => {
     return stage === 'GENERATED' || stage === 'REPAIRED' || stage === 'ASSEMBLED'
   }
 
+  function eventDetailType(event: GenerationStageEvent) {
+    const detailType = event.payload?.detailType
+    return typeof detailType === 'string' && detailType ? detailType : String(event.stage).toLowerCase()
+  }
+
+  function isDebugGenerationEntry(entry: GenerationTraceEntry) {
+    return entry.detailType === 'raw_ai_output'
+  }
+
   function appendGeneratedQuestions(current: unknown, delta: unknown[]) {
     return Array.isArray(current) ? current.concat(delta) : [...delta]
   }
 
-  async function refreshActiveGeneration() {
+  function hasDuplicateGenerationStage(trace: GenerationTraceEntry[], event: GenerationStageEvent) {
+    return trace.some((entry) =>
+      entry.stage === event.stage
+      && entry.title === event.title
+      && entry.summary === event.summary
+      && stableJson(entry.payload ?? null) === stableJson(event.payload ?? null),
+    )
+  }
+
+  function stableJson(value: unknown) {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return ''
+    }
+  }
+
+  async function refreshActiveGeneration(options: {resubscribe?: boolean} = {}) {
     if (!activeGenerationConversationId.value) return
 
+    const resubscribe = options.resubscribe ?? true
     const keepTraceRequestId = activeGenerationRequestId.value
-    await loadMessages(activeGenerationConversationId.value, {silent: true})
+    const conversationId = activeGenerationConversationId.value
+    await reloadActiveGenerationMessages(conversationId)
     const refreshedMessage = [...messages.value].reverse().find((message) =>
       isGenerationMessage(message)
       && (!keepTraceRequestId || message.payload?.generationRequestId === keepTraceRequestId),
@@ -589,7 +734,20 @@ export const useAiStore = defineStore('ai', () => {
     if (refreshedMessage && !refreshedMessage.pending) {
       activeGenerationRequestId.value = null
       activeGenerationConversationId.value = null
+      stopGenerationProgressSubscription()
+      return
     }
+    if (resubscribe && refreshedMessage && conversationId) {
+      startGenerationProgressSubscription(conversationId, refreshedMessage)
+    }
+  }
+
+  async function reloadActiveGenerationMessages(conversationId: string) {
+    const requestRevision = sessionRevision
+    const nextMessages = await listConversationMessages(conversationId)
+    if (requestRevision !== sessionRevision || activeConversationId.value !== conversationId) return
+
+    messages.value = nextMessages.map(normalizeLoadedMessage)
   }
 
   function reconcileGenerationState() {
@@ -601,6 +759,7 @@ export const useAiStore = defineStore('ai', () => {
     if (!pendingGeneration) {
       activeGenerationRequestId.value = null
       activeGenerationConversationId.value = null
+      stopGenerationProgressSubscription()
       return
     }
     activeGenerationMessageId.value = pendingGeneration.id
@@ -608,6 +767,82 @@ export const useAiStore = defineStore('ai', () => {
       ? pendingGeneration.payload.generationRequestId
       : null
     activeGenerationConversationId.value = activeConversationId.value
+    if (activeConversationId.value) {
+      startGenerationProgressSubscription(activeConversationId.value, pendingGeneration)
+    }
+  }
+
+  function startGenerationProgressSubscription(conversationId: string, message: ChatMessage) {
+    if (!message.pending || !isGenerationMessage(message)) return
+
+    const key = `${conversationId}:${message.id}:${message.payload?.generationRequestId || ''}`
+    if (activeGenerationProgressKey === key) return
+
+    stopGenerationProgressSubscription()
+    activeGenerationProgressKey = key
+    const requestRevision = sessionRevision
+    const controller = new AbortController()
+    generationProgressAbortController.value = controller
+    void subscribeGenerationProgress(conversationId, message.id, {
+      signal: controller.signal,
+      onSnapshot(snapshot) {
+        if (requestRevision !== sessionRevision || generationProgressAbortController.value !== controller) return
+        applyGenerationSnapshot(snapshot)
+      },
+      onAgentSearch(event) {
+        if (requestRevision !== sessionRevision || generationProgressAbortController.value !== controller) return
+        applyAgentSearchEvent(event)
+      },
+      onGenerationStage(event) {
+        if (requestRevision !== sessionRevision || generationProgressAbortController.value !== controller) return
+        const target = messages.value.find((item) => item.id === message.id) || message
+        applyGenerationStageEvent(target, event)
+      },
+      onError(error) {
+        if (controller.signal.aborted) return
+        streamError.value = error.message
+      },
+    }).catch((error) => {
+      if (controller.signal.aborted) return
+      streamError.value = error instanceof Error ? error.message : String(error)
+    }).finally(() => {
+      if (generationProgressAbortController.value !== controller) return
+      generationProgressAbortController.value = null
+      activeGenerationProgressKey = ''
+      void refreshActiveGeneration({resubscribe: false})
+    })
+  }
+
+  function stopGenerationProgressSubscription() {
+    generationProgressAbortController.value?.abort()
+    generationProgressAbortController.value = null
+    activeGenerationProgressKey = ''
+  }
+
+  function isAbortError(error: unknown) {
+    return error instanceof Error
+      && (error.name === 'AbortError' || error.message === 'AbortError')
+  }
+
+  function applyGenerationSnapshot(snapshot: ChatMessage) {
+    const normalized = normalizeLoadedMessage(snapshot)
+    const existing = messages.value.find((message) => message.id === normalized.id)
+    if (existing && isTerminatedMessage(existing) && !isTerminatedMessage(normalized)) {
+      return
+    }
+    const index = messages.value.findIndex((message) => message.id === normalized.id)
+    if (index >= 0) {
+      messages.value[index] = normalized
+    } else {
+      messages.value.push(normalized)
+    }
+    if (isGenerationMessage(normalized)) {
+      activeGenerationMessageId.value = normalized.id
+      activeGenerationRequestId.value = typeof normalized.payload?.generationRequestId === 'string'
+        ? normalized.payload.generationRequestId
+        : null
+      activeGenerationConversationId.value = activeConversationId.value
+    }
   }
 
   function normalizeGenerationTrace(value: unknown): GenerationTraceEntry[] {
@@ -707,11 +942,17 @@ export const useAiStore = defineStore('ai', () => {
   }
 
   async function loadKnowledgeDocs() {
+    const requestRevision = sessionRevision
     loadingKnowledgeDocs.value = true
     try {
-      knowledgeDocs.value = await listKnowledgeDocs()
+      const nextKnowledgeDocs = await listKnowledgeDocs()
+      if (requestRevision !== sessionRevision) return
+
+      knowledgeDocs.value = nextKnowledgeDocs
     } finally {
-      loadingKnowledgeDocs.value = false
+      if (requestRevision === sessionRevision) {
+        loadingKnowledgeDocs.value = false
+      }
     }
   }
 
@@ -724,6 +965,41 @@ export const useAiStore = defineStore('ai', () => {
   async function removeKnowledgeDoc(docId: string) {
     await deleteKnowledgeDoc(docId)
     await loadKnowledgeDocs()
+  }
+
+  function resetSessionState() {
+    sessionRevision += 1
+    abortController.value?.abort()
+    abortController.value = null
+    stopGenerationProgressSubscription()
+    activeStreamBuffer?.clear()
+    activeStreamBuffer = null
+    if (streamFlushTimer) {
+      window.clearInterval(streamFlushTimer)
+      streamFlushTimer = null
+    }
+
+    conversationsLoadPromise = null
+    conversations.value = []
+    messages.value = []
+    knowledgeDocs.value = []
+    latestChatContext.value = null
+    activeConversationId.value = null
+    context.value = {sourceRoute: '/'}
+    loadingConversations.value = false
+    loadingMoreConversations.value = false
+    loadingMessages.value = false
+    loadingKnowledgeDocs.value = false
+    conversationsLoaded.value = false
+    conversationPage.value = 1
+    hasMoreConversations.value = true
+    streaming.value = false
+    streamError.value = ''
+    draftConversationOpen.value = false
+    activeGenerationMessageId.value = null
+    activeGenerationRequestId.value = null
+    activeGenerationConversationId.value = null
+    clearAgentSearchState()
   }
 
   return {
@@ -765,5 +1041,6 @@ export const useAiStore = defineStore('ai', () => {
     loadKnowledgeDocs,
     ingestDoc,
     removeKnowledgeDoc,
+    resetSessionState,
   }
 })

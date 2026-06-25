@@ -11,7 +11,7 @@ import {
 import type {LoginResponse, PasswordLoginRequest, RegisterRequest} from '@/features/auth/types/auth'
 import {getCurrentUser} from '@/features/user/api/user'
 import type {UserProfile} from '@/features/user/types/user'
-import {resetSessionExpiredHandling, SESSION_CLEARED_EVENT} from '@/shared/api/request'
+import {markVoluntaryLogoutInProgress, resetSessionExpiredHandling, SESSION_CLEARED_EVENT} from '@/shared/api/request'
 import {closeAllSseConnections} from '@/shared/api/sseManager'
 
 const ACCESS_TOKEN_KEY = 'edupivot.accessToken'
@@ -110,6 +110,7 @@ export const useAuthStore = defineStore('auth', () => {
     async function logout() {
         const currentRefreshToken = refreshToken.value
 
+        markVoluntaryLogoutInProgress()
         try {
             await logoutRequest(currentRefreshToken || undefined)
         } catch {

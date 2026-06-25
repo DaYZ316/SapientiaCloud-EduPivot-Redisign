@@ -7,10 +7,11 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, nextTick, onMounted, ref, watch} from 'vue'
+import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import 'katex/dist/katex.min.css'
 
 import {
+  fitRichMathToContainer,
   formatRichFormulaRows,
   normalizeRichDisplayMath,
   renderRichMath,
@@ -23,8 +24,25 @@ const props = defineProps<{
 
 const renderedContent = computed(() => renderRichMathMarkdown(props.content))
 const contentRef = ref<HTMLElement | null>(null)
+let resizeObserver: ResizeObserver | null = null
+let resizeFrame = 0
 
-onMounted(renderMathAfterHtmlUpdate)
+onMounted(() => {
+  renderMathAfterHtmlUpdate()
+  if (!contentRef.value || typeof ResizeObserver === 'undefined') {
+    return
+  }
+
+  resizeObserver = new ResizeObserver(queueFitMathToContainer)
+  resizeObserver.observe(contentRef.value)
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  if (resizeFrame) {
+    cancelAnimationFrame(resizeFrame)
+  }
+})
 
 watch(renderedContent, renderMathAfterHtmlUpdate)
 
@@ -34,7 +52,20 @@ async function renderMathAfterHtmlUpdate() {
     normalizeRichDisplayMath(contentRef.value)
     renderRichMath(contentRef.value)
     formatRichFormulaRows(contentRef.value)
+    queueFitMathToContainer()
   }
+}
+
+function queueFitMathToContainer() {
+  if (resizeFrame) {
+    cancelAnimationFrame(resizeFrame)
+  }
+  resizeFrame = requestAnimationFrame(() => {
+    resizeFrame = 0
+    if (contentRef.value) {
+      fitRichMathToContainer(contentRef.value)
+    }
+  })
 }
 </script>
 
@@ -44,8 +75,10 @@ async function renderMathAfterHtmlUpdate() {
   font-family: var(--font-body);
   font-size: 18px;
   line-height: 1.75;
+  min-width: 0;
   max-width: 860px;
   margin: 0 auto;
+  overflow-x: hidden;
   overflow-wrap: break-word;
   white-space: normal;
   word-wrap: break-word;
@@ -225,13 +258,32 @@ async function renderMathAfterHtmlUpdate() {
 }
 
 .rich-math-content :deep(.katex-display) {
-  overflow-x: auto;
+  max-width: 100%;
+  overflow-x: hidden;
   overflow-y: hidden;
   padding: 0.25em 0;
 }
 
 .rich-math-content :deep(.katex) {
+  max-width: 100%;
   font-size: 1.05em;
+}
+
+.rich-math-content :deep(.rich-math-scaled) {
+  display: block;
+}
+
+.rich-math-content :deep(.rich-math-scaled > .katex),
+.rich-math-content :deep(.rich-math-scaled .katex-display > .katex),
+.rich-math-content :deep(.rich-math-scaled > span > .katex) {
+  display: inline-block;
+  max-width: none;
+  transform: scale(var(--rich-math-scale));
+  transform-origin: left center;
+}
+
+.rich-math-content :deep(.katex-display.rich-math-scaled) {
+  text-align: left;
 }
 
 .rich-math-content :deep(.formula-row-list) {
@@ -241,7 +293,8 @@ async function renderMathAfterHtmlUpdate() {
 
 .rich-math-content :deep(.formula-row) {
   display: block;
-  overflow-x: auto;
+  max-width: 100%;
+  overflow-x: hidden;
   overflow-y: hidden;
   white-space: nowrap;
 }
@@ -254,7 +307,8 @@ async function renderMathAfterHtmlUpdate() {
 
 .rich-math-content :deep(.split-display-math-row) {
   display: block;
-  overflow-x: auto;
+  max-width: 100%;
+  overflow-x: hidden;
   overflow-y: hidden;
   padding: 0.08em 0;
 }

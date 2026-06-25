@@ -4,7 +4,6 @@ import com.dayz.sc.ai.config.AiProperties;
 import com.dayz.sc.common.feign.client.AuthInternalClient;
 import com.dayz.sc.common.feign.client.CourseAiContextClient;
 import com.dayz.sc.common.feign.dto.AgentSearchItem;
-import com.dayz.sc.common.feign.dto.AgentSearchResult;
 import com.dayz.sc.common.feign.dto.CurrentUserProfile;
 import com.dayz.sc.common.feign.dto.InternalUserProfile;
 import com.dayz.sc.common.model.UserRole;
@@ -19,6 +18,10 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.time.Duration;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -32,10 +35,13 @@ public class AgentSearchService {
     private static final int DEFAULT_LIMIT = 5;
     private static final int MAX_LIMIT = 10;
     private static final int MAX_SNIPPET_LENGTH = 240;
+    private static final String TIME_PROVIDER = "server-clock";
+    private static final ZoneId TIME_ZONE = ZoneId.of("Asia/Shanghai");
 
     private final CourseAiContextClient courseAiContextClient;
     private final AuthInternalClient authInternalClient;
     private final PlatformApiSearchClient platformApiSearchClient;
+    private final WebSearchClient webSearchClient;
     private final ObjectProvider<@NonNull VectorStore> vectorStoreProvider;
     private final ChatVectorMemoryService chatVectorMemoryService;
     private final AiProperties aiProperties;
@@ -77,6 +83,42 @@ public class AgentSearchService {
                                             Map<String, Object> queryParams,
                                             String authorization) {
         return platformApiSearchClient.query(service, path, queryParams, authorization);
+    }
+
+    public AgentSearchOutcome searchWeb(String query, Integer limit) {
+        return webSearchClient.search(query, limit);
+    }
+
+    public AgentSearchOutcome getCurrentDateTime() {
+        long startedAtNanos = System.nanoTime();
+        ZonedDateTime now = ZonedDateTime.now(TIME_ZONE);
+        String date = now.toLocalDate().toString();
+        String time = now.toLocalTime().withNano(0).toString();
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("date", date);
+        metadata.put("time", time);
+        metadata.put("zoneId", now.getZone().getId());
+        metadata.put("instant", now.toInstant().toString());
+        metadata.put("weekday", now.getDayOfWeek().name());
+        metadata.put("provider", TIME_PROVIDER);
+        AgentSearchItem item = new AgentSearchItem(
+                "SYSTEM_TIME",
+                "系统时间",
+                date,
+                null,
+                "当前日期：" + date,
+                now.getZone().getId(),
+                "当前日期是 " + date + "，当前时间是 " + time + "，时区 " + now.getZone().getId() + "。",
+                "系统时间",
+                metadata,
+                metadata);
+        return AgentSearchOutcome.ok(
+                "time",
+                TIME_PROVIDER,
+                "当前日期时间",
+                "已读取当前日期",
+                Duration.ofNanos(System.nanoTime() - startedAtNanos).toMillis(),
+                List.of(item));
     }
 
     public List<AgentSearchItem> listMyCourses(String scope, Integer limit, UUID userId, Integer role) {
@@ -128,7 +170,7 @@ public class AgentSearchService {
             return List.of();
         }
         try {
-            ApiResponse<@NonNull List<AgentSearchResult>> response =
+            ApiResponse<@NonNull List<com.dayz.sc.common.feign.dto.AgentSearchResult>> response =
                     courseAiContextClient.search(
                             query.strip(),
                             courseId,
@@ -159,7 +201,7 @@ public class AgentSearchService {
             return List.of();
         }
         try {
-            ApiResponse<@NonNull List<AgentSearchResult>> response =
+            ApiResponse<@NonNull List<com.dayz.sc.common.feign.dto.AgentSearchResult>> response =
                     courseAiContextClient.resources(
                             query.strip(),
                             courseId,
@@ -251,7 +293,7 @@ public class AgentSearchService {
         }
     }
 
-    private AgentSearchItem toItem(AgentSearchResult result) {
+    private AgentSearchItem toItem(com.dayz.sc.common.feign.dto.AgentSearchResult result) {
         Map<String, Object> metadata = result.metadata() == null ? Map.of() : result.metadata();
         return new AgentSearchItem(
                 result.sourceType(),
@@ -281,7 +323,7 @@ public class AgentSearchService {
                 metadata);
     }
 
-    private Map<String, Object> indexInfo(AgentSearchResult result) {
+    private Map<String, Object> indexInfo(com.dayz.sc.common.feign.dto.AgentSearchResult result) {
         Map<String, Object> indexInfo = new java.util.LinkedHashMap<>();
         indexInfo.put("sourceType", result.sourceType());
         if (result.sourceId() != null) {
@@ -370,6 +412,8 @@ public class AgentSearchService {
             case "PRACTICE_SESSION" -> "练习记录";
             case "KNOWLEDGE_DOC" -> "个人知识库";
             case "CHAT_MEMORY" -> "聊天记忆";
+            case "WEB_SEARCH" -> "网页";
+            case "SYSTEM_TIME" -> "系统时间";
             default -> sourceType;
         };
     }

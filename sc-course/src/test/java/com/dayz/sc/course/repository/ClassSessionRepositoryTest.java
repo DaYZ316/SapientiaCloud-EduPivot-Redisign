@@ -22,6 +22,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.UUID;
 import java.util.List;
 import java.util.Map;
@@ -74,6 +75,44 @@ class ClassSessionRepositoryTest {
         ArgumentCaptor<LambdaQueryWrapper<ClassSession>> wrapperCaptor = ArgumentCaptor.captor();
         verify(classSessionMapper).selectPage(any(), wrapperCaptor.capture());
         assertThat(wrapperCaptor.getValue().getSqlSegment()).doesNotContain("published_at IS NOT NULL");
+    }
+
+    @Test
+    void findOngoingByTeacherId_shouldQueryClassTimeWindowAndTeacher() {
+        MybatisClassSessionRepository repository = new MybatisClassSessionRepository(classSessionMapper);
+        when(classSessionMapper.selectList(any())).thenReturn(List.of());
+
+        repository.findOngoingByTeacherId(UUID.randomUUID(), Instant.now(), 1);
+
+        ArgumentCaptor<LambdaQueryWrapper<ClassSession>> wrapperCaptor = ArgumentCaptor.captor();
+        verify(classSessionMapper).selectList(wrapperCaptor.capture());
+        assertThat(wrapperCaptor.getValue().getSqlSegment()).contains(
+                "published_at IS NOT NULL",
+                "teacher_id",
+                "scheduled_start_at",
+                "scheduled_end_at",
+                "LIMIT 1"
+        );
+    }
+
+    @Test
+    void findOngoingByStudentId_shouldQueryClassTimeWindowAndEnrollment() {
+        MybatisClassSessionRepository repository = new MybatisClassSessionRepository(classSessionMapper);
+        when(classSessionMapper.selectList(any())).thenReturn(List.of());
+
+        repository.findOngoingByStudentId(UUID.randomUUID(), 1, 2, Instant.now(), 5);
+
+        ArgumentCaptor<LambdaQueryWrapper<ClassSession>> wrapperCaptor = ArgumentCaptor.captor();
+        verify(classSessionMapper).selectList(wrapperCaptor.capture());
+        assertThat(wrapperCaptor.getValue().getSqlSegment()).contains(
+                "published_at IS NOT NULL",
+                "scheduled_start_at",
+                "scheduled_end_at",
+                "edu_enrollment",
+                "student_id",
+                "status IN",
+                "LIMIT 5"
+        );
     }
 
     @Test

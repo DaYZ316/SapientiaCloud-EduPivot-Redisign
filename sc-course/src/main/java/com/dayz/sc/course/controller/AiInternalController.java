@@ -3,6 +3,7 @@ package com.dayz.sc.course.controller;
 import com.dayz.sc.common.feign.dto.AiCourseContext;
 import com.dayz.sc.common.feign.dto.AgentSearchItem;
 import com.dayz.sc.common.feign.dto.AgentSearchResult;
+import com.dayz.sc.common.feign.dto.ClassSessionAiAccess;
 import com.dayz.sc.common.feign.client.CourseAiContextClient;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.security.support.JwtPrincipalResolver;
@@ -88,6 +89,17 @@ public class AiInternalController {
         UUID userId = resolveUserId(userIdHeader, jwt);
         Integer role = resolveRole(roleHeader, jwt);
         return ApiResponse.ok(aiCourseContextService.listChapters(courseId, courseTitle, limit, userId, role));
+    }
+
+    @GetMapping("/class-session-access")
+    public ApiResponse<@NonNull ClassSessionAiAccess> classSessionAccess(
+            @RequestParam UUID classSessionId,
+            @RequestHeader(value = CourseAiContextClient.HEADER_USER_ID, required = false) String userIdHeader,
+            @RequestHeader(value = CourseAiContextClient.HEADER_USER_ROLE, required = false) String roleHeader,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = resolveUserId(userIdHeader, jwt);
+        Integer role = resolveRole(roleHeader, jwt);
+        return ApiResponse.ok(aiCourseContextService.classSessionAccess(classSessionId, userId, role));
     }
 
     private UUID resolveUserId(String userIdHeader, Jwt jwt) {

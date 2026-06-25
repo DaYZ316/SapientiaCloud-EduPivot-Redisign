@@ -14,6 +14,7 @@ public record DashboardStudentVO(
         List<EnrollmentVO> enrollments,
         List<ClassSessionVO> sessions,
         List<CourseVO> recommendations,
+        List<ClassSessionVO> ongoingSessions,
         @Nullable ClassSessionVO liveSession,
         @Nullable EnrollmentVO continueCourse,
         DashboardActionVO practiceFocus,
@@ -24,6 +25,7 @@ public record DashboardStudentVO(
         enrollments = enrollments == null ? List.of() : List.copyOf(enrollments);
         sessions = sessions == null ? List.of() : List.copyOf(sessions);
         recommendations = recommendations == null ? List.of() : List.copyOf(recommendations);
+        ongoingSessions = ongoingSessions == null ? List.of() : List.copyOf(ongoingSessions);
         practiceSessions = practiceSessions == null ? List.of() : List.copyOf(practiceSessions);
         todos = todos == null ? List.of() : List.copyOf(todos);
     }

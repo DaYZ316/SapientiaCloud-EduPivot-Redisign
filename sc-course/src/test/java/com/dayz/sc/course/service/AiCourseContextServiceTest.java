@@ -36,6 +36,7 @@ class AiCourseContextServiceTest {
     private QuestionRepository questionRepository;
     private EnrollmentRepository enrollmentRepository;
     private CourseTeacherRepository courseTeacherRepository;
+    private ClassSessionRepository classSessionRepository;
     private CourseFileRepository courseFileRepository;
     private PracticeSessionRepository practiceSessionRepository;
     private LivePracticeGroupRepository livePracticeGroupRepository;
@@ -51,6 +52,7 @@ class AiCourseContextServiceTest {
         questionRepository = mock(QuestionRepository.class);
         enrollmentRepository = mock(EnrollmentRepository.class);
         courseTeacherRepository = mock(CourseTeacherRepository.class);
+        classSessionRepository = mock(ClassSessionRepository.class);
         courseFileRepository = mock(CourseFileRepository.class);
         practiceSessionRepository = mock(PracticeSessionRepository.class);
         livePracticeGroupRepository = mock(LivePracticeGroupRepository.class);
@@ -63,6 +65,7 @@ class AiCourseContextServiceTest {
                 questionRepository,
                 enrollmentRepository,
                 courseTeacherRepository,
+                classSessionRepository,
                 courseFileRepository,
                 practiceSessionRepository,
                 livePracticeGroupRepository,

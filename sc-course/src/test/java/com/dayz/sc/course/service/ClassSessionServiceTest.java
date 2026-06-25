@@ -2,15 +2,17 @@ package com.dayz.sc.course.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.error.BusinessException;
-import com.dayz.sc.common.feign.client.AuthInternalClient;
+import com.dayz.sc.common.feign.dto.UserBasicInfo;
 import com.dayz.sc.course.model.dto.CreateClassBarrageRequest;
 import com.dayz.sc.course.model.dto.CreateClassSessionRequest;
 import com.dayz.sc.course.model.dto.JoinClassSessionRequest;
 import com.dayz.sc.course.model.dto.UpdateClassSessionRequest;
 import com.dayz.sc.course.model.entity.*;
 import com.dayz.sc.course.model.enums.ClassLiveStatus;
+import com.dayz.sc.course.model.enums.ClassParticipantRole;
 import com.dayz.sc.course.model.enums.ClassSessionStatus;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
+import com.dayz.sc.course.model.vo.ClassBarrageVO;
 import com.dayz.sc.course.model.vo.LiveKitTokenVO;
 import com.dayz.sc.course.repository.*;
 import com.dayz.sc.course.sse.ClassBarrageSseEmitter;
@@ -27,12 +29,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -66,7 +70,7 @@ class ClassSessionServiceTest {
     private LiveKitRoomService liveKitRoomService;
 
     @Mock
-    private AuthInternalClient authInternalClient;
+    private ClassroomUserInfoResolver classroomUserInfoResolver;
 
     @Mock
     private ClassSeatSyncTokenService classSeatSyncTokenService;
@@ -83,6 +87,9 @@ class ClassSessionServiceTest {
     @Captor
     private ArgumentCaptor<ClassBarrage> barrageCaptor;
 
+    @Captor
+    private ArgumentCaptor<ClassBarrageVO> barrageVoCaptor;
+
     private ClassSessionService classSessionService;
 
     @BeforeEach
@@ -97,10 +104,11 @@ class ClassSessionServiceTest {
                 barrageSseEmitter,
                 liveKitTokenService,
                 liveKitRoomService,
-                authInternalClient,
+                classroomUserInfoResolver,
                 classSeatSyncTokenService,
                 seatSyncWebSocketHub
         );
+        lenient().when(classroomUserInfoResolver.resolve(anyList())).thenReturn(Map.of());
     }
 
     @Test
@@ -464,6 +472,26 @@ class ClassSessionServiceTest {
     }
 
     @Test
+    void startLive_shouldRestartEndedLive_whenClassOngoing() {
+        UUID sessionId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        ClassSession session = session(sessionId, Instant.now());
+        session.setTeacherId(teacherId);
+        session.setLiveStatus(ClassLiveStatus.ENDED.getCode());
+        session.setLiveEndedAt(Instant.now().minusSeconds(30));
+        when(classSessionRepository.findByIdForUpdate(sessionId)).thenReturn(Optional.of(session));
+        when(courseTeacherRepository.existsByCourseIdAndTeacherId(session.getCourseId(), teacherId)).thenReturn(true);
+        when(classParticipantRepository.findBySessionIdAndUserId(sessionId, teacherId)).thenReturn(Optional.empty());
+
+        var result = classSessionService.startLive(sessionId, teacherId, 2);
+
+        assertThat(result.liveStatus()).isEqualTo(ClassLiveStatus.LIVE.getCode());
+        verify(classSessionRepository).update(sessionCaptor.capture());
+        assertThat(sessionCaptor.getValue().getLiveEndedAt()).isNull();
+        verify(seatSyncWebSocketHub).broadcastLiveStatus(eq(sessionId), any(), eq("live_started"));
+    }
+
+    @Test
     void pauseResumeStopLive_shouldMoveBetweenLiveStates() {
         UUID sessionId = UUID.randomUUID();
         UUID teacherId = UUID.randomUUID();
@@ -507,12 +535,88 @@ class ClassSessionServiceTest {
         when(enrollmentRepository.findByCourseIdAndStudentId(session.getCourseId(), studentId))
                 .thenReturn(Optional.of(enrollment(studentId, EnrollmentStatus.ACTIVE.getCode())));
         when(classParticipantRepository.findBySessionIdAndUserId(sessionId, studentId)).thenReturn(Optional.of(participant));
+        when(classroomUserInfoResolver.resolve(List.of(studentId))).thenReturn(Map.of(
+                studentId, new UserBasicInfo(studentId, "Mina", "https://avatar.test/mina.png", 1)
+        ));
 
         classSessionService.sendBarrage(sessionId, new CreateClassBarrageRequest(" hello "), studentId, 1);
 
         verify(classBarrageRepository).save(barrageCaptor.capture());
         assertThat(barrageCaptor.getValue().getContent()).isEqualTo("hello");
-        verify(barrageSseEmitter).broadcast(any(), any());
+        verify(barrageSseEmitter).broadcast(eq(sessionId), barrageVoCaptor.capture());
+        ClassBarrageVO broadcast = barrageVoCaptor.getValue();
+        assertThat(broadcast.senderDisplayName()).isEqualTo("Mina");
+        assertThat(broadcast.senderAvatarUrl()).isEqualTo("https://avatar.test/mina.png");
+        assertThat(broadcast.senderRoleLabel()).isEqualTo("学生");
+    }
+
+    @Test
+    void listBarrages_shouldResolveDistinctSendersAndRoleLabels() {
+        UUID sessionId = UUID.randomUUID();
+        UUID openingTeacherId = UUID.randomUUID();
+        UUID assistantTeacherId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        ClassSession session = session(sessionId, Instant.now());
+        session.setTeacherId(openingTeacherId);
+        Page<ClassBarrage> page = new Page<>(1, 30);
+        page.setRecords(List.of(
+                barrage(sessionId, openingTeacherId, "teacher"),
+                barrage(sessionId, assistantTeacherId, "assistant"),
+                barrage(sessionId, studentId, "student"),
+                barrage(sessionId, studentId, "student again")
+        ));
+        page.setTotal(4);
+        ClassParticipant joinedStudent = participant(sessionId, studentId, 2);
+        ClassParticipant assistant = participant(sessionId, assistantTeacherId, null);
+        assistant.setRole(ClassParticipantRole.TEACHER.getCode());
+        when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(classParticipantRepository.existsBySessionIdAndUserId(sessionId, studentId)).thenReturn(true);
+        when(classBarrageRepository.findBySessionId(sessionId, 1, 30)).thenReturn(page);
+        when(classParticipantRepository.findBySessionIdAndUserIds(sessionId,
+                List.of(openingTeacherId, assistantTeacherId, studentId)))
+                .thenReturn(List.of(assistant, joinedStudent));
+        when(classroomUserInfoResolver.resolve(List.of(openingTeacherId, assistantTeacherId, studentId))).thenReturn(Map.of(
+                openingTeacherId, new UserBasicInfo(openingTeacherId, "Prof Lin", "https://avatar.test/lin.png", 2),
+                assistantTeacherId, new UserBasicInfo(assistantTeacherId, "TA Chen", "https://avatar.test/chen.png", 2),
+                studentId, new UserBasicInfo(studentId, "Mina", "https://avatar.test/mina.png", 1)
+        ));
+
+        var result = classSessionService.listBarrages(sessionId, 1, 30, studentId, 1);
+
+        assertThat(result.records()).extracting(ClassBarrageVO::senderDisplayName)
+                .containsExactly("Prof Lin", "TA Chen", "Mina", "Mina");
+        assertThat(result.records()).extracting(ClassBarrageVO::senderRoleLabel)
+                .containsExactly("开课教师", "听课教师", "学生", "学生");
+        verify(classroomUserInfoResolver).resolve(List.of(openingTeacherId, assistantTeacherId, studentId));
+        verify(classParticipantRepository).findBySessionIdAndUserIds(sessionId,
+                List.of(openingTeacherId, assistantTeacherId, studentId));
+        verify(classParticipantRepository, never()).findBySessionId(sessionId);
+    }
+
+    @Test
+    void listBarrages_shouldKeepRoleFallback_whenUserInfoUnavailable() {
+        UUID sessionId = UUID.randomUUID();
+        UUID openingTeacherId = UUID.randomUUID();
+        ClassSession session = session(sessionId, Instant.now());
+        session.setTeacherId(openingTeacherId);
+        Page<ClassBarrage> page = new Page<>(1, 30);
+        page.setRecords(List.of(barrage(sessionId, openingTeacherId, "hello")));
+        page.setTotal(1);
+        when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(courseTeacherRepository.existsByCourseIdAndTeacherId(session.getCourseId(), openingTeacherId)).thenReturn(true);
+        when(classParticipantRepository.findBySessionIdAndUserId(sessionId, openingTeacherId))
+                .thenReturn(Optional.of(teacherParticipant(sessionId, openingTeacherId)));
+        when(classParticipantRepository.existsBySessionIdAndUserId(sessionId, openingTeacherId)).thenReturn(true);
+        when(classBarrageRepository.findBySessionId(sessionId, 1, 30)).thenReturn(page);
+        when(classParticipantRepository.findBySessionIdAndUserIds(sessionId, List.of(openingTeacherId)))
+                .thenReturn(List.of(teacherParticipant(sessionId, openingTeacherId)));
+
+        var result = classSessionService.listBarrages(sessionId, 1, 30, openingTeacherId, 2);
+
+        ClassBarrageVO barrage = result.records().getFirst();
+        assertThat(barrage.senderDisplayName()).isNull();
+        assertThat(barrage.senderAvatarUrl()).isNull();
+        assertThat(barrage.senderRoleLabel()).isEqualTo("开课教师");
     }
 
     private Course course(UUID courseId, UUID teacherId) {
@@ -560,5 +664,21 @@ class ClassSessionServiceTest {
         participant.setZ(BigDecimal.ZERO);
         participant.setJoinedAt(Instant.now());
         return participant;
+    }
+
+    private ClassParticipant teacherParticipant(UUID sessionId, UUID userId) {
+        ClassParticipant participant = participant(sessionId, userId, null);
+        participant.setRole(ClassParticipantRole.TEACHER.getCode());
+        return participant;
+    }
+
+    private ClassBarrage barrage(UUID sessionId, UUID senderId, String content) {
+        ClassBarrage barrage = new ClassBarrage();
+        barrage.setId(UUID.randomUUID());
+        barrage.setSessionId(sessionId);
+        barrage.setSenderId(senderId);
+        barrage.setContent(content);
+        barrage.setSentAt(Instant.now());
+        return barrage;
     }
 }

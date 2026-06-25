@@ -62,7 +62,7 @@ const launcherRef = ref<InstanceType<typeof AiTrailLauncher> | null>(null)
 const routeContext = computed(() => {
   const params = route.params
   const routeName = typeof route.name === 'string' ? route.name : ''
-  const questionBankId = routeName === 'question-bank-detail' || routeName === 'question-bank-practice'
+  const questionBankId = routeName === 'question-bank-detail'
     ? stringParam(params.id)
     : undefined
   return {

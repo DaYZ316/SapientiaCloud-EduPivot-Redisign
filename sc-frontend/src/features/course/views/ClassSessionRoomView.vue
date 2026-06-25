@@ -77,13 +77,15 @@
 
     <AiLiveSummaryPanel
         v-if="session?.publishedAt && showAiSummaryPanel"
+        :can-manage="canManageSessionCourse"
+        :session="session"
         @close="closeAiSummaryPanel"
     />
 
     <ClassroomLivePanel
         v-if="session?.publishedAt && showClassroomLivePanel"
         :can-participate="canUseClassroomLive"
-        :is-teacher="canManageSessionCourse"
+        :is-teacher="isSessionOpeningTeacher"
         :session="session"
         @close="closeClassroomLivePanel"
         @session-change="applySessionUpdate"
@@ -151,6 +153,10 @@ const canManageSessionCourse = computed(() => {
   if (isAdmin.value) return true
   if (!userId || !course.value) return false
   return course.value.teacherId === userId || Boolean(course.value.teacherIds?.includes(userId))
+})
+const isSessionOpeningTeacher = computed(() => {
+  const userId = authStore.user?.id
+  return Boolean(userId && session.value?.teacherId === userId)
 })
 const canUseLivePracticePanel = computed(() => !isTeacher.value || canManageSessionCourse.value)
 const currentUserSeated = computed(() => {
@@ -335,7 +341,7 @@ function backToCourse() {
   margin: 0;
   overflow: hidden;
   padding: 0;
-  background: #0b1020;
+  background: var(--color-surface-canvas);
   color: var(--color-on-surface);
 }
 
@@ -394,13 +400,13 @@ function backToCourse() {
   cursor: pointer;
   font-family: var(--font-label);
   font-size: 14px;
-  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.22);
+  box-shadow: var(--shadow-card);
 }
 
 .floating-action.secondary {
-  background: rgba(8, 13, 27, 0.86);
-  border-color: rgb(255 255 255 / 18%);
-  color: #f8fafc;
+  background: color-mix(in srgb, var(--color-surface-card) 86%, transparent);
+  border-color: var(--color-outline-light);
+  color: var(--color-on-surface);
 }
 
 .action-count {
@@ -409,8 +415,8 @@ function backToCourse() {
   height: 22px;
   place-items: center;
   padding: 0 6px;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 14%);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-container);
   color: inherit;
   font-size: 12px;
   font-variant-numeric: tabular-nums;

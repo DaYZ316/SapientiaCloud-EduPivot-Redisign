@@ -8,19 +8,24 @@ import com.dayz.sc.ai.model.enums.AiAgentMode;
 import com.dayz.sc.ai.model.enums.AiMessageType;
 import com.dayz.sc.ai.model.enums.MessageRole;
 import com.dayz.sc.ai.model.vo.AiAgentResult;
+import com.dayz.sc.ai.model.vo.ChatMessageVO;
 import com.dayz.sc.ai.model.vo.GenerationStageEvent;
 import com.dayz.sc.common.events.ai.QuestionGenerationProgressEvent;
 import com.dayz.sc.ai.repository.MessageRepository;
 import com.dayz.sc.common.error.BusinessException;
+import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.feign.dto.AiCourseContext;
+import com.dayz.sc.common.feign.dto.AgentSearchItem;
 import com.dayz.sc.common.model.UserRole;
 import com.dayz.sc.common.util.UuidV7Generator;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.errors.NotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -34,6 +39,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 
@@ -43,11 +49,13 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 @Service
@@ -58,6 +66,10 @@ public class RagChatService {
     private static final Duration RAG_RETRIEVAL_TIMEOUT = Duration.ofMillis(1200);
     private static final Duration TITLE_GENERATION_TIMEOUT = Duration.ofSeconds(4);
     private static final Duration GENERATION_KEEPALIVE_INTERVAL = Duration.ofSeconds(15);
+    private static final List<String> TIME_SENSITIVE_TERMS = List.of(
+            "今天", "现在", "最新", "近期", "今年", "本周", "本月", "新闻",
+            "当前日期", "当前时间", "today", "now", "latest", "recent", "news",
+            "this year", "this week", "this month", "current date", "current time");
     private static final String PAPER_MEMORY_LABEL = "\u4e0a\u4e00\u4efd AI \u51fa\u5377\u7ed3\u679c";
     private static final String QUESTION_SET_MEMORY_LABEL = "\u4e0a\u4e00\u7ec4 AI \u51fa\u9898\u7ed3\u679c";
     private static final String NO_RAG_CONTEXT =
@@ -145,11 +157,50 @@ public class RagChatService {
             }
 
             Mono<@NonNull ServerSentEvent<String>> titleUpdate = asyncTitleUpdate(
-                    streamConversationId, userId, request.message(), initialTitle, startedAtNanos);
+                    streamConversationId,
+                    userId,
+                    request.message(),
+                    titleContext(streamRequest, mode),
+                    initialTitle,
+                    startedAtNanos);
             return Flux.just(conversationEvent(streamConversationId, initialTitle))
                     .concatWith(chunks)
                     .concatWith(titleUpdate.flux());
         }).onErrorResume(error -> Flux.just(errorEvent(error)));
+    }
+
+    public Flux<@NonNull ServerSentEvent<String>> streamGenerationProgress(UUID conversationId,
+                                                                            UUID messageId,
+                                                                            UUID userId) {
+        return Flux.defer(() -> {
+            conversationService.requireOwnedConversation(conversationId, userId);
+            ChatMessage message = generationMessage(conversationId, messageId);
+            Map<String, Object> payload = message.getPayload() == null ? Map.of() : message.getPayload();
+            ServerSentEvent<String> snapshot = generationSnapshotEvent(message);
+            String requestId = textValue(payload.get("generationRequestId"));
+            QuestionGenerationKafkaBridge kafkaBridge = questionGenerationKafkaBridgeProvider.getIfAvailable();
+            if (!isProcessingGeneration(payload) || !StringUtils.hasText(requestId) || kafkaBridge == null) {
+                return Flux.just(snapshot);
+            }
+            return Flux.just(snapshot).concatWith(liveGenerationProgress(kafkaBridge, requestId, messageId));
+        }).onErrorResume(error -> Flux.just(errorEvent(error)));
+    }
+
+    public void terminateGeneration(UUID conversationId, UUID messageId, UUID userId) {
+        conversationService.requireOwnedConversation(conversationId, userId);
+        ChatMessage message = generationMessage(conversationId, messageId);
+        Map<String, Object> payload = message.getPayload() == null ? Map.of() : message.getPayload();
+        String requestId = textValue(payload.get("generationRequestId"));
+        AiAgentMode mode = generationMode(message, payload);
+        generationMessageStateService.markTerminated(
+                messageId,
+                requestId,
+                mode,
+                "用户已终止本次生成任务。");
+        QuestionGenerationKafkaBridge kafkaBridge = questionGenerationKafkaBridgeProvider.getIfAvailable();
+        if (kafkaBridge != null && StringUtils.hasText(requestId)) {
+            kafkaBridge.cancel(requestId, mode);
+        }
     }
 
     private ChatRequest requestWithConversationId(ChatRequest request, UUID conversationId) {
@@ -195,6 +246,7 @@ public class RagChatService {
                                                                          long startedAtNanos) {
         Sinks.Many<GenerationStageEvent> stageSink = Sinks.many().unicast().onBackpressureBuffer();
         Sinks.Many<AgentSearchEvent> agentSearchSink = Sinks.many().unicast().onBackpressureBuffer();
+        AtomicBoolean cancelled = new AtomicBoolean(false);
         String requestId = UuidV7Generator.generate().toString();
         ChatMessage assistantMessage = generationMessageStateService.createProcessingMessage(
                 conversationId,
@@ -214,32 +266,42 @@ public class RagChatService {
                 ? Mono.empty()
                 : kafkaBridge.submit(request, conversationId, userId, role, mode, requestId, assistantMessage.getId());
         Mono<AiAgentResult> resultMono = kafkaResult
-                .switchIfEmpty(Mono.fromCallable(() -> {
+                .switchIfEmpty(Mono.defer(() -> cancelled.get() ? Mono.<AiAgentResult>empty() : Mono.fromCallable(() -> {
                     log.info("AI chat agent run started conversationId={} mode={} elapsedMs={}",
                             conversationId, mode, elapsedMs(startedAtNanos));
                     AiAgentResult generatedResult = aiAgentService.runGeneration(
                             request,
                             userId,
-                            role,
-                            event -> {
-                                generationMessageStateService.appendStage(assistantMessage.getId(), event);
-                                stageSink.tryEmitNext(event);
-                            },
-                            event -> agentSearchSink.tryEmitNext(event),
-                            requestId);
-                    return generatedResult;
-                }).subscribeOn(Schedulers.boundedElastic()))
+                             role,
+                             event -> {
+                                if (cancelled.get()) {
+                                    return;
+                                }
+                                 generationMessageStateService.appendStage(assistantMessage.getId(), event);
+                                 stageSink.tryEmitNext(event);
+                             },
+                             event -> {
+                                if (!cancelled.get()) {
+                                    agentSearchSink.tryEmitNext(event);
+                                }
+                             },
+                             requestId);
+                     return generatedResult;
+                 }).subscribeOn(Schedulers.boundedElastic())))
                 .doOnError(error -> generationMessageStateService.markFailed(
                         assistantMessage.getId(),
                         requestId,
                         mode,
                         "题目生成失败，请稍后重试。"))
                 .cache();
-        Flux<@NonNull ServerSentEvent<String>> resultEvents = resultMono
-                .flatMapMany(result -> {
-                    generationMessageStateService.markCompleted(assistantMessage.getId(), requestId, mode, result);
-                    log.info("AI chat agent run completed conversationId={} mode={} elapsedMs={}",
-                            conversationId, mode, elapsedMs(startedAtNanos));
+         Flux<@NonNull ServerSentEvent<String>> resultEvents = resultMono
+                 .flatMapMany(result -> {
+                    if (cancelled.get()) {
+                        return Flux.empty();
+                    }
+                     generationMessageStateService.markCompleted(assistantMessage.getId(), requestId, mode, result);
+                     log.info("AI chat agent run completed conversationId={} mode={} elapsedMs={}",
+                             conversationId, mode, elapsedMs(startedAtNanos));
                     return Flux.just(
                             generationResultEvent(assistantMessage.getId(), requestId, mode, result),
                             chunkEvent(result.content()));
@@ -251,7 +313,19 @@ public class RagChatService {
         Flux<@NonNull ServerSentEvent<String>> keepaliveEvents = Flux.interval(GENERATION_KEEPALIVE_INTERVAL)
                 .map(ignored -> keepaliveEvent())
                 .takeUntilOther(resultMono.then());
-        return Flux.merge(stageEvents, agentSearchEvents, kafkaProgressEvents, keepaliveEvents, resultEvents);
+        return Flux.merge(stageEvents, agentSearchEvents, kafkaProgressEvents, keepaliveEvents, resultEvents)
+                .doFinally(signalType -> {
+                    if (signalType == SignalType.CANCEL && cancelled.compareAndSet(false, true)) {
+                        generationMessageStateService.markTerminated(
+                                assistantMessage.getId(),
+                                requestId,
+                                mode,
+                                "用户已终止本次生成任务。");
+                        if (kafkaBridge != null) {
+                            kafkaBridge.cancel(requestId, mode);
+                        }
+                    }
+                });
     }
 
     private Flux<@NonNull ServerSentEvent<String>> streamRagChat(UUID conversationId,
@@ -321,7 +395,11 @@ public class RagChatService {
                                                                      long startedAtNanos) {
         Sinks.Many<AgentSearchEvent> agentSearchSink = Sinks.many().unicast().onBackpressureBuffer();
         List<AgentSearchEvent> agentSearchLog = Collections.synchronizedList(new ArrayList<>());
+        AtomicBoolean cancelled = new AtomicBoolean(false);
         AgentSearchEventEmitter emitter = event -> {
+            if (cancelled.get()) {
+                return;
+            }
             agentSearchLog.add(event);
             agentSearchSink.tryEmitNext(event);
         };
@@ -336,10 +414,11 @@ public class RagChatService {
                         courseId,
                         systemPrompt,
                         memoryMessages,
-                        question,
-                        emitter,
-                        agentSearchLog))
-                .subscribeOn(Schedulers.boundedElastic())
+                         question,
+                         emitter,
+                         agentSearchLog,
+                         cancelled))
+                 .subscribeOn(Schedulers.boundedElastic())
                 .doOnSubscribe(subscription -> log.info(
                         "AI chat model call started conversationId={} elapsedMs={}",
                         conversationId, elapsedMs(startedAtNanos)))
@@ -348,7 +427,12 @@ public class RagChatService {
                         conversationId, elapsedMs(startedAtNanos)))
                 .doOnError(error -> log.warn("AI chat model call errored conversationId={} elapsedMs={}",
                         conversationId, elapsedMs(startedAtNanos), error))
-                .doFinally(signalType -> agentSearchSink.tryEmitComplete())
+                .doFinally(signalType -> {
+                    if (signalType == SignalType.CANCEL) {
+                        cancelled.set(true);
+                    }
+                    agentSearchSink.tryEmitComplete();
+                })
                 .map(this::chunkEvent);
         return Flux.merge(agentSearchEvents, answerEvent);
     }
@@ -360,20 +444,27 @@ public class RagChatService {
                                    ChatMessage currentUserMessage,
                                    UUID courseId,
                                    String systemPrompt,
-                                   List<ChatMessage> memoryMessages,
-                                   String question,
-                                   AgentSearchEventEmitter emitter,
-                                   List<AgentSearchEvent> agentSearchLog) {
+                                    List<ChatMessage> memoryMessages,
+                                    String question,
+                                    AgentSearchEventEmitter emitter,
+                                    List<AgentSearchEvent> agentSearchLog,
+                                    AtomicBoolean cancelled) {
+        Map<String, Object> toolContext = agentSearchContext(userId, role, authorization, conversationId, courseId, emitter);
+        List<AgentSearchOutcome> preflightOutcomes = preflightAgentSearch(question, toolContext);
         String content = aiProviderCallGuard.call(() -> chatClient.prompt()
-                .messages(modelMessages(systemPrompt, memoryMessages, question, role))
+                .messages(modelMessages(systemPrompt, memoryMessages, question, role, preflightOutcomes))
                 .tools(agentSearchTools)
-                .toolContext(agentSearchContext(userId, role, authorization, conversationId, courseId, emitter))
+                .toolContext(toolContext)
                 .call()
                 .content());
-        if (emitter != null) {
+        if (emitter != null && !cancelled.get()) {
             emitter.emit(AgentSearchEvent.completed());
         }
         String answer = content == null ? "" : content;
+        if (cancelled.get()) {
+            log.info("AI chat model answer skipped after client cancellation conversationId={}", conversationId);
+            return answer;
+        }
         persistAssistantAnswer(conversationId, userId, currentUserMessage, courseId, answer, agentSearchLog);
         return answer;
     }
@@ -423,6 +514,11 @@ public class RagChatService {
             search.put("phase", event.phase());
             search.put("total", event.total());
             search.put("occurredAt", event.occurredAt());
+            putIfNotNull(search, "status", event.status());
+            putIfNotNull(search, "reason", event.reason());
+            putIfNotNull(search, "provider", event.provider());
+            putIfNotNull(search, "durationMs", event.durationMs());
+            putIfNotNull(search, "retryable", event.retryable());
             if (event.items() != null && !event.items().isEmpty()) {
                 search.put("items", event.items());
             }
@@ -437,6 +533,12 @@ public class RagChatService {
                 .filter(Objects::nonNull)
                 .map(item -> (Object) item)
                 .toList();
+    }
+
+    private void putIfNotNull(Map<String, Object> target, String key, Object value) {
+        if (value != null) {
+            target.put(key, value);
+        }
     }
 
     String systemPromptForRagContext(RagContext context) {
@@ -467,8 +569,21 @@ public class RagChatService {
     }
 
     List<Message> modelMessages(String systemPrompt, List<ChatMessage> memoryMessages, String question, Integer role) {
+        return modelMessages(systemPrompt, memoryMessages, question, role, List.of());
+    }
+
+    List<Message> modelMessages(String systemPrompt,
+                                List<ChatMessage> memoryMessages,
+                                String question,
+                                Integer role,
+                                List<AgentSearchOutcome> preflightOutcomes) {
         List<Message> messages = new ArrayList<>();
-        messages.add(new SystemMessage(systemPrompt + "\n\n" + currentUserContext(role) + "\n\n" + agentSearchInstruction()));
+        String preflightContext = agentSearchPreflightContext(preflightOutcomes);
+        String prompt = systemPrompt + "\n\n" + currentUserContext(role);
+        if (StringUtils.hasText(preflightContext)) {
+            prompt = prompt + "\n\n" + preflightContext;
+        }
+        messages.add(new SystemMessage(prompt + "\n\n" + agentSearchInstruction()));
         memoryMessages.stream()
                 .map(this::toModelMessage)
                 .filter(Objects::nonNull)
@@ -489,6 +604,17 @@ public class RagChatService {
                 Use search tools when the user asks about platform facts, course content, question banks, questions,
                 live practices, personal knowledge documents, or prior chat memory. Do not invent platform facts; if search results are
                 insufficient, say what is missing in user-facing language.
+                Use searchWeb only when the user explicitly asks to search the web, go online, look up latest/recent/news/external
+                public information, or the question depends on fresh public facts. Prefer platform and course search tools for
+                platform facts. When using web results, cite readable webpage titles or domains naturally and do not present web
+                results as internal platform facts.
+                For today/now/latest/recent/news/this week/this month/this year questions, use getCurrentDateTime or
+                the AgentSearch preflight SYSTEM_TIME result as the current date anchor before planning search keywords.
+                Do not assume a stale year or month.
+                If searchWeb returns EMPTY, you may try one refined query at most, using official names, English aliases, release dates,
+                or publisher names. If searchWeb returns DISABLED, MISCONFIGURED, or FAILED, clearly say that web search is unavailable
+                or failed; do not answer fresh/current facts from memory as if they were searched. Do not claim "latest" unless supported
+                by returned WEB_SEARCH items.
                 Use queryPlatformApi only for read-only platform facts that are not covered by the more specific tools.
                 For user-facing answers, use readable names and Chinese role labels only. Do not reveal UUIDs,
                 internal ids, courseId, sourceId, role numbers, or backend field names.
@@ -501,6 +627,63 @@ public class RagChatService {
             return "当前登录用户角色：未知。";
         }
         return "当前登录用户角色：" + roleName + "。";
+    }
+
+    private List<AgentSearchOutcome> preflightAgentSearch(String question, Map<String, Object> toolContext) {
+        if (!shouldPreflightCurrentDate(question)) {
+            return List.of();
+        }
+        try {
+            AgentSearchOutcome outcome = agentSearchTools.getCurrentDateTime(new ToolContext(toolContext));
+            return outcome == null ? List.of() : List.of(outcome);
+        } catch (RuntimeException e) {
+            log.warn("AgentSearch current date preflight failed", e);
+            return List.of();
+        }
+    }
+
+    private boolean shouldPreflightCurrentDate(String question) {
+        if (!StringUtils.hasText(question)) {
+            return false;
+        }
+        String normalized = question.toLowerCase(Locale.ROOT);
+        return TIME_SENSITIVE_TERMS.stream().anyMatch(normalized::contains);
+    }
+
+    private String agentSearchPreflightContext(List<AgentSearchOutcome> outcomes) {
+        if (outcomes == null || outcomes.isEmpty()) {
+            return "";
+        }
+        List<AgentSearchOutcome> safeOutcomes = outcomes.stream()
+                .filter(Objects::nonNull)
+                .toList();
+        if (safeOutcomes.isEmpty()) {
+            return "";
+        }
+        StringBuilder context = new StringBuilder("AgentSearch preflight context:\n");
+        for (AgentSearchOutcome outcome : safeOutcomes) {
+            context.append("- domain=").append(outcome.domain())
+                    .append(", status=").append(outcome.status())
+                    .append(", provider=").append(outcome.provider())
+                    .append(", query=").append(outcome.query())
+                    .append("\n");
+            if (StringUtils.hasText(outcome.reason())) {
+                context.append("  reason=").append(outcome.reason()).append("\n");
+            }
+            for (AgentSearchItem item : outcome.items()) {
+                context.append("  - sourceType=").append(item.sourceType())
+                        .append(", sourceLabel=").append(item.sourceLabel())
+                        .append(", title=").append(item.title());
+                if (StringUtils.hasText(item.snippet())) {
+                    context.append(", snippet=").append(item.snippet());
+                }
+                if (item.metadata() != null && !item.metadata().isEmpty()) {
+                    context.append(", metadata=").append(item.metadata());
+                }
+                context.append("\n");
+            }
+        }
+        return context.toString().stripTrailing();
     }
 
     private Map<String, Object> agentSearchContext(UUID userId,
@@ -803,9 +986,10 @@ public class RagChatService {
     private Mono<@NonNull ServerSentEvent<String>> asyncTitleUpdate(UUID conversationId,
                                                                     UUID userId,
                                                                     String message,
+                                                                    String titleContext,
                                                                     String initialTitle,
                                                                     long startedAtNanos) {
-        return Mono.fromCallable(() -> generateTitle(message))
+        return Mono.fromCallable(() -> generateTitle(message, titleContext))
                 .subscribeOn(Schedulers.boundedElastic())
                 .timeout(TITLE_GENERATION_TIMEOUT)
                 .doOnSubscribe(subscription -> log.info(
@@ -830,7 +1014,39 @@ public class RagChatService {
                 .cache();
     }
 
-    private String generateTitle(String message) {
+    private String titleContext(ChatRequest request, AiAgentMode mode) {
+        StringBuilder context = new StringBuilder("用户消息：\n").append(request.message());
+        GenerationRequest generation = request.generation();
+        if (mode == AiAgentMode.CHAT || generation == null) {
+            return context.toString();
+        }
+
+        context.append("\n\n生成任务：").append(mode == AiAgentMode.PAPER ? "出卷" : "出题");
+        appendTitleContext(context, "题目数量", generation.questionCount());
+        appendTitleContext(context, "题型", generation.questionType());
+        appendTitleContext(context, "难度", generation.difficulty());
+        appendTitleContext(context, "试卷名称", generation.paperName());
+        appendTitleContext(context, "试卷类型", generation.paperType());
+        appendTitleContext(context, "要求", generation.requirement());
+        appendTitleContext(context, "知识点", generation.knowledgePoints());
+        appendTitleContext(context, "能力目标", generation.abilityGoals());
+        return context.toString();
+    }
+
+    private void appendTitleContext(StringBuilder context, String label, Object value) {
+        if (value == null) {
+            return;
+        }
+        if (value instanceof String text && !StringUtils.hasText(text)) {
+            return;
+        }
+        if (value instanceof List<?> list && list.isEmpty()) {
+            return;
+        }
+        context.append("\n").append(label).append("：").append(value);
+    }
+
+    private String generateTitle(String message, String titleContext) {
         if (!aiRuntimeGuard.isConfigured()) {
             return fallbackTitle(message);
         }
@@ -842,9 +1058,9 @@ public class RagChatService {
                 - 不要使用引号、markdown、句末标点或解释。
                 - 中文不超过 16 个字，英文不超过 8 个单词。
 
-                用户消息：
+                会话信息：
                 %s
-                """.formatted(message);
+                """.formatted(titleContext);
         try {
             return normalizeTitle(aiProviderCallGuard.call(() -> chatClient.prompt().user(prompt).call().content()), message);
         } catch (RuntimeException exception) {
@@ -989,6 +1205,78 @@ public class RagChatService {
         return ServerSentEvent.<String>builder(toJson(data))
                 .event("generation_stage")
                 .build();
+    }
+
+    private Flux<@NonNull ServerSentEvent<String>> liveGenerationProgress(QuestionGenerationKafkaBridge kafkaBridge,
+                                                                          String requestId,
+                                                                          UUID messageId) {
+        return kafkaBridge.progress(requestId)
+                .map(event -> generationProgressEvent(event, messageId))
+                .takeUntil(this::isTerminalGenerationStageEvent);
+    }
+
+    private ChatMessage generationMessage(UUID conversationId, UUID messageId) {
+        ChatMessage message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.AI_CONVERSATION_NOT_FOUND));
+        if (!conversationId.equals(message.getConversationId()) || !isGenerationMessage(message)) {
+            throw new BusinessException(ErrorCodes.AI_CONVERSATION_NOT_FOUND);
+        }
+        return message;
+    }
+
+    private boolean isGenerationMessage(ChatMessage message) {
+        return AiMessageType.QUESTION_SET.name().equals(message.getMessageType())
+                || AiMessageType.PAPER.name().equals(message.getMessageType());
+    }
+
+    private boolean isProcessingGeneration(Map<String, Object> payload) {
+        return "processing".equals(textValue(payload.get("generationStatus")));
+    }
+
+    private AiAgentMode generationMode(ChatMessage message, Map<String, Object> payload) {
+        String mode = textValue(payload.get("generationMode"));
+        if (StringUtils.hasText(mode)) {
+            try {
+                return AiAgentMode.valueOf(mode);
+            } catch (IllegalArgumentException ignored) {
+                // Fall back to message type below.
+            }
+        }
+        return AiMessageType.PAPER.name().equals(message.getMessageType()) ? AiAgentMode.PAPER : AiAgentMode.QUESTION;
+    }
+
+    private ServerSentEvent<String> generationSnapshotEvent(ChatMessage message) {
+        ChatMessageVO vo = new ChatMessageVO(
+                message.getId(),
+                message.getRole(),
+                message.getContent(),
+                message.getMessageType(),
+                message.getPayload(),
+                message.getCreatedAt());
+        return ServerSentEvent.<String>builder(toJson(vo))
+                .event("generation_snapshot")
+                .build();
+    }
+
+    private boolean isTerminalGenerationStageEvent(ServerSentEvent<String> event) {
+        if (!"generation_stage".equals(event.event()) || event.data() == null) {
+            return false;
+        }
+        try {
+            Map<String, Object> payload = objectMapper.readValue(event.data(), new TypeReference<>() {
+            });
+            String status = textValue(payload.get("status"));
+            String stage = textValue(payload.get("stage"));
+            return "completed".equals(status) || "failed".equals(status) || "error".equals(status)
+                    || "terminated".equals(status)
+                    || "RESPONDED".equals(stage) || "FAILED".equals(stage) || "TERMINATED".equals(stage);
+        } catch (JsonProcessingException exception) {
+            return false;
+        }
+    }
+
+    private String textValue(Object value) {
+        return value == null ? "" : value.toString();
     }
 
     private ServerSentEvent<String> errorEvent(Throwable error) {

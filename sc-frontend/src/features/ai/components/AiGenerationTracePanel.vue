@@ -55,6 +55,38 @@
             />
 
             <div
+              v-if="webSources(entry).length"
+              class="trace-web-sources"
+            >
+              <a
+                v-for="(source, sourceIndex) in webSources(entry)"
+                :key="source.url || `${source.site}-${source.title}-${sourceIndex}`"
+                :href="source.url"
+                :title="source.title"
+                class="trace-web-source"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <img
+                  v-if="source.favicon"
+                  :src="source.favicon"
+                  alt=""
+                  class="trace-web-source__icon"
+                  loading="lazy"
+                >
+                <span
+                  v-else
+                  aria-hidden="true"
+                  class="trace-web-source__icon trace-web-source__icon--fallback"
+                >
+                  {{ sourceFallback(source) }}
+                </span>
+                <strong>{{ source.site || source.url }}</strong>
+                <span>{{ source.title || source.url }}</span>
+              </a>
+            </div>
+
+            <div
               v-if="buildEntryBlocks(entry).length"
               class="trace-blocks"
             >
@@ -94,6 +126,7 @@
       <details
         v-if="debugEntries.length"
         class="trace-debug"
+        open
       >
         <summary>技术明细 {{ debugEntries.length }} 条</summary>
         <div class="trace-debug-list">
@@ -109,6 +142,13 @@
               :content="entry.summary"
               class="trace-block"
             />
+            <div
+              v-if="rawAiOutput(entry)"
+              class="trace-raw-output"
+            >
+              <span>{{ rawOutputLabel(entry) }}</span>
+              <pre>{{ rawAiOutput(entry) }}</pre>
+            </div>
             <AiMarkdownMessage
               v-for="(block, blockIndex) in buildEntryBlocks(entry)"
               :key="blockIndex"
@@ -134,6 +174,13 @@ import {
   generationStageLabel,
   generationTrace,
 } from '@/features/ai/utils/generationTrace'
+
+interface WebSource {
+  site: string
+  title: string
+  url: string
+  favicon: string
+}
 
 const props = withDefaults(defineProps<{
   message: ChatMessage | null
@@ -162,7 +209,9 @@ const panelTitle = computed(() => {
   if (props.message?.messageType === 'PAPER') return '试卷生成过程'
   return '题目生成过程'
 })
-const isStreaming = computed(() => props.message?.pending && stage.value !== 'RESPONDED' && stage.value !== 'FAILED')
+const isStreaming = computed(() =>
+  props.message?.pending && stage.value !== 'RESPONDED' && stage.value !== 'FAILED' && stage.value !== 'TERMINATED',
+)
 
 watch(() => [entries.value.length, entries.value.at(-1)?.timestamp], async () => {
   await nextTick()
@@ -241,15 +290,51 @@ function closestScrollableParent(element: HTMLElement) {
 function buildEntryBlocks(entry: GenerationTraceEntry) {
   const payload = asRecord(entry.payload)
   if (!payload) return []
+  if (rawAiOutput(entry)) return []
+  const hasWebSources = webSources(entry).length > 0
+  const showQuestionDetails = isTechnicalQuestionEntry(entry)
 
   return [
-    buildMetricLine(payload),
-    ...listRecords(payload.evidences).slice(0, 4).map(buildEvidenceLine),
+    hasWebSources ? '' : buildMetricLine(payload),
+    ...(hasWebSources ? [] : listRecords(payload.evidences).slice(0, 4).map(buildEvidenceLine)),
     ...listRecords(payload.sections).slice(0, 6).map(buildSectionLine),
-    ...listRecords(payload.questions).slice(0, 8).map(buildQuestionLine),
+    ...listRecords(payload.questions).slice(0, 8).map((question, index) =>
+      buildQuestionLine(question, index, showQuestionDetails),
+    ),
     ...listRecords(payload.issues).slice(0, 6).map(buildIssueLine),
     textValue(payload.error),
   ].filter(Boolean)
+}
+
+function webSources(entry: GenerationTraceEntry): WebSource[] {
+  const payload = asRecord(entry.payload)
+  return listRecords(payload?.webSources)
+    .map(source => ({
+      site: textValue(source.site),
+      title: textValue(source.title),
+      url: textValue(source.url),
+      favicon: textValue(source.favicon),
+    }))
+    .filter(source => Boolean(source.url))
+}
+
+function sourceFallback(source: WebSource) {
+  return (source.site || source.title || source.url).trim().slice(0, 1).toUpperCase()
+}
+
+function rawAiOutput(entry: GenerationTraceEntry) {
+  const payload = asRecord(entry.payload)
+  return textValue(payload?.rawOutput)
+}
+
+function rawOutputLabel(entry: GenerationTraceEntry) {
+  const payload = asRecord(entry.payload)
+  const parts = [
+    textValue(payload?.callType) || 'model_output',
+    metricValue(payload, 'sectionNo', 'section'),
+    metricValue(payload, 'attemptNo', 'attempt'),
+  ].filter(Boolean)
+  return parts.join(' / ')
 }
 
 function buildMetricLine(payload: Record<string, unknown>) {
@@ -289,7 +374,7 @@ function buildSectionLine(item: Record<string, unknown>, index: number) {
   return [title, meta, knowledgePoints.length ? `知识点: ${knowledgePoints.join('、')}` : ''].filter(Boolean).join('\n')
 }
 
-function buildQuestionLine(item: Record<string, unknown>, index: number) {
+function buildQuestionLine(item: Record<string, unknown>, index: number, showDetails: boolean) {
   const title = textValue(item.questionTitle) || `题目 ${index + 1}`
   const meta = [
     metric(item, 'questionType', '题型'),
@@ -298,7 +383,43 @@ function buildQuestionLine(item: Record<string, unknown>, index: number) {
     metric(item, 'estimatedTime', '预计用时'),
   ].filter(Boolean).join(' · ')
   const content = textValue(item.questionContent)
-  return [title, meta, content].filter(Boolean).join('\n')
+  if (!showDetails) {
+    return [title, meta, content].filter(Boolean).join('\n')
+  }
+  const options = listRecords(item.options).map(buildOptionLine)
+  const answers = listRecords(item.answers).map(buildAnswerLine)
+  return [
+    title,
+    meta,
+    content,
+    options.length ? `选项:\n${options.join('\n')}` : '',
+    answers.length ? `答案:\n${answers.join('\n')}` : '',
+  ].filter(Boolean).join('\n')
+}
+
+function isTechnicalQuestionEntry(entry: GenerationTraceEntry) {
+  return ['section_attempt', 'repair_attempt', 'repair_summary', 'quality_review'].includes(entry.detailType || '')
+}
+
+function buildOptionLine(item: Record<string, unknown>, index: number) {
+  const label = textValue(item.optionLabel) || String.fromCharCode(65 + index)
+  const correctness = Number(item.isCorrect) === 1 ? '正确' : '错误'
+  const score = metric(item, 'score', '分值')
+  const explanation = textValue(item.explanation)
+  return [
+    `${label}. ${textValue(item.optionContent)}（${correctness}${score ? ` · ${score}` : ''}）`,
+    explanation ? `解析: ${explanation}` : '',
+  ].filter(Boolean).join('\n')
+}
+
+function buildAnswerLine(item: Record<string, unknown>) {
+  const score = metric(item, 'score', '分值')
+  const sortOrder = metric(item, 'sortOrder', '顺序')
+  const explanation = textValue(item.explanation)
+  return [
+    [textValue(item.answerContent), score, sortOrder].filter(Boolean).join(' · '),
+    explanation ? `解析: ${explanation}` : '',
+  ].filter(Boolean).join('\n')
 }
 
 function buildIssueLine(item: Record<string, unknown>, index: number) {
@@ -316,6 +437,12 @@ function metric(payload: Record<string, unknown>, key: string, label: string) {
   const value = payload[key]
   if (value === null || value === undefined || value === '') return ''
   return `${label}: ${formatValue(value)}`
+}
+
+function metricValue(payload: Record<string, unknown> | null, key: string, label: string) {
+  const value = payload?.[key]
+  if (value === null || value === undefined || value === '') return ''
+  return `${label} ${formatValue(value)}`
 }
 
 function formatValue(value: unknown): string {
@@ -520,6 +647,71 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   padding-top: 4px;
 }
 
+.trace-web-sources {
+  display: grid;
+  gap: 4px;
+  padding-top: 2px;
+}
+
+.trace-web-source {
+  display: grid;
+  min-width: 0;
+  min-height: 36px;
+  grid-template-columns: 20px max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.35;
+  text-decoration: none;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.trace-web-source:hover {
+  background: var(--color-surface-container-high);
+}
+
+.trace-web-source:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 54%, transparent);
+  outline-offset: 2px;
+}
+
+.trace-web-source__icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  object-fit: cover;
+}
+
+.trace-web-source__icon--fallback {
+  display: grid;
+  place-items: center;
+  background: var(--color-surface-container-high);
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.trace-web-source strong,
+.trace-web-source span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trace-web-source strong {
+  font-weight: 650;
+}
+
+.trace-web-source span:last-child {
+  color: var(--color-on-surface-variant);
+}
+
 .trace-block {
   padding: 10px 0;
   border-top: 1px solid var(--color-outline-light);
@@ -563,6 +755,35 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   font-family: var(--font-heading);
   font-size: 17px;
   line-height: 1.25;
+}
+
+.trace-raw-output {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+}
+
+.trace-raw-output span {
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.trace-raw-output pre {
+  max-height: 420px;
+  margin: 0;
+  overflow: auto;
+  color: var(--color-on-surface);
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .trace-loading {
@@ -642,6 +863,14 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
   .trace-content h3 {
     font-size: 20px;
+  }
+
+  .trace-web-source {
+    grid-template-columns: 20px minmax(0, 1fr);
+  }
+
+  .trace-web-source span:last-child {
+    grid-column: 2;
   }
 }
 </style>

@@ -21,6 +21,7 @@ public class AgentSearchTools {
     public static final String CONTEXT_COURSE_ID = "courseId";
     public static final String CONTEXT_AUTHORIZATION = "authorization";
     public static final String CONTEXT_EVENT_EMITTER = "agentSearchEventEmitter";
+    public static final String CONTEXT_CURRENT_DATE_TIME_OUTCOME = "currentDateTimeOutcome";
 
     private final AgentSearchService agentSearchService;
 
@@ -30,7 +31,7 @@ public class AgentSearchTools {
         Integer role = intFromContext(toolContext, CONTEXT_USER_ROLE);
         String authorization = stringFromContext(toolContext, CONTEXT_AUTHORIZATION);
         AgentSearchEventEmitter emitter = eventEmitter(toolContext);
-        AgentSearchEvent started = AgentSearchEvent.started("profile", "正在读取你的账号角色", "当前用户");
+        AgentSearchEvent started = AgentSearchEvent.started("profile", "姝ｅ湪璇诲彇浣犵殑璐﹀彿瑙掕壊", "褰撳墠鐢ㄦ埛");
         emit(emitter, started);
         try {
             CurrentUserProfile profile = agentSearchService.getCurrentUserProfile(userId, role, authorization);
@@ -38,18 +39,18 @@ public class AgentSearchTools {
             emit(emitter, AgentSearchEvent.results(
                     started.searchId(),
                     "profile",
-                    "已识别当前角色：" + roleName,
-                    "当前用户",
+                    "宸茶瘑鍒綋鍓嶈鑹诧細" + roleName,
+                    "褰撳墠鐢ㄦ埛",
                     List.of()));
             return profile;
         } catch (RuntimeException e) {
-            emit(emitter, AgentSearchEvent.error(started.searchId(), "profile", "账号角色读取失败", "当前用户"));
+            emit(emitter, AgentSearchEvent.error(started.searchId(), "profile", "璐﹀彿瑙掕壊璇诲彇澶辫触", "褰撳墠鐢ㄦ埛"));
             throw e;
         }
     }
 
     @Tool(name = "searchTeachingData", description = "Search authorized courses, chapters, question banks, questions, and live practices.")
-    public List<AgentSearchItem> searchTeachingData(
+    public AgentSearchOutcome searchTeachingData(
             @ToolParam(description = "Keywords to search for.") String query,
             @ToolParam(description = "Optional course id to narrow the search.", required = false) String courseId,
             @ToolParam(description = "Maximum result count. Defaults to 5 and is capped at 10.", required = false) Integer limit,
@@ -60,25 +61,22 @@ public class AgentSearchTools {
         UUID requestedCourseId = uuidValue(courseId);
         UUID effectiveCourseId = contextCourseId != null ? contextCourseId : requestedCourseId;
         AgentSearchEventEmitter emitter = eventEmitter(toolContext);
-        AgentSearchEvent started = AgentSearchEvent.started("teaching", "正在检索课程内容", query);
+        AgentSearchEvent started = AgentSearchEvent.started("teaching", "Searching course content", query);
         emit(emitter, started);
         try {
             List<AgentSearchItem> results = agentSearchService.searchTeachingData(query, effectiveCourseId, limit, userId, role);
-            emit(emitter, AgentSearchEvent.results(
-                    started.searchId(),
-                    "teaching",
-                    "找到 " + results.size() + " 条课程内容",
-                    query,
-                    results));
-            return results;
+            AgentSearchOutcome outcome = outcome("teaching", "platform", query, "Found " + results.size() + " course content items", results);
+            emit(emitter, AgentSearchEvent.outcome(started.searchId(), outcome));
+            return outcome;
         } catch (RuntimeException e) {
-            emit(emitter, AgentSearchEvent.error(started.searchId(), "teaching", "课程内容检索失败", query));
-            throw e;
+            AgentSearchOutcome outcome = failed("teaching", "platform", query, "Course content search failed", "Course content search service error");
+            emit(emitter, AgentSearchEvent.outcome(started.searchId(), outcome));
+            return outcome;
         }
     }
 
     @Tool(name = "searchCourseResources", description = "Search authorized course resources by type: courses, chapters, question banks, questions, course files, live practices, and practice records.")
-    public List<AgentSearchItem> searchCourseResources(
+    public AgentSearchOutcome searchCourseResources(
             @ToolParam(description = "Keywords to search for.") String query,
             @ToolParam(description = "Optional course title to narrow the search.", required = false) String courseTitle,
             @ToolParam(description = "Optional course id to narrow the search.", required = false) String courseId,
@@ -91,26 +89,23 @@ public class AgentSearchTools {
         UUID requestedCourseId = uuidValue(courseId);
         UUID effectiveCourseId = contextCourseId != null ? contextCourseId : requestedCourseId;
         AgentSearchEventEmitter emitter = eventEmitter(toolContext);
-        AgentSearchEvent started = AgentSearchEvent.started("resources", "正在检索课程资源", query);
+        AgentSearchEvent started = AgentSearchEvent.started("resources", "Searching course resources", query);
         emit(emitter, started);
         try {
             List<AgentSearchItem> results = agentSearchService.searchCourseResources(
                     query, effectiveCourseId, courseTitle, resourceTypes, limit, userId, role);
-            emit(emitter, AgentSearchEvent.results(
-                    started.searchId(),
-                    "resources",
-                    "找到 " + results.size() + " 条课程资源",
-                    query,
-                    results));
-            return results;
+            AgentSearchOutcome outcome = outcome("resources", "platform", query, "Found " + results.size() + " course resources", results);
+            emit(emitter, AgentSearchEvent.outcome(started.searchId(), outcome));
+            return outcome;
         } catch (RuntimeException e) {
-            emit(emitter, AgentSearchEvent.error(started.searchId(), "resources", "课程资源检索失败", query));
-            throw e;
+            AgentSearchOutcome outcome = failed("resources", "platform", query, "Course resource search failed", "Course resource search service error");
+            emit(emitter, AgentSearchEvent.outcome(started.searchId(), outcome));
+            return outcome;
         }
     }
 
     @Tool(name = "listMyCourses", description = "List current user's courses by scope: primaryTeaching, assisting, teaching, learning, or all.")
-    public List<AgentSearchItem> listMyCourses(
+    public AgentSearchOutcome listMyCourses(
             @ToolParam(description = "Course scope: primaryTeaching, assisting, teaching, learning, or all.", required = false) String scope,
             @ToolParam(description = "Maximum result count. Defaults to 5 and is capped at 10.", required = false) Integer limit,
             ToolContext toolContext) {
@@ -118,25 +113,22 @@ public class AgentSearchTools {
         Integer role = intFromContext(toolContext, CONTEXT_USER_ROLE);
         String query = courseScopeLabel(scope);
         AgentSearchEventEmitter emitter = eventEmitter(toolContext);
-        AgentSearchEvent started = AgentSearchEvent.started("courses", "正在检索" + query, query);
+        AgentSearchEvent started = AgentSearchEvent.started("courses", "Searching " + query, query);
         emit(emitter, started);
         try {
             List<AgentSearchItem> results = agentSearchService.listMyCourses(scope, limit, userId, role);
-            emit(emitter, AgentSearchEvent.results(
-                    started.searchId(),
-                    "courses",
-                    "找到 " + results.size() + " 门" + query,
-                    query,
-                    results));
-            return results;
+            AgentSearchOutcome outcome = outcome("courses", "platform", query, "Found " + results.size() + " " + query, results);
+            emit(emitter, AgentSearchEvent.outcome(started.searchId(), outcome));
+            return outcome;
         } catch (RuntimeException e) {
-            emit(emitter, AgentSearchEvent.error(started.searchId(), "courses", query + "检索失败", query));
-            throw e;
+            AgentSearchOutcome outcome = failed("courses", "platform", query, query + " search failed", "Course list search service error");
+            emit(emitter, AgentSearchEvent.outcome(started.searchId(), outcome));
+            return outcome;
         }
     }
 
     @Tool(name = "listCourseChapters", description = "List chapters or outline for an authorized course by course title or course id.")
-    public List<AgentSearchItem> listCourseChapters(
+    public AgentSearchOutcome listCourseChapters(
             @ToolParam(description = "Course title to search within the current user's authorized courses.", required = false) String courseTitle,
             @ToolParam(description = "Optional concrete course id if already known.", required = false) String courseId,
             @ToolParam(description = "Maximum chapter count. Defaults to 20 and is capped at 50.", required = false) Integer limit,
@@ -148,60 +140,105 @@ public class AgentSearchTools {
         UUID effectiveCourseId = contextCourseId != null ? contextCourseId : requestedCourseId;
         String query = effectiveCourseId != null ? effectiveCourseId.toString() : courseTitle;
         AgentSearchEventEmitter emitter = eventEmitter(toolContext);
-        AgentSearchEvent started = AgentSearchEvent.started("chapters", "正在检索课程章节", query);
+        AgentSearchEvent started = AgentSearchEvent.started("chapters", "Searching course chapters", query);
         emit(emitter, started);
         try {
             List<AgentSearchItem> results = agentSearchService.listCourseChapters(
                     courseTitle, effectiveCourseId, limit, userId, role);
-            emit(emitter, AgentSearchEvent.results(
-                    started.searchId(),
-                    "chapters",
-                    "找到 " + results.size() + " 个章节",
-                    query,
-                    results));
-            return results;
+            AgentSearchOutcome outcome = outcome("chapters", "platform", query, "Found " + results.size() + " chapters", results);
+            emit(emitter, AgentSearchEvent.outcome(started.searchId(), outcome));
+            return outcome;
         } catch (RuntimeException e) {
-            emit(emitter, AgentSearchEvent.error(started.searchId(), "chapters", "课程章节检索失败", query));
-            throw e;
+            AgentSearchOutcome outcome = failed("chapters", "platform", query, "Course chapter search failed", "Course chapter search service error");
+            emit(emitter, AgentSearchEvent.outcome(started.searchId(), outcome));
+            return outcome;
         }
     }
 
     @Tool(name = "searchPersonalKnowledge", description = "Search the current user's personal knowledge documents.")
-    public List<AgentSearchItem> searchPersonalKnowledge(
+    public AgentSearchOutcome searchPersonalKnowledge(
             @ToolParam(description = "Keywords to search for.") String query,
             @ToolParam(description = "Maximum result count. Defaults to 5 and is capped at 10.", required = false) Integer limit,
             ToolContext toolContext) {
         UUID userId = requireUserId(toolContext);
         AgentSearchEventEmitter emitter = eventEmitter(toolContext);
-        AgentSearchEvent started = AgentSearchEvent.started("knowledge", "正在检索个人知识库", query);
+        AgentSearchEvent started = AgentSearchEvent.started("knowledge", "姝ｅ湪妫€绱釜浜虹煡璇嗗簱", query);
         emit(emitter, started);
         List<AgentSearchItem> results = agentSearchService.searchPersonalKnowledge(userId, query, limit);
-        emit(emitter, AgentSearchEvent.results(
-                started.searchId(),
-                "knowledge",
-                "找到 " + results.size() + " 条个人知识",
-                query,
-                results));
-        return results;
+        AgentSearchOutcome outcome = outcome("knowledge", "vector-store", query, "Found " + results.size() + " personal knowledge items", results);
+        emit(emitter, AgentSearchEvent.outcome(started.searchId(), outcome));
+        return outcome;
     }
 
     @Tool(name = "searchChatMemory", description = "Search the current user's prior AI chat memory.")
-    public List<AgentSearchItem> searchChatMemory(
+    public AgentSearchOutcome searchChatMemory(
             @ToolParam(description = "Keywords to search for.") String query,
             @ToolParam(description = "Maximum result count. Defaults to 5 and is capped at 10.", required = false) Integer limit,
             ToolContext toolContext) {
         UUID userId = requireUserId(toolContext);
         AgentSearchEventEmitter emitter = eventEmitter(toolContext);
-        AgentSearchEvent started = AgentSearchEvent.started("memory", "正在检索聊天记忆", query);
+        AgentSearchEvent started = AgentSearchEvent.started("memory", "Searching chat memory", query);
         emit(emitter, started);
         List<AgentSearchItem> results = agentSearchService.searchChatMemory(userId, query, limit);
-        emit(emitter, AgentSearchEvent.results(
-                started.searchId(),
-                "memory",
-                "找到 " + results.size() + " 条聊天记忆",
-                query,
-                results));
-        return results;
+        AgentSearchOutcome outcome = outcome("memory", "vector-store", query, "Found " + results.size() + " chat memory items", results);
+        emit(emitter, AgentSearchEvent.outcome(started.searchId(), outcome));
+        return outcome;
+    }
+
+    @Tool(name = "searchWeb", description = "Search public web pages for current, recent, news, or external information. Use only when the user explicitly asks for web search or the answer depends on fresh public information.")
+    public AgentSearchOutcome searchWeb(
+            @ToolParam(description = "Public web search keywords.") String query,
+            @ToolParam(description = "Maximum result count. Defaults to 5 and is capped at 10.", required = false) Integer limit,
+            ToolContext toolContext) {
+        requireUserId(toolContext);
+        AgentSearchEventEmitter emitter = eventEmitter(toolContext);
+        AgentSearchEvent started = AgentSearchEvent.started("web", "姝ｅ湪鑱旂綉鎼滅储", query);
+        emit(emitter, started);
+        try {
+            AgentSearchOutcome outcome = agentSearchService.searchWeb(query, limit);
+            emit(emitter, AgentSearchEvent.outcome(started.searchId(), outcome));
+            return outcome;
+        } catch (RuntimeException e) {
+            AgentSearchOutcome outcome = AgentSearchOutcome.failed(
+                    "web",
+                    "tavily-compatible",
+                    query,
+                    "鑱旂綉鎼滅储澶辫触",
+                    "鑱旂綉鎼滅储宸ュ叿鎵ц寮傚父",
+                    true,
+                    null);
+            emit(emitter, AgentSearchEvent.outcome(started.searchId(), outcome));
+            return outcome;
+        }
+    }
+
+    @Tool(name = "getCurrentDateTime", description = "Read the current server date and time in Asia/Shanghai. Use before answering questions about today, now, latest, recent, news, this week, this month, or this year.")
+    public AgentSearchOutcome getCurrentDateTime(ToolContext toolContext) {
+        AgentSearchOutcome cachedOutcome = currentDateTimeOutcome(toolContext);
+        if (cachedOutcome != null) {
+            return cachedOutcome;
+        }
+        AgentSearchEventEmitter emitter = eventEmitter(toolContext);
+        AgentSearchEvent started = AgentSearchEvent.started("time", "姝ｅ湪璇诲彇褰撳墠鏃ユ湡", "褰撳墠鏃ユ湡鏃堕棿");
+        emit(emitter, started);
+        try {
+            AgentSearchOutcome outcome = agentSearchService.getCurrentDateTime();
+            cacheCurrentDateTimeOutcome(toolContext, outcome);
+            emit(emitter, AgentSearchEvent.outcome(started.searchId(), outcome));
+            return outcome;
+        } catch (RuntimeException e) {
+            AgentSearchOutcome outcome = AgentSearchOutcome.failed(
+                    "time",
+                    "server-clock",
+                    "褰撳墠鏃ユ湡鏃堕棿",
+                    "褰撳墠鏃ユ湡璇诲彇澶辫触",
+                    "绯荤粺鏃堕棿宸ュ叿鎵ц寮傚父",
+                    true,
+                    null);
+            cacheCurrentDateTimeOutcome(toolContext, outcome);
+            emit(emitter, AgentSearchEvent.outcome(started.searchId(), outcome));
+            return outcome;
+        }
     }
 
     @Tool(name = "queryPlatformApi", description = "Query a read-only platform API through the current user's permissions. Only GET endpoints listed in OpenAPI are allowed.")
@@ -214,7 +251,7 @@ public class AgentSearchTools {
         String authorization = stringFromContext(toolContext, CONTEXT_AUTHORIZATION);
         AgentSearchEventEmitter emitter = eventEmitter(toolContext);
         String query = service + " " + path;
-        AgentSearchEvent started = AgentSearchEvent.started("platform", "正在读取平台资料", query);
+        AgentSearchEvent started = AgentSearchEvent.started("platform", "姝ｅ湪璇诲彇骞冲彴璧勬枡", query);
         emit(emitter, started);
         AgentSearchItem result = agentSearchService.queryPlatformApi(service, path, queryParams, authorization);
         if (result != null) {
@@ -269,26 +306,57 @@ public class AgentSearchTools {
         return value instanceof AgentSearchEventEmitter emitter ? emitter : null;
     }
 
+    private AgentSearchOutcome currentDateTimeOutcome(ToolContext toolContext) {
+        if (toolContext == null || toolContext.getContext() == null) {
+            return null;
+        }
+        Object value = toolContext.getContext().get(CONTEXT_CURRENT_DATE_TIME_OUTCOME);
+        return value instanceof AgentSearchOutcome outcome ? outcome : null;
+    }
+
+    private void cacheCurrentDateTimeOutcome(ToolContext toolContext, AgentSearchOutcome outcome) {
+        if (toolContext == null || toolContext.getContext() == null || outcome == null) {
+            return;
+        }
+        try {
+            toolContext.getContext().put(CONTEXT_CURRENT_DATE_TIME_OUTCOME, outcome);
+        } catch (UnsupportedOperationException ignored) {
+            // Some callers pass immutable context maps; caching only avoids duplicate time reads.
+        }
+    }
+
     private void emit(AgentSearchEventEmitter emitter, AgentSearchEvent event) {
         if (emitter != null && event != null) {
             emitter.emit(event);
         }
     }
 
+    private AgentSearchOutcome outcome(String domain,
+                                       String provider,
+                                       String query,
+                                       String label,
+                                       List<AgentSearchItem> items) {
+        return AgentSearchOutcome.ok(domain, provider, query, label, null, items);
+    }
+
+    private AgentSearchOutcome failed(String domain, String provider, String query, String label, String reason) {
+        return AgentSearchOutcome.failed(domain, provider, query, label, reason, true, null);
+    }
+
     private String courseScopeLabel(String scope) {
         if ("primaryTeaching".equals(scope)) {
-            return "主讲课程";
+            return "涓昏璇剧▼";
         }
         if ("assisting".equals(scope)) {
-            return "协助课程";
+            return "鍗忓姪璇剧▼";
         }
         if ("learning".equals(scope)) {
-            return "学习课程";
+            return "瀛︿範璇剧▼";
         }
         if ("all".equals(scope)) {
-            return "可访问课程";
+            return "all courses";
         }
-        return "课程";
+        return "璇剧▼";
     }
 
     private UUID uuidValue(Object value) {

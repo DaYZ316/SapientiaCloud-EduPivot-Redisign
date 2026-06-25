@@ -16,6 +16,7 @@ const REFRESH_TOKEN_KEY = 'edupivot.refreshToken'
 const TOKEN_TYPE_KEY = 'edupivot.tokenType'
 const USER_KEY = 'edupivot.user'
 let sessionExpiredHandled = false
+let voluntaryLogoutInProgress = false
 
 export class ApiError extends Error {
     readonly code?: number
@@ -50,10 +51,11 @@ http.interceptors.request.use((config) => {
 export interface RequestOptions extends AxiosRequestConfig {
     /** 设为 true 则不自动弹出全局错误通知，由调用方自行处理 */
     silent?: boolean
+    suppressSessionExpiredDialog?: boolean
 }
 
 export async function request<T>(config: RequestOptions, retryOnUnauthorized = true): Promise<T> {
-    const {silent, ...axiosConfig} = config
+    const {silent, suppressSessionExpiredDialog, ...axiosConfig} = config
 
     try {
         const response = await http.request<ApiResponse<T>>(axiosConfig)
@@ -70,7 +72,7 @@ export async function request<T>(config: RequestOptions, retryOnUnauthorized = t
                 return request<T>(config, false)
             }
             if (isAuthenticationExpired(error.code)) {
-                handleSessionExpired()
+                handleSessionExpired(suppressSessionExpiredDialog)
             } else if (!silent) {
                 notifyRequestError(error.message, error.code)
             }
@@ -87,7 +89,7 @@ export async function request<T>(config: RequestOptions, retryOnUnauthorized = t
 
         const message = resolveErrorMessage(axiosError)
         if (isAuthenticationExpired(errorCode, axiosError.response?.status)) {
-            handleSessionExpired()
+            handleSessionExpired(suppressSessionExpiredDialog)
         } else if (!silent) {
             notifyRequestError(message, errorCode, axiosError.response?.status)
         }
@@ -97,6 +99,11 @@ export async function request<T>(config: RequestOptions, retryOnUnauthorized = t
 
 export function resetSessionExpiredHandling() {
     sessionExpiredHandled = false
+    voluntaryLogoutInProgress = false
+}
+
+export function markVoluntaryLogoutInProgress() {
+    voluntaryLogoutInProgress = true
 }
 
 function isAuthenticationExpired(code?: number, status?: number) {
@@ -107,8 +114,12 @@ function isAuthenticationExpired(code?: number, status?: number) {
     return status === 401 && code == null
 }
 
-function handleSessionExpired() {
+function handleSessionExpired(suppressDialog = false) {
     clearSession()
+    if (suppressDialog || voluntaryLogoutInProgress) {
+        return
+    }
+
     if (sessionExpiredHandled) {
         return
     }
@@ -145,6 +156,10 @@ function resolveErrorMessage(error: AxiosError<ApiResponse<unknown>>): string {
 }
 
 export async function refreshSession() {
+    if (voluntaryLogoutInProgress) {
+        return false
+    }
+
     const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
     if (!refreshToken) {
         return false

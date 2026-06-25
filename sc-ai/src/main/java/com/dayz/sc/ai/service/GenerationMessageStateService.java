@@ -19,7 +19,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Consumer;
 
 @Service
 @Slf4j
@@ -29,9 +28,12 @@ public class GenerationMessageStateService {
     private static final String STATUS_PROCESSING = "processing";
     private static final String STATUS_COMPLETED = "completed";
     private static final String STATUS_FAILED = "failed";
+    private static final String STATUS_TERMINATED = "terminated";
     private static final String STAGE_RECEIVED = "RECEIVED";
     private static final String STAGE_RESPONDED = "RESPONDED";
     private static final String STAGE_FAILED = "FAILED";
+    private static final String STAGE_TERMINATED = "TERMINATED";
+    private static final String DETAIL_RAW_AI_OUTPUT = "raw_ai_output";
 
     private final MessageRepository messageRepository;
 
@@ -67,18 +69,29 @@ public class GenerationMessageStateService {
         }
         update(messageId, message -> {
             Map<String, Object> payload = payloadCopy(message.getPayload());
-            List<Object> trace = traceCopy(payload.get("generationTrace"));
-            if (!isDuplicateInitialReceived(trace, event)) {
-                trace.add(stageTraceEntry(event, trace.size(), Instant.now()));
+            if (isTerminated(payload)) {
+                return false;
             }
-            payload.put("generationTrace", trace);
+            Instant now = Instant.now();
+            boolean debugStage = isDebugStage(event);
+            String traceKey = debugStage ? "generationDebugTrace" : "generationTrace";
+            List<Object> trace = traceCopy(payload.get(traceKey));
+            if (!debugStage && !isDuplicateInitialReceived(trace, event)) {
+                trace.add(stageTraceEntry(event, trace.size(), now));
+            } else if (debugStage && !hasDuplicateEvent(trace, event)) {
+                trace.add(stageTraceEntry(event, trace.size(), now));
+            }
+            payload.put(traceKey, trace);
             payload.put("generationRequestId", event.requestId());
             payload.put("generationMode", event.mode());
             payload.put("generationStage", event.stage());
             payload.put("generationStatus", normalizeStatus(event));
-            promoteGeneratedQuestions(payload, event);
-            payload.put("generationUpdatedAt", Instant.now());
+            if (!debugStage) {
+                promoteGeneratedQuestions(payload, event);
+            }
+            payload.put("generationUpdatedAt", now);
             message.setPayload(payload);
+            return true;
         });
     }
 
@@ -88,6 +101,9 @@ public class GenerationMessageStateService {
         }
         update(messageId, message -> {
             Map<String, Object> payload = payloadCopy(message.getPayload());
+            if (isTerminated(payload)) {
+                return false;
+            }
             Map<String, Object> resultPayload = payloadCopy(result.payload());
             payload.putAll(resultPayload);
             List<Object> trace = traceCopy(payload.get("generationTrace"));
@@ -112,6 +128,7 @@ public class GenerationMessageStateService {
             message.setContent(result.content());
             message.setMessageType(result.messageType().name());
             message.setPayload(payload);
+            return true;
         });
     }
 
@@ -121,6 +138,9 @@ public class GenerationMessageStateService {
         }
         update(messageId, message -> {
             Map<String, Object> payload = payloadCopy(message.getPayload());
+            if (isTerminated(payload)) {
+                return false;
+            }
             List<Object> trace = traceCopy(payload.get("generationTrace"));
             trace.add(stageTraceEntry(
                     requestId,
@@ -144,14 +164,69 @@ public class GenerationMessageStateService {
                 message.setMessageType(messageType(mode).name());
             }
             message.setPayload(payload);
+            return true;
         });
     }
 
-    private void update(UUID messageId, Consumer<ChatMessage> mutator) {
+    public void markTerminated(UUID messageId, String requestId, AiAgentMode mode, String reason) {
+        if (messageId == null) {
+            return;
+        }
+        update(messageId, message -> {
+            Map<String, Object> payload = payloadCopy(message.getPayload());
+            if (!STATUS_PROCESSING.equals(textValue(payload.get("generationStatus")))) {
+                return false;
+            }
+            Instant now = Instant.now();
+            String modeName = mode == null ? textValue(payload.get("generationMode")) : mode.name();
+            String finalReason = reason == null ? "" : reason;
+            List<Object> trace = traceCopy(payload.get("generationTrace"));
+            if (!hasStage(trace, STAGE_TERMINATED)) {
+                trace.add(stageTraceEntry(
+                        requestId,
+                        modeName,
+                        STAGE_TERMINATED,
+                        STATUS_TERMINATED,
+                        "任务已终止",
+                        finalReason,
+                        Map.of("reason", finalReason),
+                        trace.size(),
+                        now));
+            }
+            payload.put("generationTrace", trace);
+            payload.put("generationRequestId", requestId);
+            payload.put("generationMode", modeName);
+            payload.put("generationStage", STAGE_TERMINATED);
+            payload.put("generationStatus", STATUS_TERMINATED);
+            payload.put("generationTerminatedAt", now);
+            payload.put("generationErrorMessage", finalReason);
+            payload.put("generationUpdatedAt", now);
+            if (message.getContent() == null || message.getContent().isBlank()) {
+                message.setContent(finalReason);
+            }
+            if (message.getMessageType() == null || AiMessageType.TEXT.name().equals(message.getMessageType())) {
+                message.setMessageType(messageType(modeName).name());
+            }
+            message.setPayload(payload);
+            return true;
+        });
+    }
+
+    private void update(UUID messageId, GenerationMessageMutator mutator) {
         messageRepository.findById(messageId).ifPresentOrElse(message -> {
-            mutator.accept(message);
-            messageRepository.update(message);
+            if (mutator.mutate(message)) {
+                messageRepository.update(message);
+            }
         }, () -> log.warn("Generation message not found messageId={}", messageId));
+    }
+
+    private boolean isTerminated(Map<String, Object> payload) {
+        return STATUS_TERMINATED.equals(textValue(payload.get("generationStatus")))
+                || STAGE_TERMINATED.equals(textValue(payload.get("generationStage")));
+    }
+
+    private String textValue(Object value) {
+        return value == null ? "" : value.toString();
     }
 
     private Map<String, Object> payloadCopy(Map<String, Object> payload) {
@@ -180,6 +255,28 @@ public class GenerationMessageStateService {
             }
             return false;
         });
+    }
+
+    private boolean hasDuplicateEvent(List<Object> trace, GenerationStageEvent event) {
+        return trace.stream().anyMatch(entry -> {
+            if (!(entry instanceof Map<?, ?> map)) {
+                return false;
+            }
+            return equalsText(map.get("stage"), event.stage())
+                    && equalsText(map.get("title"), event.title())
+                    && equalsText(map.get("summary"), event.summary())
+                    && String.valueOf(map.get("payload")).equals(String.valueOf(event.payload()));
+        });
+    }
+
+    private boolean isDebugStage(GenerationStageEvent event) {
+        Map<String, Object> payload = event.payload();
+        Object detailType = payload == null ? null : payload.get("detailType");
+        return DETAIL_RAW_AI_OUTPUT.equals(detailType == null ? null : detailType.toString());
+    }
+
+    private boolean equalsText(Object left, Object right) {
+        return textValue(left).equals(textValue(right));
     }
 
     private void promoteGeneratedQuestions(Map<String, Object> payload, GenerationStageEvent event) {
@@ -255,7 +352,7 @@ public class GenerationMessageStateService {
         entry.put("entryId", (requestId == null ? "generation" : requestId) + "-" + stage + "-" + index);
         entry.put("stage", stage);
         entry.put("source", "question-generation");
-        entry.put("detailType", stage == null ? null : stage.toLowerCase());
+        entry.put("detailType", detailType(stage, payload));
         entry.put("title", title);
         entry.put("summary", summary);
         entry.put("payload", payload == null ? Map.of() : payload);
@@ -265,11 +362,29 @@ public class GenerationMessageStateService {
         return entry;
     }
 
+    private String detailType(String stage, Map<String, Object> payload) {
+        Object detailType = payload == null ? null : payload.get("detailType");
+        if (detailType != null && !detailType.toString().isBlank()) {
+            return detailType.toString();
+        }
+        return stage == null ? null : stage.toLowerCase();
+    }
+
     private AiMessageType messageType(AiAgentMode mode) {
         if (mode == AiAgentMode.PAPER) {
             return AiMessageType.PAPER;
         }
         if (mode == AiAgentMode.QUESTION) {
+            return AiMessageType.QUESTION_SET;
+        }
+        return AiMessageType.TEXT;
+    }
+
+    private AiMessageType messageType(String mode) {
+        if (AiAgentMode.PAPER.name().equals(mode)) {
+            return AiMessageType.PAPER;
+        }
+        if (AiAgentMode.QUESTION.name().equals(mode)) {
             return AiMessageType.QUESTION_SET;
         }
         return AiMessageType.TEXT;
@@ -294,6 +409,11 @@ public class GenerationMessageStateService {
         payload.put("knowledgePoints", request.knowledgePoints());
         payload.put("abilityGoals", request.abilityGoals());
         return payload;
+    }
+
+    @FunctionalInterface
+    private interface GenerationMessageMutator {
+        boolean mutate(ChatMessage message);
     }
 
 }

@@ -11,6 +11,7 @@ export type GenerationStage =
   | 'ASSEMBLED'
   | 'RESPONDED'
   | 'FAILED'
+  | 'TERMINATED'
 
 export interface GenerationRequest {
   questionBankId?: string | null
@@ -78,6 +79,7 @@ export interface ChatMessage {
   payload?: Record<string, unknown> | null
   pending?: boolean
   failed?: boolean
+  terminated?: boolean
 }
 
 export type AgentSearchPhase = 'started' | 'results' | 'empty' | 'error' | 'completed'
@@ -104,6 +106,11 @@ export interface AgentSearchEvent {
   occurredAt?: string
   total?: number
   items?: AgentSearchItem[]
+  status?: string
+  reason?: string
+  provider?: string
+  durationMs?: number
+  retryable?: boolean
 }
 
 export interface AgentSearchRecord {
@@ -115,6 +122,11 @@ export interface AgentSearchRecord {
   total?: number
   occurredAt?: string
   items?: AgentSearchItem[]
+  status?: string
+  reason?: string
+  provider?: string
+  durationMs?: number
+  retryable?: boolean
 }
 
 export interface AgentSearchPayload {
@@ -164,4 +176,69 @@ export interface AiContext {
   classSessionId?: string
   chapterId?: string
   selectedText?: string
+}
+
+export interface LiveSummaryMindMapNode {
+  name: string
+  children?: LiveSummaryMindMapNode[]
+}
+
+export interface LiveSummaryTimelineItem {
+  time?: string
+  title?: string
+  detail?: string
+}
+
+export interface LiveSummaryPayload {
+  overview?: string
+  keyPoints?: string[]
+  timeline?: LiveSummaryTimelineItem[]
+  questions?: string[]
+  mindMap?: LiveSummaryMindMapNode
+  [key: string]: unknown
+}
+
+export interface LiveSummarySnapshot {
+  id: string
+  summarySessionId: string
+  classSessionId: string
+  sequenceNo: number
+  transcriptUntilSequenceNo: number
+  overview: string
+  payload: LiveSummaryPayload
+  createdAt: string
+}
+
+export interface LiveTranscriptSegment {
+  id: string | null
+  summarySessionId: string | null
+  classSessionId: string
+  sequenceNo: number | null
+  speakerId: string | null
+  text: string
+  beginTimeMs: number | null
+  endTimeMs: number | null
+  createdAt: string
+  final?: boolean
+}
+
+export interface LiveSummarySession {
+  id: string | null
+  classSessionId: string
+  courseId: string
+  teacherId: string
+  status: 'NOT_STARTED' | 'RUNNING' | 'STOPPED' | 'FAILED' | string
+  startedAt: string | null
+  stoppedAt: string | null
+  latestSnapshot: LiveSummarySnapshot | null
+  recentTranscripts: LiveTranscriptSegment[]
+}
+
+export interface LiveSummaryAudioToken {
+  token: string
+  expiresInSeconds: number
+}
+
+export interface LiveSummaryErrorEvent {
+  message?: string
 }

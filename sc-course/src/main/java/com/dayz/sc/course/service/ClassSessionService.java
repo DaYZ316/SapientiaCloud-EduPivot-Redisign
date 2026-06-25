@@ -3,9 +3,7 @@ package com.dayz.sc.course.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
-import com.dayz.sc.common.feign.client.AuthInternalClient;
 import com.dayz.sc.common.feign.dto.UserBasicInfo;
-import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.common.util.PageUtils;
@@ -70,7 +68,7 @@ public class ClassSessionService {
     private final ClassBarrageSseEmitter barrageSseEmitter;
     private final LiveKitTokenService liveKitTokenService;
     private final LiveKitRoomService liveKitRoomService;
-    private final AuthInternalClient authInternalClient;
+    private final ClassroomUserInfoResolver classroomUserInfoResolver;
     private final ClassSeatSyncTokenService classSeatSyncTokenService;
     private final ClassSeatSyncWebSocketHub seatSyncWebSocketHub;
 
@@ -255,7 +253,8 @@ public class ClassSessionService {
         requireSessionTeacher(session, userId, role);
         liveKitTokenService.requireConfigured();
         ensureClassOngoing(session);
-        if (liveStatus(session) != ClassLiveStatus.NOT_STARTED) {
+        ClassLiveStatus status = liveStatus(session);
+        if (status != ClassLiveStatus.NOT_STARTED && status != ClassLiveStatus.ENDED) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Live stream cannot be started from current status");
         }
 
@@ -356,7 +355,7 @@ public class ClassSessionService {
 
     @Transactional(rollbackFor = Exception.class)
     public ClassBarrageVO sendBarrage(UUID sessionId, CreateClassBarrageRequest request, UUID userId, Integer role) {
-        requireClassroomInteractionAccess(sessionId, userId, role);
+        ClassroomInteractionAccess access = requireClassroomInteractionAccess(sessionId, userId, role);
         String content = request.content().trim();
         if (content.isEmpty()) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Barrage content cannot be blank");
@@ -369,17 +368,35 @@ public class ClassSessionService {
         barrage.setContent(content);
         barrage.setSentAt(Instant.now());
         classBarrageRepository.save(barrage);
-        ClassBarrageVO vo = toBarrageVO(barrage);
+        ClassBarrageVO vo = toBarrageVO(
+                barrage,
+                access.session(),
+                loadUserInfoMap(List.of(userId)),
+                Map.of(userId, access.participantRole())
+        );
         barrageSseEmitter.broadcast(sessionId, vo);
         return vo;
     }
 
     public PageResponse<@NonNull ClassBarrageVO> listBarrages(UUID sessionId, int page, int size, UUID userId, Integer role) {
-        requireJoinedPublishedSession(sessionId, userId, role);
+        ClassSession session = requireJoinedPublishedSession(sessionId, userId, role);
         int currentPage = PageUtils.normalizePage(page);
         int pageSize = PageUtils.normalizeSize(size);
         Page<ClassBarrage> result = classBarrageRepository.findBySessionId(sessionId, currentPage, pageSize);
-        return PageResponse.of(result.getRecords().stream().map(this::toBarrageVO).toList(), result.getTotal(), currentPage, pageSize);
+        List<UUID> senderIds = result.getRecords().stream()
+                .map(ClassBarrage::getSenderId)
+                .distinct()
+                .toList();
+        Map<UUID, UserBasicInfo> userInfoMap = loadUserInfoMap(senderIds);
+        Map<UUID, Integer> participantRoleMap = loadParticipantRoleMap(sessionId, senderIds);
+        return PageResponse.of(
+                result.getRecords().stream()
+                        .map(barrage -> toBarrageVO(barrage, session, userInfoMap, participantRoleMap))
+                        .toList(),
+                result.getTotal(),
+                currentPage,
+                pageSize
+        );
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -406,18 +423,19 @@ public class ClassSessionService {
         return endedCount;
     }
 
-    private void requireClassroomInteractionAccess(UUID sessionId, UUID userId, Integer role) {
+    private ClassroomInteractionAccess requireClassroomInteractionAccess(UUID sessionId, UUID userId, Integer role) {
         ClassSession session = classSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
         ensureClassOngoing(session);
         if (isCourseTeacher(session.getCourseId(), userId, role)) {
-            ensureParticipant(session, userId, ClassParticipantRole.TEACHER, null, ZERO, ZERO, ZERO);
-            return;
+            ClassParticipant participant = ensureParticipant(session, userId, ClassParticipantRole.TEACHER, null, ZERO, ZERO, ZERO);
+            return new ClassroomInteractionAccess(session, participant.getRole());
         }
-        requireStudentSeat(session, userId, role);
+        ClassParticipant participant = requireStudentSeat(session, userId, role);
+        return new ClassroomInteractionAccess(session, participant.getRole());
     }
 
-    private void requireJoinedPublishedSession(UUID sessionId, UUID userId, Integer role) {
+    private ClassSession requireJoinedPublishedSession(UUID sessionId, UUID userId, Integer role) {
         ClassSession session = classSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
         ensurePublished(session);
@@ -427,6 +445,7 @@ public class ClassSessionService {
         if (!joined(sessionId, userId)) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
+        return session;
     }
 
     private ClassParticipant saveStudentSeat(ClassSession session, ClassParticipant existing, UUID userId,
@@ -654,28 +673,47 @@ public class ClassSessionService {
     }
 
     private Map<UUID, UserBasicInfo> loadUserInfoMap(List<UUID> userIds) {
-        if (userIds.isEmpty()) {
-            return Map.of();
-        }
-        try {
-            ApiResponse<@NonNull List<@NonNull UserBasicInfo>> response = authInternalClient.getUsersBasicInfo(userIds);
-            if (response != null && response.code() == ErrorCodes.SUCCESS.code() && response.data() != null) {
-                return response.data().stream()
-                        .collect(Collectors.toMap(UserBasicInfo::id, info -> info, (a, b) -> a));
-            }
-        } catch (Exception ignored) {
-            return Map.of();
-        }
-        return Map.of();
+        return classroomUserInfoResolver.resolve(userIds);
     }
 
-    private ClassBarrageVO toBarrageVO(ClassBarrage barrage) {
+    private Map<UUID, Integer> loadParticipantRoleMap(UUID sessionId, List<UUID> userIds) {
+        List<ClassParticipant> participants = classParticipantRepository.findBySessionIdAndUserIds(sessionId, userIds);
+        if (participants == null || participants.isEmpty()) {
+            return Map.of();
+        }
+        return participants.stream()
+                .collect(Collectors.toMap(ClassParticipant::getUserId, ClassParticipant::getRole, (a, b) -> a));
+    }
+
+    private ClassBarrageVO toBarrageVO(ClassBarrage barrage, ClassSession session,
+                                       Map<UUID, UserBasicInfo> userInfoMap,
+                                       Map<UUID, Integer> participantRoleMap) {
+        UserBasicInfo userInfo = userInfoMap.get(barrage.getSenderId());
         return new ClassBarrageVO(
                 barrage.getId(),
                 barrage.getSessionId(),
                 barrage.getSenderId(),
+                userInfo != null ? userInfo.displayName() : null,
+                userInfo != null ? userInfo.avatarUrl() : null,
+                senderRoleLabel(session, barrage.getSenderId(), participantRoleMap.get(barrage.getSenderId()), userInfo),
                 barrage.getContent(),
                 barrage.getSentAt()
         );
+    }
+
+    private String senderRoleLabel(ClassSession session, UUID senderId, Integer participantRole, UserBasicInfo userInfo) {
+        if (session.getTeacherId().equals(senderId)) {
+            return "开课教师";
+        }
+        if (participantRole != null && participantRole == ClassParticipantRole.TEACHER.getCode()) {
+            return "听课教师";
+        }
+        if (userInfo != null && SecurityUtils.isTeacher(userInfo.role())) {
+            return "听课教师";
+        }
+        return "学生";
+    }
+
+    private record ClassroomInteractionAccess(ClassSession session, Integer participantRole) {
     }
 }

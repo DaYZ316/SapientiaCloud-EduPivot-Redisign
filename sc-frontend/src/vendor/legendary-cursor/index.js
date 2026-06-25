@@ -471,13 +471,19 @@ function clearVisualState() {
     linePoints = [];
     sparkles = [];
     lightShafts = [];
-    if(!scene) return;
     for(const name of ["line", "sparkles", "lightShafts", "quadClear"]) {
-        let child = scene.getObjectByName(name);
-        if(!child) continue;
-        scene.remove(child);
-        if(child.geometry) child.geometry.dispose();
+        removeSceneObject(name);
     }
+}
+
+function removeSceneObject(name) {
+    if(!scene) return;
+
+    let child = scene.getObjectByName(name);
+    if(!child) return;
+
+    scene.remove(child);
+    if(child.geometry) child.geometry.dispose();
 }
 
 function setRendererVisible(visible) {
@@ -615,10 +621,7 @@ function updateOpacity(delta) {
 function constructGeometry() {
     
     // this has to run at the beginning of the function otherwise we run the risk of never deleting stale lines
-    let prevMesh = scene.getObjectByName("line");
-    if(prevMesh) {
-        scene.remove(prevMesh);
-    }
+    removeSceneObject("line");
 
     // this if-statement might need a modification to solve TODO .1
     if(linePoints.length < 3) return;
@@ -864,10 +867,7 @@ function constructSparkleGeometry() {
     var mesh = new THREE.Points( geometry, sparkleMaterial );
     mesh.name = "sparkles";
 
-    let prevMesh = scene.getObjectByName("sparkles");
-    if(prevMesh) {
-        scene.remove(prevMesh);
-    }
+    removeSceneObject("sparkles");
 
     scene.add(mesh);
 }
@@ -931,14 +931,8 @@ function constructLightShaftGeometry() {
     var clearMesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), quadClearMaterial);
     clearMesh.name = "quadClear";
 
-    let prevMesh = scene.getObjectByName("lightShafts");
-    let prevMesh2 = scene.getObjectByName("quadClear");
-    if(prevMesh) {
-        scene.remove(prevMesh);
-    }
-    if(prevMesh2) {
-        scene.remove(prevMesh2);
-    }
+    removeSceneObject("lightShafts");
+    removeSceneObject("quadClear");
 
     scene.add(mesh);
     scene.add(clearMesh);

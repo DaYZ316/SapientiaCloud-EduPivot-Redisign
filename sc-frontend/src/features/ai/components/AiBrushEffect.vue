@@ -28,9 +28,34 @@ const props = withDefaults(defineProps<{
 const anchorRef = ref<HTMLElement | null>(null)
 let resizeObserver: ResizeObserver | undefined
 let initialized = false
+let mounted = false
 
 onMounted(async () => {
   await nextTick()
+  mounted = true
+  window.addEventListener('resize', updateBrushCenter)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  resizeObserver = new ResizeObserver(updateBrushCenter)
+  if (anchorRef.value) {
+    resizeObserver.observe(anchorRef.value)
+  }
+  if (!document.hidden) {
+    initializeBrushEffect()
+  }
+})
+
+onBeforeUnmount(() => {
+  mounted = false
+  window.removeEventListener('resize', updateBrushCenter)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  resizeObserver?.disconnect()
+  initialized = false
+  LegendaryCursor.pause()
+})
+
+watch(() => [props.centerX, props.centerY], updateBrushCenter)
+
+function initializeBrushEffect() {
   LegendaryCursor.init({
     lineSize: 0.038,
     lineExpFactor: 0.6,
@@ -46,21 +71,19 @@ onMounted(async () => {
   })
   initialized = true
   updateBrushCenter()
-  window.addEventListener('resize', updateBrushCenter)
-  resizeObserver = new ResizeObserver(updateBrushCenter)
-  if (anchorRef.value) {
-    resizeObserver.observe(anchorRef.value)
+}
+
+function handleVisibilityChange() {
+  if (!mounted) return
+
+  if (document.hidden) {
+    initialized = false
+    LegendaryCursor.pause()
+    return
   }
-})
 
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateBrushCenter)
-  resizeObserver?.disconnect()
-  initialized = false
-  LegendaryCursor.pause()
-})
-
-watch(() => [props.centerX, props.centerY], updateBrushCenter)
+  initializeBrushEffect()
+}
 
 function updateBrushCenter() {
   if (!initialized) return

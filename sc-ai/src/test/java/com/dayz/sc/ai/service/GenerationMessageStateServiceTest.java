@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -126,6 +127,43 @@ class GenerationMessageStateServiceTest {
     }
 
     @Test
+    void appendStageShouldPersistRawAiOutputToDebugTrace() {
+        UUID messageId = UUID.randomUUID();
+        MessageRepository repository = mock(MessageRepository.class);
+        ChatMessage message = persistedMessage(messageId);
+        when(repository.findById(messageId)).thenReturn(Optional.of(message));
+        GenerationMessageStateService service = new GenerationMessageStateService(repository);
+
+        service.appendStage(messageId, GenerationStageEvent.of(
+                "request-1",
+                "QUESTION",
+                "GENERATED",
+                "processing",
+                "raw model output",
+                "raw output returned",
+                Map.of(
+                        "detailType", "raw_ai_output",
+                        "callType", "section_generation",
+                        "rawOutput", "{\"questions\":[]}",
+                        "questionDelta", true,
+                        "questions", List.of(Map.of("questionTitle", "debug only")))));
+
+        verify(repository).update(argThat(updated -> {
+            Map<String, Object> payload = updated.getPayload();
+            List<?> debugTrace = (List<?>) payload.get("generationDebugTrace");
+            List<?> trace = (List<?>) payload.get("generationTrace");
+            Map<?, ?> debugEntry = (Map<?, ?>) debugTrace.getFirst();
+            return "GENERATED".equals(payload.get("generationStage"))
+                    && "processing".equals(payload.get("generationStatus"))
+                    && trace.size() == 1
+                    && debugTrace.size() == 1
+                    && "raw_ai_output".equals(debugEntry.get("detailType"))
+                    && "section_generation".equals(((Map<?, ?>) debugEntry.get("payload")).get("callType"))
+                    && !payload.containsKey("questions");
+        }));
+    }
+
+    @Test
     void appendStageShouldAccumulateGeneratedQuestionDeltas() {
         UUID messageId = UUID.randomUUID();
         MessageRepository repository = mock(MessageRepository.class);
@@ -142,6 +180,28 @@ class GenerationMessageStateServiceTest {
         assertThat(questionTitles)
                 .containsExactly("HashMap load factor", "ConcurrentHashMap segment");
         verify(repository, org.mockito.Mockito.times(2)).update(any());
+    }
+
+    @Test
+    void terminatedMessageShouldNotBeOverwrittenByLateCompletion() {
+        UUID messageId = UUID.randomUUID();
+        MessageRepository repository = mock(MessageRepository.class);
+        ChatMessage message = persistedMessage(messageId);
+        when(repository.findById(messageId)).thenReturn(Optional.of(message));
+        GenerationMessageStateService service = new GenerationMessageStateService(repository);
+
+        service.markTerminated(messageId, "request-1", AiAgentMode.PAPER, "stopped");
+        service.markCompleted(
+                messageId,
+                "request-1",
+                AiAgentMode.PAPER,
+                new AiAgentResult("late result", AiMessageType.PAPER, Map.of("schemaVersion", 2)));
+
+        assertThat(message.getContent()).isEqualTo("stopped");
+        assertThat(message.getPayload())
+                .containsEntry("generationStatus", "terminated")
+                .containsEntry("generationStage", "TERMINATED");
+        verify(repository, times(1)).update(any());
     }
 
     private ChatMessage persistedMessage(UUID messageId) {

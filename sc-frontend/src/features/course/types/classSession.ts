@@ -75,6 +75,9 @@ export interface ClassBarrage {
     id: string
     sessionId: string
     senderId: string
+    senderDisplayName: string | null
+    senderAvatarUrl: string | null
+    senderRoleLabel: string | null
     content: string
     sentAt: string
 }
