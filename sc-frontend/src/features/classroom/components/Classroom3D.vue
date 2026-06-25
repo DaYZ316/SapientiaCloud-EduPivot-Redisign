@@ -16,6 +16,7 @@ import {CircleAlert} from 'lucide-vue-next'
 import * as THREE from 'three'
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js'
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
+import {RGBELoader} from 'three/examples/jsm/loaders/RGBELoader.js'
 
 import {
   issueClassSessionSeatSyncToken,
@@ -68,6 +69,7 @@ const spriteManagerRef = shallowRef<SeatSpriteManager | null>(null)
 const exitDoorRef = shallowRef<THREE.Group | null>(null)
 const classroomDimensions = ref<ClassroomDimensions>({x: null, y: null, z: null})
 const classroomCameraBounds = shallowRef<THREE.Box3 | null>(null)
+const environmentTextureRef = shallowRef<THREE.Texture | null>(null)
 
 let frameId = 0
 let resizeObserver: ResizeObserver | null = null
@@ -119,6 +121,7 @@ onUnmounted(() => {
   interactionRef.value?.dispose()
   spriteManagerRef.value?.dispose()
   controlsRef.value?.dispose()
+  environmentTextureRef.value?.dispose()
   if (frameId) {
     cancelAnimationFrame(frameId)
   }
@@ -143,7 +146,6 @@ async function setupScene() {
   try {
     const canvas = canvasRef.value
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0x0b1020)
     scene.fog = new THREE.Fog(0x0b1020, 22, 72)
 
     const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
@@ -161,10 +163,12 @@ async function setupScene() {
     controls.maxDistance = props.session.roomSize === ClassRoomSize.XLARGE ? 32 : 18
 
     scene.add(new THREE.HemisphereLight(0xffffff, 0x233045, 2.2))
-    const keyLight = new THREE.DirectionalLight(0xffffff, 2.2)
-    keyLight.position.set(5, 12, 8)
-    keyLight.castShadow = true
-    scene.add(keyLight)
+
+    const environmentTexture = await loadEnvironment('/assets/Environment_mapping/cedar_bridge_sunset_1_4k.hdr')
+    scene.background = environmentTexture
+    scene.environment = environmentTexture
+    scene.environmentIntensity = 0.3
+    environmentTextureRef.value = environmentTexture
 
     sceneRef.value = scene
     cameraRef.value = camera
@@ -196,24 +200,16 @@ async function setupScene() {
 
 async function loadModels(scene: THREE.Scene, camera: THREE.PerspectiveCamera, controls: OrbitControls) {
   const route = getClassroomModelRoute(props.session.roomSize)
-  const assetLoadingLabel = route.classroom.texture || route.desk.texture
-      ? LOADING_LABELS.loadingAssetsWithTextures
-      : LOADING_LABELS.loadingAssetsWithoutTextures
   const progress = createAssetProgressReporter(15, 90, [
     {key: 'classroom', weight: 4},
     {key: 'desk', weight: 3},
-    ...(route.classroom.texture ? [{key: 'classroomTexture', weight: 1}] : []),
-    ...(route.desk.texture ? [{key: 'deskTexture', weight: 1}] : []),
-  ], assetLoadingLabel)
-  const [classroom, desk, classroomTexture, deskTexture] = await Promise.all([
+  ], LOADING_LABELS.loadingAssetsWithoutTextures)
+  const [classroom, desk] = await Promise.all([
     loadGlb(route.classroom.model, progress.track('classroom')),
     loadGlb(route.desk.model, progress.track('desk')),
-    loadTexture(route.classroom.texture, route.classroom.texture ? progress.track('classroomTexture') : undefined),
-    loadTexture(route.desk.texture, route.desk.texture ? progress.track('deskTexture') : undefined),
   ])
 
   emitLoadingProgress(90, LOADING_LABELS.applyingMaterials)
-  applyTexture(classroom.scene, classroomTexture)
   classroom.scene.position.set(0, 0, 0)
   classroom.scene.rotation.y = props.session.roomSize === ClassRoomSize.SMALL ? 0 : Math.PI / 2
   classroom.scene.updateMatrixWorld(true)
@@ -231,7 +227,7 @@ async function loadModels(scene: THREE.Scene, camera: THREE.PerspectiveCamera, c
   setupExitDoor(scene, classroom.scene, classroomBounds)
 
   emitLoadingProgress(91, LOADING_LABELS.arrangingDesks)
-  const instancedMeshes = modelInstanceManager.createInstancedMeshes(desk.scene, roomSpec.value.deskInstanceCount, deskTexture)
+  const instancedMeshes = modelInstanceManager.createInstancedMeshes(desk.scene, roomSpec.value.deskInstanceCount)
   modelInstanceManager.setInstanceMatrices(instancedMeshes, props.session.roomSize, roomSpec.value.deskInstanceCount, (index) =>
       getDeskPosition(props.session.roomSize, index, classroomDimensions.value),
   )
@@ -386,10 +382,10 @@ function handleSeatSyncMessage(raw: string) {
       return
     }
     if (
-      message.type === 'live_started' ||
-      message.type === 'live_paused' ||
-      message.type === 'live_resumed' ||
-      message.type === 'live_stopped'
+        message.type === 'live_started' ||
+        message.type === 'live_paused' ||
+        message.type === 'live_resumed' ||
+        message.type === 'live_stopped'
     ) {
       emit('live-status-change', message)
     }
@@ -523,20 +519,16 @@ function setupExitDoor(scene: THREE.Scene, classroom: THREE.Object3D, bounds: TH
 }
 
 function findDoorAnchor(classroom: THREE.Object3D, bounds: THREE.Box3) {
-  const doorBounds = new THREE.Box3()
-  const meshBounds = new THREE.Box3()
-  const doorCenter = new THREE.Vector3()
+  let doorMesh: THREE.Mesh | null = null
   classroom.traverse((child) => {
-    if (!(child instanceof THREE.Mesh) || !isDoorObject(child)) {
-      return
-    }
-    meshBounds.setFromObject(child)
-    if (!meshBounds.isEmpty()) {
-      doorBounds.union(meshBounds)
+    if (child instanceof THREE.Mesh && isDoorObject(child) && !doorMesh) {
+      doorMesh = child
     }
   })
 
-  if (!doorBounds.isEmpty()) {
+  if (doorMesh) {
+    const doorBounds = new THREE.Box3().setFromObject(doorMesh)
+    const doorCenter = new THREE.Vector3()
     doorBounds.getCenter(doorCenter)
     return {
       position: new THREE.Vector3(doorCenter.x, Math.max(bounds.min.y, doorBounds.min.y), doorCenter.z),
@@ -573,6 +565,16 @@ function createExitLabelTexture() {
   const context = canvas.getContext('2d')
   if (context) {
     context.clearRect(0, 0, canvas.width, canvas.height)
+
+    const borderRadius = 36
+    context.beginPath()
+    context.roundRect(20, 20, canvas.width - 40, canvas.height - 40, borderRadius)
+    context.fillStyle = 'rgba(15, 23, 42, 0.45)'
+    context.fill()
+    context.lineWidth = 2
+    context.strokeStyle = 'rgba(255, 255, 255, 0.3)'
+    context.stroke()
+
     context.lineWidth = 8
     context.strokeStyle = 'rgba(15, 23, 42, 0.82)'
     context.font = '700 58px sans-serif'
@@ -700,37 +702,19 @@ function loadGlb(path: string, onProgress?: (event?: ProgressEvent<EventTarget>)
   })
 }
 
-async function loadTexture(path?: string, onProgress?: (event?: ProgressEvent<EventTarget>) => void) {
-  if (!path) {
-    return null
-  }
-  const texture = await new Promise<THREE.Texture>((resolve, reject) => {
-    new THREE.TextureLoader().load(
+function loadEnvironment(path: string): Promise<THREE.Texture> {
+  const loader = new RGBELoader()
+  return new Promise((resolve, reject) => {
+    loader.load(
         path,
-        (loadedTexture) => {
-          onProgress?.()
-          resolve(loadedTexture)
+        (texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace
+          texture.mapping = THREE.EquirectangularReflectionMapping
+          resolve(texture)
         },
-        onProgress,
+        undefined,
         reject,
     )
-  })
-  texture.colorSpace = THREE.SRGBColorSpace
-  texture.flipY = false
-  return texture
-}
-
-function applyTexture(root: THREE.Object3D, texture: THREE.Texture | null) {
-  if (!texture) {
-    return
-  }
-  root.traverse((child) => {
-    if (child instanceof THREE.Mesh) {
-      child.material = new THREE.MeshBasicMaterial({
-        map: texture,
-        side: THREE.DoubleSide,
-      })
-    }
   })
 }
 
@@ -764,7 +748,7 @@ function disposeObject(object: THREE.Object3D) {
 function buildSeatSocketUrl(token: string) {
   const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
   const protocol = baseUrl.startsWith('https') ? 'wss:' : 'ws:'
-  
+
   let apiUrl: URL
   if (baseUrl) {
     apiUrl = new URL(baseUrl)
@@ -773,7 +757,7 @@ function buildSeatSocketUrl(token: string) {
     apiUrl = new URL(window.location.origin)
     apiUrl.protocol = protocol
   }
-  
+
   apiUrl.pathname = '/api/class-sessions/seats/ws'
   apiUrl.search = new URLSearchParams({
     sessionId: props.session.id,

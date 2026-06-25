@@ -7,15 +7,24 @@ import com.dayz.sc.common.util.UuidV7Generator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @Slf4j
 @Service
@@ -26,12 +35,17 @@ public class AiGradingService {
     private static final String STATUS_FAILED = "FAILED";
     private static final int FLAG_ON = 1;
     private static final int FLAG_OFF = 0;
+    private static final Duration DEFAULT_GRADING_TIMEOUT = Duration.ofSeconds(30);
 
     private final ChatClient chatClient;
     private final AiRuntimeGuard aiRuntimeGuard;
     private final AiGradingEventPublisher aiGradingEventPublisher;
     private final ObjectMapper objectMapper;
     private final AiProviderCallGuard aiProviderCallGuard;
+    private final ExecutorService gradingExecutor = Executors.newVirtualThreadPerTaskExecutor();
+
+    @Value("${edupivot.ai.grading.timeout:30s}")
+    private Duration gradingTimeout = DEFAULT_GRADING_TIMEOUT;
 
     public void grade(LivePracticeAiGradingRequestedEvent event) {
         if (!aiRuntimeGuard.isConfigured()) {
@@ -39,15 +53,57 @@ public class AiGradingService {
             return;
         }
         try {
-            Map<String, Object> result = parse(callModel(event));
+            Map<String, Object> result = parse(callModelWithTimeout(event));
             BigDecimal score = clampScore(decimal(result.get("score")), event.score());
             boolean isCorrect = bool(result.get("isCorrect"), score, event.score());
             String feedback = text(result.get("feedback"));
             publishCompleted(event, score, isCorrect ? FLAG_ON : FLAG_OFF, feedback);
         } catch (Exception exception) {
             log.warn("AI grading failed for submission {}", event.submissionId(), exception);
+            if (exception instanceof AiGradingResultPublishException publishException) {
+                throw publishException;
+            }
             publishFailure(event, "AI grading failed: " + exception.getMessage());
         }
+    }
+
+    @PreDestroy
+    void shutdown() {
+        gradingExecutor.shutdownNow();
+    }
+
+    private String callModelWithTimeout(LivePracticeAiGradingRequestedEvent event) throws JsonProcessingException {
+        Duration timeout = effectiveGradingTimeout();
+        Future<String> future = gradingExecutor.submit(() -> callModel(event));
+        try {
+            return future.get(Math.max(1, timeout.toMillis()), TimeUnit.MILLISECONDS);
+        } catch (TimeoutException exception) {
+            future.cancel(true);
+            throw new IllegalStateException("AI grading timed out after " + timeout.toMillis() + " ms", exception);
+        } catch (InterruptedException exception) {
+            future.cancel(true);
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("AI grading interrupted", exception);
+        } catch (ExecutionException exception) {
+            Throwable cause = exception.getCause();
+            if (cause instanceof JsonProcessingException jsonProcessingException) {
+                throw jsonProcessingException;
+            }
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new IllegalStateException("AI grading failed", cause);
+        }
+    }
+
+    private Duration effectiveGradingTimeout() {
+        if (gradingTimeout == null || gradingTimeout.isZero() || gradingTimeout.isNegative()) {
+            return DEFAULT_GRADING_TIMEOUT;
+        }
+        return gradingTimeout;
     }
 
     private String callModel(LivePracticeAiGradingRequestedEvent event) throws JsonProcessingException {
@@ -139,7 +195,7 @@ public class AiGradingService {
                                   BigDecimal score,
                                   Integer isCorrect,
                                   String feedback) {
-        aiGradingEventPublisher.publishCompleted(new LivePracticeAiGradingCompletedEvent(
+        boolean published = aiGradingEventPublisher.publishCompleted(new LivePracticeAiGradingCompletedEvent(
                 UuidV7Generator.generate(),
                 event.submissionId(),
                 event.groupId(),
@@ -156,10 +212,13 @@ public class AiGradingService {
                 Instant.now(),
                 "sc-ai"
         ));
+        if (!published) {
+            throw new AiGradingResultPublishException("AI grading result publish failed");
+        }
     }
 
     private void publishFailure(LivePracticeAiGradingRequestedEvent event, String errorMessage) {
-        aiGradingEventPublisher.publishCompleted(new LivePracticeAiGradingCompletedEvent(
+        boolean published = aiGradingEventPublisher.publishCompleted(new LivePracticeAiGradingCompletedEvent(
                 UuidV7Generator.generate(),
                 event.submissionId(),
                 event.groupId(),
@@ -176,5 +235,14 @@ public class AiGradingService {
                 Instant.now(),
                 "sc-ai"
         ));
+        if (!published) {
+            throw new AiGradingResultPublishException("AI grading failure result publish failed");
+        }
+    }
+
+    private static class AiGradingResultPublishException extends RuntimeException {
+        private AiGradingResultPublishException(String message) {
+            super(message);
+        }
     }
 }

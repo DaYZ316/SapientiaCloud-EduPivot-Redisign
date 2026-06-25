@@ -4,6 +4,7 @@ import com.dayz.sc.ai.event.AiGradingEventPublisher;
 import com.dayz.sc.common.events.ai.LivePracticeAiGradingCompletedEvent;
 import com.dayz.sc.common.events.ai.LivePracticeAiGradingRequestedEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,13 +13,16 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.RETURNS_SELF;
 import static org.mockito.Mockito.mock;
@@ -58,6 +62,12 @@ class AiGradingServiceTest {
                 aiProviderCallGuard
         );
         when(aiRuntimeGuard.isConfigured()).thenReturn(true);
+        when(aiGradingEventPublisher.publishCompleted(any())).thenReturn(true);
+    }
+
+    @AfterEach
+    void tearDown() {
+        aiGradingService.shutdown();
     }
 
     @Test
@@ -95,6 +105,25 @@ class AiGradingServiceTest {
     }
 
     @Test
+    void grade_shouldPublishFailureWhenModelCallTimesOut() {
+        ReflectionTestUtils.setField(aiGradingService, "gradingTimeout", Duration.ofMillis(50));
+        when(aiProviderCallGuard.call(any())).thenAnswer(invocation -> {
+            try {
+                Thread.sleep(5_000);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+            }
+            return "{\"score\":8,\"isCorrect\":false,\"feedback\":\"ok\"}";
+        });
+
+        aiGradingService.grade(event());
+
+        verify(aiGradingEventPublisher).publishCompleted(completedEventCaptor.capture());
+        assertThat(completedEventCaptor.getValue().status()).isEqualTo("FAILED");
+        assertThat(completedEventCaptor.getValue().errorMessage()).contains("timed out");
+    }
+
+    @Test
     void grade_shouldPublishFailureWhenRuntimeIsMissing() {
         when(aiRuntimeGuard.isConfigured()).thenReturn(false);
         when(aiRuntimeGuard.missingKeyMessage()).thenReturn("missing key");
@@ -104,6 +133,16 @@ class AiGradingServiceTest {
         verify(aiGradingEventPublisher).publishCompleted(completedEventCaptor.capture());
         assertThat(completedEventCaptor.getValue().status()).isEqualTo("FAILED");
         assertThat(completedEventCaptor.getValue().errorMessage()).isEqualTo("missing key");
+    }
+
+    @Test
+    void grade_shouldThrowWhenResultCannotBePublished() {
+        stubModelResponse("{\"score\":8,\"isCorrect\":false,\"feedback\":\"要点较完整\"}");
+        when(aiGradingEventPublisher.publishCompleted(any())).thenReturn(false);
+
+        assertThatThrownBy(() -> aiGradingService.grade(event()))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("publish failed");
     }
 
     @Test

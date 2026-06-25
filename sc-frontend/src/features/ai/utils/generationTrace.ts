@@ -25,19 +25,39 @@ const STAGE_PROGRESS: Record<GenerationStage, number> = {
 }
 
 const STAGE_LABELS: Record<GenerationStage, string> = {
-  RECEIVED: '接收请求',
-  CONTEXT_READY: '联网搜索资料',
-  PLANNED: '生成方案',
-  GENERATED: '生成草稿',
-  VALIDATED: '质量校验',
-  REPAIRED: '修正题目',
-  ASSEMBLED: '组装结果',
+  RECEIVED: '已接收请求',
+  CONTEXT_READY: '正在准备资料',
+  PLANNED: '已规划题目',
+  GENERATED: '正在生成题目',
+  VALIDATED: '正在检查质量',
+  REPAIRED: '正在优化题目',
+  ASSEMBLED: '正在整理结果',
   RESPONDED: '生成完成',
   FAILED: '生成失败',
   TERMINATED: '已终止',
 }
 
-const TECHNICAL_DETAIL_TYPES = new Set(['section_attempt', 'repair_attempt', 'placeholder_result', 'raw_ai_output'])
+const STAGE_I18N_KEYS: Record<GenerationStage, string> = {
+  RECEIVED: 'common.ai.generationTrace.stages.received',
+  CONTEXT_READY: 'common.ai.generationTrace.stages.contextReady',
+  PLANNED: 'common.ai.generationTrace.stages.planned',
+  GENERATED: 'common.ai.generationTrace.stages.generated',
+  VALIDATED: 'common.ai.generationTrace.stages.validated',
+  REPAIRED: 'common.ai.generationTrace.stages.repaired',
+  ASSEMBLED: 'common.ai.generationTrace.stages.assembled',
+  RESPONDED: 'common.ai.generationTrace.stages.responded',
+  FAILED: 'common.ai.generationTrace.stages.failed',
+  TERMINATED: 'common.ai.generationTrace.stages.terminated',
+}
+
+const TECHNICAL_DETAIL_TYPES = new Set([
+  'section_attempt',
+  'repair_attempt',
+  'repair_summary',
+  'quality_review',
+  'placeholder_result',
+  'raw_ai_output',
+])
 const HIDDEN_ISSUE_CODES = new Set(['MISSING_QUESTION_BANK_ID'])
 const EMPTY_RESULT_ISSUE_CODES = new Set(['EMPTY_RESULT'])
 
@@ -85,6 +105,11 @@ export function generationProgress(message: ChatMessage | null | undefined) {
 export function generationStageLabel(stage?: string | null) {
   if (isGenerationStage(stage)) return STAGE_LABELS[stage]
   return stage || '准备中'
+}
+
+export function generationStageI18nKey(stage?: string | null) {
+  if (isGenerationStage(stage)) return STAGE_I18N_KEYS[stage]
+  return ''
 }
 
 export function generationTitle(message: ChatMessage) {
@@ -161,7 +186,7 @@ function mergeGeneratedEntry(current: GenerationTraceEntry, next: GenerationTrac
   const nextPayload = recordValue(next.payload) || {}
   const nextQuestions = Array.isArray(nextPayload.questions) ? nextPayload.questions : []
   const currentQuestions = Array.isArray(currentPayload.questions) ? currentPayload.questions : []
-  const questions = nextPayload.questionDelta === true
+  const questions = shouldAppendGeneratedQuestions(currentPayload, nextPayload, currentQuestions, nextQuestions)
     ? currentQuestions.concat(nextQuestions)
     : nextQuestions.length ? nextQuestions : currentQuestions
   const payload = {
@@ -191,6 +216,23 @@ function mergeGeneratedEntry(current: GenerationTraceEntry, next: GenerationTrac
     summary,
     payload,
   }
+}
+
+function shouldAppendGeneratedQuestions(
+  currentPayload: Record<string, unknown>,
+  nextPayload: Record<string, unknown>,
+  currentQuestions: unknown[],
+  nextQuestions: unknown[],
+) {
+  if (!nextQuestions.length) return false
+  if (nextPayload.questionDelta === true) return true
+  if (nextPayload.questionDelta === false) return false
+
+  const currentGeneratedCount = numberValue(currentPayload.generatedQuestionCount) ?? currentQuestions.length
+  const nextGeneratedCount = numberValue(nextPayload.generatedQuestionCount)
+  return nextGeneratedCount !== null
+    && nextGeneratedCount > currentGeneratedCount
+    && nextQuestions.length < nextGeneratedCount
 }
 
 function sanitizeTraceEntry(entry: GenerationTraceEntry): GenerationTraceEntry {

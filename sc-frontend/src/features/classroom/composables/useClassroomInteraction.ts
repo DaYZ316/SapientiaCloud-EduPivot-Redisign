@@ -1,7 +1,9 @@
 import * as THREE from 'three'
 
 import {ClassRoomSize} from '@/features/course/types/classSession'
-import {getDeskPosition, getDeskYaw, type RoomPlanDimensions} from '@/features/classroom/composables/useSeatLayout'
+import {getDeskPosition, getDeskYaw, getSeatPosition, type RoomPlanDimensions} from '@/features/classroom/composables/useSeatLayout'
+
+const LARGE_SEATS_PER_DESK = 4
 
 export interface ClassroomInteractionOptions {
     canvas: HTMLCanvasElement
@@ -32,8 +34,9 @@ const DRAG_CLICK_THRESHOLD_SQUARED = DRAG_CLICK_THRESHOLD_PX * DRAG_CLICK_THRESH
 export function createClassroomInteraction(options: ClassroomInteractionOptions): ClassroomInteractionControls {
     const raycaster = new THREE.Raycaster()
     const pointer = new THREE.Vector2()
-    const metrics = getDeskInteractionMetrics(options.instancedMeshes)
-    const highlight = createDeskHighlight(metrics)
+    const isLargeRoom = options.roomSize === ClassRoomSize.LARGE
+    const metrics = getDeskInteractionMetrics(options.instancedMeshes, isLargeRoom)
+    const highlight = createDeskHighlight(metrics, isLargeRoom)
     const targets = createInteractionTargets(options.roomSize, options.instancedMeshes[0]?.count ?? 0, metrics, options.dimensions)
     let hoveredSeat: number | null = null
     let pointerDownX = 0
@@ -81,11 +84,19 @@ export function createClassroomInteraction(options: ClassroomInteractionOptions)
             highlight.visible = false
             return
         }
-        const position = getDeskPosition(options.roomSize, hit.deskIndex, options.dimensions)
-        const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, getDeskYaw(options.roomSize, hit.deskIndex, options.dimensions), 0))
-        highlight.position.copy(position)
-        highlight.quaternion.copy(quaternion)
-        highlight.visible = true
+        if (options.roomSize === ClassRoomSize.LARGE) {
+            const position = getSeatPosition(options.roomSize, hit.seatIndex, options.dimensions)
+            const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, getDeskYaw(options.roomSize, hit.deskIndex, options.dimensions), 0))
+            highlight.position.copy(position)
+            highlight.quaternion.copy(quaternion)
+            highlight.visible = true
+        } else {
+            const position = getDeskPosition(options.roomSize, hit.deskIndex, options.dimensions)
+            const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, getDeskYaw(options.roomSize, hit.deskIndex, options.dimensions), 0))
+            highlight.position.copy(position)
+            highlight.quaternion.copy(quaternion)
+            highlight.visible = true
+        }
     }
 
     function handleMove(event: MouseEvent) {
@@ -193,9 +204,10 @@ interface DeskInteractionMetrics {
     proxySize: THREE.Vector3
     seatMinX: number
     seatWidth: number
+    seatProxySize?: THREE.Vector3
 }
 
-function getDeskInteractionMetrics(instancedMeshes: THREE.InstancedMesh[]): DeskInteractionMetrics {
+function getDeskInteractionMetrics(instancedMeshes: THREE.InstancedMesh[], isLargeRoom: boolean): DeskInteractionMetrics {
     const bounds = computeDeskLocalBounds(instancedMeshes)
     const topBounds = computeDeskTopLocalBounds(instancedMeshes, bounds.max.y)
     const proxyCenter = new THREE.Vector3()
@@ -209,6 +221,15 @@ function getDeskInteractionMetrics(instancedMeshes: THREE.InstancedMesh[]): Desk
     topBounds.getSize(highlightSize3)
     highlightCenter.y = bounds.max.y + 0.025
 
+    let seatProxySize: THREE.Vector3 | undefined
+    if (isLargeRoom) {
+        seatProxySize = new THREE.Vector3(
+            Math.max(proxySize.x / LARGE_SEATS_PER_DESK, 0.4),
+            Math.max(proxySize.y, 0.4),
+            Math.max(proxySize.z, 0.4),
+        )
+    }
+
     return {
         highlightCenter,
         highlightSize: new THREE.Vector2(Math.max(highlightSize3.x, 0.2), Math.max(highlightSize3.z, 0.2)),
@@ -220,6 +241,7 @@ function getDeskInteractionMetrics(instancedMeshes: THREE.InstancedMesh[]): Desk
         ),
         seatMinX: bounds.min.z,
         seatWidth: Math.max(proxySize.z, 0.4),
+        seatProxySize,
     }
 }
 
@@ -250,21 +272,23 @@ function createInteractionTargets(
     return group
 }
 
-function createDeskHighlight(metrics: DeskInteractionMetrics) {
+function createDeskHighlight(metrics: DeskInteractionMetrics, useSeatSize: boolean = false) {
     const group = new THREE.Group()
-    const fillGeometry = new THREE.PlaneGeometry(metrics.highlightSize.x, metrics.highlightSize.y)
-    fillGeometry.rotateX(-Math.PI / 2)
-    fillGeometry.translate(metrics.highlightCenter.x, metrics.highlightCenter.y, metrics.highlightCenter.z)
+
+    const baseSize = useSeatSize && metrics.seatProxySize ? metrics.seatProxySize : metrics.proxySize
+    const boxSize = baseSize.clone().addScalar(0.08)
+    const boxGeometry = new THREE.BoxGeometry(boxSize.x, boxSize.y, boxSize.z)
+    boxGeometry.translate(metrics.proxyCenter.x, metrics.proxyCenter.y, metrics.proxyCenter.z)
+
     const fillMaterial = new THREE.MeshBasicMaterial({
         color: 0x60a5fa,
         transparent: true,
         opacity: 0.24,
         depthWrite: false,
-        side: THREE.DoubleSide,
     })
-    const fill = new THREE.Mesh(fillGeometry, fillMaterial)
+    const fill = new THREE.Mesh(boxGeometry, fillMaterial)
 
-    const edgeGeometry = new THREE.EdgesGeometry(fillGeometry)
+    const edgeGeometry = new THREE.EdgesGeometry(boxGeometry)
     const edgeMaterial = new THREE.LineBasicMaterial({
         color: 0x93c5fd,
         transparent: true,

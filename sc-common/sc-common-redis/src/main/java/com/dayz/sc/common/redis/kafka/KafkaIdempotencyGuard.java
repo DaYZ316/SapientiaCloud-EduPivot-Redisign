@@ -26,4 +26,8 @@ public record KafkaIdempotencyGuard(StringRedisTemplate redisTemplate) {
         Boolean acquired = redisTemplate.opsForValue().setIfAbsent(key, "1", TTL);
         return Boolean.TRUE.equals(acquired);
     }
+
+    public void release(String groupId, UUID eventId) {
+        redisTemplate.delete(KEY_PREFIX + groupId + ":" + eventId);
+    }
 }

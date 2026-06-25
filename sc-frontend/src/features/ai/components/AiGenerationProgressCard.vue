@@ -49,8 +49,7 @@ import {
   currentGenerationStage,
   generatedQuestionCount,
   generationProgress,
-  generationSummary,
-  generationTitle,
+  generationStageI18nKey,
   generationTrace,
 } from '@/features/ai/utils/generationTrace'
 
@@ -64,7 +63,7 @@ const props = withDefaults(
   },
 )
 
-const { locale } = useI18n()
+const { t, locale } = useI18n()
 
 defineEmits<{
   'view-trace': [messageId: string]
@@ -77,8 +76,13 @@ const questionCount = computed(() => generatedQuestionCount(props.message))
 const isTerminated = computed(() => props.message.terminated || stage.value === 'TERMINATED')
 const isFailed = computed(() => !isTerminated.value && (props.message.failed || stage.value === 'FAILED'))
 const isComplete = computed(() => !isFailed.value && !isTerminated.value && !props.message.pending)
-const title = computed(() => generationTitle(props.message))
-const summary = computed(() => generationSummary(props.message))
+const latestTraceEntry = computed(() => generationTrace(props.message).at(-1))
+const title = computed(() =>
+  latestTraceEntry.value?.title || generationStageLabel(stage.value),
+)
+const summary = computed(() =>
+  latestTraceEntry.value?.summary || footerText.value,
+)
 const generationTime = computed(() =>
   formatGenerationTime(props.message.createdAt, {
     month: 'numeric',
@@ -89,25 +93,40 @@ const generationTime = computed(() =>
 )
 const generationTimeTitle = computed(
   () =>
-    `出题时间：${formatGenerationTime(props.message.createdAt, {
+    t('common.ai.generationTrace.card.timeTitle', {time: formatGenerationTime(props.message.createdAt, {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-    })}`,
+    })}),
 )
-const actionLabel = computed(() => (props.message.messageType === 'PAPER' ? '天枢出卷' : '天枢出题'))
+const actionLabel = computed(() =>
+  props.message.messageType === 'PAPER'
+    ? t('common.ai.generationTrace.card.paperAction')
+    : t('common.ai.generationTrace.card.questionAction'),
+)
 const footerText = computed(() => {
-  if (isTerminated.value) return `${actionLabel.value}已终止`
-  if (isFailed.value) return `${actionLabel.value}失败`
+  if (isTerminated.value) return t('common.ai.generationTrace.card.terminated', {action: actionLabel.value})
+  if (isFailed.value) return t('common.ai.generationTrace.card.failed', {action: actionLabel.value})
   if (props.message.pending)
     return traceCount.value > 0
-      ? `${actionLabel.value}中 · 已记录 ${traceCount.value} 个步骤`
-      : `${actionLabel.value}中`
-  if (questionCount.value > 0) return `${actionLabel.value}完成 · ${questionCount.value} 道题`
-  return `${actionLabel.value}完成`
+      ? t('common.ai.generationTrace.card.pendingWithSteps', {action: actionLabel.value, count: traceCount.value})
+      : t('common.ai.generationTrace.card.pending', {action: actionLabel.value})
+  if (questionCount.value > 0) {
+    return t('common.ai.generationTrace.card.completeWithQuestions', {
+      action: actionLabel.value,
+      count: questionCount.value,
+    })
+  }
+  return t('common.ai.generationTrace.card.complete', {action: actionLabel.value})
 })
+
+function generationStageLabel(value?: string | null) {
+  const key = generationStageI18nKey(value)
+  if (key) return t(key)
+  return value || t('common.ai.generationTrace.stages.pending')
+}
 
 function formatGenerationTime(value: string, options: Intl.DateTimeFormatOptions) {
   const date = new Date(value)

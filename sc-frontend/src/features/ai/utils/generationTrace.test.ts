@@ -76,6 +76,60 @@ describe('generationTrace display normalization', () => {
     ])
   })
 
+  it('keeps appending generated questions when progress count increases without a delta flag', () => {
+    const message = generationMessage([
+      traceEntry('GENERATED', 'draft_progress', '题目草稿生成中', {
+        generatedQuestionCount: 1,
+        totalQuestionCount: 3,
+        questions: [{questionTitle: '题目 1'}],
+      }),
+      traceEntry('GENERATED', 'draft_progress', '题目草稿生成中', {
+        generatedQuestionCount: 2,
+        totalQuestionCount: 3,
+        questions: [{questionTitle: '题目 2'}],
+      }),
+      traceEntry('GENERATED', 'draft_progress', '题目草稿生成中', {
+        generatedQuestionCount: 3,
+        totalQuestionCount: 3,
+        questions: [{questionTitle: '题目 3'}],
+      }),
+    ])
+
+    const generated = generationTrace(message)[0]
+
+    expect(generated.payload?.questions).toEqual([
+      {questionTitle: '题目 1'},
+      {questionTitle: '题目 2'},
+      {questionTitle: '题目 3'},
+    ])
+  })
+
+  it('does not replace earlier draft progress questions when later sections arrive', () => {
+    const message = generationMessage([
+      traceEntry('GENERATED', 'draft_progress', 'drafting', {
+        detailType: 'draft_progress',
+        questionCount: 1,
+        generatedQuestionCount: 1,
+        totalQuestionCount: 3,
+        questions: [{questionTitle: 'section 1 question'}],
+      }),
+      traceEntry('GENERATED', 'draft_progress', 'drafting', {
+        detailType: 'draft_progress',
+        questionCount: 1,
+        generatedQuestionCount: 2,
+        totalQuestionCount: 3,
+        questions: [{questionTitle: 'section 2 question'}],
+      }),
+    ])
+
+    const generated = generationTrace(message)[0]
+
+    expect(generated.payload?.questions).toEqual([
+      {questionTitle: 'section 1 question'},
+      {questionTitle: 'section 2 question'},
+    ])
+  })
+
   it('hides question bank save prerequisites from visible issues', () => {
     const message = generationMessage([
       traceEntry('VALIDATED', 'validation', '题目质量校验完成', {
@@ -93,6 +147,22 @@ describe('generationTrace display normalization', () => {
     expect(payload?.issues).toEqual([issue('INVALID_SCORE', '分值无效')])
     expect(payload?.issueCount).toBe(1)
     expect(payload?.remainingIssueCount).toBe(1)
+  })
+
+  it('keeps quality review entries in the debug trace when they come from legacy visible trace', () => {
+    const message = generationMessage([
+      traceEntry('VALIDATED', 'quality_review', '出卷质量复核', {
+        issueCount: 1,
+        issues: [issue('JUDGE_SCORE_TOO_HIGH', '判断题分值过高')],
+      }),
+      traceEntry('ASSEMBLED', 'final_questions', '题目集已组装', {
+        questionCount: 1,
+        questions: [{questionTitle: '最终题'}],
+      }),
+    ])
+
+    expect(generationTrace(message).map(entry => entry.detailType)).toEqual(['final_questions'])
+    expect(generationDebugTrace(message).map(entry => entry.detailType)).toContain('quality_review')
   })
 })
 

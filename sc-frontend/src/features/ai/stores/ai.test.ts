@@ -254,6 +254,18 @@ describe('useAiStore generation stream', () => {
         rawOutput,
       },
     }
+    const qualityStage: GenerationStageEvent = {
+      requestId: 'request-1',
+      mode: 'PAPER',
+      stage: 'VALIDATED',
+      status: 'processing',
+      title: 'quality review',
+      summary: 'quality review returned issues',
+      payload: {
+        detailType: 'quality_review',
+        issueCount: 1,
+      },
+    }
     mocks.streamChat.mockImplementation(async (
       _data: unknown,
       handlers: {
@@ -264,6 +276,7 @@ describe('useAiStore generation stream', () => {
       handlers.onConversation?.({id: 'conversation-1', title: 'Paper'})
       handlers.onGenerationStage?.(rawStage)
       handlers.onGenerationStage?.(rawStage)
+      handlers.onGenerationStage?.(qualityStage)
       await new Promise<void>((resolve) => {
         finishStream = resolve
       })
@@ -276,8 +289,9 @@ describe('useAiStore generation stream', () => {
     const artifact = store.messages.find(message => message.messageType === 'PAPER')
     const debugTrace = artifact?.payload?.generationDebugTrace as Array<{payload?: Record<string, unknown>}> | undefined
     const visibleTrace = artifact?.payload?.generationTrace as unknown[] | undefined
-    expect(debugTrace).toHaveLength(1)
+    expect(debugTrace).toHaveLength(2)
     expect(debugTrace?.[0]?.payload?.rawOutput).toBe(rawOutput)
+    expect(debugTrace?.[1]?.payload?.detailType).toBe('quality_review')
     expect(visibleTrace ?? []).toHaveLength(0)
 
     finishStream?.()
@@ -397,10 +411,10 @@ describe('useAiStore generation stream', () => {
       title: '题目草稿生成中',
       summary: '已生成 1 / 2 道题目草稿。',
       payload: {
+        detailType: 'draft_progress',
         questionCount: 1,
         generatedQuestionCount: 1,
         totalQuestionCount: 3,
-        questionDelta: true,
         questions: [{questionTitle: 'HashMap load factor'}],
       },
     }
@@ -408,20 +422,20 @@ describe('useAiStore generation stream', () => {
       ...firstGeneratedStage,
       summary: '已生成 2 / 2 道题目草稿。',
       payload: {
+        detailType: 'draft_progress',
         questionCount: 1,
         generatedQuestionCount: 2,
         totalQuestionCount: 3,
-        questionDelta: true,
         questions: [{questionTitle: 'ConcurrentHashMap segment'}],
       },
     }
     const thirdGeneratedStage: GenerationStageEvent = {
       ...firstGeneratedStage,
       payload: {
+        detailType: 'draft_progress',
         questionCount: 1,
         generatedQuestionCount: 3,
         totalQuestionCount: 3,
-        questionDelta: true,
         questions: [{questionTitle: 'TreeMap ordering'}],
       },
     }

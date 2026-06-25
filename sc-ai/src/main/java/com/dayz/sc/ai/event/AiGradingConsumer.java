@@ -5,10 +5,12 @@ import com.dayz.sc.common.events.ai.LivePracticeAiGradingRequestedEvent;
 import com.dayz.sc.common.events.config.KafkaTopicConstants;
 import com.dayz.sc.common.redis.kafka.KafkaIdempotencyGuard;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class AiGradingConsumer {
@@ -25,11 +27,22 @@ public class AiGradingConsumer {
             return;
         }
         if (!kafkaIdempotencyGuard.tryAcquire(GROUP_ID, event.eventId())) {
+            log.info("Skip duplicate AI grading request event {} for submission {}",
+                    event.eventId(), event.submissionId());
             acknowledgment.acknowledge();
             return;
         }
 
-        aiGradingService.grade(event);
-        acknowledgment.acknowledge();
+        try {
+            log.info("Start AI grading request event {} for submission {}",
+                    event.eventId(), event.submissionId());
+            aiGradingService.grade(event);
+            log.info("Finished AI grading request event {} for submission {}",
+                    event.eventId(), event.submissionId());
+            acknowledgment.acknowledge();
+        } catch (RuntimeException exception) {
+            kafkaIdempotencyGuard.release(GROUP_ID, event.eventId());
+            throw exception;
+        }
     }
 }

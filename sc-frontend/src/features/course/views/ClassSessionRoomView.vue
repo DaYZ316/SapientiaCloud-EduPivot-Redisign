@@ -85,9 +85,11 @@
     <ClassroomLivePanel
         v-if="session?.publishedAt && showClassroomLivePanel"
         :can-participate="canUseClassroomLive"
+        :compact="classroomLivePanelCompact"
         :is-teacher="isSessionOpeningTeacher"
         :session="session"
         @close="closeClassroomLivePanel"
+        @expand="expandClassroomLivePanel"
         @session-change="applySessionUpdate"
     />
 
@@ -107,11 +109,15 @@ import {BookOpen, CircleAlert, ClipboardList, Sparkles, Users, Video} from 'luci
 
 import {getClassSession} from '@/features/course/api/classSession'
 import {getCourse} from '@/features/course/api/course'
-import type {ClassParticipant, ClassSession} from '@/features/course/types/classSession'
+import {ClassLiveStatus, type ClassParticipant, type ClassSession} from '@/features/course/types/classSession'
 import type {SeatSyncMessage} from '@/features/classroom/types/classroom'
 import type {CourseDetail} from '@/features/course/types/course'
 import CourseEntryTransition from '@/features/course/components/CourseEntryTransition.vue'
 import {useAuthStore} from '@/features/auth/stores/auth'
+import {
+  closeClassroomLiveFloatingWindow,
+  openClassroomLiveFloatingWindow,
+} from '@/features/classroom/utils/liveFloatingWindow'
 
 const AiLiveSummaryPanel = defineAsyncComponent(() => import('@/features/ai/components/AiLiveSummaryPanel.vue'))
 const Classroom3D = defineAsyncComponent(() => import('@/features/classroom/components/Classroom3D.vue'))
@@ -140,6 +146,7 @@ const showChapterPreviewPanel = ref(false)
 const showSeatedStudentsPanel = ref(false)
 const showAiSummaryPanel = ref(false)
 const showClassroomLivePanel = ref(false)
+const classroomLivePanelCompact = ref(false)
 const initialPracticeGroupId = ref<string | null>(null)
 const seatedParticipants = ref<ClassParticipant[]>([])
 const showEntryTransition = computed(() =>
@@ -189,6 +196,9 @@ async function loadSession() {
     if (typeof route.query.practice === 'string' && canUseLivePracticePanel.value) {
       initialPracticeGroupId.value = route.query.practice
       showLivePracticePanel.value = true
+    }
+    if (route.query.liveFloating === '1' && shouldMinimizeTeacherLive()) {
+      void minimizeClassroomLivePanel()
     }
     classroomProgress.value = 10
     classroomProgressLabel.value = '\u6b63\u5728\u521d\u59cb\u5316 WebGL \u753b\u5e03\u4e0e\u955c\u5934'
@@ -270,11 +280,51 @@ function closeAiSummaryPanel() {
 
 function openClassroomLivePanel() {
   closeSidePanels()
+  closeClassroomLiveFloatingWindow()
+  classroomLivePanelCompact.value = false
   showClassroomLivePanel.value = true
 }
 
-function closeClassroomLivePanel() {
+async function closeClassroomLivePanel() {
+  if (shouldMinimizeTeacherLive()) {
+    await minimizeClassroomLivePanel()
+    return
+  }
   showClassroomLivePanel.value = false
+  classroomLivePanelCompact.value = false
+  closeClassroomLiveFloatingWindow()
+}
+
+function expandClassroomLivePanel() {
+  closeClassroomLiveFloatingWindow()
+  showClassroomLivePanel.value = true
+  classroomLivePanelCompact.value = false
+}
+
+async function minimizeClassroomLivePanel() {
+  if (!session.value) return
+  classroomLivePanelCompact.value = true
+  showClassroomLivePanel.value = true
+  const openedFloatingWindow = await openClassroomLiveFloatingWindow({
+    title: session.value.title,
+    status: '直播仍在进行',
+    restoreLabel: '返回',
+    onRestore: expandClassroomLivePanel,
+    onClose: () => {
+      if (!shouldMinimizeTeacherLive()) return
+      classroomLivePanelCompact.value = true
+      showClassroomLivePanel.value = true
+    },
+  })
+  if (openedFloatingWindow) {
+    showClassroomLivePanel.value = false
+  }
+}
+
+function shouldMinimizeTeacherLive() {
+  return Boolean(session.value
+      && isSessionOpeningTeacher.value
+      && (session.value.liveStatus === ClassLiveStatus.LIVE || session.value.liveStatus === ClassLiveStatus.PAUSED))
 }
 
 function closeSidePanels() {
@@ -282,7 +332,9 @@ function closeSidePanels() {
   closeChapterPreviewPanel()
   closeSeatedStudentsPanel()
   closeAiSummaryPanel()
-  closeClassroomLivePanel()
+  if (showClassroomLivePanel.value && !classroomLivePanelCompact.value) {
+    void closeClassroomLivePanel()
+  }
 }
 
 function handleParticipantsChange(participants: ClassParticipant[]) {
@@ -300,6 +352,10 @@ function handleLiveStatusChange(message: SeatSyncMessage) {
     liveStartedAt: message.liveStartedAt ?? session.value.liveStartedAt,
     livePausedAt: message.livePausedAt ?? null,
     liveEndedAt: message.liveEndedAt ?? session.value.liveEndedAt,
+  }
+  if (message.liveStatus !== ClassLiveStatus.LIVE && message.liveStatus !== ClassLiveStatus.PAUSED) {
+    closeClassroomLiveFloatingWindow()
+    classroomLivePanelCompact.value = false
   }
 }
 

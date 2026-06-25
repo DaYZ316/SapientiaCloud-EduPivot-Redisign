@@ -5,6 +5,7 @@ import com.dayz.sc.course.model.entity.LivePracticeSubmission;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.Instant;
 
 /**
  * 随堂练习提交记录仓储
@@ -59,4 +60,6 @@ public interface LivePracticeSubmissionRepository {
      * @return 提交记录列表
      */
     List<LivePracticeSubmission> findByGroupIds(List<UUID> groupIds);
+
+    List<LivePracticeSubmission> findPendingAiGradingSubmittedBefore(Instant submittedBefore, int limit);
 }

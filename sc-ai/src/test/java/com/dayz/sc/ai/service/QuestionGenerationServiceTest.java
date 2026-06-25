@@ -63,7 +63,29 @@ class QuestionGenerationServiceTest {
                 .containsEntry("isCorrect", 1)
                 .containsKey("imageUrls")
                 .doesNotContainKeys("label", "content", "correct");
+        assertThat((BigDecimal) options.getFirst().get("score")).isEqualByComparingTo("5");
+        assertThat((BigDecimal) options.get(1).get("score")).isEqualByComparingTo("0");
         assertThat(list(questions.getFirst().get("answers"))).isEmpty();
+    }
+
+    @Test
+    void generateQuestionsShouldRepairObjectiveOptionScoresAtFinalAssembly() {
+        ChatFixture fixture = chatFixture(questionJson(1, 1, "多选分值", "请选择正确项"));
+        QuestionGenerationService service = service(fixture.chatClient());
+
+        AiAgentResult result = service.generateQuestions(
+                "生成 Java 多选题",
+                new GenerationRequest(UUID.randomUUID(), 1, 1, 2, BigDecimal.valueOf(6),
+                        null, null, null, null, null, null, List.of("集合"), null),
+                null);
+
+        List<Map<String, Object>> options = list(questions(result).getFirst().get("options"));
+        List<BigDecimal> scores = options.stream()
+                .map(option -> (BigDecimal) option.get("score"))
+                .toList();
+        assertThat(scores)
+                .usingComparatorForType(BigDecimal::compareTo, BigDecimal.class)
+                .containsExactly(BigDecimal.valueOf(3), BigDecimal.valueOf(3), BigDecimal.ZERO);
     }
 
     @Test
@@ -373,6 +395,44 @@ class QuestionGenerationServiceTest {
     }
 
     @Test
+    void generateQuestionsShouldWrapBareLatexAnswerDuringFinalRepair() {
+        String bareLatexAnswer = """
+                {"questions":[{
+                  "questionTitle":"定积分计算与对称性拆分",
+                  "questionContent":"计算定积分 $\\\\int_{-1}^{1} \\\\frac{x^2 + x + 1}{\\\\sqrt{1 + x^2}} \\\\, \\\\mathrm{d}x$ 的值为 ______。（结果请保留精确形式，包含根式与对数）",
+                  "questionType":3,
+                  "difficulty":2,
+                  "score":10,
+                  "estimatedTime":5,
+                  "tags":["定积分"],
+                  "options":[],
+                  "answers":[{
+                    "answerContent":"\\\\sqrt{2} + \\\\ln(1 + \\\\sqrt{2})",
+                    "explanation":"$\\\\frac{x}{\\\\sqrt{1+x^2}}$ 为奇函数，奇函数在对称区间积分为 0。",
+                    "score":10,
+                    "sortOrder":1
+                  }]
+                }]}
+                """;
+        ChatFixture fixture = chatFixture(bareLatexAnswer);
+        QuestionGenerationService service = service(fixture.chatClient());
+
+        AiAgentResult result = service.generateQuestions(
+                "生成定积分填空题",
+                new GenerationRequest(UUID.randomUUID(), 1, 3, 2, BigDecimal.valueOf(10),
+                        null, null, null, null, null, null, List.of("定积分"), null),
+                null);
+
+        List<Map<String, Object>> answers = list(questions(result).getFirst().get("answers"));
+        assertThat(answers.getFirst())
+                .containsEntry("answerContent", "$\\sqrt{2} + \\ln(1 + \\sqrt{2})$")
+                .containsEntry("explanation", "$\\frac{x}{\\sqrt{1+x^2}}$ 为奇函数，奇函数在对称区间积分为 0。");
+        assertThat(issues(result))
+                .extracting(GenerationValidationIssue::code)
+                .doesNotContain("EMPTY_ANSWER", "MISSING_ANSWERS");
+    }
+
+    @Test
     void generatePaperShouldKeepAiScoresWhenScorePerQuestionIsZero() {
         ChatFixture fixture = chatFixture(shortAnswerJson(
                 shortAnswer("low score", "low content", 2),
@@ -553,9 +613,12 @@ class QuestionGenerationServiceTest {
         assertThat(draftProgressEvents).hasSize(4);
         assertThat(draftProgressEvents.get(0).payload())
                 .containsEntry("questionCount", 0)
-                .containsEntry("generatedQuestionCount", 0);
+                .containsEntry("generatedQuestionCount", 0)
+                .containsEntry("detailType", "draft_progress");
         assertThat(draftProgressEvents.subList(1, 4))
                 .allSatisfy(event -> assertThat((List<?>) event.payload().get("questions")).hasSize(1));
+        assertThat(draftProgressEvents.subList(1, 4))
+                .allSatisfy(event -> assertThat(event.payload()).containsEntry("detailType", "draft_progress"));
         assertThat(draftProgressEvents.subList(1, 4))
                 .extracting(event -> event.payload().get("generatedQuestionCount"))
                 .containsExactly(1, 2, 3);
@@ -996,6 +1059,10 @@ class QuestionGenerationServiceTest {
                 .contains("顶层只能是 {\"questions\":[...]}")
                 .contains("questionTitle is UI preview only")
                 .contains("questionContent is the real exam stem")
+                .contains("单选题、判断题的正确选项 score 必须等于本题 score")
+                .contains("单选题、多选题、判断题的解析优先写在对应选项 explanation 中")
+                .contains("questionContent、optionContent、answerContent、explanation 里只要出现数学表达式")
+                .contains("例如答案应写成 `$\\sqrt{2} + \\ln(1 + \\sqrt{2})$`")
                 .contains("判断题固定两个选项：A=正确，B=错误")
                 .contains("填空题 options 必须返回空数组")
                 .contains("optionContent 只写选项正文");

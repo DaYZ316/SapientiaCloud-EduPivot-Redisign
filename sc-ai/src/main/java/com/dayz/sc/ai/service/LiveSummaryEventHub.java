@@ -26,7 +26,7 @@ public class LiveSummaryEventHub {
     }
 
     public ServerSentEvent<String> event(String event, Object payload) {
-        return ServerSentEvent.<String>builder(toJson(payload))
+        return ServerSentEvent.builder(toJson(payload))
                 .event(event)
                 .build();
     }

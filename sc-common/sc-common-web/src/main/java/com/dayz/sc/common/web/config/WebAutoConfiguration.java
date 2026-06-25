@@ -1,7 +1,9 @@
 package com.dayz.sc.common.web.config;
 
+import com.dayz.sc.common.web.filter.ApiRequestDebugLoggingFilter;
 import com.dayz.sc.common.web.handler.GlobalExceptionHandler;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 
 /**
@@ -15,5 +17,11 @@ public class WebAutoConfiguration {
     @Bean
     public GlobalExceptionHandler globalExceptionHandler() {
         return new GlobalExceptionHandler();
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "edupivot.web.api-request-logging", name = "enabled", havingValue = "true")
+    public ApiRequestDebugLoggingFilter apiRequestDebugLoggingFilter() {
+        return new ApiRequestDebugLoggingFilter();
     }
 }

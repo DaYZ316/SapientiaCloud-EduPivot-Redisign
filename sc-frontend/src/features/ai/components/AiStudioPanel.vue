@@ -343,10 +343,18 @@
                 class="preview-option-row"
               >
                 <span class="option-label">{{ optionLabelText(option, optionIndex) }}</span>
-                <AiMarkdownMessage
-                  :content="optionContentText(option) || t('common.ai.studio.optionFallback')"
-                  class="preview-markdown option-content-markdown"
-                />
+                <div class="option-body">
+                  <AiMarkdownMessage
+                    :content="optionContentText(option) || t('common.ai.studio.optionFallback')"
+                    class="preview-markdown option-content-markdown"
+                  />
+                </div>
+                <span
+                  v-if="showQuestionAnswer && activeQuestionIsObjective"
+                  class="option-score"
+                >
+                  {{ optionScoreText(option) || '0' }} {{ t('questionBank.score') }}
+                </span>
               </div>
             </div>
           </section>
@@ -775,6 +783,11 @@ const activeQuestion = computed(() => questions.value[activeQuestionIndex.value]
 const activeQuestionOptions = computed(() => activeQuestion.value ? questionOptions(activeQuestion.value) : [])
 const activeAnswerItems = computed(() => activeQuestion.value ? answerItems(activeQuestion.value) : [])
 const activeExplanationText = computed(() => activeQuestion.value ? explanationText(activeQuestion.value) : '')
+const activeQuestionIsObjective = computed(() => {
+  if (!activeQuestion.value) return false
+  const type = numberValue(activeQuestion.value.questionType ?? activeQuestion.value.type)
+  return type !== null && type >= 0 && type <= 2
+})
 const showExportActions = computed(() => Boolean(
   artifact.value
   && isExportableMessage(artifact.value),
@@ -928,6 +941,10 @@ function scoreText(question: PayloadRecord) {
   return displayValue(question.score)
 }
 
+function optionScoreText(option: PayloadRecord) {
+  return displayValue(option.score)
+}
+
 function estimatedTimeText(question: PayloadRecord) {
   return displayValue(question.estimatedTime)
 }
@@ -938,6 +955,10 @@ function optionLabelText(option: PayloadRecord, index: number) {
 
 function optionContentText(option: PayloadRecord) {
   return textValue(option.optionContent) || textValue(option.content) || textValue(option.answerContent)
+}
+
+function optionExplanationText(option: PayloadRecord) {
+  return textValue(option.explanation)
 }
 
 function isCorrectOption(option: PayloadRecord) {
@@ -957,12 +978,18 @@ function answerItems(question: PayloadRecord) {
 
 function explanationText(question: PayloadRecord) {
   const questionExplanation = textValue(question.explanation) || textValue(question.answerExplanation)
-  const optionExplanation = questionOptions(question)
-    .find(option => isCorrectOption(option) && textValue(option.explanation))?.explanation
+  const optionExplanations = questionOptions(question)
+    .map((option, index) => {
+      const explanation = optionExplanationText(option)
+      return explanation ? `${optionLabelText(option, index)}. ${explanation}` : ''
+    })
+    .filter(Boolean)
   const answerExplanation = questionAnswers(question)
     .find(answer => textValue(answer.explanation))?.explanation
 
-  return questionExplanation || textValue(optionExplanation) || textValue(answerExplanation)
+  return [questionExplanation, ...optionExplanations, textValue(answerExplanation)]
+    .filter(Boolean)
+    .join('\n\n')
 }
 
 function displayValue(value: unknown) {
@@ -1857,7 +1884,7 @@ function downloadBlob(blob: Blob, filename: string) {
 
 .preview-option-row {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 34px minmax(0, 1fr) max-content;
   gap: 10px;
   align-items: center;
   min-height: 44px;
@@ -1867,10 +1894,32 @@ function downloadBlob(blob: Blob, filename: string) {
   color: var(--color-on-surface-variant);
 }
 
+.option-body {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
 .preview-option-row.correct {
   background: var(--color-surface-container);
   border-color: var(--color-primary);
   color: var(--color-on-surface);
+}
+
+.option-score {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-light);
+  color: var(--color-on-surface);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .option-label {
@@ -2303,6 +2352,20 @@ function downloadBlob(blob: Blob, filename: string) {
 
   .import-question-row small {
     grid-column: 3;
+  }
+
+  .preview-option-row {
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .option-score {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .option-body {
+    grid-column: 2;
   }
 }
 </style>

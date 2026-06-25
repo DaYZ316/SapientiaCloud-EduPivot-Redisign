@@ -30,6 +30,7 @@ logging:
   level:
     org.apache.kafka.common.config.AbstractConfig: WARN
     com.alibaba.nacos.plugin: WARN
+    com.dayz.sc.common.web.filter.ApiRequestDebugLoggingFilter: DEBUG
 
 management:
   endpoints:
@@ -70,6 +71,9 @@ resilience4j:
         sliding-window-size: 10
 
 edupivot:
+  web:
+    api-request-logging:
+      enabled: ${API_REQUEST_DEBUG_LOGGING_ENABLED:true}
   livekit:
     url: ${LIVEKIT_URL:}
     server-url: ${LIVEKIT_SERVER_URL:}

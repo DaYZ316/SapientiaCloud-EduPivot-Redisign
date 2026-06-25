@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -63,6 +64,18 @@ public class QuestionGenerationService {
     private static final int PROMPT_EVIDENCE_EXCERPT_MAX_LENGTH = 180;
     private static final int ADMIN_ROLE_CODE = 0;
     private static final List<Integer> MIXED_QUESTION_TYPES = List.of(0, 1, 2, 3, 4);
+    private static final Pattern LATEX_COMMAND_PATTERN = Pattern.compile(
+            "\\\\(?:sqrt|frac|dfrac|tfrac|ln|log|sin|cos|tan|cot|sec|csc|int|iint|iiint|sum|prod|lim|nabla"
+                    + "|partial|mathrm|mathbf|mathbb|mathcal|text|ce|begin|end|cdot|times|div|pm|mp|leq|geq"
+                    + "|neq|approx|equiv|infty|alpha|beta|gamma|delta|epsilon|varepsilon|theta|lambda|mu|pi"
+                    + "|rho|sigma|phi|varphi|omega|Delta|Omega)\\b");
+    private static final Pattern MATH_DELIMITER_PATTERN = Pattern.compile("(?<!\\\\)\\$|\\\\\\(|\\\\\\[");
+    private static final Pattern CJK_TEXT_PATTERN = Pattern.compile("[\\p{IsHan}\\u3040-\\u30ff\\uac00-\\ud7af]");
+    private static final Pattern LATEX_TEXT_COMMAND_PATTERN = Pattern.compile(
+            "\\\\(?:text|mathrm|mathbf|mathbb|mathcal)\\{[^{}]*}");
+    private static final Pattern LATEX_COMMAND_NAME_PATTERN = Pattern.compile("\\\\[A-Za-z]+\\*?");
+    private static final Pattern LATIN_WORD_PATTERN = Pattern.compile("[A-Za-z]{2,}");
+    private static final Pattern LATEX_ROW_SEPARATOR_PATTERN = Pattern.compile("(?<!\\\\)\\\\\\\\");
     private static final String QUESTION_OUTPUT_RULES = """
                 出题 JSON 输出硬性规则：
                 - 顶层只能是 {"questions":[...]}，不要返回 markdown、解释文本或代码块。
@@ -72,7 +85,12 @@ public class QuestionGenerationService {
                 - options 内只能使用 optionContent, optionLabel, isCorrect, score, imageUrls, explanation。
                 - answers 内只能使用 answerContent, explanation, score, sortOrder。
                 - isCorrect 使用 1/0 整数值：1 表示正确，0 表示错误，不要使用 true/false 或 A/B。
+                - 单选题、判断题的正确选项 score 必须等于本题 score，错误选项 score 必须为 0；多选题每个正确选项 score 必须大于 0 且所有正确选项 score 之和必须等于本题 score，错误选项 score 必须为 0。
+                - 单选题、多选题、判断题的解析优先写在对应选项 explanation 中；若只有正确项有解析，写在正确选项 explanation 中。
                 - optionContent 只写选项正文，禁止带 A.、B.、答案、正确答案或“（答案）”等标签。
+                - answerContent 只放最终答案；如果答案是公式结果或符号表达式，直接写成可渲染 LaTeX 的 `$...$` 形式，不要把解释性文字混进 answerContent，解释放到 explanation。
+                - questionContent、optionContent、answerContent、explanation 里只要出现数学表达式、公式结果或带根式/对数/分式的符号表达式，都要直接输出可渲染 LaTeX，并用 `$...$` 或 `$$...$$` 包裹；不要只写裸的 `\\sqrt{...}`、`\\ln(...)`、`\\frac{...}{...}`。
+                - 例如答案应写成 `$\\sqrt{2} + \\ln(1 + \\sqrt{2})$`，不要写成 `\\sqrt{2} + \\ln(1 + \\sqrt{2})`。
                 - 判断题固定两个选项：A=正确，B=错误，只通过 isCorrect 标记哪一个正确。
                 - 填空题 options 必须返回空数组，answers 必须非空；每个空对应一个非空 answerContent，sortOrder 从 1 开始。
                 - 选项里的公式只写公式本身，不要把答案标记拼进公式文本。
@@ -253,7 +271,7 @@ public class QuestionGenerationService {
                 generatedQuestions, normalized, context, blueprint, issues, referenceSignatures, debugTraceEntries,
                 stageListener, requestId, mode, exposeRawAiOutput, paper);
         reviewResult = mergeGenerationWarnings(reviewResult, draftResult.issues());
-        List<CreateQuestionRequest> finalQuestions = reviewResult.questions();
+        List<CreateQuestionRequest> finalQuestions = synchronizeFinalNestedScores(reviewResult.questions());
         List<GenerationValidationIssue> finalIssues = reviewResult.issues();
         emitStage(stageListener, traceEntries, requestId, mode, "REPAIRED", "processing",
                 "题目草稿已修正",
@@ -737,6 +755,8 @@ public class QuestionGenerationService {
                 - 不要生成 questionBankId、id、questionId、allowPartialCredit 或任何业务标识字段
                 - difficulty 必须是 1、2、3
                 - score 必须为正数，estimatedTime 必须为正整数分钟
+                - 单选题、判断题的正确选项 score 必须等于本题 score，错误选项 score 必须为 0；多选题每个正确选项 score 必须大于 0 且所有正确选项 score 之和必须等于本题 score，错误选项 score 必须为 0
+                - 单选题、多选题、判断题的解析优先写在对应选项 explanation 中
                 - 单选题和判断题必须且只能有一个正确选项；多选题至少两个正确选项；判断题只保留 A/B 两个选项
                 - 填空题和简答题 options 返回空数组，并在 answers 中给出可保存的参考答案
                 - 不要生成与 blockedSignatures 中题干过于相似的题
@@ -1205,20 +1225,26 @@ public class QuestionGenerationService {
     }
 
     private void normalizeJudgeOptions(Map<String, Object> question) {
-        boolean trueIsCorrect = inferJudgeAnswer(question, mutableMapList(question.get("options")));
+        List<Map<String, Object>> sourceOptions = mutableMapList(question.get("options"));
+        boolean trueIsCorrect = inferJudgeAnswer(question, sourceOptions);
+        String explanation = firstCorrectOptionExplanation(sourceOptions);
         question.put("options", List.of(
-                judgeOption("A", "正确", trueIsCorrect),
-                judgeOption("B", "错误", !trueIsCorrect)));
+                judgeOption("A", "正确", trueIsCorrect, trueIsCorrect ? explanation : ""),
+                judgeOption("B", "错误", !trueIsCorrect, trueIsCorrect ? "" : explanation)));
     }
 
     private Map<String, Object> judgeOption(String label, String content, boolean correct) {
+        return judgeOption(label, content, correct, "");
+    }
+
+    private Map<String, Object> judgeOption(String label, String content, boolean correct, String explanation) {
         Map<String, Object> option = new LinkedHashMap<>();
         option.put("optionLabel", label);
         option.put("optionContent", content);
         option.put("isCorrect", correct ? 1 : 0);
         option.put("score", BigDecimal.ZERO);
         option.put("imageUrls", List.of());
-        option.put("explanation", "");
+        option.put("explanation", explanation);
         return option;
     }
 
@@ -1288,7 +1314,11 @@ public class QuestionGenerationService {
     }
 
     private String firstCorrectOptionExplanation(Map<String, Object> question) {
-        return mutableMapList(question.get("options")).stream()
+        return firstCorrectOptionExplanation(mutableMapList(question.get("options")));
+    }
+
+    private String firstCorrectOptionExplanation(List<Map<String, Object>> options) {
+        return options.stream()
                 .filter(option -> intValue(option.get("isCorrect"), 0) == 1)
                 .map(option -> value(option.get("explanation")))
                 .filter(StringUtils::hasText)
@@ -1797,9 +1827,49 @@ public class QuestionGenerationService {
                     recommendEstimatedTime(intValue(copy.get("questionType"), 4), intValue(copy.get("difficulty"), 2)))));
             normalizeQuestionTextFields(copy, request, i);
             normalizeQuestionStructure(copy, request);
+            normalizeLatexTextFields(copy);
             repaired.add(copy);
         }
         return repaired;
+    }
+
+    private void normalizeLatexTextFields(Map<String, Object> question) {
+        question.put("questionContent", wrapStandaloneBareLatex(value(question.get("questionContent"))));
+        List<Map<String, Object>> options = mutableMapList(question.get("options"));
+        for (Map<String, Object> option : options) {
+            option.put("optionContent", wrapStandaloneBareLatex(value(option.get("optionContent"))));
+            option.put("explanation", wrapStandaloneBareLatex(value(option.get("explanation"))));
+        }
+        question.put("options", options);
+        List<Map<String, Object>> answers = mutableMapList(question.get("answers"));
+        for (Map<String, Object> answer : answers) {
+            answer.put("answerContent", wrapStandaloneBareLatex(value(answer.get("answerContent"))));
+            answer.put("explanation", wrapStandaloneBareLatex(value(answer.get("explanation"))));
+        }
+        question.put("answers", answers);
+    }
+
+    private String wrapStandaloneBareLatex(String text) {
+        if (!StringUtils.hasText(text)) {
+            return "";
+        }
+        String trimmed = text.strip();
+        if (MATH_DELIMITER_PATTERN.matcher(trimmed).find()
+                || !LATEX_COMMAND_PATTERN.matcher(trimmed).find()
+                || CJK_TEXT_PATTERN.matcher(trimmed).find()
+                || trimmed.contains("\\begin{")
+                || trimmed.contains("\\end{")
+                || LATEX_ROW_SEPARATOR_PATTERN.matcher(trimmed).find()
+                || containsPlainProse(trimmed)) {
+            return trimmed;
+        }
+        return "$" + trimmed + "$";
+    }
+
+    private boolean containsPlainProse(String text) {
+        String withoutLatexCommands = LATEX_COMMAND_NAME_PATTERN.matcher(
+                LATEX_TEXT_COMMAND_PATTERN.matcher(text).replaceAll(" ")).replaceAll(" ");
+        return LATIN_WORD_PATTERN.matcher(withoutLatexCommands).find();
     }
 
     private List<CreateQuestionRequest> rebalanceQuestionScores(List<CreateQuestionRequest> questions, GenerationRequest request) {
@@ -1888,6 +1958,12 @@ public class QuestionGenerationService {
         synchronizeAnswerScores(question);
     }
 
+    private List<CreateQuestionRequest> synchronizeFinalNestedScores(List<CreateQuestionRequest> questions) {
+        List<Map<String, Object>> maps = questionMaps(questions);
+        maps.forEach(this::synchronizeNestedScore);
+        return createQuestionRequests(maps);
+    }
+
     private void synchronizeOptionScores(Map<String, Object> question) {
         List<Map<String, Object>> options = mutableMapList(question.get("options"));
         if (options.isEmpty()) {
@@ -1904,6 +1980,7 @@ public class QuestionGenerationService {
             for (Map<String, Object> option : options) {
                 option.put("score", intValue(option.get("isCorrect"), 0) == 1 ? questionScore : BigDecimal.ZERO);
             }
+            question.put("options", options);
             return;
         }
         List<Long> weights = correctOptions.stream()
@@ -1918,6 +1995,7 @@ public class QuestionGenerationService {
                 option.put("score", BigDecimal.ZERO);
             }
         }
+        question.put("options", options);
     }
 
     private void synchronizeAnswerScores(Map<String, Object> question) {
@@ -1933,6 +2011,7 @@ public class QuestionGenerationService {
         for (int i = 0; i < answers.size(); i++) {
             answers.get(i).put("score", distributed.get(i));
         }
+        question.put("answers", answers);
     }
 
     private Map<String, Object> finalPayload(Map<String, Object> modelPayload,
@@ -2034,7 +2113,8 @@ public class QuestionGenerationService {
                            String summary,
                            Map<String, Object> payload,
                            String detailType) {
-        GenerationStageEvent event = GenerationStageEvent.of(requestId, mode, stage, status, title, summary, payload);
+        Map<String, Object> eventPayload = withDetailType(payload, detailType);
+        GenerationStageEvent event = GenerationStageEvent.of(requestId, mode, stage, status, title, summary, eventPayload);
         traceEntries.add(new GenerationTraceEntry(
                 UuidV7Generator.generate().toString(),
                 stage,
@@ -2047,6 +2127,14 @@ public class QuestionGenerationService {
         if (listener != null) {
             listener.accept(event);
         }
+    }
+
+    private Map<String, Object> withDetailType(Map<String, Object> payload, String detailType) {
+        Map<String, Object> next = payload == null ? new LinkedHashMap<>() : new LinkedHashMap<>(payload);
+        if (detailType != null && !detailType.isBlank()) {
+            next.putIfAbsent("detailType", detailType);
+        }
+        return next;
     }
 
     private void appendTraceEntry(List<GenerationTraceEntry> traceEntries,

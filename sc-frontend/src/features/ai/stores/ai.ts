@@ -674,7 +674,7 @@ export const useAiStore = defineStore('ai', () => {
   function promoteGeneratedQuestions(payload: Record<string, unknown>, event: GenerationStageEvent) {
     const questions = event.payload?.questions
     if (shouldPromoteQuestions(event.stage) && Array.isArray(questions)) {
-      payload.questions = event.payload?.questionDelta === true
+      payload.questions = shouldAppendGeneratedQuestions(payload, event.payload, questions)
         ? appendGeneratedQuestions(payload.questions, questions)
         : questions
     }
@@ -690,11 +690,38 @@ export const useAiStore = defineStore('ai', () => {
   }
 
   function isDebugGenerationEntry(entry: GenerationTraceEntry) {
-    return entry.detailType === 'raw_ai_output'
+    return typeof entry.detailType === 'string' && [
+      'quality_review',
+      'raw_ai_output',
+      'repair_attempt',
+      'repair_summary',
+      'section_attempt',
+    ].includes(entry.detailType)
   }
 
   function appendGeneratedQuestions(current: unknown, delta: unknown[]) {
     return Array.isArray(current) ? current.concat(delta) : [...delta]
+  }
+
+  function shouldAppendGeneratedQuestions(
+    currentPayload: Record<string, unknown>,
+    nextPayload: Record<string, unknown> | null | undefined,
+    nextQuestions: unknown[],
+  ) {
+    if (!nextQuestions.length) return false
+    if (nextPayload?.questionDelta === true) return true
+    if (nextPayload?.questionDelta === false) return false
+    const currentQuestions = Array.isArray(currentPayload.questions) ? currentPayload.questions : []
+    const currentGeneratedCount = numberValue(currentPayload.generatedQuestionCount) ?? currentQuestions.length
+    const nextGeneratedCount = numberValue(nextPayload?.generatedQuestionCount)
+    return nextGeneratedCount !== null
+      && nextGeneratedCount > currentGeneratedCount
+      && nextQuestions.length < nextGeneratedCount
+  }
+
+  function numberValue(value: unknown) {
+    const number = Number(value)
+    return Number.isFinite(number) ? number : null
   }
 
   function hasDuplicateGenerationStage(trace: GenerationTraceEntry[], event: GenerationStageEvent) {

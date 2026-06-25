@@ -32,6 +32,8 @@ import org.jspecify.annotations.NonNull;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.math.BigDecimal;
@@ -60,6 +62,8 @@ public class LivePracticeService {
     private static final int QUESTION_TYPE_TRUE_FALSE = 2;
     private static final int QUESTION_TYPE_SHORT_ANSWER = 4;
     private static final int PARTIAL_CREDIT_SCALE = 2;
+    private static final long AI_GRADING_RESUBMIT_GRACE_SECONDS = 120;
+    private static final int AI_GRADING_RESUBMIT_BATCH_SIZE = 10;
 
     private final LivePracticeGroupRepository livePracticeGroupRepository;
     private final LivePracticeQuestionRepository livePracticeQuestionRepository;
@@ -206,7 +210,7 @@ public class LivePracticeService {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "This question has already been submitted");
         }
         if (aiGradingRequired) {
-            publishAiGradingRequest(submission, question);
+            publishAiGradingRequestAfterCommit(submission, question);
         }
 
         return toSubmissionVO(submission, Map.of(userId, new UserBasicInfo(userId, null, null, role)));
@@ -221,8 +225,8 @@ public class LivePracticeService {
         Map<UUID, LivePracticeGroup> groupMap = groups.stream()
                 .collect(Collectors.toMap(LivePracticeGroup::getId, Function.identity()));
         List<LivePracticeQuestion> questions = livePracticeQuestionRepository.findByCourseId(courseId);
-        Map<UUID, LivePracticeSubmission> submissions = livePracticeSubmissionRepository.findByCourseIdAndStudentId(courseId, userId)
-                .stream()
+        List<LivePracticeSubmission> studentSubmissions = livePracticeSubmissionRepository.findByCourseIdAndStudentId(courseId, userId);
+        Map<UUID, LivePracticeSubmission> submissions = studentSubmissions.stream()
                 .collect(Collectors.toMap(LivePracticeSubmission::getQuestionSnapshotId, Function.identity(), (a, b) -> a));
 
         return questions.stream()
@@ -240,6 +244,15 @@ public class LivePracticeService {
 
     public SseEmitter subscribe(UUID userId) {
         return livePracticeSseEmitter.createEmitter(userId);
+    }
+
+    public void resubmitPendingAiGradingRequests() {
+        Instant submittedBefore = Instant.now().minusSeconds(AI_GRADING_RESUBMIT_GRACE_SECONDS);
+        livePracticeSubmissionRepository.findPendingAiGradingSubmittedBefore(
+                        submittedBefore, AI_GRADING_RESUBMIT_BATCH_SIZE)
+                .forEach(submission -> livePracticeQuestionRepository.findById(submission.getQuestionSnapshotId())
+                        .filter(this::aiGradingRequired)
+                        .ifPresent(question -> publishAiGradingRequest(submission, question)));
     }
 
     private List<Question> loadSelectedQuestions(List<UUID> questionIds, UUID courseId) {
@@ -591,6 +604,19 @@ public class LivePracticeService {
         return new GradeResult(FLAG_OFF, BigDecimal.ZERO);
     }
 
+    private void publishAiGradingRequestAfterCommit(LivePracticeSubmission submission, LivePracticeQuestion question) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            publishAiGradingRequest(submission, question);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                publishAiGradingRequest(submission, question);
+            }
+        });
+    }
+
     private void publishAiGradingRequest(LivePracticeSubmission submission, LivePracticeQuestion question) {
         LivePracticeAiGradingRequestedEvent event = new LivePracticeAiGradingRequestedEvent(
                 UuidV7Generator.generate(),
@@ -619,7 +645,17 @@ public class LivePracticeService {
                 Instant.now(),
                 "sc-course"
         );
-        livePracticeAiGradingEventPublisher.publishRequested(event);
+        if (!livePracticeAiGradingEventPublisher.publishRequested(event)) {
+            markAiGradingFailed(submission, "AI 批改任务发送失败，请确认 Kafka 和 AI 服务已启动");
+        }
+    }
+
+    private void markAiGradingFailed(LivePracticeSubmission submission, String errorMessage) {
+        submission.setAiGradingStatus(LivePracticeAiGradingStatus.FAILED.name());
+        submission.setAiGradingFeedback(null);
+        submission.setAiGradingError(errorMessage);
+        submission.setAiGradedAt(Instant.now());
+        livePracticeSubmissionRepository.update(submission);
     }
 
     private boolean aiGradingRequired(LivePracticeQuestion question) {

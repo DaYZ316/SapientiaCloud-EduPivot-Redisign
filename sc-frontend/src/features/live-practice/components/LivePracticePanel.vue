@@ -386,7 +386,7 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, reactive, ref} from 'vue'
+import {computed, onBeforeUnmount, onMounted, reactive, ref} from 'vue'
 import {ChevronLeft, ChevronRight, Eye, X} from 'lucide-vue-next'
 
 import {getQuestion, getQuestions} from '@/features/question-bank/api/questionBank'
@@ -440,6 +440,8 @@ const activeTeacherPanel = ref<'publish' | 'published'>('publish')
 const allowLateSubmission = ref(true)
 const aiGradingEnabled = ref(false)
 const aiGradingRequirement = ref('')
+let aiRefreshTimer: number | null = null
+let aiRefreshCount = 0
 const questionTypeOptions = [
   {label: '单选题', value: 0},
   {label: '多选题', value: 1},
@@ -510,6 +512,10 @@ onMounted(async () => {
   await Promise.all([loadGroups(), props.isTeacher ? loadQuestions() : Promise.resolve()])
 })
 
+onBeforeUnmount(() => {
+  stopAiRefresh()
+})
+
 async function loadGroups(preferredGroupId?: string) {
   loading.value = true
   loadFailed.value = false
@@ -517,6 +523,7 @@ async function loadGroups(preferredGroupId?: string) {
     groups.value = await listClassSessionLivePractices(props.session.id)
     const targetGroupId = preferredGroupId || props.initialGroupId || groups.value[0]?.id
     if (targetGroupId) await selectGroup(targetGroupId)
+    else maybeStartAiRefresh()
   } catch {
     loadFailed.value = true
   } finally {
@@ -622,6 +629,21 @@ function teacherAnswerItems(question: LivePracticeQuestion) {
 
 async function selectGroup(groupId: string) {
   activeGroup.value = await getLivePractice(groupId)
+  syncSubmittedAnswers(activeGroup.value)
+  maybeStartAiRefresh()
+}
+
+function syncSubmittedAnswers(group: LivePracticeGroup | null) {
+  for (const question of group?.questions || []) {
+    const submission = question.mySubmission
+    if (!submission) continue
+    if (submission.selectedOptionIds) {
+      selectedAnswers[question.id] = [...submission.selectedOptionIds]
+    }
+    if (submission.textAnswer != null) {
+      textAnswers[question.id] = submission.textAnswer
+    }
+  }
 }
 
 async function toggleGroup(groupId: string) {
@@ -743,11 +765,39 @@ async function submitAnswer(question: LivePracticeQuestion) {
     })
     notify.success('答案已提交')
     await selectGroup(activeGroup.value.id)
+    maybeStartAiRefresh()
   } catch {
     notify.error('提交失败')
   } finally {
     submittingQuestionId.value = null
   }
+}
+
+function maybeStartAiRefresh() {
+  if (!hasPendingAiGrading()) {
+    stopAiRefresh()
+    return
+  }
+  if (aiRefreshTimer || !activeGroup.value) return
+  aiRefreshCount = 0
+  aiRefreshTimer = window.setInterval(() => {
+    aiRefreshCount += 1
+    if (aiRefreshCount > 10 || !hasPendingAiGrading() || !activeGroup.value) {
+      stopAiRefresh()
+      return
+    }
+    void selectGroup(activeGroup.value.id).catch(() => stopAiRefresh())
+  }, 3000)
+}
+
+function stopAiRefresh() {
+  if (!aiRefreshTimer) return
+  window.clearInterval(aiRefreshTimer)
+  aiRefreshTimer = null
+}
+
+function hasPendingAiGrading() {
+  return Boolean(activeGroup.value?.questions?.some(question => question.mySubmission?.aiGradingStatus === 'PENDING'))
 }
 
 function toDatetimeLocalValue(value: string) {

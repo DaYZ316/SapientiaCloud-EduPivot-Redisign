@@ -159,6 +159,28 @@ describe('LivePracticePanel loading layout', () => {
     expect(wrapper.text()).toContain('8 / 10 分')
     expect(wrapper.text()).toContain('要点较完整')
   })
+
+  it('loads submitted text answer into the disabled answer field', async () => {
+    listClassSessionLivePracticesMock.mockResolvedValue([group()])
+
+    const wrapper = mount(LivePracticePanel, {
+      props: {
+        session: session(),
+        isTeacher: false,
+      },
+      global: {
+        stubs: {
+          BaseSelect: true,
+          RichMathContent: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    const textarea = wrapper.find('textarea')
+    expect((textarea.element as HTMLTextAreaElement).value).toBe('封装隐藏内部实现。')
+    expect(textarea.attributes('disabled')).toBeDefined()
+  })
 })
 
 function session(): ClassSession {

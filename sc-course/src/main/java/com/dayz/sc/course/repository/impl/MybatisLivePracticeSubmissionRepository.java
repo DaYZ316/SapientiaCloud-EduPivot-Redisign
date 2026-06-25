@@ -7,6 +7,7 @@ import com.dayz.sc.course.repository.LivePracticeSubmissionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -72,6 +73,17 @@ public class MybatisLivePracticeSubmissionRepository implements LivePracticeSubm
         LambdaQueryWrapper<LivePracticeSubmission> wrapper = new LambdaQueryWrapper<>();
         wrapper.in(LivePracticeSubmission::getGroupId, groupIds);
         wrapper.orderByDesc(LivePracticeSubmission::getSubmittedAt);
+        return livePracticeSubmissionMapper.selectList(wrapper);
+    }
+
+    @Override
+    public List<LivePracticeSubmission> findPendingAiGradingSubmittedBefore(Instant submittedBefore, int limit) {
+        LambdaQueryWrapper<LivePracticeSubmission> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(LivePracticeSubmission::getAiGradingStatus, "PENDING");
+        wrapper.isNull(LivePracticeSubmission::getAiGradedAt);
+        wrapper.lt(LivePracticeSubmission::getSubmittedAt, submittedBefore);
+        wrapper.orderByAsc(LivePracticeSubmission::getSubmittedAt);
+        wrapper.last("LIMIT " + Math.max(1, limit));
         return livePracticeSubmissionMapper.selectList(wrapper);
     }
 }

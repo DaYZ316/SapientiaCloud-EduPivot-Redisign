@@ -59,6 +59,12 @@ vi.mock('@/features/question-bank/api/questionBank', () => ({
 }))
 
 vi.mock('vue-i18n', () => ({
+  createI18n: () => ({
+    global: {
+      locale: {value: 'zh-CN'},
+      t: (key: string) => key,
+    },
+  }),
   useI18n: () => ({
     t: (key: string) => key,
   }),
@@ -163,6 +169,57 @@ describe('AiStudioPanel export actions', () => {
       includeAnswers: true,
     })
     expect(mocks.notify.error).toHaveBeenCalledWith('PDF export failed: empty questions')
+  })
+
+  it('renders objective option scores and explanations when answers are visible', async () => {
+    const wrapper = mountPanel(generatedMessage({
+      payload: {
+        questions: [{
+          questionTitle: 'HashMap load factor',
+          questionContent: 'Choose the correct answer.',
+          questionType: 0,
+          options: [
+            {optionLabel: 'A', optionContent: '0.75', isCorrect: 1, score: 5, explanation: '默认负载因子。'},
+            {optionLabel: 'B', optionContent: '1.0', isCorrect: 0, score: 0, explanation: '装满再扩容会增加冲突。'},
+          ],
+          answers: [],
+        }],
+      },
+    }))
+
+    expect(wrapper.findAll('.option-score').map(item => item.text())).toEqual([
+      '5 questionBank.score',
+      '0 questionBank.score',
+    ])
+    expect(wrapper.findAll('.question-answer-preview')[1]?.text()).toContain('默认负载因子。')
+    expect(wrapper.findAll('.question-answer-preview')[1]?.text()).toContain('装满再扩容会增加冲突。')
+    expect(wrapper.findAll('.option-explanation')).toHaveLength(0)
+
+    await wrapper.findAll('.answer-toggle button')[0].trigger('click')
+
+    expect(wrapper.findAll('.option-score')).toHaveLength(0)
+    expect(wrapper.findAll('.question-answer-preview')).toHaveLength(0)
+  })
+
+  it('keeps option explanations in the unified explanation section', async () => {
+    const wrapper = mountPanel(generatedMessage({
+      payload: {
+        questions: [{
+          questionTitle: 'HashMap load factor',
+          questionContent: 'Choose the correct answer.',
+          questionType: 0,
+          options: [
+            {optionLabel: 'A', optionContent: '0.75', isCorrect: 1, score: 5, explanation: '默认负载因子。'},
+            {optionLabel: 'B', optionContent: '1.0', isCorrect: 0, score: 0, explanation: '装满再扩容会增加冲突。'},
+          ],
+          answers: [],
+        }],
+      },
+    }))
+
+    expect(wrapper.findAll('.question-answer-preview')[1]?.text()).toContain('默认负载因子。')
+    expect(wrapper.findAll('.question-answer-preview')[1]?.text()).toContain('装满再扩容会增加冲突。')
+    expect(wrapper.findAll('.option-explanation')).toHaveLength(0)
   })
 
   it('shows import action for generated question artifacts and opens with no questions selected', async () => {

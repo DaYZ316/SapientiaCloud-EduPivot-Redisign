@@ -38,10 +38,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -50,6 +53,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.lenient;
@@ -205,7 +209,7 @@ class LivePracticeServiceTest {
         UUID sessionId = UUID.randomUUID();
         UUID studentId = UUID.randomUUID();
         UUID questionSnapshotId = UUID.randomUUID();
-        var group = livePracticeGroup(groupId, courseId, sessionId, "按关键概念给分");
+        var group = livePracticeGroup(groupId, courseId, sessionId, "grade by key concepts");
         var question = livePracticeQuestion(questionSnapshotId, groupId, courseId, sessionId);
         when(livePracticeGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
         when(enrollmentRepository.findByCourseIdAndStudentId(courseId, studentId))
@@ -213,6 +217,7 @@ class LivePracticeServiceTest {
         when(livePracticeQuestionRepository.findById(questionSnapshotId)).thenReturn(Optional.of(question));
         when(livePracticeSubmissionRepository.findByGroupIdAndQuestionSnapshotIdAndStudentId(groupId, questionSnapshotId, studentId))
                 .thenReturn(Optional.empty());
+        when(livePracticeAiGradingEventPublisher.publishRequested(any())).thenReturn(true);
 
         livePracticeService.submitAnswer(
                 groupId,
@@ -225,8 +230,185 @@ class LivePracticeServiceTest {
         verify(livePracticeSubmissionRepository).save(submissionCaptor.capture());
         assertThat(submissionCaptor.getValue().getAiGradingStatus()).isEqualTo(LivePracticeAiGradingStatus.PENDING.name());
         verify(livePracticeAiGradingEventPublisher).publishRequested(gradingEventCaptor.capture());
-        assertThat(gradingEventCaptor.getValue().gradingRequirement()).isEqualTo("按关键概念给分");
+        assertThat(gradingEventCaptor.getValue().eventId()).isNotNull();
+        assertThat(gradingEventCaptor.getValue().submissionId()).isEqualTo(submissionCaptor.getValue().getId());
+        assertThat(gradingEventCaptor.getValue().gradingRequirement()).isEqualTo("grade by key concepts");
         assertThat(gradingEventCaptor.getValue().textAnswer()).isEqualTo("封装隐藏内部实现。");
+    }
+
+    @Test
+    void submitAnswer_shouldPublishAiGradingRequestAfterTransactionCommit() {
+        UUID courseId = UUID.randomUUID();
+        UUID groupId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        UUID questionSnapshotId = UUID.randomUUID();
+        var group = livePracticeGroup(groupId, courseId, sessionId, "按关键概念给分");
+        var question = livePracticeQuestion(questionSnapshotId, groupId, courseId, sessionId);
+        when(livePracticeGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(enrollmentRepository.findByCourseIdAndStudentId(courseId, studentId))
+                .thenReturn(Optional.of(enrollment(studentId)));
+        when(livePracticeQuestionRepository.findById(questionSnapshotId)).thenReturn(Optional.of(question));
+        when(livePracticeSubmissionRepository.findByGroupIdAndQuestionSnapshotIdAndStudentId(groupId, questionSnapshotId, studentId))
+                .thenReturn(Optional.empty());
+        when(livePracticeAiGradingEventPublisher.publishRequested(any())).thenReturn(true);
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            livePracticeService.submitAnswer(
+                    groupId,
+                    questionSnapshotId,
+                    new SubmitLivePracticeAnswerRequest(null, "Encapsulation hides implementation."),
+                    studentId,
+                    1
+            );
+
+            verify(livePracticeAiGradingEventPublisher, never()).publishRequested(any());
+            List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
+            assertThat(synchronizations).hasSize(1);
+
+            synchronizations.forEach(TransactionSynchronization::afterCommit);
+
+            verify(livePracticeAiGradingEventPublisher).publishRequested(gradingEventCaptor.capture());
+            assertThat(gradingEventCaptor.getValue().submissionId()).isNotNull();
+            assertThat(gradingEventCaptor.getValue().eventId()).isNotNull();
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void submitAnswer_shouldMarkFailedWhenAiGradingRequestCannotBePublished() {
+        UUID courseId = UUID.randomUUID();
+        UUID groupId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        UUID questionSnapshotId = UUID.randomUUID();
+        var group = livePracticeGroup(groupId, courseId, sessionId, "按关键概念给分");
+        var question = livePracticeQuestion(questionSnapshotId, groupId, courseId, sessionId);
+        when(livePracticeGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(enrollmentRepository.findByCourseIdAndStudentId(courseId, studentId))
+                .thenReturn(Optional.of(enrollment(studentId)));
+        when(livePracticeQuestionRepository.findById(questionSnapshotId)).thenReturn(Optional.of(question));
+        when(livePracticeSubmissionRepository.findByGroupIdAndQuestionSnapshotIdAndStudentId(groupId, questionSnapshotId, studentId))
+                .thenReturn(Optional.empty());
+        when(livePracticeAiGradingEventPublisher.publishRequested(any())).thenReturn(false);
+
+        livePracticeService.submitAnswer(
+                groupId,
+                questionSnapshotId,
+                new SubmitLivePracticeAnswerRequest(null, "封装隐藏内部实现。"),
+                studentId,
+                1
+        );
+
+        verify(livePracticeSubmissionRepository).update(submissionCaptor.capture());
+        assertThat(submissionCaptor.getValue().getAiGradingStatus()).isEqualTo(LivePracticeAiGradingStatus.FAILED.name());
+        assertThat(submissionCaptor.getValue().getAiGradingError()).contains("Kafka");
+    }
+
+    @Test
+    void getLivePractice_shouldKeepPendingAiGradingWhenReading() {
+        UUID courseId = UUID.randomUUID();
+        UUID groupId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        UUID questionSnapshotId = UUID.randomUUID();
+        var group = livePracticeGroup(groupId, courseId, sessionId, "按关键概念给分");
+        var question = livePracticeQuestion(questionSnapshotId, groupId, courseId, sessionId);
+        var submission = new LivePracticeSubmission();
+        submission.setId(UUID.randomUUID());
+        submission.setGroupId(groupId);
+        submission.setQuestionSnapshotId(questionSnapshotId);
+        submission.setCourseId(courseId);
+        submission.setClassSessionId(sessionId);
+        submission.setStudentId(studentId);
+        submission.setSubmitStatus(1);
+        submission.setEarnedScore(BigDecimal.ZERO);
+        submission.setAiGradingStatus(LivePracticeAiGradingStatus.PENDING.name());
+        submission.setSubmittedAt(Instant.now().minusSeconds(180));
+        when(livePracticeGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(enrollmentRepository.findByCourseIdAndStudentId(courseId, studentId))
+                .thenReturn(Optional.of(enrollment(studentId)));
+        when(livePracticeQuestionRepository.findByGroupId(groupId)).thenReturn(List.of(question));
+        when(livePracticeSubmissionRepository.findByGroupId(groupId)).thenReturn(List.of(submission));
+        when(enrollmentRepository.findActiveOrCompletedByCourseId(courseId)).thenReturn(List.of(enrollment(studentId)));
+
+        livePracticeService.getLivePractice(groupId, studentId, 1);
+
+        verify(livePracticeSubmissionRepository, never()).update(any());
+    }
+
+    @Test
+    void getStudentWorkbook_shouldKeepPendingAiGradingWhenReading() {
+        UUID courseId = UUID.randomUUID();
+        UUID groupId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        UUID questionSnapshotId = UUID.randomUUID();
+        var group = livePracticeGroup(groupId, courseId, sessionId, "grade by key concepts");
+        var question = livePracticeQuestion(questionSnapshotId, groupId, courseId, sessionId);
+        var submission = new LivePracticeSubmission();
+        submission.setId(UUID.randomUUID());
+        submission.setGroupId(groupId);
+        submission.setQuestionSnapshotId(questionSnapshotId);
+        submission.setCourseId(courseId);
+        submission.setClassSessionId(sessionId);
+        submission.setStudentId(studentId);
+        submission.setSubmitStatus(1);
+        submission.setEarnedScore(BigDecimal.ZERO);
+        submission.setAiGradingStatus(LivePracticeAiGradingStatus.PENDING.name());
+        submission.setSubmittedAt(Instant.now().minusSeconds(180));
+        when(enrollmentRepository.findByCourseIdAndStudentId(courseId, studentId))
+                .thenReturn(Optional.of(enrollment(studentId)));
+        when(livePracticeGroupRepository.findByCourseId(courseId)).thenReturn(List.of(group));
+        when(livePracticeQuestionRepository.findByCourseId(courseId)).thenReturn(List.of(question));
+        when(livePracticeSubmissionRepository.findByCourseIdAndStudentId(courseId, studentId))
+                .thenReturn(List.of(submission));
+
+        var workbook = livePracticeService.getStudentWorkbook(courseId, studentId, 1);
+
+        verify(livePracticeSubmissionRepository, never()).update(any());
+        assertThat(workbook).hasSize(1);
+        assertThat(workbook.getFirst().submission().aiGradingStatus()).isEqualTo(LivePracticeAiGradingStatus.PENDING.name());
+    }
+
+    @Test
+    void resubmitPendingAiGradingRequests_shouldRepublishStalePendingSubmission() {
+        UUID courseId = UUID.randomUUID();
+        UUID groupId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        UUID questionSnapshotId = UUID.randomUUID();
+        var group = livePracticeGroup(groupId, courseId, sessionId, "grade by key concepts");
+        var question = livePracticeQuestion(questionSnapshotId, groupId, courseId, sessionId);
+        var submission = new LivePracticeSubmission();
+        submission.setId(UUID.randomUUID());
+        submission.setGroupId(groupId);
+        submission.setQuestionSnapshotId(questionSnapshotId);
+        submission.setCourseId(courseId);
+        submission.setClassSessionId(sessionId);
+        submission.setStudentId(studentId);
+        submission.setTextAnswer("Encapsulation hides implementation.");
+        submission.setAiGradingStatus(LivePracticeAiGradingStatus.PENDING.name());
+        submission.setSubmittedAt(Instant.now().minusSeconds(180));
+        when(livePracticeSubmissionRepository.findPendingAiGradingSubmittedBefore(any(), any(Integer.class)))
+                .thenReturn(List.of(submission));
+        when(livePracticeQuestionRepository.findById(questionSnapshotId)).thenReturn(Optional.of(question));
+        when(livePracticeGroupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(livePracticeAiGradingEventPublisher.publishRequested(any())).thenReturn(true);
+
+        livePracticeService.resubmitPendingAiGradingRequests();
+        livePracticeService.resubmitPendingAiGradingRequests();
+
+        verify(livePracticeAiGradingEventPublisher, times(2)).publishRequested(gradingEventCaptor.capture());
+        assertThat(gradingEventCaptor.getAllValues())
+                .extracting(LivePracticeAiGradingRequestedEvent::submissionId)
+                .containsOnly(submission.getId());
+        assertThat(gradingEventCaptor.getAllValues())
+                .extracting(LivePracticeAiGradingRequestedEvent::eventId)
+                .doesNotContainNull()
+                .doesNotHaveDuplicates();
     }
 
     private void stubTeacherSession(UUID courseId, UUID sessionId, UUID teacherId) {

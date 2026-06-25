@@ -13,8 +13,8 @@ const LARGE_BACK_MARGIN = 0.8
 const LARGE_LEFT_SHIFT_SEGMENTS = 4
 const LARGE_REAR_SHIFT = 5
 const LARGE_DOWN_SHIFT = 0.6
-const XLARGE_FIRST_RING_SEATS = 16
-const XLARGE_FORWARD_SHIFT = 0
+const X_LARGE_FIRST_RING_SEATS = 16
+const X_LARGE_FORWARD_SHIFT = 0
 
 export interface RoomPlanDimensions {
     x: number | null
@@ -146,7 +146,7 @@ function largeDeskPosition(index: number, dimensions: RoomPlanDimensions): THREE
 
     return new THREE.Vector3(
         -halfWidth + centerSegment * segmentWidth + segmentWidth - segmentWidth * LARGE_LEFT_SHIFT_SEGMENTS,
-        0.75 + rowIndex * 0.18 - LARGE_DOWN_SHIFT,
+        0.55 + rowIndex * 0.18 - LARGE_DOWN_SHIFT,
         z,
     )
 }
@@ -156,12 +156,12 @@ function extraLargeDeskPosition(index: number): THREE.Vector3 {
     const firstIndex = fanRingStart(ring)
     let indexInRing = index - firstIndex + 1
     const count = fanRingCount(ring)
-    const radius = 11.6 + (ring / 9) * (29.6 - 11.8)
-    const angleSpanDeg = 110
+    const radius = 10.05 + (ring / 9) * (27.8 - 10.05)
+    const angleSpanDeg = 120
     const angleStart = THREE.MathUtils.degToRad(180 - (180 - angleSpanDeg) / 2)
     const angleStep = THREE.MathUtils.degToRad(angleSpanDeg) / (count + 1)
     const angleMedium = angleStart - (THREE.MathUtils.degToRad(angleSpanDeg) / 13) * 7
-    let angle = angleStart
+    let angle: number
 
     indexInRing -= 0.5
     if (indexInRing <= count / 2) {
@@ -173,8 +173,8 @@ function extraLargeDeskPosition(index: number): THREE.Vector3 {
 
     return new THREE.Vector3(
         Math.cos(angle) * radius,
-        1.2 + ring * 0.6,
-        -Math.sin(angle) * radius + 10 + XLARGE_FORWARD_SHIFT,
+        0.3 + ring * 0.6,
+        -Math.sin(angle) * radius + 10 + X_LARGE_FORWARD_SHIFT,
     )
 }
 
@@ -197,5 +197,5 @@ function fanRingStart(ring: number): number {
 }
 
 function fanRingCount(ring: number): number {
-    return XLARGE_FIRST_RING_SEATS + ring * 2
+    return X_LARGE_FIRST_RING_SEATS + ring * 2
 }

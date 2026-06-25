@@ -403,7 +403,7 @@ type ArtifactTab = 'single' | 'overall' | 'trace'
 
 .question-panel-wrapper {
   display: flex;
-  height: 100%;
+  height: calc(100% - 16px);
   min-width: 0;
   flex: 0 0 auto;
   flex-basis: 0%;
@@ -487,6 +487,7 @@ type ArtifactTab = 'single' | 'overall' | 'trace'
     position: absolute;
     inset: 94px 0 0;
     z-index: 5;
+    height: auto;
     max-width: none;
     background: var(--color-surface-card);
   }

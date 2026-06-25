@@ -536,6 +536,10 @@ import {
     type ClassSession,
 } from '@/features/course/types/classSession'
 import {type CameraOverlayPosition, useClassroomLive} from '@/features/classroom/composables/useClassroomLive'
+import {
+    TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT,
+    useTeacherLiveSessionGuard,
+} from '@/features/classroom/composables/useTeacherLiveSessionGuard'
 import type {LiveOnlineParticipant} from '@/features/classroom/composables/livePresence'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 import {notify} from '@/shared/composables/useGlobalNotification'
@@ -560,6 +564,10 @@ const emit = defineEmits<{
 
 const {t, locale} = useI18n()
 const live = useClassroomLive(toRef(props, 'session'), toRef(props, 'isTeacher'))
+useTeacherLiveSessionGuard({
+    session: toRef(props, 'session'),
+    isTeacher: toRef(props, 'isTeacher'),
+})
 const activeSideTab = ref<'chat' | 'notes' | 'online'>('chat')
 const messages = ref<ClassBarrage[]>([])
 const liveDanmakuMessages = ref<ClassBarrage[]>([])
@@ -687,6 +695,7 @@ onMounted(async () => {
     if (typeof document !== 'undefined') {
         updatePlayerFullscreenState()
         document.addEventListener('fullscreenchange', updatePlayerFullscreenState)
+        window.addEventListener(TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT, handleUnexpectedPaused)
     }
     await loadMessages()
     await loadParticipants()
@@ -696,6 +705,7 @@ onUnmounted(() => {
     disconnectChat()
     if (typeof document !== 'undefined') {
         document.removeEventListener('fullscreenchange', updatePlayerFullscreenState)
+        window.removeEventListener(TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT, handleUnexpectedPaused)
     }
 })
 
@@ -722,6 +732,14 @@ function setRemoteCameraVideo(element: unknown) {
 function setRemoteAudio(element: unknown) {
     live.remoteAudioEl.value = element instanceof HTMLAudioElement ? element : null
     live.attachRemoteAudioTracks()
+}
+
+function handleUnexpectedPaused(event: Event) {
+    const session = (event as CustomEvent<{session?: ClassSession}>).detail?.session
+    if (!session || session.id !== props.session.id) {
+        return
+    }
+    emit('session-change', session)
 }
 
 async function startLive() {
@@ -875,9 +893,6 @@ function handleLiveStatus(status: number) {
     if (status === ClassLiveStatus.LIVE || status === ClassLiveStatus.PAUSED) {
         void (async () => {
             await live.connect()
-            if (props.isTeacher && status === ClassLiveStatus.LIVE) {
-                await live.publishDefaults()
-            }
         })()
         return
     }

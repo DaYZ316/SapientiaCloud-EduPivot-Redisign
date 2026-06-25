@@ -35,7 +35,7 @@ import ClassroomLiveExperience from '@/features/classroom/components/ClassroomLi
 import {getClassSession, listClassSessionParticipants} from '@/features/course/api/classSession'
 import {getCourse} from '@/features/course/api/course'
 import {useAuthStore} from '@/features/auth/stores/auth'
-import type {ClassParticipant, ClassSession} from '@/features/course/types/classSession'
+import {ClassLiveStatus, type ClassParticipant, type ClassSession} from '@/features/course/types/classSession'
 import type {CourseDetail} from '@/features/course/types/course'
 
 const route = useRoute()
@@ -104,7 +104,11 @@ function applySessionUpdate(nextSession: ClassSession) {
 }
 
 function backToRoom() {
-  router.push({name: 'class-session-room', params: {sessionId: sessionId.value}})
+  router.push({
+    name: 'class-session-room',
+    params: {sessionId: sessionId.value},
+    query: shouldMinimizeTeacherLive() ? {liveFloating: '1'} : undefined,
+  })
 }
 
 function backToCourse() {
@@ -113,6 +117,12 @@ function backToCourse() {
     return
   }
   router.push('/courses')
+}
+
+function shouldMinimizeTeacherLive() {
+  return Boolean(isSessionOpeningTeacher.value
+      && session.value
+      && (session.value.liveStatus === ClassLiveStatus.LIVE || session.value.liveStatus === ClassLiveStatus.PAUSED))
 }
 </script>
 

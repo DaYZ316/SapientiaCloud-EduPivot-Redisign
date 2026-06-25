@@ -1,4 +1,4 @@
-import {request} from '@/shared/api/request'
+import {ACCESS_TOKEN_KEY, request} from '@/shared/api/request'
 import {subscribeSse, sseUrl} from '@/shared/api/sseManager'
 import type {PageResponse} from '@/shared/types/common'
 import type {
@@ -70,6 +70,26 @@ export function startClassLive(id: string) {
 
 export function pauseClassLive(id: string) {
     return request<ClassSession>({method: 'POST', url: `/api/class-sessions/${id}/live/pause`, silent: true})
+}
+
+export function pauseClassLiveKeepalive(id: string) {
+    if (typeof navigator === 'undefined') {
+        return false
+    }
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+    }
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+    if (token) {
+        headers.Authorization = `Bearer ${token}`
+    }
+
+    return fetch(`${import.meta.env.VITE_API_BASE_URL ?? ''}/api/class-sessions/${id}/live/pause`, {
+        method: 'POST',
+        headers,
+        body: '{}',
+        keepalive: true,
+    }).catch(() => undefined)
 }
 
 export function resumeClassLive(id: string) {

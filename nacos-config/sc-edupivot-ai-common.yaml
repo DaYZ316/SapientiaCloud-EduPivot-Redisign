@@ -45,6 +45,7 @@ logging:
   level:
     org.apache.kafka.common.config.AbstractConfig: WARN
     com.alibaba.nacos.plugin: WARN
+    com.dayz.sc.common.web.filter.ApiRequestDebugLoggingFilter: DEBUG
 
 management:
   endpoints:
@@ -88,6 +89,9 @@ resilience4j:
         register-health-indicator: true
 
 edupivot:
+  web:
+    api-request-logging:
+      enabled: ${API_REQUEST_DEBUG_LOGGING_ENABLED:true}
   security:
     trust-gateway-headers: true
     jwt:

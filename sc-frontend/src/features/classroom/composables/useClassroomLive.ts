@@ -1,8 +1,9 @@
-import {computed, onUnmounted, ref, shallowRef, unref, type MaybeRef} from 'vue'
+import {computed, onUnmounted, ref, shallowRef, unref, watch, type MaybeRef} from 'vue'
 import {createLocalTracks, Room, RoomEvent, Track, type ConnectionQuality, type Participant} from 'livekit-client'
 
 import {issueClassLiveToken} from '@/features/course/api/classSession'
-import type {ClassParticipant, ClassSession} from '@/features/course/types/classSession'
+import {ClassLiveStatus, type ClassParticipant, type ClassSession} from '@/features/course/types/classSession'
+import {pauseTeacherLiveBecauseOfUnexpectedDisconnect} from '@/features/classroom/composables/useTeacherLiveSessionGuard'
 import {
     EMPTY_LIVE_NETWORK_STATS,
     mergeOnlineParticipants,
@@ -15,10 +16,58 @@ const CAMERA_OVERLAY_TOPIC = 'classroom-camera-overlay-position'
 const CAMERA_OVERLAY_MESSAGE_TYPE = 'camera_overlay_position'
 const CAMERA_OVERLAY_POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const
 const NETWORK_STATS_INTERVAL_MS = 2000
+const SCREEN_SHARE_CAPTURE_OPTIONS = {
+    selfBrowserSurface: 'exclude',
+    surfaceSwitching: 'include',
+    preferCurrentTab: false,
+    contentHint: 'detail',
+} as const
+const liveStateBySessionId = new Map<string, ClassroomLiveState>()
+const liveStateConsumerCount = new Map<string, number>()
 
 export type CameraOverlayPosition = (typeof CAMERA_OVERLAY_POSITIONS)[number]
+type ClassroomLiveState = ReturnType<typeof createClassroomLiveState>
 
 export function useClassroomLive(session: MaybeRef<ClassSession>, isTeacher: MaybeRef<boolean>) {
+    const sessionId = unref(session).id
+    let liveState = liveStateBySessionId.get(sessionId)
+    if (!liveState) {
+        liveState = createClassroomLiveState(unref(session), Boolean(unref(isTeacher)))
+        liveStateBySessionId.set(sessionId, liveState)
+    }
+    liveStateConsumerCount.set(sessionId, (liveStateConsumerCount.get(sessionId) ?? 0) + 1)
+
+    const stopSessionWatch = watch(() => unref(session), (nextSession) => {
+        liveState.updateSession(nextSession)
+    }, {immediate: true})
+    const stopTeacherWatch = watch(() => unref(isTeacher), (nextIsTeacher) => {
+        liveState.updateIsTeacher(Boolean(nextIsTeacher))
+    }, {immediate: true})
+
+    onUnmounted(() => {
+        stopSessionWatch()
+        stopTeacherWatch()
+        const remainingConsumers = (liveStateConsumerCount.get(sessionId) ?? 1) - 1
+        if (remainingConsumers > 0) {
+            liveStateConsumerCount.set(sessionId, remainingConsumers)
+            return
+        }
+
+        liveStateConsumerCount.delete(sessionId)
+        liveState.releaseMediaElements()
+        if (liveState.shouldRetainOnUnmount()) {
+            return
+        }
+        liveStateBySessionId.delete(sessionId)
+        void liveState.disconnect()
+    })
+
+    return liveState
+}
+
+function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher: boolean) {
+    const currentSession = shallowRef(initialSession)
+    const currentIsTeacher = ref(initialIsTeacher)
     const room = shallowRef<Room | null>(null)
     const localVideoEl = shallowRef<HTMLVideoElement | null>(null)
     const localCameraVideoEl = shallowRef<HTMLVideoElement | null>(null)
@@ -41,7 +90,16 @@ export function useClassroomLive(session: MaybeRef<ClassSession>, isTeacher: May
     const textDecoder = new TextDecoder()
     const textEncoder = new TextEncoder()
     let networkStatsTimer: number | null = null
+    let intentionalDisconnect = false
     const onlineCount = computed(() => onlineParticipants.value.length)
+
+    function updateSession(nextSession: ClassSession) {
+        currentSession.value = nextSession
+    }
+
+    function updateIsTeacher(nextIsTeacher: boolean) {
+        currentIsTeacher.value = nextIsTeacher
+    }
 
     async function connect() {
         if (connecting.value || connected.value) {
@@ -50,8 +108,8 @@ export function useClassroomLive(session: MaybeRef<ClassSession>, isTeacher: May
         connecting.value = true
         errorMessage.value = ''
         try {
-            const token = await issueClassLiveToken(unref(session).id)
-            const nextRoom = new Room()
+            const token = await issueClassLiveToken(currentSession.value.id)
+            const nextRoom = new Room({disconnectOnPageLeave: false})
             room.value = nextRoom
             nextRoom.on(RoomEvent.TrackSubscribed, (track) => {
                 if (track.kind === Track.Kind.Video) {
@@ -92,7 +150,7 @@ export function useClassroomLive(session: MaybeRef<ClassSession>, isTeacher: May
             })
             nextRoom.on(RoomEvent.ParticipantConnected, () => {
                 refreshPresence()
-                if (unref(isTeacher)) {
+                if (currentIsTeacher.value) {
                     void publishCameraOverlayPosition().catch(() => undefined)
                 }
             })
@@ -114,6 +172,13 @@ export function useClassroomLive(session: MaybeRef<ClassSession>, isTeacher: May
             })
             nextRoom.on(RoomEvent.Disconnected, () => {
                 stopNetworkStatsSampler()
+                if (!intentionalDisconnect && currentIsTeacher.value && currentSession.value.liveStatus === ClassLiveStatus.LIVE) {
+                    pauseTeacherLiveBecauseOfUnexpectedDisconnect(currentSession.value.id)
+                    currentSession.value = {
+                        ...currentSession.value,
+                        liveStatus: ClassLiveStatus.PAUSED,
+                    }
+                }
                 resetLiveState()
             })
             await nextRoom.connect(token.url, token.token)
@@ -133,7 +198,7 @@ export function useClassroomLive(session: MaybeRef<ClassSession>, isTeacher: May
     }
 
     async function enableCamera() {
-        if (!unref(isTeacher) || !room.value || cameraEnabled.value) {
+        if (!currentIsTeacher.value || !room.value || cameraEnabled.value) {
             return
         }
         const [track] = await createLocalTracks({audio: false, video: true})
@@ -204,7 +269,7 @@ export function useClassroomLive(session: MaybeRef<ClassSession>, isTeacher: May
     }
 
     async function enableMicrophone() {
-        if (!unref(isTeacher) || !room.value || microphoneEnabled.value) {
+        if (!currentIsTeacher.value || !room.value || microphoneEnabled.value) {
             return
         }
         await room.value.localParticipant.setMicrophoneEnabled(true)
@@ -236,11 +301,14 @@ export function useClassroomLive(session: MaybeRef<ClassSession>, isTeacher: May
     }
 
     async function toggleScreenShare() {
-        if (!unref(isTeacher) || !room.value) {
+        if (!currentIsTeacher.value || !room.value) {
             return
         }
         const nextEnabled = !screenShareEnabled.value
-        await room.value.localParticipant.setScreenShareEnabled(nextEnabled)
+        await room.value.localParticipant.setScreenShareEnabled(
+            nextEnabled,
+            nextEnabled ? SCREEN_SHARE_CAPTURE_OPTIONS : undefined,
+        )
         screenShareEnabled.value = nextEnabled
         attachLocalTracks()
     }
@@ -266,7 +334,10 @@ export function useClassroomLive(session: MaybeRef<ClassSession>, isTeacher: May
         room.value = null
         stopNetworkStatsSampler()
         if (currentRoom) {
-            currentRoom.disconnect()
+            intentionalDisconnect = true
+            void currentRoom.disconnect().finally(() => {
+                intentionalDisconnect = false
+            })
         }
         resetLiveState()
     }
@@ -281,7 +352,7 @@ export function useClassroomLive(session: MaybeRef<ClassSession>, isTeacher: May
             return
         }
         cameraOverlayPosition.value = position
-        if (!unref(isTeacher) || !room.value || !connected.value) {
+        if (!currentIsTeacher.value || !room.value || !connected.value) {
             return
         }
         await publishCameraOverlayPosition()
@@ -401,6 +472,16 @@ export function useClassroomLive(session: MaybeRef<ClassSession>, isTeacher: May
         clearVideoTrack(remoteCameraVideoEl.value)
     }
 
+    function releaseMediaElements() {
+        clearVideoElements()
+        clearVideoTrack(remoteAudioEl.value)
+        localVideoEl.value = null
+        localCameraVideoEl.value = null
+        remoteVideoEl.value = null
+        remoteCameraVideoEl.value = null
+        remoteAudioEl.value = null
+    }
+
     function updateConnectionQuality(participant: Participant, quality: ConnectionQuality) {
         connectionQualityByIdentity.value = {
             ...connectionQualityByIdentity.value,
@@ -500,9 +581,12 @@ export function useClassroomLive(session: MaybeRef<ClassSession>, isTeacher: May
         clearVideoElements()
     }
 
-    onUnmounted(() => {
-        void disconnect()
-    })
+    function shouldRetainOnUnmount() {
+        return currentIsTeacher.value
+            && connected.value
+            && (currentSession.value.liveStatus === ClassLiveStatus.LIVE
+                || currentSession.value.liveStatus === ClassLiveStatus.PAUSED)
+    }
 
     return {
         localVideoEl,
@@ -535,5 +619,9 @@ export function useClassroomLive(session: MaybeRef<ClassSession>, isTeacher: May
         attachLocalTracks,
         attachRemoteTracks,
         attachRemoteAudioTracks,
+        updateSession,
+        updateIsTeacher,
+        releaseMediaElements,
+        shouldRetainOnUnmount,
     }
 }

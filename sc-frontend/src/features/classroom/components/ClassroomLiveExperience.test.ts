@@ -351,6 +351,14 @@ describe('ClassroomLiveExperience live presence', () => {
         expect(liveMock.screenShareEnabled.value).toBe(false)
     })
 
+    it('does not reset teacher publishing when remounting during an active live stream', async () => {
+        mountExperience({isTeacher: true})
+        await flushPromises()
+
+        expect(liveMock.connect).toHaveBeenCalled()
+        expect(liveMock.publishDefaults).not.toHaveBeenCalled()
+    })
+
     it('ends the current live stream from the hangup button without closing the window', async () => {
         const wrapper = mountExperience({isTeacher: true})
         await flushPromises()

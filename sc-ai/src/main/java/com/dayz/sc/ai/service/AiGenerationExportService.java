@@ -247,7 +247,7 @@ public class AiGenerationExportService {
 
         private static ExportFormat parse(String value) {
             for (ExportFormat format : values()) {
-                if (value != null && format.value.equalsIgnoreCase(value)) {
+                if (format.value.equalsIgnoreCase(value)) {
                     return format;
                 }
             }
