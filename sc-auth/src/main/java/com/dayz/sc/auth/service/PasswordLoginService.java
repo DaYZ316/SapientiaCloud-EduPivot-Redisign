@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -184,11 +185,20 @@ public class PasswordLoginService {
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
                 user.getLastLoginAt(),
-                linkedProviders,
+                linkedProvidersFor(user, linkedProviders),
                 user.getRole(),
                 studentInfo,
                 teacherInfo
         );
+    }
+
+    private List<OauthProvider> linkedProvidersFor(User user, List<OauthProvider> linkedProviders) {
+        if (!StringUtils.hasText(user.getPasswordHash()) || linkedProviders.contains(OauthProvider.LOCAL)) {
+            return linkedProviders;
+        }
+        List<OauthProvider> mergedProviders = new ArrayList<>(linkedProviders);
+        mergedProviders.add(OauthProvider.LOCAL);
+        return mergedProviders;
     }
 
     private StudentInfoVO loadStudentInfo(UUID userId) {

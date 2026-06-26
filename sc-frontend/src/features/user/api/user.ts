@@ -1,5 +1,6 @@
 ﻿import {request} from '@/shared/api/request'
 import type {
+    ChangePasswordRequest,
     UpdateUserRequest,
     UserBasicInfo,
     UserPageQuery,
@@ -34,6 +35,15 @@ export function updateCurrentUser(payload: UpdateUserRequest) {
         url: '/api/auth/users/me',
         method: 'PUT',
         data: payload,
+    })
+}
+
+export function changeCurrentUserPassword(payload: ChangePasswordRequest) {
+    return request<UserProfile>({
+        url: '/api/auth/users/me/password',
+        method: 'PUT',
+        data: payload,
+        silent: true,
     })
 }
 

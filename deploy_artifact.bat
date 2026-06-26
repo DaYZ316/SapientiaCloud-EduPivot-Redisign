@@ -305,7 +305,7 @@ if not exist "%ARTIFACT_DIR%" mkdir "%ARTIFACT_DIR%"
 set "ARCHIVE=%ARTIFACT_DIR%\infra.tgz"
 echo Pack infra files
 pushd "%ROOT_DIR%"
-tar -czf "%ARCHIVE%" .env docker-compose.artifact.yaml deploy/artifact/frontend-nginx.conf deploy/artifact/java-runtime.Dockerfile deploy/nginx/edupivot.conf docs nacos-config nacos-plugins postgres-init scripts/nacos_config_init.py
+tar -czf "%ARCHIVE%" .env docker-compose.artifact.yaml deploy/artifact/frontend-nginx.conf deploy/artifact/java-runtime.Dockerfile deploy/nginx/edupivot.conf deploy/observability docs nacos-config nacos-plugins postgres-init scripts/nacos_config_init.py
 set "ERR=!ERRORLEVEL!"
 popd
 if not "!ERR!"=="0" exit /b !ERR!
@@ -348,7 +348,7 @@ if "%SKIP_RESTART%"=="1" (
     exit /b 0
 )
 echo Restart infra
-call :REMOTE_COMPOSE "up -d postgres redis kafka minio zipkin nacos"
+call :REMOTE_COMPOSE "up -d postgres redis kafka minio skywalking-banyandb skywalking-oap skywalking-ui prometheus grafana nacos"
 if errorlevel 1 exit /b 1
 call :REMOTE_COMPOSE "up -d --force-recreate nacos-config-init minio-init"
 exit /b %ERRORLEVEL%

@@ -96,6 +96,106 @@
                 ></textarea>
               </div>
 
+              <section v-if="isStudentProfile" class="role-profile-fields">
+                <header class="role-profile-header">
+                  <h4>{{ t('settings.studentProfile') }}</h4>
+                </header>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label for="settings-student-no">{{ t('settings.studentNo') }}</label>
+                    <input
+                        id="settings-student-no"
+                        v-model="profileForm.studentNo"
+                        class="input-field"
+                        disabled
+                        type="text"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="settings-student-grade">{{ t('settings.grade') }}</label>
+                    <input
+                        id="settings-student-grade"
+                        v-model="profileForm.grade"
+                        :placeholder="t('settings.gradePlaceholder')"
+                        class="input-field"
+                        type="text"
+                    />
+                  </div>
+                </div>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label for="settings-student-major">{{ t('settings.major') }}</label>
+                    <input
+                        id="settings-student-major"
+                        v-model="profileForm.major"
+                        :placeholder="t('settings.majorPlaceholder')"
+                        class="input-field"
+                        type="text"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="settings-student-school">{{ t('settings.school') }}</label>
+                    <input
+                        id="settings-student-school"
+                        v-model="profileForm.school"
+                        :placeholder="t('settings.schoolPlaceholder')"
+                        class="input-field"
+                        type="text"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section v-else-if="isTeacherProfile" class="role-profile-fields">
+                <header class="role-profile-header">
+                  <h4>{{ t('settings.teacherProfile') }}</h4>
+                </header>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label for="settings-employee-no">{{ t('settings.employeeNo') }}</label>
+                    <input
+                        id="settings-employee-no"
+                        v-model="profileForm.employeeNo"
+                        class="input-field"
+                        disabled
+                        type="text"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="settings-department">{{ t('settings.department') }}</label>
+                    <input
+                        id="settings-department"
+                        v-model="profileForm.department"
+                        :placeholder="t('settings.departmentPlaceholder')"
+                        class="input-field"
+                        type="text"
+                    />
+                  </div>
+                </div>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label for="settings-title">{{ t('settings.teacherTitle') }}</label>
+                    <input
+                        id="settings-title"
+                        v-model="profileForm.teacherTitle"
+                        :placeholder="t('settings.teacherTitlePlaceholder')"
+                        class="input-field"
+                        type="text"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="settings-teacher-school">{{ t('settings.school') }}</label>
+                    <input
+                        id="settings-teacher-school"
+                        v-model="profileForm.school"
+                        :placeholder="t('settings.schoolPlaceholder')"
+                        class="input-field"
+                        type="text"
+                    />
+                  </div>
+                </div>
+              </section>
+
               <p v-if="profileMessage" class="form-message">{{ profileMessage }}</p>
             </div>
           </div>
@@ -105,10 +205,13 @@
       <div class="settings-grid two-column">
         <section class="settings-panel">
           <header class="settings-panel-header">
-            <h3>{{ t('settings.changePassword') }}</h3>
+            <h3>{{ t(hasLocalPassword ? 'settings.changePassword' : 'settings.setPassword') }}</h3>
           </header>
           <div class="settings-panel-body">
-            <div class="form-group">
+            <p v-if="!hasLocalPassword" class="help-text">
+              {{ t('settings.setPasswordHelp') }}
+            </p>
+            <div v-if="hasLocalPassword" class="form-group">
               <label for="settings-current-password">{{ t('settings.currentPassword') }}</label>
               <input
                   id="settings-current-password"
@@ -140,8 +243,8 @@
             </div>
             <p v-if="passwordMessage" class="form-message">{{ passwordMessage }}</p>
             <div class="section-actions">
-              <button class="btn-secondary" type="button" @click="changePassword">
-                {{ t('settings.updatePassword') }}
+              <button :disabled="savingPassword" class="btn-secondary" type="button" @click="changePassword">
+                {{ savingPassword ? t('settings.saving') : t(hasLocalPassword ? 'settings.updatePassword' : 'settings.setPasswordAction') }}
               </button>
             </div>
           </div>
@@ -169,11 +272,11 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, markRaw, reactive, ref} from 'vue'
+import {computed, markRaw, onMounted, reactive, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {Chrome, Github, KeyRound} from 'lucide-vue-next'
 
-import {updateCurrentUser} from '@/features/user/api/user'
+import {changeCurrentUserPassword, getCurrentUser, updateCurrentUser} from '@/features/user/api/user'
 import BaseDatePicker from '@/shared/components/BaseDatePicker.vue'
 import BaseImageUploader from '@/shared/components/BaseImageUploader.vue'
 import {useAuthStore} from '@/features/auth/stores/auth'
@@ -193,9 +296,17 @@ const profileForm = reactive({
   gender: authStore.user?.gender ?? 0,
   birthday: authStore.user?.birthday ?? '',
   avatarFileId: authStore.user?.avatarFileId ?? '',
+  studentNo: authStore.user?.studentInfo?.studentNo ?? '',
+  grade: authStore.user?.studentInfo?.grade ?? '',
+  major: authStore.user?.studentInfo?.major ?? '',
+  employeeNo: authStore.user?.teacherInfo?.employeeNo ?? '',
+  department: authStore.user?.teacherInfo?.department ?? '',
+  teacherTitle: authStore.user?.teacherInfo?.title ?? '',
+  school: authStore.user?.studentInfo?.school ?? authStore.user?.teacherInfo?.school ?? '',
 })
 
 const savingProfile = ref(false)
+const savingPassword = ref(false)
 const profileMessage = ref('')
 const passwordMessage = ref('')
 const avatarPreviewUrl = ref(authStore.user?.avatarUrl ?? '')
@@ -209,6 +320,9 @@ const passwordForm = reactive({
 const linkedProviders = computed(() => new Set(authStore.user?.linkedProviders ?? []))
 
 const avatarInitials = computed(() => getAvatarInitials(profileForm.displayName))
+const isStudentProfile = computed(() => authStore.user?.role === 1)
+const isTeacherProfile = computed(() => authStore.user?.role === 2)
+const hasLocalPassword = computed(() => linkedProviders.value.has('LOCAL'))
 const connectedAccounts = computed(() => [
   {name: 'Google', provider: 'GOOGLE' as OauthProvider, icon: markRaw(Chrome)},
   {name: 'GitHub', provider: 'GITHUB' as OauthProvider, icon: markRaw(Github)},
@@ -218,8 +332,17 @@ const connectedAccounts = computed(() => [
   connected: linkedProviders.value.has(account.provider),
 })))
 
+onMounted(async () => {
+  try {
+    authStore.setUser(await getCurrentUser())
+    resetProfileForm()
+  } catch {
+    // Keep the locally cached profile when refresh is unavailable.
+  }
+})
+
 function buildProfilePayload(): UpdateUserRequest {
-  return {
+  const payload: UpdateUserRequest = {
     displayName: profileForm.displayName || null,
     phone: profileForm.phone || null,
     bio: profileForm.bio || null,
@@ -227,6 +350,24 @@ function buildProfilePayload(): UpdateUserRequest {
     birthday: profileForm.birthday || null,
     avatarFileId: profileForm.avatarFileId || null,
   }
+
+  if (isStudentProfile.value) {
+    payload.studentInfo = {
+      grade: profileForm.grade,
+      major: profileForm.major,
+      school: profileForm.school,
+    }
+  }
+
+  if (isTeacherProfile.value) {
+    payload.teacherInfo = {
+      department: profileForm.department,
+      title: profileForm.teacherTitle,
+      school: profileForm.school,
+    }
+  }
+
+  return payload
 }
 
 function resetProfileForm() {
@@ -237,6 +378,13 @@ function resetProfileForm() {
   profileForm.gender = authStore.user?.gender ?? 0
   profileForm.birthday = authStore.user?.birthday ?? ''
   profileForm.avatarFileId = authStore.user?.avatarFileId ?? ''
+  profileForm.studentNo = authStore.user?.studentInfo?.studentNo ?? ''
+  profileForm.grade = authStore.user?.studentInfo?.grade ?? ''
+  profileForm.major = authStore.user?.studentInfo?.major ?? ''
+  profileForm.employeeNo = authStore.user?.teacherInfo?.employeeNo ?? ''
+  profileForm.department = authStore.user?.teacherInfo?.department ?? ''
+  profileForm.teacherTitle = authStore.user?.teacherInfo?.title ?? ''
+  profileForm.school = authStore.user?.studentInfo?.school ?? authStore.user?.teacherInfo?.school ?? ''
   avatarPreviewUrl.value = authStore.user?.avatarUrl ?? ''
   profileMessage.value = ''
 }
@@ -267,7 +415,7 @@ async function saveProfile() {
   }
 }
 
-function changePassword() {
+async function changePassword() {
   if (passwordForm.newPassword !== passwordForm.confirm) {
     passwordMessage.value = t('settings.alert.passwordMismatch')
     return
@@ -276,11 +424,32 @@ function changePassword() {
     passwordMessage.value = t('settings.alert.passwordTooShort')
     return
   }
+  if (hasLocalPassword.value && !passwordForm.current) {
+    passwordMessage.value = t('settings.alert.currentPasswordRequired')
+    return
+  }
 
-  passwordMessage.value = t('settings.alert.passwordUpdated')
-  passwordForm.current = ''
-  passwordForm.newPassword = ''
-  passwordForm.confirm = ''
+  const wasSettingInitialPassword = !hasLocalPassword.value
+  savingPassword.value = true
+  passwordMessage.value = ''
+  try {
+    const updatedUser = await changeCurrentUserPassword({
+      currentPassword: hasLocalPassword.value ? passwordForm.current : null,
+      newPassword: passwordForm.newPassword,
+    })
+    authStore.setUser(updatedUser)
+    passwordForm.current = ''
+    passwordForm.newPassword = ''
+    passwordForm.confirm = ''
+    passwordMessage.value = t(wasSettingInitialPassword ? 'settings.alert.passwordSet' : 'settings.alert.passwordUpdated')
+    notify.success(passwordMessage.value)
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : t('settings.alert.passwordUpdateFailed')
+    passwordMessage.value = msg
+    notify.error(msg)
+  } finally {
+    savingPassword.value = false
+  }
 }
 </script>
 

@@ -10,7 +10,7 @@ export interface ClassroomInteractionOptions {
     camera: THREE.Camera
     scene: THREE.Scene
     instancedMeshes: THREE.InstancedMesh[]
-    exitTarget?: THREE.Object3D | null
+    exitTarget?: THREE.Object3D | THREE.Object3D[] | null
     roomSize: number
     dimensions?: RoomPlanDimensions
     onHover: (seatIndex: number | null, event: MouseEvent) => void
@@ -74,6 +74,9 @@ export function createClassroomInteraction(options: ClassroomInteractionOptions)
             return false
         }
         updateRaycaster(event)
+        if (Array.isArray(options.exitTarget)) {
+            return options.exitTarget.some(target => raycaster.intersectObject(target, true).length > 0)
+        }
         return raycaster.intersectObject(options.exitTarget, true).length > 0
     }
 

@@ -1,6 +1,7 @@
 package com.dayz.sc.auth.model.dto;
 
 import com.dayz.sc.auth.model.enums.UserStatus;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -36,6 +37,29 @@ public record UpdateUserRequest(
         LocalDate birthday,
         String theme,
         Boolean notificationEnabled,
-        UserStatus status
+        UserStatus status,
+        @Valid
+        StudentInfoUpdate studentInfo,
+        @Valid
+        TeacherInfoUpdate teacherInfo
 ) {
+    public record StudentInfoUpdate(
+            @Size(max = 16)
+            String grade,
+            @Size(max = 64)
+            String major,
+            @Size(max = 128)
+            String school
+    ) {
+    }
+
+    public record TeacherInfoUpdate(
+            @Size(max = 64)
+            String department,
+            @Size(max = 32)
+            String title,
+            @Size(max = 128)
+            String school
+    ) {
+    }
 }

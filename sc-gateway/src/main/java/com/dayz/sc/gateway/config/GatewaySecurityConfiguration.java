@@ -43,6 +43,7 @@ public class GatewaySecurityConfiguration {
             "/actuator/health",
             "/actuator/health/liveness",
             "/actuator/health/readiness",
+            "/actuator/prometheus",
             "/doc.html",
             "/scalar",
             "/scalar.js",

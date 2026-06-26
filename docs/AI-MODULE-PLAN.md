@@ -96,7 +96,7 @@ sc-ai/pom.xml 依赖（以 sc-storage 为基线）：
 - MyBatis-Plus（`mybatis-plus-spring-boot4-starter` + jsqlparser）
 - Spring Boot：starter-webmvc、validation、actuator、flyway + flyway-database-postgresql、postgresql(runtime)
 - Nacos：config + discovery
-- SpringDoc Scalar、Micrometer Brave + Zipkin（链路追踪）
+- SpringDoc Scalar、SkyWalking Java Agent（链路追踪）
 - **新增 AI 依赖**：
   - `org.springframework.ai:spring-ai-starter-model-openai`
   - `org.springframework.ai:spring-ai-starter-vector-store-redis`

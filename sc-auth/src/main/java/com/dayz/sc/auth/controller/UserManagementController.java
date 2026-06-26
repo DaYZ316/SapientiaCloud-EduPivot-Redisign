@@ -1,5 +1,6 @@
 package com.dayz.sc.auth.controller;
 
+import com.dayz.sc.auth.model.dto.ChangePasswordRequest;
 import com.dayz.sc.auth.model.dto.UpdateUserRequest;
 import com.dayz.sc.auth.model.dto.CompleteOnboardingRequest;
 import com.dayz.sc.auth.model.dto.UserBasicInfo;
@@ -50,6 +51,14 @@ public class UserManagementController {
                                                                  @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         return ApiResponse.ok(userManagementService.updateCurrentUser(userId, request));
+    }
+
+    @PutMapping("/me/password")
+    @RateLimited
+    public ApiResponse<@NonNull UserProfileVO> changeCurrentUserPassword(@Valid @RequestBody ChangePasswordRequest request,
+                                                                         @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        return ApiResponse.ok(userManagementService.changeCurrentUserPassword(userId, request));
     }
 
     @PostMapping("/me/onboarding")

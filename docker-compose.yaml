@@ -59,7 +59,6 @@ services:
       LIVEKIT_SERVER_URL: ${LIVEKIT_SERVER_URL:-http://livekit:7880}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
-      ZIPKIN_ENDPOINT: ${ZIPKIN_ENDPOINT:-http://zipkin:9411/api/v2/spans}
     volumes:
       - ./nacos-config:/nacos-config:ro
       - ./scripts/nacos_config_init.py:/nacos_config_init.py:ro
@@ -77,6 +76,7 @@ services:
       args:
         MAVEN_IMAGE: ${MAVEN_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
+        SKYWALKING_AGENT_IMAGE: ${SKYWALKING_AGENT_IMAGE:-apache/skywalking-java-agent:9.6.0-java21}
     image: sc-auth:latest
     container_name: SC-Auth
     restart: unless-stopped
@@ -109,8 +109,11 @@ services:
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI}
       TZ: Asia/Shanghai
+      JAVA_TOOL_OPTIONS: -javaagent:/skywalking/agent/skywalking-agent.jar
+      SW_AGENT_NAME: sc-edupivot-auth
+      SW_AGENT_COLLECTOR_BACKEND_SERVICES: skywalking-oap:11800
     ports:
-      - "${EDUPIVOT_AUTH_PORT:-28081}:28081"
+      - "${EDUPIVOT_BACKEND_BIND_HOST:-127.0.0.1}:${EDUPIVOT_AUTH_PORT:-28081}:28081"
     healthcheck:
       test: [ "CMD-SHELL", "curl -fsS http://localhost:28081/actuator/health/liveness || exit 1" ]
       interval: 30s
@@ -127,6 +130,7 @@ services:
       args:
         MAVEN_IMAGE: ${MAVEN_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
+        SKYWALKING_AGENT_IMAGE: ${SKYWALKING_AGENT_IMAGE:-apache/skywalking-java-agent:9.6.0-java21}
     image: sc-notification:latest
     container_name: SC-Notification
     restart: unless-stopped
@@ -154,8 +158,11 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       TZ: Asia/Shanghai
+      JAVA_TOOL_OPTIONS: -javaagent:/skywalking/agent/skywalking-agent.jar
+      SW_AGENT_NAME: sc-edupivot-notification
+      SW_AGENT_COLLECTOR_BACKEND_SERVICES: skywalking-oap:11800
     ports:
-      - "${EDUPIVOT_NOTIFICATION_PORT:-28082}:28082"
+      - "${EDUPIVOT_BACKEND_BIND_HOST:-127.0.0.1}:${EDUPIVOT_NOTIFICATION_PORT:-28082}:28082"
     healthcheck:
       test: [ "CMD-SHELL", "curl -fsS http://localhost:28082/actuator/health/liveness || exit 1" ]
       interval: 30s
@@ -172,6 +179,7 @@ services:
       args:
         MAVEN_IMAGE: ${MAVEN_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
+        SKYWALKING_AGENT_IMAGE: ${SKYWALKING_AGENT_IMAGE:-apache/skywalking-java-agent:9.6.0-java21}
     image: sc-course:latest
     container_name: SC-Course
     restart: unless-stopped
@@ -213,8 +221,11 @@ services:
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
       SERVER_PORT: 28084
       TZ: Asia/Shanghai
+      JAVA_TOOL_OPTIONS: -javaagent:/skywalking/agent/skywalking-agent.jar
+      SW_AGENT_NAME: sc-edupivot-course
+      SW_AGENT_COLLECTOR_BACKEND_SERVICES: skywalking-oap:11800
     ports:
-      - "${EDUPIVOT_COURSE_PORT:-28084}:28084"
+      - "${EDUPIVOT_BACKEND_BIND_HOST:-127.0.0.1}:${EDUPIVOT_COURSE_PORT:-28084}:28084"
     healthcheck:
       test: [ "CMD-SHELL", "curl -fsS http://localhost:28084/actuator/health/liveness || exit 1" ]
       interval: 30s
@@ -231,6 +242,7 @@ services:
       args:
         MAVEN_IMAGE: ${MAVEN_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
+        SKYWALKING_AGENT_IMAGE: ${SKYWALKING_AGENT_IMAGE:-apache/skywalking-java-agent:9.6.0-java21}
     image: sc-storage:latest
     container_name: SC-Storage
     restart: unless-stopped
@@ -266,8 +278,11 @@ services:
       EDUPIVOT_SECURITY_JWT_JWKS_URI: http://sc-auth:28081/.well-known/jwks.json
       SERVER_PORT: 28085
       TZ: Asia/Shanghai
+      JAVA_TOOL_OPTIONS: -javaagent:/skywalking/agent/skywalking-agent.jar
+      SW_AGENT_NAME: sc-edupivot-storage
+      SW_AGENT_COLLECTOR_BACKEND_SERVICES: skywalking-oap:11800
     ports:
-      - "${EDUPIVOT_STORAGE_PORT:-28085}:28085"
+      - "${EDUPIVOT_BACKEND_BIND_HOST:-127.0.0.1}:${EDUPIVOT_STORAGE_PORT:-28085}:28085"
     healthcheck:
       test: [ "CMD-SHELL", "curl -fsS http://localhost:28085/actuator/health/liveness || exit 1" ]
       interval: 30s
@@ -284,6 +299,7 @@ services:
       args:
         MAVEN_IMAGE: ${MAVEN_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
+        SKYWALKING_AGENT_IMAGE: ${SKYWALKING_AGENT_IMAGE:-apache/skywalking-java-agent:9.6.0-java21}
     image: sc-ai:latest
     container_name: SC-AI
     restart: unless-stopped
@@ -320,8 +336,11 @@ services:
       AGENT_SEARCH_WEB_SEARCH_API_KEY: ${AGENT_SEARCH_WEB_SEARCH_API_KEY:-}
       SERVER_PORT: 28086
       TZ: Asia/Shanghai
+      JAVA_TOOL_OPTIONS: -javaagent:/skywalking/agent/skywalking-agent.jar
+      SW_AGENT_NAME: sc-edupivot-ai
+      SW_AGENT_COLLECTOR_BACKEND_SERVICES: skywalking-oap:11800
     ports:
-      - "${EDUPIVOT_AI_PORT:-28086}:28086"
+      - "${EDUPIVOT_BACKEND_BIND_HOST:-127.0.0.1}:${EDUPIVOT_AI_PORT:-28086}:28086"
     healthcheck:
       test: [ "CMD-SHELL", "curl -fsS http://localhost:28086/actuator/health/liveness || exit 1" ]
       interval: 30s
@@ -338,6 +357,7 @@ services:
       args:
         MAVEN_IMAGE: ${MAVEN_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
+        SKYWALKING_AGENT_IMAGE: ${SKYWALKING_AGENT_IMAGE:-apache/skywalking-java-agent:9.6.0-java21}
     image: sc-gateway:latest
     container_name: SC-Gateway
     restart: unless-stopped
@@ -371,8 +391,11 @@ services:
       SPRING_DATA_REDIS_DATABASE: 0
       EDUPIVOT_SECURITY_JWT_JWKS_URI: http://sc-auth:28081/.well-known/jwks.json
       TZ: Asia/Shanghai
+      JAVA_TOOL_OPTIONS: -javaagent:/skywalking/agent/skywalking-agent.jar
+      SW_AGENT_NAME: sc-edupivot-gateway
+      SW_AGENT_COLLECTOR_BACKEND_SERVICES: skywalking-oap:11800
     ports:
-      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${EDUPIVOT_GATEWAY_PORT:-39080}:${EDUPIVOT_GATEWAY_PORT:-39080}"
+      - "${EDUPIVOT_BACKEND_BIND_HOST:-127.0.0.1}:${EDUPIVOT_GATEWAY_PORT:-39080}:${EDUPIVOT_GATEWAY_PORT:-39080}"
     healthcheck:
       test: [ "CMD-SHELL", "curl -fsS http://localhost:39080/actuator/health/liveness || exit 1" ]
       interval: 30s
@@ -469,14 +492,76 @@ services:
     networks:
       - sc-edupivot-net
 
-  zipkin:
-    image: openzipkin/zipkin:3
-    container_name: SC-Zipkin
+  skywalking-banyandb:
+    image: apache/skywalking-banyandb:0.10.2
+    container_name: SC-SkyWalking-BanyanDB
     restart: unless-stopped
-    ports:
-      - "${ZIPKIN_PORT:-9411}:9411"
+    command: standalone
+    networks:
+      - sc-edupivot-net
+
+  skywalking-oap:
+    image: apache/skywalking-oap-server:10.4.0-java21
+    container_name: SC-SkyWalking-OAP
+    restart: unless-stopped
+    depends_on:
+      skywalking-banyandb:
+        condition: service_started
     environment:
-      STORAGE_TYPE: mem
+      SW_STORAGE: banyandb
+      SW_STORAGE_BANYANDB_TARGETS: skywalking-banyandb:17912
+      TZ: Asia/Shanghai
+    expose:
+      - "11800"
+      - "12800"
+    networks:
+      - sc-edupivot-net
+
+  skywalking-ui:
+    image: apache/skywalking-ui:10.4.0
+    container_name: SC-SkyWalking-UI
+    restart: unless-stopped
+    depends_on:
+      skywalking-oap:
+        condition: service_started
+    environment:
+      SW_OAP_ADDRESS: http://skywalking-oap:12800
+      TZ: Asia/Shanghai
+    ports:
+      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${SKYWALKING_UI_PORT:-18090}:8080"
+    networks:
+      - sc-edupivot-net
+
+  prometheus:
+    image: prom/prometheus:v3.7.3
+    container_name: SC-Prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ./deploy/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - sc-edupivot-net
+
+  grafana:
+    image: grafana/grafana:12.3.0
+    container_name: SC-Grafana
+    restart: unless-stopped
+    depends_on:
+      prometheus:
+        condition: service_started
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      TZ: Asia/Shanghai
+    ports:
+      - "${GRAFANA_BIND_HOST:-127.0.0.1}:${GRAFANA_PORT:-13000}:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
     networks:
       - sc-edupivot-net
 
@@ -657,6 +742,10 @@ volumes:
     name: SC-Kafka-Data
   livekit-config:
     name: SC-LiveKit-Config
+  prometheus-data:
+    name: SC-Prometheus-Data
+  grafana-data:
+    name: SC-Grafana-Data
 
 networks:
   sc-edupivot-net:

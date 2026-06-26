@@ -39,6 +39,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class GitHubLoginService {
     private static final String GITHUB_JSON = "application/vnd.github+json";
+    private static final String TOKEN_JSON = MediaType.APPLICATION_JSON_VALUE;
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String TOKEN_TYPE = "Bearer";
     private static final int EMAIL_PAGE_SIZE = 100;
@@ -62,7 +63,7 @@ public class GitHubLoginService {
         GitHubTokenResponse token;
         try {
             token = gitHubOauthClient.exchangeCode(
-                    MediaType.APPLICATION_JSON_VALUE,
+                    TOKEN_JSON,
                     gitHubOauthProperties.getClientId(),
                     gitHubOauthProperties.getClientSecret(),
                     request.code(),
@@ -70,7 +71,7 @@ public class GitHubLoginService {
                     normalize(request.codeVerifier())
             );
         } catch (FeignException | NoFallbackAvailableException ex) {
-            throw new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED, "GitHub 授权码换取令牌失败");
+            throw tokenExchangeFailed(ex);
         }
 
         if (token == null || !token.successful()) {
@@ -223,6 +224,51 @@ public class GitHubLoginService {
 
     private String resolveDisplayName(GitHubUserResponse userInfo) {
         return StringUtils.hasText(userInfo.name()) ? userInfo.name() : userInfo.login();
+    }
+
+    private BusinessException tokenExchangeFailed(Throwable exception) {
+        return new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED,
+                "GitHub 授权码换取令牌失败" + describeUpstreamException(exception));
+    }
+
+    private String describeUpstreamException(Throwable exception) {
+        FeignException feignException = findFeignException(exception);
+        if (feignException != null) {
+            return describeFeignException(feignException);
+        }
+
+        String message = exception.getCause() != null ? exception.getCause().getMessage() : exception.getMessage();
+        if (!StringUtils.hasText(message)) {
+            return "";
+        }
+        String normalizedMessage = message.replaceAll("\\s+", " ").trim();
+        if (normalizedMessage.length() > 180) {
+            normalizedMessage = normalizedMessage.substring(0, 180) + "...";
+        }
+        return ": " + normalizedMessage;
+    }
+
+    private FeignException findFeignException(Throwable exception) {
+        Throwable current = exception;
+        while (current != null) {
+            if (current instanceof FeignException feignException) {
+                return feignException;
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
+
+    private String describeFeignException(FeignException exception) {
+        String body = exception.contentUTF8();
+        if (!StringUtils.hasText(body)) {
+            return ": HTTP " + exception.status();
+        }
+        String normalizedBody = body.replaceAll("\\s+", " ").trim();
+        if (normalizedBody.length() > 180) {
+            normalizedBody = normalizedBody.substring(0, 180) + "...";
+        }
+        return ": HTTP " + exception.status() + " " + normalizedBody;
     }
 
     private void assertGitHubConfigured() {

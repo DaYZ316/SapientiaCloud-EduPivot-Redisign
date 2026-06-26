@@ -1,5 +1,23 @@
 <template>
   <div class="profile-page">
+    <section v-if="missingRoleProfileFields.length > 0" class="profile-alert">
+      <AlertCircle :size="20" stroke-width="1.8"/>
+      <div class="profile-alert-copy">
+        <strong>{{ t('profile.roleProfileAlert.title') }}</strong>
+        <p>
+          {{
+            t('profile.roleProfileAlert.description', {
+              fields: missingRoleProfileFields.join(t('profile.roleProfileAlert.separator')),
+            })
+          }}
+        </p>
+      </div>
+      <router-link class="profile-alert-action" to="/settings">
+        <Pencil :size="15" stroke-width="1.8"/>
+        {{ t('profile.roleProfileAlert.action') }}
+      </router-link>
+    </section>
+
     <section class="profile-hero">
       <div :class="{ 'profile-avatar--image': Boolean(user?.avatarUrl) }" class="profile-avatar">
         <img v-if="user?.avatarUrl" :alt="`${displayName} avatar`" :src="user.avatarUrl"/>
@@ -211,7 +229,7 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, ref, watch} from 'vue'
+import {computed, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {
   AlertCircle,
@@ -229,6 +247,7 @@ import {
 
 import {getMyEnrollments, getTeacherCourses} from '@/features/course/api/course'
 import {useAuthStore} from '@/features/auth/stores/auth'
+import {getCurrentUser} from '@/features/user/api/user'
 import type {Course, Enrollment} from '@/features/course/types/course'
 
 type ProfileKind = 'user' | 'student' | 'teacher'
@@ -346,6 +365,28 @@ const profileBio = computed(() => {
   if (profileKind.value === 'student') return t('profile.bio.student')
   if (profileKind.value === 'teacher') return t('profile.bio.teacher')
   return t('profile.bio.user')
+})
+
+const missingRoleProfileFields = computed(() => {
+  if (profileKind.value === 'student') {
+    const studentInfo = user.value?.studentInfo
+    return [
+      {label: t('profile.identityFields.grade'), value: studentInfo?.grade},
+      {label: t('profile.identityFields.major'), value: studentInfo?.major},
+      {label: t('profile.identityFields.school'), value: studentInfo?.school},
+    ].filter(item => !hasText(item.value)).map(item => item.label)
+  }
+
+  if (profileKind.value === 'teacher') {
+    const teacherInfo = user.value?.teacherInfo
+    return [
+      {label: t('profile.identityFields.department'), value: teacherInfo?.department},
+      {label: t('profile.identityFields.title'), value: teacherInfo?.title},
+      {label: t('profile.identityFields.school'), value: teacherInfo?.school},
+    ].filter(item => !hasText(item.value)).map(item => item.label)
+  }
+
+  return []
 })
 
 const identityDetails = computed<DetailItem[]>(() => {
@@ -519,6 +560,14 @@ const completionSummary = computed(() => {
   return t('profile.completionSummary.incomplete')
 })
 
+onMounted(async () => {
+  try {
+    authStore.setUser(await getCurrentUser())
+  } catch {
+    // Keep the locally cached profile when refresh is unavailable.
+  }
+})
+
 watch(profileKind, (kind) => {
   if (kind === 'student') {
     loadStudentData()
@@ -616,6 +665,10 @@ function valueOrDash(value?: string | number | boolean | null): string {
   return String(value)
 }
 
+function hasText(value?: string | null): boolean {
+  return Boolean(value?.trim())
+}
+
 function formatBoolean(value?: boolean | null): string {
   return value ? t('profile.format.enabled') : t('profile.format.disabled')
 }
@@ -681,6 +734,63 @@ function maskIp(ip?: string | null): string {
   flex-direction: column;
   gap: 24px;
   color: var(--color-on-surface);
+}
+
+.profile-alert {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 18px 22px;
+  border: 1px solid color-mix(in srgb, var(--color-warning, #a96b00) 35%, var(--color-outline-light));
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-warning, #a96b00) 10%, var(--color-surface-card));
+  color: var(--color-on-surface);
+}
+
+.profile-alert > svg {
+  color: var(--color-warning, #a96b00);
+}
+
+.profile-alert-copy {
+  min-width: 0;
+}
+
+.profile-alert-copy strong {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--font-label);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.profile-alert-copy p {
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.profile-alert-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-on-surface);
+  border-radius: var(--radius-sm);
+  color: var(--color-on-surface);
+  font-family: var(--font-label);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.profile-alert-action:hover {
+  background: var(--color-on-surface);
+  color: var(--color-on-primary);
 }
 
 .profile-hero,
@@ -1135,6 +1245,15 @@ function maskIp(ip?: string | null): string {
 }
 
 @media (max-width: 720px) {
+  .profile-alert {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .profile-alert-action {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
   .profile-hero,
   .profile-panel {
     border-radius: var(--radius-lg);

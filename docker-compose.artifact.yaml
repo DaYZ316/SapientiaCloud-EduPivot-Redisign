@@ -6,6 +6,7 @@ x-java-service: &java-service
     dockerfile: deploy/artifact/java-runtime.Dockerfile
     args:
       JAVA_RUNTIME_IMAGE: ${JAVA_RUNTIME_IMAGE:-mcr.microsoft.com/openjdk/jdk:21-ubuntu}
+      SKYWALKING_AGENT_IMAGE: ${SKYWALKING_AGENT_IMAGE:-apache/skywalking-java-agent:9.6.0-java21}
   image: sc-edupivot-java-runtime:latest
   restart: unless-stopped
   working_dir: /app
@@ -23,6 +24,8 @@ x-java-env: &java-env
   SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
   TZ: Asia/Shanghai
   JAVA_OPTS: ${JAVA_OPTS:-}
+  JAVA_TOOL_OPTIONS: -javaagent:/skywalking/agent/skywalking-agent.jar
+  SW_AGENT_COLLECTOR_BACKEND_SERVICES: skywalking-oap:11800
 
 services:
   sc-frontend:
@@ -76,7 +79,6 @@ services:
       LIVEKIT_SERVER_URL: ${LIVEKIT_SERVER_URL:-http://livekit:7880}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
-      ZIPKIN_ENDPOINT: ${ZIPKIN_ENDPOINT:-http://zipkin:9411/api/v2/spans}
     volumes:
       - ./nacos-config:/nacos-config:ro
       - ./scripts/nacos_config_init.py:/nacos_config_init.py:ro
@@ -103,6 +105,7 @@ services:
         condition: service_healthy
     environment:
       <<: *java-env
+      SW_AGENT_NAME: sc-edupivot-auth
       REDIS_HOST: redis
       JWT_PRIVATE_KEY_B64: ${JWT_PRIVATE_KEY_B64}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
@@ -114,7 +117,7 @@ services:
     volumes:
       - ./jars/sc-auth.jar:/app/app.jar:ro
     ports:
-      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${EDUPIVOT_AUTH_PORT:-28081}:28081"
+      - "${EDUPIVOT_BACKEND_BIND_HOST:-127.0.0.1}:${EDUPIVOT_AUTH_PORT:-28081}:28081"
     command: >
       sh -c 'if [ -n "$$JWT_PRIVATE_KEY_B64" ]; then export JWT_PRIVATE_KEY="$$(printf "%s" "$$JWT_PRIVATE_KEY_B64" | base64 -d)"; fi; exec java $$JAVA_OPTS -jar /app/app.jar'
     healthcheck:
@@ -142,11 +145,12 @@ services:
         condition: service_healthy
     environment:
       <<: *java-env
+      SW_AGENT_NAME: sc-edupivot-notification
       REDIS_HOST: redis
     volumes:
       - ./jars/sc-notification.jar:/app/app.jar:ro
     ports:
-      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${EDUPIVOT_NOTIFICATION_PORT:-28082}:28082"
+      - "${EDUPIVOT_BACKEND_BIND_HOST:-127.0.0.1}:${EDUPIVOT_NOTIFICATION_PORT:-28082}:28082"
     command: >
       sh -c 'exec java $$JAVA_OPTS -jar /app/app.jar'
     healthcheck:
@@ -174,6 +178,7 @@ services:
         condition: service_healthy
     environment:
       <<: *java-env
+      SW_AGENT_NAME: sc-edupivot-course
       REDIS_HOST: redis
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
@@ -192,7 +197,7 @@ services:
     volumes:
       - ./jars/sc-course.jar:/app/app.jar:ro
     ports:
-      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${EDUPIVOT_COURSE_PORT:-28084}:28084"
+      - "${EDUPIVOT_BACKEND_BIND_HOST:-127.0.0.1}:${EDUPIVOT_COURSE_PORT:-28084}:28084"
     command: >
       sh -c 'exec java $$JAVA_OPTS -jar /app/app.jar'
     healthcheck:
@@ -224,6 +229,7 @@ services:
         condition: service_healthy
     environment:
       <<: *java-env
+      SW_AGENT_NAME: sc-edupivot-storage
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_EXTERNAL_ENDPOINT: ${MINIO_EXTERNAL_ENDPOINT:-http://localhost:9000}
@@ -232,7 +238,7 @@ services:
     volumes:
       - ./jars/sc-storage.jar:/app/app.jar:ro
     ports:
-      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${EDUPIVOT_STORAGE_PORT:-28085}:28085"
+      - "${EDUPIVOT_BACKEND_BIND_HOST:-127.0.0.1}:${EDUPIVOT_STORAGE_PORT:-28085}:28085"
     command: >
       sh -c 'exec java $$JAVA_OPTS -jar /app/app.jar'
     healthcheck:
@@ -262,6 +268,7 @@ services:
         condition: service_healthy
     environment:
       <<: *java-env
+      SW_AGENT_NAME: sc-edupivot-ai
       REDIS_HOST: redis
       EDUPIVOT_SECURITY_JWT_JWKS_URI: http://sc-auth:28081/.well-known/jwks.json
       DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-missing-dashscope-key}
@@ -273,7 +280,7 @@ services:
     volumes:
       - ./jars/sc-ai.jar:/app/app.jar:ro
     ports:
-      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${EDUPIVOT_AI_PORT:-28086}:28086"
+      - "${EDUPIVOT_BACKEND_BIND_HOST:-127.0.0.1}:${EDUPIVOT_AI_PORT:-28086}:28086"
     command: >
       sh -c 'exec java $$JAVA_OPTS -jar /app/app.jar'
     healthcheck:
@@ -317,8 +324,11 @@ services:
       EDUPIVOT_SECURITY_JWT_JWKS_URI: http://sc-auth:28081/.well-known/jwks.json
       TZ: Asia/Shanghai
       JAVA_OPTS: ${JAVA_OPTS:-}
+      JAVA_TOOL_OPTIONS: -javaagent:/skywalking/agent/skywalking-agent.jar
+      SW_AGENT_NAME: sc-edupivot-gateway
+      SW_AGENT_COLLECTOR_BACKEND_SERVICES: skywalking-oap:11800
     ports:
-      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${EDUPIVOT_GATEWAY_PORT:-39080}:${EDUPIVOT_GATEWAY_PORT:-39080}"
+      - "${EDUPIVOT_BACKEND_BIND_HOST:-127.0.0.1}:${EDUPIVOT_GATEWAY_PORT:-39080}:${EDUPIVOT_GATEWAY_PORT:-39080}"
     volumes:
       - ./jars/sc-gateway.jar:/app/app.jar:ro
     command: >
@@ -417,14 +427,76 @@ services:
     networks:
       - sc-edupivot-net
 
-  zipkin:
-    image: openzipkin/zipkin:3
-    container_name: SC-Zipkin
+  skywalking-banyandb:
+    image: apache/skywalking-banyandb:0.10.2
+    container_name: SC-SkyWalking-BanyanDB
     restart: unless-stopped
-    ports:
-      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${ZIPKIN_PORT:-9411}:9411"
+    command: standalone
+    networks:
+      - sc-edupivot-net
+
+  skywalking-oap:
+    image: apache/skywalking-oap-server:10.4.0-java21
+    container_name: SC-SkyWalking-OAP
+    restart: unless-stopped
+    depends_on:
+      skywalking-banyandb:
+        condition: service_started
     environment:
-      STORAGE_TYPE: mem
+      SW_STORAGE: banyandb
+      SW_STORAGE_BANYANDB_TARGETS: skywalking-banyandb:17912
+      TZ: Asia/Shanghai
+    expose:
+      - "11800"
+      - "12800"
+    networks:
+      - sc-edupivot-net
+
+  skywalking-ui:
+    image: apache/skywalking-ui:10.4.0
+    container_name: SC-SkyWalking-UI
+    restart: unless-stopped
+    depends_on:
+      skywalking-oap:
+        condition: service_started
+    environment:
+      SW_OAP_ADDRESS: http://skywalking-oap:12800
+      TZ: Asia/Shanghai
+    ports:
+      - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${SKYWALKING_UI_PORT:-18090}:8080"
+    networks:
+      - sc-edupivot-net
+
+  prometheus:
+    image: prom/prometheus:v3.7.3
+    container_name: SC-Prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ./deploy/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - sc-edupivot-net
+
+  grafana:
+    image: grafana/grafana:12.3.0
+    container_name: SC-Grafana
+    restart: unless-stopped
+    depends_on:
+      prometheus:
+        condition: service_started
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      TZ: Asia/Shanghai
+    ports:
+      - "${GRAFANA_BIND_HOST:-127.0.0.1}:${GRAFANA_PORT:-13000}:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
     networks:
       - sc-edupivot-net
 
@@ -605,6 +677,10 @@ volumes:
     name: SC-Kafka-Data
   livekit-config:
     name: SC-LiveKit-Config
+  prometheus-data:
+    name: SC-Prometheus-Data
+  grafana-data:
+    name: SC-Grafana-Data
 
 networks:
   sc-edupivot-net:

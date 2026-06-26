@@ -173,7 +173,7 @@ function extraLargeDeskPosition(index: number): THREE.Vector3 {
 
     return new THREE.Vector3(
         Math.cos(angle) * radius,
-        0.3 + ring * 0.6,
+        0.3 + ring * 0.54,
         -Math.sin(angle) * radius + 10 + X_LARGE_FORWARD_SHIFT,
     )
 }

@@ -73,6 +73,21 @@ export interface UpdateUserRequest {
     theme?: ThemePreference | null
     notificationEnabled?: boolean
     status?: UserStatus
+    studentInfo?: {
+        grade?: string | null
+        major?: string | null
+        school?: string | null
+    } | null
+    teacherInfo?: {
+        department?: string | null
+        title?: string | null
+        school?: string | null
+    } | null
+}
+
+export interface ChangePasswordRequest {
+    currentPassword?: string | null
+    newPassword: string
 }
 
 export type UserPageResponse = PageResponse<UserProfile>

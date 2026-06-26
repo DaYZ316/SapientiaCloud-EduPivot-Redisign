@@ -23,13 +23,6 @@ management:
           include: livenessState
         readiness:
           include: readinessState,redis,diskSpace
-  tracing:
-    sampling:
-      probability: 1.0
-  zipkin:
-    tracing:
-      endpoint: ${ZIPKIN_ENDPOINT:http://zipkin:9411/api/v2/spans}
-
 scalar:
   enabled: true
   path: /scalar
@@ -51,6 +44,9 @@ scalar:
     - title: 存储服务
       slug: storage
       url: /openapi/storage
+    - title: AI 服务
+      slug: ai
+      url: /openapi/ai
 
 edupivot:
   security:

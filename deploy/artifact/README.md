@@ -12,6 +12,7 @@ Server directory:
   frontend/dist/
   deploy/artifact/frontend-nginx.conf
   deploy/artifact/java-runtime.Dockerfile
+  deploy/observability/
   deploy/nginx/edupivot.conf
   nacos-config/
   nacos-plugins/

@@ -26,6 +26,12 @@ export default {
     noEmail: 'No email',
     noPhone: 'No phone',
     joined: 'Joined',
+    roleProfileAlert: {
+        title: 'Profile information needs attention',
+        description: 'Please complete: {fields}. This helps courses and classmates identify your role information correctly.',
+        action: 'Complete profile',
+        separator: ', ',
+    },
     bio: {
         student: 'Complete your bio to help teachers and classmates understand your learning focus.',
         teacher: 'Complete your bio to help students understand your teaching focus and research direction.',

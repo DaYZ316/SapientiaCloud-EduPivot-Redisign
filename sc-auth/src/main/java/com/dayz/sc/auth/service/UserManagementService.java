@@ -2,6 +2,7 @@ package com.dayz.sc.auth.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.dayz.sc.auth.event.UserEventPublisher;
+import com.dayz.sc.auth.model.dto.ChangePasswordRequest;
 import com.dayz.sc.auth.model.dto.CompleteOnboardingRequest;
 import com.dayz.sc.auth.model.dto.UpdateUserRequest;
 import com.dayz.sc.auth.model.dto.UserBasicInfo;
@@ -282,6 +283,36 @@ public class UserManagementService {
         applyCurrentUserUpdate(user, request);
         user.setUpdatedAt(Instant.now(clock));
         userAccountRepository.saveUser(user);
+        updateRoleProfile(user, request);
+
+        return toUserProfile(user, userAccountRepository.findLinkedProviders(user.getId()),
+                loadStudentInfo(user.getId()), loadTeacherInfo(user.getId()));
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public UserProfileVO changeCurrentUserPassword(UUID id, ChangePasswordRequest request) {
+        if (id == null || request == null || !isPasswordLengthValid(request.newPassword())) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Password must be 8-64 characters");
+        }
+
+        User user = userAccountRepository.findUser(id)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND, "User not found"));
+
+        List<OauthProvider> linkedProviders = userAccountRepository.findLinkedProviders(user.getId());
+        if (StringUtils.hasText(user.getPasswordHash())) {
+            if (!StringUtils.hasText(request.currentPassword())
+                    || !passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+                throw new BusinessException(ErrorCodes.BAD_REQUEST, "Current password is incorrect");
+            }
+        } else if (!canSetInitialPassword(user, linkedProviders)) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Verified OAuth account is required to set a password");
+        }
+
+        Instant now = Instant.now(clock);
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.setUpdatedAt(now);
+        userAccountRepository.saveUser(user);
+        ensureLocalIdentity(user, now);
 
         return toUserProfile(user, userAccountRepository.findLinkedProviders(user.getId()),
                 loadStudentInfo(user.getId()), loadTeacherInfo(user.getId()));
@@ -332,6 +363,7 @@ public class UserManagementService {
         applyUpdate(user, request);
         user.setUpdatedAt(Instant.now(clock));
         userAccountRepository.saveUser(user);
+        updateRoleProfile(user, request);
 
         if (wasActive && user.getStatus() == UserStatus.DISABLED && userEventPublisher != null) {
             userEventPublisher.publishUserDeactivated(user);
@@ -350,9 +382,39 @@ public class UserManagementService {
         User user = userAccountRepository.findUser(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND, "User not found"));
 
+        Instant now = Instant.now(clock);
         user.setPasswordHash(passwordEncoder.encode(DEFAULT_PASSWORD));
-        user.setUpdatedAt(Instant.now(clock));
+        user.setUpdatedAt(now);
         userAccountRepository.saveUser(user);
+        ensureLocalIdentity(user, now);
+    }
+
+    private boolean isPasswordLengthValid(String password) {
+        return StringUtils.hasText(password) && password.length() >= 8 && password.length() <= 64;
+    }
+
+    private boolean canSetInitialPassword(User user, List<OauthProvider> linkedProviders) {
+        return Boolean.TRUE.equals(user.getEmailVerified())
+                && linkedProviders.stream().anyMatch(provider -> provider != OauthProvider.LOCAL);
+    }
+
+    private void ensureLocalIdentity(User user, Instant now) {
+        if (userAccountRepository.findLinkedProviders(user.getId()).contains(OauthProvider.LOCAL)) {
+            return;
+        }
+
+        UserIdentity identity = new UserIdentity();
+        identity.setId(UuidV7Generator.generate());
+        identity.setUserId(user.getId());
+        identity.setProvider(OauthProvider.LOCAL);
+        identity.setProviderUserId(user.getId().toString());
+        identity.setProviderLogin(user.getEmail());
+        identity.setProviderEmail(user.getEmail());
+        identity.setProviderEmailVerified(user.getEmailVerified());
+        identity.setProviderDisplayName(user.getDisplayName());
+        identity.setProviderAvatarUrl(user.getAvatarUrl());
+        identity.setLinkedAt(now);
+        userAccountRepository.saveIdentity(identity);
     }
 
     private void ensureRoleProfile(UUID userId, UserRole role) {
@@ -520,6 +582,75 @@ public class UserManagementService {
         }
     }
 
+    private void updateRoleProfile(User user, UpdateUserRequest request) {
+        UserRole role = UserRole.fromCode(user.getRole());
+        if (role == UserRole.STUDENT && request.studentInfo() != null) {
+            updateStudentProfile(user.getId(), request.studentInfo());
+            return;
+        }
+        if (role == UserRole.TEACHER && request.teacherInfo() != null) {
+            updateTeacherProfile(user.getId(), request.teacherInfo());
+        }
+    }
+
+    private void updateStudentProfile(UUID userId, UpdateUserRequest.StudentInfoUpdate request) {
+        Student student = studentRepository.findByUserId(userId)
+                .orElseGet(() -> newStudentProfile(userId));
+        if (request.grade() != null) {
+            student.setGrade(normalize(request.grade()));
+        }
+        if (request.major() != null) {
+            student.setMajor(normalize(request.major()));
+        }
+        if (request.school() != null) {
+            student.setSchool(normalize(request.school()));
+        }
+        student.setUpdatedAt(Instant.now(clock));
+        if (student.getCreatedAt() == null) {
+            student.setCreatedAt(student.getUpdatedAt());
+            studentRepository.save(student);
+            return;
+        }
+        studentRepository.update(student);
+    }
+
+    private void updateTeacherProfile(UUID userId, UpdateUserRequest.TeacherInfoUpdate request) {
+        Teacher teacher = teacherRepository.findByUserId(userId)
+                .orElseGet(() -> newTeacherProfile(userId));
+        if (request.department() != null) {
+            teacher.setDepartment(normalize(request.department()));
+        }
+        if (request.title() != null) {
+            teacher.setTitle(normalize(request.title()));
+        }
+        if (request.school() != null) {
+            teacher.setSchool(normalize(request.school()));
+        }
+        teacher.setUpdatedAt(Instant.now(clock));
+        if (teacher.getCreatedAt() == null) {
+            teacher.setCreatedAt(teacher.getUpdatedAt());
+            teacherRepository.save(teacher);
+            return;
+        }
+        teacherRepository.update(teacher);
+    }
+
+    private Student newStudentProfile(UUID userId) {
+        Student student = new Student();
+        student.setId(UuidV7Generator.generate());
+        student.setUserId(userId);
+        student.setStudentNo(generateProfileNo("S"));
+        return student;
+    }
+
+    private Teacher newTeacherProfile(UUID userId) {
+        Teacher teacher = new Teacher();
+        teacher.setId(UuidV7Generator.generate());
+        teacher.setUserId(userId);
+        teacher.setEmployeeNo(generateProfileNo("T"));
+        return teacher;
+    }
+
     private UserProfileVO toUserProfile(User user, List<OauthProvider> linkedProviders,
                                         StudentInfoVO studentInfo, TeacherInfoVO teacherInfo) {
         return toUserProfile(user, linkedProviders, studentInfo, teacherInfo, resolveAvatarUrl(user));
@@ -550,11 +681,21 @@ public class UserManagementService {
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
                 user.getLastLoginAt(),
-                linkedProviders,
+                linkedProvidersFor(user, linkedProviders),
                 user.getRole(),
                 studentInfo,
                 teacherInfo
         );
+    }
+
+    private List<OauthProvider> linkedProvidersFor(User user, List<OauthProvider> linkedProviders) {
+        List<OauthProvider> providers = linkedProviders == null ? List.of() : linkedProviders;
+        if (!StringUtils.hasText(user.getPasswordHash()) || providers.contains(OauthProvider.LOCAL)) {
+            return providers;
+        }
+        List<OauthProvider> mergedProviders = new ArrayList<>(providers);
+        mergedProviders.add(OauthProvider.LOCAL);
+        return mergedProviders;
     }
 
     private void validateAvatarFile(UUID fileId, UUID userId) {

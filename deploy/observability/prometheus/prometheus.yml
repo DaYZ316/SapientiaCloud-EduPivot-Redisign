@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: sc-edupivot-backend
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - sc-auth:28081
+          - sc-notification:28082
+          - sc-course:28084
+          - sc-storage:28085
+          - sc-ai:28086
+          - sc-gateway:39080

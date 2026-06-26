@@ -60,13 +60,6 @@ management:
           include: livenessState
         readiness:
           include: readinessState,db,redis,diskSpace
-  tracing:
-    sampling:
-      probability: 1.0
-  zipkin:
-    tracing:
-      endpoint: ${ZIPKIN_ENDPOINT:http://zipkin:9411/api/v2/spans}
-
 springdoc:
   api-docs:
     enabled: true
@@ -100,6 +93,7 @@ edupivot:
       - /actuator/health
       - /actuator/health/liveness
       - /actuator/health/readiness
+      - /actuator/prometheus
       - /api/ai/live-summaries/class-sessions/*/audio
       - /doc.html
       - /scalar

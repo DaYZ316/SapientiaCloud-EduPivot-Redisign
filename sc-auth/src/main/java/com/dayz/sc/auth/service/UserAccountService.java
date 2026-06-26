@@ -153,6 +153,10 @@ public class UserAccountService {
 
     private AuthenticatedUser toAuthenticatedUser(User user) {
         List<OauthProvider> linkedProviders = userAccountRepository.findLinkedProviders(user.getId());
+        if (StringUtils.hasText(user.getPasswordHash()) && !linkedProviders.contains(OauthProvider.LOCAL)) {
+            linkedProviders = new java.util.ArrayList<>(linkedProviders);
+            linkedProviders.add(OauthProvider.LOCAL);
+        }
         return new AuthenticatedUser(user, linkedProviders);
     }
 

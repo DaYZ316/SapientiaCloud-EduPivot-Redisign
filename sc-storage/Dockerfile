@@ -1,5 +1,6 @@
 ARG MAVEN_IMAGE=mcr.microsoft.com/openjdk/jdk:21-ubuntu
 ARG RUNTIME_IMAGE=mcr.microsoft.com/openjdk/jdk:21-ubuntu
+ARG SKYWALKING_AGENT_IMAGE=apache/skywalking-java-agent:9.6.0-java21
 
 FROM ${MAVEN_IMAGE} AS build
 WORKDIR /workspace
@@ -10,11 +11,14 @@ COPY . .
 RUN --mount=type=cache,target=/root/.m2 \
     mvn -B -ntp -pl sc-storage -am -DskipTests package
 
+FROM ${SKYWALKING_AGENT_IMAGE} AS skywalking-agent
+
 FROM ${RUNTIME_IMAGE}
 WORKDIR /app
 ENV TZ=Asia/Shanghai
 ENV JAVA_OPTS=""
 COPY --from=build /workspace/sc-storage/target/sc-storage-*.jar app.jar
+COPY --from=skywalking-agent /skywalking/agent /skywalking/agent
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl libreoffice-writer \

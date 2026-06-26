@@ -44,7 +44,7 @@ pnpm test:unit        # Vitest（注：当前尚无测试代码）
 docker compose up -d --build
 
 # 仅启动开发所需的基础设施（按需挑选服务名）
-docker compose up -d nacos postgres redis kafka minio zipkin
+docker compose up -d nacos postgres redis kafka minio skywalking-banyandb skywalking-oap skywalking-ui
 
 # 生成 JWT RS256 密钥对到 keys/（首次运行 sc-auth 前）
 ./scripts/generate-rsa-keys.sh
@@ -149,7 +149,7 @@ docker compose up -d nacos postgres redis kafka minio zipkin
 | 数据库迁移  | Flyway                                                                      |
 | API 文档 | SpringDoc OpenAPI 3.0.3 + Scalar 0.5.55                                     |
 | 熔断器    | Resilience4j 2.3.0                                                          |
-| 分布式追踪  | Micrometer Brave + Zipkin                                                   |
+| 分布式追踪  | SkyWalking Java Agent + OAP/UI + BanyanDB                                   |
 | 密码学    | BouncyCastle 1.84                                                           |
 | 前端     | Vue 3.5 + TypeScript 6 + Vite 8 + Pinia 3 + Vue Router 5 + Vue I18n 11      |
 | UI 组件  | Naive UI + Lucide Vue Next                                                  |

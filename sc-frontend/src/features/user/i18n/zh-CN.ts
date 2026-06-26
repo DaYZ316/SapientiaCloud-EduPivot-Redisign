@@ -26,6 +26,12 @@ export default {
     noEmail: '未设置邮箱',
     noPhone: '未设置电话',
     joined: '加入时间',
+    roleProfileAlert: {
+        title: '个人资料待完善',
+        description: '请补充：{fields}。完善后课程与同学可以更准确识别你的角色信息。',
+        action: '去完善资料',
+        separator: '、',
+    },
     bio: {
         student: '完善你的个人简介，帮助教师和同学了解你的学习方向。',
         teacher: '完善你的个人简介，帮助学生了解你的教学方向和研究领域。',

@@ -108,6 +108,22 @@
     padding: 0;
 }
 
+.role-profile-fields {
+    display: grid;
+    gap: 18px;
+    padding-top: 20px;
+    border-top: 1px solid var(--color-outline-light);
+}
+
+.role-profile-header h4 {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 22px;
+    font-weight: 400;
+    line-height: 1.15;
+    color: var(--color-on-surface);
+}
+
 .profile-card-panel .form-grid {
     gap: 16px;
 }
