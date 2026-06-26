@@ -62,4 +62,11 @@ export default {
     alertGithubLoginFailed: 'GitHub 登录失败',
     alertOAuthStateInvalid: 'OAuth 状态无效',
     alertForgotPasswordUnavailable: '功能暂未开放',
+    onboardingEyebrow: '账户设置',
+    onboardingTitle: '完善基础信息',
+    onboardingSubtitle: '请选择你的校园身份，并确认在课程中展示的姓名。',
+    onboardingSubmit: '继续',
+    onboardingNameRequired: '请输入显示名称',
+    onboardingRoleRequired: '请选择学生或教师身份',
+    onboardingSuccess: '基础信息已完善',
 }

@@ -5,7 +5,7 @@
         <article
             v-for="item in notifications"
             :key="item.id"
-            :class="item.type"
+            :class="[item.type, {'is-long': isLongNotification(item)}]"
             :style="notificationStyle(item)"
             class="global-notification-item"
             role="status"
@@ -14,7 +14,7 @@
             <component :is="iconMap[item.type]" :size="18" stroke-width="2"/>
           </div>
 
-          <span class="global-notification-message">{{ item.title || item.message || typeLabel(item.type) }}</span>
+          <span class="global-notification-message">{{ notificationText(item) }}</span>
         </article>
       </TransitionGroup>
     </div>
@@ -40,6 +40,14 @@ const iconMap: Record<GlobalNotificationType, typeof CheckCircle2> = {
 
 function typeLabel(type: GlobalNotificationType) {
   return t(`common.feedback.${type}`)
+}
+
+function notificationText(item: GlobalNotificationItem) {
+  return item.title || item.message || typeLabel(item.type)
+}
+
+function isLongNotification(item: GlobalNotificationItem) {
+  return notificationText(item).length > 32
 }
 
 function notificationStyle(item: GlobalNotificationItem) {
@@ -73,6 +81,7 @@ function notificationStyle(item: GlobalNotificationItem) {
   align-items: center;
   gap: 10px;
   max-width: min(420px, calc(100vw - 32px));
+  box-sizing: border-box;
   padding: 10px 22px;
   overflow: visible;
   pointer-events: auto;
@@ -81,6 +90,14 @@ function notificationStyle(item: GlobalNotificationItem) {
   border-radius: 9999px;
   color: var(--color-on-primary);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.global-notification-item.is-long {
+  align-items: flex-start;
+  width: min(560px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  padding: 12px 18px;
+  border-radius: 16px;
 }
 
 .global-notification-mark {
@@ -107,6 +124,20 @@ function notificationStyle(item: GlobalNotificationItem) {
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.global-notification-item.is-long .global-notification-mark {
+  margin-top: 1px;
+}
+
+.global-notification-item.is-long .global-notification-message {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  letter-spacing: 0.01em;
+  line-height: 1.45;
+  text-overflow: clip;
+  text-transform: none;
+  white-space: normal;
 }
 
 .global-notification-enter-active,

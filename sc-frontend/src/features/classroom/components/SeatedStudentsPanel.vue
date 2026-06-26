@@ -2,8 +2,8 @@
   <aside class="seated-students-panel">
     <header class="panel-header">
       <div>
-        <span>Online Students</span>
-        <h2>在线学生汇总</h2>
+        <span>{{ t('courseDetail.classSession.studentsPanelKicker') }}</span>
+        <h2>{{ t('courseDetail.classSession.studentsPanelTitle') }}</h2>
       </div>
       <button class="icon-button" type="button" @click="$emit('close')">
         <X :size="18" stroke-width="1.8"/>
@@ -12,11 +12,11 @@
 
     <section class="summary-grid">
       <div>
-        <span>已落座</span>
+        <span>{{ t('courseDetail.classSession.seatedStudents') }}</span>
         <strong>{{ seatedStudents.length }}</strong>
       </div>
       <div>
-        <span>座位容量</span>
+        <span>{{ t('courseDetail.classSession.seatCapacity') }}</span>
         <strong>{{ roomSpec.seatCount }}</strong>
       </div>
     </section>
@@ -32,7 +32,7 @@
         />
         <div class="student-meta">
           <strong>{{ student.displayName || student.userId }}</strong>
-          <span>座位 {{ (student.seatIndex ?? 0) + 1 }}</span>
+          <span>{{ t('courseDetail.classSession.seatNumber', {number: (student.seatIndex ?? 0) + 1}) }}</span>
           <small>{{ formatDateTime(student.joinedAt) }}</small>
         </div>
       </article>
@@ -40,13 +40,14 @@
 
     <div v-else class="panel-state">
       <Users :size="28" stroke-width="1.6"/>
-      <p>暂无学生落座</p>
+      <p>{{ t('courseDetail.classSession.noSeatedStudents') }}</p>
     </div>
   </aside>
 </template>
 
 <script lang="ts" setup>
 import {computed} from 'vue'
+import {useI18n} from 'vue-i18n'
 import {Users, X} from 'lucide-vue-next'
 
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
@@ -62,6 +63,7 @@ const props = defineProps<{
 
 defineEmits<{ close: [] }>()
 
+const {t, locale} = useI18n()
 const roomSpec = computed(() => getRoomSpec(props.session.roomSize))
 const seatedStudents = computed(() =>
     props.participants
@@ -75,7 +77,7 @@ function formatDateTime(value: string) {
   if (Number.isNaN(date.getTime())) {
     return '-'
   }
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(locale.value, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',

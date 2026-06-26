@@ -71,6 +71,7 @@ public class ClassSessionService {
     private final ClassroomUserInfoResolver classroomUserInfoResolver;
     private final ClassSeatSyncTokenService classSeatSyncTokenService;
     private final ClassSeatSyncWebSocketHub seatSyncWebSocketHub;
+    private final ClassLivePresenceService classLivePresenceService;
 
     @Transactional(rollbackFor = Exception.class)
     public UUID createSession(CreateClassSessionRequest request, UUID userId, Integer role) {
@@ -264,6 +265,7 @@ public class ClassSessionService {
         session.setLivePausedAt(null);
         session.setLiveEndedAt(null);
         classSessionRepository.update(session);
+        classLivePresenceService.heartbeat(sessionId, userId);
         ensureParticipant(session, userId, ClassParticipantRole.TEACHER, null, ZERO, ZERO, ZERO);
         ClassSessionVO vo = toSessionVO(session, true);
         seatSyncWebSocketHub.broadcastLiveStatus(sessionId, vo, "live_started");
@@ -288,6 +290,15 @@ public class ClassSessionService {
         return vo;
     }
 
+    public void heartbeatLive(UUID sessionId, UUID userId, Integer role) {
+        ClassSession session = classSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        requireSessionTeacher(session, userId, role);
+        if (liveStatus(session) == ClassLiveStatus.LIVE) {
+            classLivePresenceService.heartbeat(sessionId, userId);
+        }
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public ClassSessionVO resumeLive(UUID sessionId, UUID userId, Integer role) {
         ClassSession session = classSessionRepository.findByIdForUpdate(sessionId)
@@ -302,6 +313,7 @@ public class ClassSessionService {
         session.setLiveStatus(ClassLiveStatus.LIVE.getCode());
         session.setLivePausedAt(null);
         classSessionRepository.update(session);
+        classLivePresenceService.heartbeat(sessionId, userId);
         ClassSessionVO vo = toSessionVO(session, joined(sessionId, userId));
         seatSyncWebSocketHub.broadcastLiveStatus(sessionId, vo, "live_resumed");
         return vo;
@@ -421,6 +433,31 @@ public class ClassSessionService {
             endedCount++;
         }
         return endedCount;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public int pauseDisconnectedLiveSessions() {
+        List<ClassSession> sessions = classSessionRepository.findLiveSessions(ClassLiveStatus.LIVE.getCode(), 100);
+        Instant now = Instant.now();
+        int pausedCount = 0;
+        for (ClassSession session : sessions) {
+            if (classLivePresenceService.isPresent(session.getId(), session.getTeacherId())) {
+                continue;
+            }
+            ClassSession lockedSession = classSessionRepository.findByIdForUpdate(session.getId()).orElse(null);
+            if (lockedSession == null || liveStatus(lockedSession) != ClassLiveStatus.LIVE) {
+                continue;
+            }
+            if (classLivePresenceService.isPresent(lockedSession.getId(), lockedSession.getTeacherId())) {
+                continue;
+            }
+            lockedSession.setLiveStatus(ClassLiveStatus.PAUSED.getCode());
+            lockedSession.setLivePausedAt(now);
+            classSessionRepository.update(lockedSession);
+            seatSyncWebSocketHub.broadcastLiveStatus(lockedSession.getId(), toSessionVO(lockedSession, false), "live_paused");
+            pausedCount++;
+        }
+        return pausedCount;
     }
 
     private ClassroomInteractionAccess requireClassroomInteractionAccess(UUID sessionId, UUID userId, Integer role) {

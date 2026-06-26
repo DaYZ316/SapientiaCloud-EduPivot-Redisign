@@ -30,3 +30,8 @@ export interface RegisterRequest {
     displayName?: string
     role?: number
 }
+
+export interface CompleteOnboardingRequest {
+    role: number
+    displayName: string
+}

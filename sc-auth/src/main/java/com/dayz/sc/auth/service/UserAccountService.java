@@ -8,7 +8,6 @@ import com.dayz.sc.auth.model.enums.UserStatus;
 import com.dayz.sc.auth.repository.UserAccountRepository;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
-import com.dayz.sc.common.model.UserRole;
 import com.dayz.sc.common.util.UuidV7Generator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -90,8 +89,7 @@ public class UserAccountService {
                 normalizedClientIp,
                 1L,
                 null,
-                // OAuth 用户默认角色为学生
-                UserRole.STUDENT.getCode(),
+                null,
                 null,
                 null,
                 null,

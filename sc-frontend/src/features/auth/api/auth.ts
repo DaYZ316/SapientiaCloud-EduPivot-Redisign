@@ -3,6 +3,7 @@ import type {
     GitHubLoginRequest,
     GoogleLoginRequest,
     LoginResponse,
+    CompleteOnboardingRequest,
     PasswordLoginRequest,
     RegisterRequest,
 } from '@/features/auth/types/auth'
@@ -37,6 +38,15 @@ export function loginWithPassword(payload: PasswordLoginRequest) {
 export function register(payload: RegisterRequest) {
     return request<LoginResponse>({
         url: '/api/auth/register',
+        method: 'POST',
+        data: payload,
+        silent: true,
+    })
+}
+
+export function completeOnboarding(payload: CompleteOnboardingRequest) {
+    return request<LoginResponse>({
+        url: '/api/auth/users/me/onboarding',
         method: 'POST',
         data: payload,
         silent: true,

@@ -590,7 +590,8 @@ function shouldShowSkeleton(index: number) {
 
 function syncVisibleEntries() {
   const messageId = props.message?.id || null
-  if (messageId !== renderedMessageId) {
+  const messageChanged = messageId !== renderedMessageId
+  if (messageChanged) {
     renderedMessageId = messageId
     visibleEntries.value = []
     queuedEntries.value = []
@@ -612,10 +613,17 @@ function syncVisibleEntries() {
     return
   }
 
+  if (messageChanged) {
+    visibleEntries.value = source
+    queuedEntries.value = []
+    clearRevealTimer()
+    return
+  }
+
   if (!visibleEntries.value.length) {
-    visibleEntries.value = source.slice(0, 1)
-    queuedEntries.value = source.slice(1)
-    scheduleReveal()
+    visibleEntries.value = source
+    queuedEntries.value = []
+    clearRevealTimer()
     return
   }
 

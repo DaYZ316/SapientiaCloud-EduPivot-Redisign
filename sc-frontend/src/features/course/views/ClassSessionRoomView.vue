@@ -33,24 +33,24 @@
     <div v-if="session?.publishedAt" class="classroom-tool-actions">
       <button class="floating-action secondary" type="button" @click="openChapterPreviewPanel">
         <BookOpen :size="18" stroke-width="1.8"/>
-        章节预览
+        {{ t('courseDetail.classSession.toolChapters') }}
       </button>
       <button class="floating-action secondary" type="button" @click="openSeatedStudentsPanel">
         <Users :size="18" stroke-width="1.8"/>
-        在线学生
+        {{ t('courseDetail.classSession.toolStudents') }}
         <span class="action-count">{{ seatedStudentCount }}</span>
       </button>
       <button class="floating-action secondary" type="button" @click="openAiSummaryPanel">
         <Sparkles :size="18" stroke-width="1.8"/>
-        AI 总结
+        {{ t('courseDetail.classSession.toolAiSummary') }}
       </button>
       <button v-if="canUseLivePracticePanel" class="floating-action" type="button" @click="openLivePracticePanel">
         <ClipboardList :size="18" stroke-width="1.8"/>
-        {{ canManageSessionCourse ? '发布练习' : '随堂练习' }}
+        {{ canManageSessionCourse ? t('courseDetail.classSession.toolPublishPractice') : t('courseDetail.classSession.toolLivePractice') }}
       </button>
       <button class="floating-action" type="button" @click="openClassroomLivePanel">
         <Video :size="18" stroke-width="1.8"/>
-        课堂直播
+        {{ t('courseDetail.classSession.toolLive') }}
       </button>
     </div>
 
@@ -102,9 +102,9 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, defineAsyncComponent, onMounted, ref} from 'vue'
+import {computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {useRoute, useRouter} from 'vue-router'
+import {onBeforeRouteLeave, useRoute, useRouter} from 'vue-router'
 import {BookOpen, CircleAlert, ClipboardList, Sparkles, Users, Video} from 'lucide-vue-next'
 
 import {getClassSession} from '@/features/course/api/classSession'
@@ -114,10 +114,9 @@ import type {SeatSyncMessage} from '@/features/classroom/types/classroom'
 import type {CourseDetail} from '@/features/course/types/course'
 import CourseEntryTransition from '@/features/course/components/CourseEntryTransition.vue'
 import {useAuthStore} from '@/features/auth/stores/auth'
-import {
-  closeClassroomLiveFloatingWindow,
-  openClassroomLiveFloatingWindow,
-} from '@/features/classroom/utils/liveFloatingWindow'
+import {useClassroomLiveMiniStore} from '@/features/classroom/stores/classroomLiveMini'
+
+const OPEN_CLASSROOM_LIVE_PANEL_EVENT = 'edupivot:open-classroom-live-panel'
 
 const AiLiveSummaryPanel = defineAsyncComponent(() => import('@/features/ai/components/AiLiveSummaryPanel.vue'))
 const Classroom3D = defineAsyncComponent(() => import('@/features/classroom/components/Classroom3D.vue'))
@@ -130,6 +129,7 @@ const {t} = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const liveMini = useClassroomLiveMiniStore()
 
 const sessionId = computed(() => route.params.sessionId as string)
 const isAdmin = computed(() => authStore.user?.role === 0)
@@ -140,7 +140,7 @@ const course = ref<CourseDetail | null>(null)
 const classroomReady = ref(false)
 const classroomLoadFailed = ref(false)
 const classroomProgress = ref(0)
-const classroomProgressLabel = ref('\u6b63\u5728\u83b7\u53d6\u8bfe\u5802\u4fe1\u606f')
+const classroomProgressLabel = ref(t('courseDetail.classSession.loadingSteps.resolvingSession'))
 const showLivePracticePanel = ref(false)
 const showChapterPreviewPanel = ref(false)
 const showSeatedStudentsPanel = ref(false)
@@ -174,7 +174,22 @@ const currentUserSeated = computed(() => {
 const canUseClassroomLive = computed(() => canManageSessionCourse.value || currentUserSeated.value)
 
 onMounted(() => {
+  window.addEventListener(OPEN_CLASSROOM_LIVE_PANEL_EVENT, handleOpenClassroomLivePanelRequest)
   void loadSession()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener(OPEN_CLASSROOM_LIVE_PANEL_EVENT, handleOpenClassroomLivePanelRequest)
+})
+
+onBeforeRouteLeave(() => {
+  showMiniWindowIfLive()
+})
+
+watch(() => route.query.livePanel, (livePanel) => {
+  if (livePanel === '1') {
+    openClassroomLivePanel()
+  }
 })
 
 async function loadSession() {
@@ -182,10 +197,10 @@ async function loadSession() {
   classroomReady.value = false
   classroomLoadFailed.value = false
   classroomProgress.value = 0
-  classroomProgressLabel.value = '\u6b63\u5728\u83b7\u53d6\u8bfe\u5802\u4fe1\u606f'
+  classroomProgressLabel.value = t('courseDetail.classSession.loadingSteps.resolvingSession')
   try {
     const sessionData = await getClassSession(sessionId.value)
-    classroomProgressLabel.value = '\u6b63\u5728\u6821\u9a8c\u8bfe\u7a0b\u8bbf\u95ee\u6743\u9650'
+    classroomProgressLabel.value = t('courseDetail.classSession.loadingSteps.checkingAccess')
     const courseData = await getCourse(sessionData.courseId)
     if (!canEnterClassroom(courseData)) {
       await router.replace({name: 'course-overview', params: {id: sessionData.courseId}})
@@ -197,11 +212,13 @@ async function loadSession() {
       initialPracticeGroupId.value = route.query.practice
       showLivePracticePanel.value = true
     }
-    if (route.query.liveFloating === '1' && shouldMinimizeTeacherLive()) {
+    if (route.query.livePanel === '1') {
+      openClassroomLivePanel()
+    } else if (route.query.liveFloating === '1' && shouldMinimizeTeacherLive()) {
       void minimizeClassroomLivePanel()
     }
     classroomProgress.value = 10
-    classroomProgressLabel.value = '\u6b63\u5728\u521d\u59cb\u5316 WebGL \u753b\u5e03\u4e0e\u955c\u5934'
+    classroomProgressLabel.value = t('courseDetail.classSession.loadingSteps.preparingScene')
   } catch {
     session.value = null
   } finally {
@@ -231,11 +248,12 @@ function markLeft() {
 
 function applySessionUpdate(nextSession: ClassSession) {
   session.value = nextSession
+  liveMini.updateSession(nextSession)
 }
 
 function handleClassroomReady() {
   classroomProgress.value = 100
-  classroomProgressLabel.value = '\u5373\u5c06\u8fdb\u5165\u6559\u5ba4'
+  classroomProgressLabel.value = t('courseDetail.classSession.loadingSteps.ready')
   classroomReady.value = true
 }
 
@@ -280,51 +298,93 @@ function closeAiSummaryPanel() {
 
 function openClassroomLivePanel() {
   closeSidePanels()
-  closeClassroomLiveFloatingWindow()
+  liveMini.clear()
   classroomLivePanelCompact.value = false
   showClassroomLivePanel.value = true
+  replaceClassroomLiveQuery('panel')
 }
 
-async function closeClassroomLivePanel() {
+function handleOpenClassroomLivePanelRequest(event: Event) {
+  const detail = (event as CustomEvent<{sessionId?: string}>).detail
+  if (!session.value || detail?.sessionId !== session.value.id || !session.value.publishedAt) {
+    return
+  }
+  openClassroomLivePanel()
+}
+
+async function closeClassroomLivePanel(forceClose = false) {
+  if (forceClose) {
+    showClassroomLivePanel.value = false
+    classroomLivePanelCompact.value = false
+    return
+  }
   if (shouldMinimizeTeacherLive()) {
     await minimizeClassroomLivePanel()
     return
   }
   showClassroomLivePanel.value = false
   classroomLivePanelCompact.value = false
-  closeClassroomLiveFloatingWindow()
+  replaceClassroomLiveQuery(null)
 }
 
 function expandClassroomLivePanel() {
-  closeClassroomLiveFloatingWindow()
   showClassroomLivePanel.value = true
   classroomLivePanelCompact.value = false
+  replaceClassroomLiveQuery('panel')
 }
 
 async function minimizeClassroomLivePanel() {
   if (!session.value) return
-  classroomLivePanelCompact.value = true
-  showClassroomLivePanel.value = true
-  const openedFloatingWindow = await openClassroomLiveFloatingWindow({
-    title: session.value.title,
-    status: '直播仍在进行',
-    restoreLabel: '返回',
-    onRestore: expandClassroomLivePanel,
-    onClose: () => {
-      if (!shouldMinimizeTeacherLive()) return
-      classroomLivePanelCompact.value = true
-      showClassroomLivePanel.value = true
-    },
-  })
-  if (openedFloatingWindow) {
-    showClassroomLivePanel.value = false
-  }
+  showMiniWindowIfLive()
+  classroomLivePanelCompact.value = false
+  showClassroomLivePanel.value = false
+  replaceClassroomLiveQuery('floating')
 }
 
 function shouldMinimizeTeacherLive() {
   return Boolean(session.value
       && isSessionOpeningTeacher.value
-      && (session.value.liveStatus === ClassLiveStatus.LIVE || session.value.liveStatus === ClassLiveStatus.PAUSED))
+      && session.value.liveStatus === ClassLiveStatus.LIVE)
+}
+
+function showMiniWindowIfLive() {
+  if (!session.value) {
+    return
+  }
+  if (!shouldMinimizeTeacherLive()) {
+    liveMini.updateSession(session.value)
+    return
+  }
+  liveMini.show({
+    session: session.value,
+    isTeacher: isSessionOpeningTeacher.value,
+    canParticipate: canUseClassroomLive.value,
+  })
+}
+
+function replaceClassroomLiveQuery(mode: 'panel' | 'floating' | null) {
+  if (mode === 'panel' && route.query.livePanel === '1' && route.query.liveFloating == null) {
+    return
+  }
+  if (mode === 'floating' && route.query.liveFloating === '1' && route.query.livePanel == null) {
+    return
+  }
+  if (mode == null && route.query.livePanel == null && route.query.liveFloating == null) {
+    return
+  }
+  const query = {...route.query}
+  delete query.livePanel
+  delete query.liveFloating
+  if (mode === 'panel') {
+    query.livePanel = '1'
+  } else if (mode === 'floating') {
+    query.liveFloating = '1'
+  }
+  void router.replace({
+    name: 'class-session-room',
+    params: {sessionId: sessionId.value},
+    query,
+  })
 }
 
 function closeSidePanels() {
@@ -354,8 +414,10 @@ function handleLiveStatusChange(message: SeatSyncMessage) {
     liveEndedAt: message.liveEndedAt ?? session.value.liveEndedAt,
   }
   if (message.liveStatus !== ClassLiveStatus.LIVE && message.liveStatus !== ClassLiveStatus.PAUSED) {
-    closeClassroomLiveFloatingWindow()
     classroomLivePanelCompact.value = false
+  }
+  if (session.value) {
+    liveMini.updateSession(session.value)
   }
 }
 
@@ -375,7 +437,11 @@ function handleClassroomProgress(payload: number | {progress: number; label?: st
 }
 
 function exitClassroom() {
-  router.back()
+  if (session.value?.courseId) {
+    router.push({name: 'course-class-sessions', params: {id: session.value.courseId}})
+    return
+  }
+  router.push('/courses')
 }
 
 function backToCourse() {

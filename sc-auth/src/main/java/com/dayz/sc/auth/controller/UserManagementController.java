@@ -1,8 +1,10 @@
 package com.dayz.sc.auth.controller;
 
 import com.dayz.sc.auth.model.dto.UpdateUserRequest;
+import com.dayz.sc.auth.model.dto.CompleteOnboardingRequest;
 import com.dayz.sc.auth.model.dto.UserBasicInfo;
 import com.dayz.sc.auth.model.dto.UserPageRequest;
+import com.dayz.sc.auth.model.vo.LoginResponseVO;
 import com.dayz.sc.auth.model.vo.UserProfileVO;
 import com.dayz.sc.auth.service.UserManagementService;
 import com.dayz.sc.common.error.BusinessException;
@@ -48,6 +50,14 @@ public class UserManagementController {
                                                                  @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         return ApiResponse.ok(userManagementService.updateCurrentUser(userId, request));
+    }
+
+    @PostMapping("/me/onboarding")
+    @RateLimited
+    public ApiResponse<@NonNull LoginResponseVO> completeOnboarding(@Valid @RequestBody CompleteOnboardingRequest request,
+                                                                    @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        return ApiResponse.ok(userManagementService.completeOnboarding(userId, request));
     }
 
     @GetMapping

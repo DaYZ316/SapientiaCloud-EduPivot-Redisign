@@ -125,6 +125,16 @@ public class MybatisClassSessionRepository implements ClassSessionRepository {
         return classSessionMapper.selectList(wrapper);
     }
 
+    @Override
+    public List<ClassSession> findLiveSessions(int liveStatus, int limit) {
+        LambdaQueryWrapper<ClassSession> wrapper = new LambdaQueryWrapper<>();
+        wrapper.isNotNull(ClassSession::getPublishedAt);
+        wrapper.eq(ClassSession::getLiveStatus, liveStatus);
+        wrapper.orderByAsc(ClassSession::getScheduledEndAt);
+        wrapper.last("LIMIT " + Math.max(1, limit));
+        return classSessionMapper.selectList(wrapper);
+    }
+
     private Object value(Map<String, Object> row, String snakeCaseKey, String camelCaseKey) {
         Object value = row.get(snakeCaseKey);
         return value != null ? value : row.get(camelCaseKey);

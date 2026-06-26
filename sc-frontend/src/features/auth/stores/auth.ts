@@ -6,6 +6,7 @@ import {
     loginWithGoogle,
     loginWithPassword,
     logout as logoutRequest,
+    completeOnboarding as completeOnboardingRequest,
     register
 } from '@/features/auth/api/auth'
 import type {LoginResponse, PasswordLoginRequest, RegisterRequest} from '@/features/auth/types/auth'
@@ -87,6 +88,11 @@ export const useAuthStore = defineStore('auth', () => {
         persistSession(payload)
     }
 
+    async function completeOnboarding(role: number, displayName: string) {
+        const payload = await completeOnboardingRequest({role, displayName})
+        persistSession(payload)
+    }
+
     function clearSession() {
         closeAllSseConnections()
         accessToken.value = ''
@@ -130,6 +136,7 @@ export const useAuthStore = defineStore('auth', () => {
         githubLogin,
         passwordLogin,
         registerUser,
+        completeOnboarding,
         setUser,
         clearSession,
         logout,

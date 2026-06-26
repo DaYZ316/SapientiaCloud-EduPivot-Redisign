@@ -78,4 +78,6 @@ public interface ClassSessionRepository {
     Map<UUID, Long> countPublishedByCourseIds(List<UUID> courseIds);
 
     List<ClassSession> findLiveSessionsPastEnd(Instant now, int endedLiveStatus, int limit);
+
+    List<ClassSession> findLiveSessions(int liveStatus, int limit);
 }

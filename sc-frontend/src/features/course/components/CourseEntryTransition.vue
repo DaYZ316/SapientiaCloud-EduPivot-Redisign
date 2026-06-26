@@ -7,7 +7,7 @@
         <div class="progress-track">
           <div class="progress-fill" :style="{width: `${clampedProgress}%`}"></div>
         </div>
-        <div class="loading-label">{{ label }}</div>
+        <div class="loading-label">{{ displayLabel }}</div>
       </div>
     </div>
   </div>
@@ -15,21 +15,24 @@
 
 <script lang="ts" setup>
 import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
+import {useI18n} from 'vue-i18n'
 
 const props = withDefaults(defineProps<{
   label?: string
   progress?: number
 }>(), {
-  label: 'LOADING CLASSROOM',
+  label: '',
   progress: 0,
 })
 
+const {t} = useI18n()
 const clampedProgress = computed(() => {
   if (!Number.isFinite(props.progress)) {
     return 0
   }
   return Math.min(Math.max(props.progress, 0), 100)
 })
+const displayLabel = computed(() => props.label || t('courseDetail.classSession.modelLoading'))
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 let animationFrame = 0
 let resizeObserver: ResizeObserver | null = null

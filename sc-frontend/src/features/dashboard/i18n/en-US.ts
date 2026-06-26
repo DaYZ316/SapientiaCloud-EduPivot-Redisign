@@ -121,10 +121,16 @@ export default {
             tianshuPaperGeneration: 'Tianshu paper generation',
             tianshuPaperGenerationHint: 'Assemble knowledge points into quick assessments',
             tianshuGrading: 'Tianshu grading',
-            tianshuGradingHint: 'Open the AI workspace for grading and analysis',
+            tianshuStudentGradingHint: 'Auto-grade subjective answers when enabled by the teacher',
+            tianshuTeacherGradingHint: 'Auto-grade submitted subjective answers after you enable it',
+            tianshuStudentGradingNotice:
+                'Tianshu grading is for subjective practice answers. When the teacher enables it, submitting a subjective answer triggers grading automatically.',
+            tianshuTeacherGradingNotice:
+                'Tianshu grading is for subjective practice answers. Enable it in practice settings, and it runs automatically when students submit.',
             tianshuClassMinutes: 'Tianshu class minutes',
-            tianshuClassMinutesHint: 'Summarize class highlights; not available yet',
-            tianshuFeaturePending: '{name} is not available yet',
+            tianshuClassMinutesHint: 'Generate live summaries in the 3D classroom',
+            tianshuClassMinutesNotice:
+                'Tianshu class minutes provide real-time summaries for 3D classroom livestreams. Open a live classroom and view the class summary panel for the generated highlights.',
             aiCourseQuestions: 'Generate from course resources',
             summarizeForum: 'Summarize forum questions',
             generateClassPractice: 'Generate class practice',

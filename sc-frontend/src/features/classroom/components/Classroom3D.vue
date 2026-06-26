@@ -75,6 +75,8 @@ let frameId = 0
 let resizeObserver: ResizeObserver | null = null
 let websocket: WebSocket | null = null
 let seatSocketStarted = false
+let seatSocketReconnectTimer: number | null = null
+let seatSocketReconnectAttempts = 0
 let destroyed = false
 const modelInstanceManager = new ModelInstanceManager()
 const deskInstancedMeshes: THREE.InstancedMesh[] = []
@@ -82,20 +84,8 @@ const targetBeforeClamp = new THREE.Vector3()
 const targetAfterClamp = new THREE.Vector3()
 const targetClampDelta = new THREE.Vector3()
 const cameraAfterClamp = new THREE.Vector3()
-const EXIT_LABEL_TEXT = '\u9000\u51fa\u6559\u5ba4 \u2192'
 const DOOR_NAME = '\u95e8'
-const LOADING_LABELS = {
-  resolvingSession: '\u6b63\u5728\u83b7\u53d6\u8bfe\u5802\u4fe1\u606f',
-  checkingAccess: '\u6b63\u5728\u6821\u9a8c\u8bfe\u7a0b\u8bbf\u95ee\u6743\u9650',
-  preparingScene: '\u6b63\u5728\u521d\u59cb\u5316 WebGL \u753b\u5e03\u4e0e\u955c\u5934',
-  loadingAssetsWithTextures: '\u6b63\u5728\u5e76\u884c\u52a0\u8f7d\u6559\u5ba4\u573a\u666f\uff08\u5899\u9762\u3001\u5730\u677f\u4e0e\u8bb2\u53f0\uff09\u3001\u5b66\u751f\u684c\u6905\u6a21\u578b\u4e0e\u6750\u8d28\u7eb9\u7406',
-  loadingAssetsWithoutTextures: '\u6b63\u5728\u5e76\u884c\u52a0\u8f7d\u6559\u5ba4\u573a\u666f\uff08\u5899\u9762\u3001\u5730\u677f\u4e0e\u8bb2\u53f0\uff09\u4e0e\u5b66\u751f\u684c\u6905\u6a21\u578b',
-  applyingMaterials: '\u6b63\u5728\u5e94\u7528\u6559\u5ba4\u548c\u684c\u6905\u6750\u8d28',
-  arrangingDesks: '\u6b63\u5728\u6309\u6559\u5ba4\u89c4\u683c\u6446\u653e\u684c\u6905',
-  seatMarkers: '\u6b63\u5728\u751f\u6210\u5ea7\u4f4d\u6807\u8bb0\u4e0e\u5934\u50cf\u56fe\u5c42',
-  interactions: '\u6b63\u5728\u7ed1\u5b9a\u5ea7\u4f4d\u70b9\u51fb\u548c\u9000\u51fa\u95e8\u4ea4\u4e92',
-  ready: '\u5373\u5c06\u8fdb\u5165\u6559\u5ba4',
-}
+const loadingLabel = (key: string) => t(`courseDetail.classSession.loadingSteps.${key}`)
 
 const roomSpec = computed(() => getRoomSpec(props.session.roomSize))
 const currentUserId = computed(() => authStore.user?.id || '')
@@ -116,6 +106,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   destroyed = true
+  clearSeatSocketReconnectTimer()
   websocket?.close()
   resizeObserver?.disconnect()
   interactionRef.value?.dispose()
@@ -142,7 +133,7 @@ async function setupScene() {
   }
   loading.value = true
   loadError.value = ''
-  emitLoadingProgress(10, LOADING_LABELS.preparingScene)
+  emitLoadingProgress(10, loadingLabel('preparingScene'))
   try {
     const canvas = canvasRef.value
     const scene = new THREE.Scene()
@@ -178,16 +169,16 @@ async function setupScene() {
     resizeRenderer()
     resizeObserver = new ResizeObserver(resizeRenderer)
     resizeObserver.observe(canvas.parentElement || canvas)
-    emitLoadingProgress(15, LOADING_LABELS.preparingScene)
+    emitLoadingProgress(15, loadingLabel('preparingScene'))
 
     await loadModels(scene, camera, controls)
-    emitLoadingProgress(92, LOADING_LABELS.seatMarkers)
+    emitLoadingProgress(92, loadingLabel('seatMarkers'))
     setupSprites(scene)
-    emitLoadingProgress(95, LOADING_LABELS.interactions)
+    emitLoadingProgress(95, loadingLabel('interactions'))
     setupInteractions(canvas, camera, scene)
-    emitLoadingProgress(98, LOADING_LABELS.interactions)
+    emitLoadingProgress(98, loadingLabel('interactions'))
     animate()
-    emitLoadingProgress(100, LOADING_LABELS.ready)
+    emitLoadingProgress(100, loadingLabel('ready'))
     emit('ready')
   } catch (error) {
     const message = error instanceof Error ? error.message : t('courseDetail.classSession.modelLoadFailed')
@@ -203,13 +194,13 @@ async function loadModels(scene: THREE.Scene, camera: THREE.PerspectiveCamera, c
   const progress = createAssetProgressReporter(15, 90, [
     {key: 'classroom', weight: 4},
     {key: 'desk', weight: 3},
-  ], LOADING_LABELS.loadingAssetsWithoutTextures)
+  ], loadingLabel('loadingAssetsWithoutTextures'))
   const [classroom, desk] = await Promise.all([
     loadGlb(route.classroom.model, progress.track('classroom')),
     loadGlb(route.desk.model, progress.track('desk')),
   ])
 
-  emitLoadingProgress(90, LOADING_LABELS.applyingMaterials)
+  emitLoadingProgress(90, loadingLabel('applyingMaterials'))
   classroom.scene.position.set(0, 0, 0)
   classroom.scene.rotation.y = props.session.roomSize === ClassRoomSize.SMALL ? 0 : Math.PI / 2
   classroom.scene.updateMatrixWorld(true)
@@ -226,8 +217,8 @@ async function loadModels(scene: THREE.Scene, camera: THREE.PerspectiveCamera, c
   scene.add(classroom.scene)
   setupExitDoor(scene, classroom.scene, classroomBounds)
 
-  emitLoadingProgress(91, LOADING_LABELS.arrangingDesks)
-  const instancedMeshes = modelInstanceManager.createInstancedMeshes(desk.scene, roomSpec.value.deskInstanceCount)
+  emitLoadingProgress(91, loadingLabel('arrangingDesks'))
+  const instancedMeshes = modelInstanceManager.createInstancedMeshes(desk.scene, roomSpec.value.deskInstanceCount, null)
   modelInstanceManager.setInstanceMatrices(instancedMeshes, props.session.roomSize, roomSpec.value.deskInstanceCount, (index) =>
       getDeskPosition(props.session.roomSize, index, classroomDimensions.value),
   )
@@ -343,10 +334,15 @@ async function connectSeatSocket() {
     }
     const socket = new WebSocket(buildSeatSocketUrl(token.token))
     websocket = socket
+    socket.onopen = () => {
+      seatSocketReconnectAttempts = 0
+    }
     socket.onmessage = (event) => handleSeatSyncMessage(event.data)
     socket.onclose = () => {
       if (websocket === socket) {
         websocket = null
+        seatSocketStarted = false
+        scheduleSeatSocketReconnect()
       }
     }
     socket.onerror = () => {
@@ -356,7 +352,29 @@ async function connectSeatSocket() {
     }
   } catch {
     // Seat sync is best effort. The initial participants request still renders the classroom.
+    seatSocketStarted = false
+    scheduleSeatSocketReconnect()
   }
+}
+
+function scheduleSeatSocketReconnect() {
+  if (destroyed || seatSocketReconnectTimer != null) {
+    return
+  }
+  seatSocketReconnectAttempts += 1
+  const delay = Math.min(1000 * seatSocketReconnectAttempts, 8000)
+  seatSocketReconnectTimer = window.setTimeout(() => {
+    seatSocketReconnectTimer = null
+    void connectSeatSocket()
+  }, delay)
+}
+
+function clearSeatSocketReconnectTimer() {
+  if (seatSocketReconnectTimer == null) {
+    return
+  }
+  window.clearTimeout(seatSocketReconnectTimer)
+  seatSocketReconnectTimer = null
 }
 
 function isSeatSocketActive() {
@@ -371,6 +389,9 @@ function handleSeatSyncMessage(raw: string) {
     }
     if (message.type === 'seat_snapshot') {
       applySnapshot(message.participants || [])
+      if (message.liveStatus != null) {
+        emit('live-status-change', message)
+      }
       return
     }
     if (message.type === 'seat_upsert' && message.participant) {
@@ -559,6 +580,7 @@ function faceRoomCenter(position: THREE.Vector3) {
 }
 
 function createExitLabelTexture() {
+  const labelText = t('courseDetail.classSession.exitClassroomLabel')
   const canvas = document.createElement('canvas')
   canvas.width = 512
   canvas.height = 160
@@ -580,9 +602,9 @@ function createExitLabelTexture() {
     context.font = '700 58px sans-serif'
     context.textAlign = 'center'
     context.textBaseline = 'middle'
-    context.strokeText(EXIT_LABEL_TEXT, canvas.width / 2, canvas.height / 2 + 3)
+    context.strokeText(labelText, canvas.width / 2, canvas.height / 2 + 3)
     context.fillStyle = '#ffffff'
-    context.fillText(EXIT_LABEL_TEXT, canvas.width / 2, canvas.height / 2 + 3)
+    context.fillText(labelText, canvas.width / 2, canvas.height / 2 + 3)
   }
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
@@ -658,7 +680,7 @@ function createAssetProgressReporter(start: number, end: number, items: AssetPro
 
   function report() {
     if (totalWeight <= 0) {
-      emitLoadingProgress(end, LOADING_LABELS.applyingMaterials)
+      emitLoadingProgress(end, loadingLabel('applyingMaterials'))
       return
     }
     let weightedLoaded = 0

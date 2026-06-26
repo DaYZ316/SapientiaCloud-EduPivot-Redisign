@@ -3,6 +3,8 @@ package com.dayz.sc.gateway.config;
 import com.dayz.sc.common.security.config.JwtProperties;
 import com.dayz.sc.common.security.token.BlacklistCheckingJwtDecoder;
 import com.dayz.sc.common.security.token.TokenBlacklistService;
+import com.dayz.sc.gateway.filter.ProfileCompletionFilter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,6 +15,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
@@ -69,7 +72,8 @@ public class GatewaySecurityConfiguration {
                 )
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .bearerTokenResolver(bearerTokenResolver)
-                        .jwt(jwt -> jwt.decoder(jwtDecoder)));
+                        .jwt(jwt -> jwt.decoder(jwtDecoder)))
+                .addFilterAfter(new ProfileCompletionFilter(new ObjectMapper()), BearerTokenAuthenticationFilter.class);
 
         return http.build();
     }

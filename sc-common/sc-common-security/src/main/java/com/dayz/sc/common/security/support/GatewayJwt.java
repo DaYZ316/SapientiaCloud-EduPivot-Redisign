@@ -5,6 +5,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.io.Serial;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -35,7 +36,7 @@ public class GatewayJwt extends Jwt {
                 Instant.EPOCH,
                 Instant.now().plusSeconds(86400),
                 Map.of("alg", "gateway-trusted"),
-                Map.of("sub", userId.toString(), "role", role)
+                claims(userId, role)
         );
         this.userId = userId;
         this.role = role;
@@ -49,16 +50,25 @@ public class GatewayJwt extends Jwt {
      * @return GatewayJwt 实象，如果任一头部缺失或无效则返回 null
      */
     public static GatewayJwt fromHeaders(String userIdHeader, String roleHeader) {
-        if (userIdHeader == null || userIdHeader.isBlank() || roleHeader == null || roleHeader.isBlank()) {
+        if (userIdHeader == null || userIdHeader.isBlank()) {
             return null;
         }
         try {
             UUID userId = UUID.fromString(userIdHeader.trim());
-            Integer role = Integer.parseInt(roleHeader.trim());
+            Integer role = roleHeader == null || roleHeader.isBlank() ? null : Integer.parseInt(roleHeader.trim());
             return new GatewayJwt(userId, role);
         } catch (IllegalArgumentException e) {
             return null;
         }
+    }
+
+    private static Map<String, Object> claims(UUID userId, Integer role) {
+        Map<String, Object> claims = new LinkedHashMap<>();
+        claims.put("sub", userId.toString());
+        if (role != null) {
+            claims.put("role", role);
+        }
+        return claims;
     }
 
 }

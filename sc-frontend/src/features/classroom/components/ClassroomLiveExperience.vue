@@ -537,6 +537,7 @@ import {
 } from '@/features/course/types/classSession'
 import {type CameraOverlayPosition, useClassroomLive} from '@/features/classroom/composables/useClassroomLive'
 import {
+    CLASSROOM_LIVE_REMOTE_PAUSED_EVENT,
     TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT,
     useTeacherLiveSessionGuard,
 } from '@/features/classroom/composables/useTeacherLiveSessionGuard'
@@ -696,6 +697,7 @@ onMounted(async () => {
         updatePlayerFullscreenState()
         document.addEventListener('fullscreenchange', updatePlayerFullscreenState)
         window.addEventListener(TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT, handleUnexpectedPaused)
+        window.addEventListener(CLASSROOM_LIVE_REMOTE_PAUSED_EVENT, handleUnexpectedPaused)
     }
     await loadMessages()
     await loadParticipants()
@@ -706,6 +708,7 @@ onUnmounted(() => {
     if (typeof document !== 'undefined') {
         document.removeEventListener('fullscreenchange', updatePlayerFullscreenState)
         window.removeEventListener(TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT, handleUnexpectedPaused)
+        window.removeEventListener(CLASSROOM_LIVE_REMOTE_PAUSED_EVENT, handleUnexpectedPaused)
     }
 })
 
@@ -1712,23 +1715,11 @@ function formatLiveLatencyLabel() {
   flex: 1 1 auto;
   overflow-y: auto;
   gap: 0;
-  padding-right: 6px;
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: var(--live-muted) transparent;
+  scrollbar-width: none;
 }
 
 .mode-popup .chat-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.mode-popup .chat-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.mode-popup .chat-list::-webkit-scrollbar-thumb {
-  border-radius: var(--radius-pill);
-  background: var(--live-muted);
+  display: none;
 }
 
 .empty {

@@ -45,9 +45,11 @@ public class ClassSeatSyncWebSocketHub {
         }
     }
 
-    public void sendSnapshot(WebSocketSession session, UUID classSessionId, List<ClassParticipantVO> participants) {
+    public void sendSnapshot(WebSocketSession session, UUID classSessionId, List<ClassParticipantVO> participants,
+                             ClassSessionVO classSession) {
         send(session, new SeatSyncMessage("seat_snapshot", classSessionId, participants, null, null, null,
-                null, null, null, null, null));
+                classSession.liveStatus(), classSession.liveStatusText(), classSession.liveStartedAt(),
+                classSession.livePausedAt(), classSession.liveEndedAt()));
     }
 
     public void broadcastUpsert(UUID classSessionId, ClassParticipantVO participant) {

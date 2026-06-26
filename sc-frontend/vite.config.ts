@@ -1,8 +1,7 @@
 import {fileURLToPath, URL} from 'node:url'
 
 import vue from '@vitejs/plugin-vue'
-import {loadEnv} from 'vite'
-import {defineConfig} from 'vitest/config'
+import {defineConfig, loadEnv} from 'vite'
 
 export default defineConfig(({mode}) => {
     const env = loadEnv(mode, process.cwd(), '')
@@ -33,9 +32,6 @@ export default defineConfig(({mode}) => {
                     codeSplitting: true,
                 },
             },
-        },
-        test: {
-            environment: 'jsdom',
         },
     }
 })

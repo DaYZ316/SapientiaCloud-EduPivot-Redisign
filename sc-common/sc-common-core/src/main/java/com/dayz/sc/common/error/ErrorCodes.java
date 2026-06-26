@@ -26,6 +26,10 @@ public enum ErrorCodes implements ErrorCode {
      */
     FORBIDDEN(40300, "无访问权限", HttpStatus.FORBIDDEN),
     /**
+     * 用户基础信息未完善
+     */
+    PROFILE_INCOMPLETE(40310, "用户基础信息未完善", HttpStatus.FORBIDDEN),
+    /**
      * 请求访问的资源不存在
      */
     NOT_FOUND(40400, "资源不存在", HttpStatus.NOT_FOUND),

@@ -2,6 +2,7 @@ package com.dayz.sc.course.websocket;
 
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.course.model.vo.ClassParticipantVO;
+import com.dayz.sc.course.model.vo.ClassSessionVO;
 import com.dayz.sc.course.service.ClassSessionService;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -40,9 +41,10 @@ public class ClassSeatSyncWebSocketHandler extends TextWebSocketHandler {
             return;
         }
         try {
+            ClassSessionVO classSession = classSessionService.getSession(classSessionId, userId, role);
             List<ClassParticipantVO> participants = classSessionService.listParticipants(classSessionId, userId, role);
             hub.register(classSessionId, session);
-            hub.sendSnapshot(session, classSessionId, participants);
+            hub.sendSnapshot(session, classSessionId, participants, classSession);
         } catch (BusinessException exception) {
             session.close(CloseStatus.NOT_ACCEPTABLE);
         }

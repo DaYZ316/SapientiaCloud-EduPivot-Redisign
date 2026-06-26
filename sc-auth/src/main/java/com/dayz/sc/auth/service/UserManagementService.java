@@ -2,6 +2,7 @@ package com.dayz.sc.auth.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.dayz.sc.auth.event.UserEventPublisher;
+import com.dayz.sc.auth.model.dto.CompleteOnboardingRequest;
 import com.dayz.sc.auth.model.dto.UpdateUserRequest;
 import com.dayz.sc.auth.model.dto.UserBasicInfo;
 import com.dayz.sc.auth.model.dto.UserPageRequest;
@@ -11,6 +12,7 @@ import com.dayz.sc.auth.model.entity.User;
 import com.dayz.sc.auth.model.entity.UserIdentity;
 import com.dayz.sc.auth.model.enums.OauthProvider;
 import com.dayz.sc.auth.model.enums.UserStatus;
+import com.dayz.sc.auth.model.vo.LoginResponseVO;
 import com.dayz.sc.auth.model.vo.StudentInfoVO;
 import com.dayz.sc.auth.model.vo.TeacherInfoVO;
 import com.dayz.sc.auth.model.vo.UserProfileVO;
@@ -28,7 +30,10 @@ import com.dayz.sc.common.feign.dto.StorageObjectInfo;
 import com.dayz.sc.common.model.UserRole;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
+import com.dayz.sc.common.security.service.JwtTokenService;
+import com.dayz.sc.common.security.token.RefreshTokenService;
 import com.dayz.sc.common.util.PageUtils;
+import com.dayz.sc.common.util.UuidV7Generator;
 import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -39,6 +44,7 @@ import org.springframework.util.StringUtils;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 /**
@@ -51,6 +57,7 @@ import java.util.stream.Collectors;
 public class UserManagementService {
 
     private static final String DEFAULT_PASSWORD = "SapientiaCloud123";
+    private static final String TOKEN_TYPE = "Bearer";
     private static final String STATUS_READY = "READY";
     private static final String USAGE_USER_AVATAR = "USER_AVATAR";
     private static final String SCOPE_TYPE_USER = "USER";
@@ -61,6 +68,8 @@ public class UserManagementService {
     private final PasswordEncoder passwordEncoder;
     private final StorageInternalClient storageInternalClient;
     private final UserEventPublisher userEventPublisher;
+    private final JwtTokenService jwtTokenService;
+    private final RefreshTokenService refreshTokenService;
     private final Clock clock;
 
     @Autowired
@@ -69,9 +78,12 @@ public class UserManagementService {
                                  TeacherRepository teacherRepository,
                                  PasswordEncoder passwordEncoder,
                                  StorageInternalClient storageInternalClient,
-                                 UserEventPublisher userEventPublisher) {
+                                 UserEventPublisher userEventPublisher,
+                                 JwtTokenService jwtTokenService,
+                                 RefreshTokenService refreshTokenService) {
         this(userAccountRepository, studentRepository, teacherRepository,
-                passwordEncoder, storageInternalClient, userEventPublisher, Clock.systemUTC());
+                passwordEncoder, storageInternalClient, userEventPublisher,
+                jwtTokenService, refreshTokenService, Clock.systemUTC());
     }
 
     UserManagementService(UserAccountRepository userAccountRepository,
@@ -80,7 +92,7 @@ public class UserManagementService {
                           PasswordEncoder passwordEncoder,
                           Clock clock) {
         this(userAccountRepository, studentRepository, teacherRepository,
-                passwordEncoder, null, null, clock);
+                passwordEncoder, null, null, null, null, clock);
     }
 
     UserManagementService(UserAccountRepository userAccountRepository,
@@ -89,6 +101,8 @@ public class UserManagementService {
                           PasswordEncoder passwordEncoder,
                           StorageInternalClient storageInternalClient,
                           UserEventPublisher userEventPublisher,
+                          JwtTokenService jwtTokenService,
+                          RefreshTokenService refreshTokenService,
                           Clock clock) {
         this.userAccountRepository = userAccountRepository;
         this.studentRepository = studentRepository;
@@ -96,6 +110,8 @@ public class UserManagementService {
         this.passwordEncoder = passwordEncoder;
         this.storageInternalClient = storageInternalClient;
         this.userEventPublisher = userEventPublisher;
+        this.jwtTokenService = jwtTokenService;
+        this.refreshTokenService = refreshTokenService;
         this.clock = clock;
     }
 
@@ -225,6 +241,24 @@ public class UserManagementService {
                 loadStudentInfo(user.getId()), loadTeacherInfo(user.getId()));
     }
 
+    public boolean isProfileComplete(UUID id) {
+        if (id == null) {
+            return false;
+        }
+        return userAccountRepository.findUser(id)
+                .map(user -> user.getRole() != null && StringUtils.hasText(user.getDisplayName()))
+                .orElse(false);
+    }
+
+    public AuthTokenState getAuthTokenState(UUID id) {
+        if (id == null) {
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED);
+        }
+        User user = userAccountRepository.findUser(id)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.UNAUTHORIZED));
+        return new AuthTokenState(user.getRole(), user.getRole() != null && StringUtils.hasText(user.getDisplayName()));
+    }
+
     private long countUsers(UserStatus status, Integer role) {
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         if (status != null) {
@@ -251,6 +285,38 @@ public class UserManagementService {
 
         return toUserProfile(user, userAccountRepository.findLinkedProviders(user.getId()),
                 loadStudentInfo(user.getId()), loadTeacherInfo(user.getId()));
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public LoginResponseVO completeOnboarding(UUID id, CompleteOnboardingRequest request) {
+        if (id == null || request == null) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST);
+        }
+
+        User user = userAccountRepository.findUser(id)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND, "User not found"));
+        UserRole requestedRole = UserRole.fromCode(request.role());
+        if (requestedRole != UserRole.STUDENT && requestedRole != UserRole.TEACHER) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Role must be student or teacher");
+        }
+        if (user.getRole() != null && !Objects.equals(user.getRole(), request.role())) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Role has already been selected");
+        }
+        if (user.getRole() != null && StringUtils.hasText(user.getDisplayName())) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Onboarding already completed");
+        }
+
+        user.setRole(request.role());
+        user.setDisplayName(normalizeRequiredDisplayName(request.displayName()));
+        user.setUpdatedAt(Instant.now(clock));
+        userAccountRepository.saveUser(user);
+        ensureRoleProfile(user.getId(), requestedRole);
+
+        UserProfileVO profile = toUserProfile(user, userAccountRepository.findLinkedProviders(user.getId()),
+                loadStudentInfo(user.getId()), loadTeacherInfo(user.getId()));
+        String accessToken = jwtTokenService.createAccessToken(user.getId().toString(), buildClaims(user));
+        String refreshToken = refreshTokenService.createRefreshToken(user.getId().toString(), user.getRole());
+        return new LoginResponseVO(accessToken, refreshToken, TOKEN_TYPE, jwtTokenService.getAccessTokenTtlSeconds(), profile);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -287,6 +353,49 @@ public class UserManagementService {
         user.setPasswordHash(passwordEncoder.encode(DEFAULT_PASSWORD));
         user.setUpdatedAt(Instant.now(clock));
         userAccountRepository.saveUser(user);
+    }
+
+    private void ensureRoleProfile(UUID userId, UserRole role) {
+        Instant now = Instant.now(clock);
+        if (role == UserRole.STUDENT && studentRepository.findByUserId(userId).isEmpty()) {
+            Student student = new Student();
+            student.setId(UuidV7Generator.generate());
+            student.setUserId(userId);
+            student.setStudentNo(generateProfileNo("S"));
+            student.setCreatedAt(now);
+            student.setUpdatedAt(now);
+            studentRepository.save(student);
+        } else if (role == UserRole.TEACHER && teacherRepository.findByUserId(userId).isEmpty()) {
+            Teacher teacher = new Teacher();
+            teacher.setId(UuidV7Generator.generate());
+            teacher.setUserId(userId);
+            teacher.setEmployeeNo(generateProfileNo("T"));
+            teacher.setCreatedAt(now);
+            teacher.setUpdatedAt(now);
+            teacherRepository.save(teacher);
+        }
+    }
+
+    private String generateProfileNo(String prefix) {
+        return prefix + Instant.now(clock).toEpochMilli() + ThreadLocalRandom.current().nextInt(1000, 10000);
+    }
+
+    private String normalizeRequiredDisplayName(String value) {
+        String normalized = value == null ? null : value.trim();
+        if (!StringUtils.hasText(normalized)) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Display name is required");
+        }
+        return normalized;
+    }
+
+    private Map<String, Object> buildClaims(User user) {
+        Map<String, Object> claims = new LinkedHashMap<>();
+        claims.put("userId", user.getId().toString());
+        claims.put("profileComplete", user.getRole() != null && StringUtils.hasText(user.getDisplayName()));
+        if (user.getRole() != null) {
+            claims.put("role", user.getRole());
+        }
+        return claims;
     }
 
     private LambdaQueryWrapper<User> buildQueryWrapper(String keyword, UserStatus status, Integer role) {
@@ -550,5 +659,8 @@ public class UserManagementService {
 
     private String normalize(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    public record AuthTokenState(Integer role, boolean profileComplete) {
     }
 }

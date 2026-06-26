@@ -27,6 +27,14 @@ export const router = createRouter({
             },
         },
         {
+            path: '/onboarding',
+            name: 'onboarding',
+            component: () => import('@/features/auth/views/OnboardingView.vue'),
+            meta: {
+                requiresAuth: true,
+            },
+        },
+        {
             path: '/',
             component: MainLayout,
             meta: {
@@ -264,6 +272,24 @@ router.beforeEach((to) => {
         }
     }
 
+    if (authStore.isAuthenticated && needsOnboarding()) {
+        if (to.name !== 'onboarding') {
+            return {
+                name: 'onboarding',
+                query: {
+                    redirect: to.fullPath,
+                },
+            }
+        }
+        return true
+    }
+
+    if (to.name === 'onboarding' && authStore.isAuthenticated && !needsOnboarding()) {
+        return {
+            name: 'dashboard',
+        }
+    }
+
     if (to.name === 'course-management' && authStore.user?.role === 2) {
         return {
             name: 'teacher-courses',
@@ -281,3 +307,8 @@ router.beforeEach((to) => {
 
     return true
 })
+
+function needsOnboarding() {
+    const user = useAuthStore().user
+    return Boolean(user && (user.role == null || !user.displayName?.trim()))
+}

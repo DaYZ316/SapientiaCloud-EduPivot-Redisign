@@ -62,4 +62,11 @@ export default {
     alertGithubLoginFailed: 'GitHub login failed',
     alertOAuthStateInvalid: 'Invalid OAuth state',
     alertForgotPasswordUnavailable: 'This feature is not available yet',
+    onboardingEyebrow: 'Account setup',
+    onboardingTitle: 'Complete your basic profile',
+    onboardingSubtitle: 'Choose your campus role and confirm the name shown across courses before continuing.',
+    onboardingSubmit: 'Continue',
+    onboardingNameRequired: 'Please enter your display name',
+    onboardingRoleRequired: 'Please choose student or teacher',
+    onboardingSuccess: 'Profile completed',
 }

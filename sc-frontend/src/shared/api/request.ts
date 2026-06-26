@@ -10,8 +10,11 @@ import type {ApiResponse} from '@/shared/types/common'
 const SUCCESS_CODE = 0
 const UNAUTHORIZED_CODE = 40100
 const FORBIDDEN_CODE = 40300
+const PROFILE_INCOMPLETE_CODE = 40310
 export const ACCESS_TOKEN_KEY = 'edupivot.accessToken'
 export const SESSION_CLEARED_EVENT = 'edupivot:session-cleared'
+export const PROFILE_INCOMPLETE_EVENT = 'edupivot:profile-incomplete'
+export const PROFILE_INCOMPLETE_REDIRECT_KEY = 'edupivot.profileIncompleteRedirect'
 const REFRESH_TOKEN_KEY = 'edupivot.refreshToken'
 const TOKEN_TYPE_KEY = 'edupivot.tokenType'
 const USER_KEY = 'edupivot.user'
@@ -71,7 +74,9 @@ export async function request<T>(config: RequestOptions, retryOnUnauthorized = t
             if (retryOnUnauthorized && error.code === UNAUTHORIZED_CODE && await refreshSession()) {
                 return request<T>(config, false)
             }
-            if (isAuthenticationExpired(error.code)) {
+            if (error.code === PROFILE_INCOMPLETE_CODE) {
+                handleProfileIncomplete()
+            } else if (isAuthenticationExpired(error.code)) {
                 handleSessionExpired(suppressSessionExpiredDialog)
             } else if (!silent) {
                 notifyRequestError(error.message, error.code)
@@ -88,7 +93,9 @@ export async function request<T>(config: RequestOptions, retryOnUnauthorized = t
         }
 
         const message = resolveErrorMessage(axiosError)
-        if (isAuthenticationExpired(errorCode, axiosError.response?.status)) {
+        if (errorCode === PROFILE_INCOMPLETE_CODE) {
+            handleProfileIncomplete()
+        } else if (isAuthenticationExpired(errorCode, axiosError.response?.status)) {
             handleSessionExpired(suppressSessionExpiredDialog)
         } else if (!silent) {
             notifyRequestError(message, errorCode, axiosError.response?.status)
@@ -126,6 +133,16 @@ function handleSessionExpired(suppressDialog = false) {
 
     sessionExpiredHandled = true
     showSessionExpiredDialog()
+}
+
+function handleProfileIncomplete() {
+    if (typeof window !== 'undefined') {
+        const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`
+        if (currentPath !== '/onboarding') {
+            sessionStorage.setItem(PROFILE_INCOMPLETE_REDIRECT_KEY, currentPath)
+        }
+        window.dispatchEvent(new Event(PROFILE_INCOMPLETE_EVENT))
+    }
 }
 
 function notifyRequestError(message: string, code?: number, status?: number) {

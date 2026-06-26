@@ -234,9 +234,9 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, nextTick, onMounted, onUnmounted, ref} from 'vue'
+import {computed, nextTick, onMounted, onUnmounted, provide, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {useRouter} from 'vue-router'
+import {useRouter, type RouteLocationRaw} from 'vue-router'
 import {
   Bell,
   BookOpen,
@@ -259,6 +259,7 @@ import {useRecentCourses} from '@/shared/composables/useRecentCourses'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {useUiPreferencesStore} from '@/features/settings/stores/uiPreferences'
 import {useAiStore} from '@/features/ai/stores/ai'
+import {aiModeNavigationKey} from '@/features/ai/composables/useAiModeNavigation'
 import GlobalAiDrawer from '@/features/ai/components/GlobalAiDrawer.vue'
 import AiTrailLauncher from '@/features/ai/components/AiTrailLauncher.vue'
 import AiModeTransitionOverlay from '@/features/ai/components/AiModeTransitionOverlay.vue'
@@ -288,6 +289,8 @@ const globalAiDrawerRef = ref<GlobalAiDrawerInstance | null>(null)
 const aiReturnLauncherRef = ref<AiTrailLauncherInstance | null>(null)
 const aiModeTransitionOverlayRef = ref<AiModeTransitionOverlayInstance | null>(null)
 const {unreadCount} = useUnreadCount()
+
+provide(aiModeNavigationKey, switchToAi)
 
 const isAdmin = computed(() => authStore.user?.role === 0)
 const isTeacher = computed(() => authStore.user?.role === 2)
@@ -365,7 +368,9 @@ async function toggleAiMode() {
   await switchToAi()
 }
 
-async function switchToAi() {
+async function switchToAi(target: RouteLocationRaw = '/ai') {
+  if (isSwitchingAiMode.value) return
+
   isSwitchingAiMode.value = true
   try {
     await Promise.all([
@@ -374,7 +379,7 @@ async function switchToAi() {
       preloadAiWorkspace(),
       preloadAiWorkspaceData(),
     ])
-    await router.push('/ai')
+    await router.push(target)
     await nextTick()
     aiModeTransitionOverlayRef.value?.hide()
   } catch (error) {

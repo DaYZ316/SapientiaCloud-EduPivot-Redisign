@@ -184,19 +184,20 @@
             v-for="action in teacherAiActions"
             :key="action.label"
           >
-            <RouterLink
-              v-if="action.kind === 'link'"
-              :to="action.to"
+            <button
+              v-if="action.kind === 'ai'"
               class="ai-command"
+              type="button"
+              @click="handleAiAction(action)"
             >
               <strong>{{ action.label }}</strong>
               <small>{{ action.description }}</small>
-            </RouterLink>
+            </button>
             <button
               v-else
               class="ai-command"
               type="button"
-              @click="showTianshuPending(action.label)"
+              @click="showTianshuNotice(action)"
             >
               <strong>{{ action.label }}</strong>
               <small>{{ action.description }}</small>
@@ -268,8 +269,9 @@ import {
 } from 'lucide-vue-next'
 import {computed, ref, type Component} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {RouterLink, useRouter} from 'vue-router'
+import {RouterLink, useRouter, type RouteLocationRaw} from 'vue-router'
 
+import {useAiModeNavigation} from '@/features/ai/composables/useAiModeNavigation'
 import {ClassSessionStatus} from '@/features/course/types/classSession'
 import type {Course} from '@/features/course/types/course'
 import type {TeacherDashboard} from '@/features/dashboard/api/dashboard'
@@ -294,14 +296,17 @@ const props = defineProps<{
 
 const {t, locale} = useI18n()
 const router = useRouter()
+const enterAiMode = useAiModeNavigation()
 
 type TeacherCourseAction = 'createChapter' | 'uploadCourseware' | 'createQuestionBank'
 type TeacherProductionAction =
     | { kind: 'link'; label: string; to: string; icon: Component }
     | { kind: 'course'; label: string; courseAction: TeacherCourseAction; icon: Component }
 type TeacherAiAction =
-    | { kind: 'link'; label: string; description: string; to: string }
-    | { kind: 'pending'; label: string; description: string }
+    | { kind: 'ai'; label: string; description: string; to: RouteLocationRaw }
+    | { kind: 'notice'; label: string; description: string; notice: string }
+
+const TIANSHU_NOTICE_DURATION = 6000
 
 interface CoursePickerOption {
     course: Course
@@ -456,27 +461,28 @@ const teacherCourseOptions = computed<CoursePickerOption[]>(() => {
 
 const teacherAiActions = computed<TeacherAiAction[]>(() => [
     {
-        kind: 'link',
+        kind: 'ai',
         label: t('success.dashboard.actions.tianshuQuestionGeneration'),
         description: t('success.dashboard.actions.tianshuQuestionGenerationHint'),
-        to: '/ai?mode=QUESTION',
+        to: {name: 'ai-workspace', query: {mode: 'QUESTION'}},
     },
     {
-        kind: 'link',
+        kind: 'ai',
         label: t('success.dashboard.actions.tianshuPaperGeneration'),
         description: t('success.dashboard.actions.tianshuPaperGenerationHint'),
-        to: '/ai?mode=PAPER',
+        to: {name: 'ai-workspace', query: {mode: 'PAPER'}},
     },
     {
-        kind: 'link',
+        kind: 'notice',
         label: t('success.dashboard.actions.tianshuGrading'),
-        description: t('success.dashboard.actions.tianshuGradingHint'),
-        to: '/ai',
+        description: t('success.dashboard.actions.tianshuTeacherGradingHint'),
+        notice: t('success.dashboard.actions.tianshuTeacherGradingNotice'),
     },
     {
-        kind: 'pending',
+        kind: 'notice',
         label: t('success.dashboard.actions.tianshuClassMinutes'),
         description: t('success.dashboard.actions.tianshuClassMinutesHint'),
+        notice: t('success.dashboard.actions.tianshuClassMinutesNotice'),
     },
 ])
 
@@ -488,8 +494,14 @@ function closeCoursePicker() {
     coursePickerAction.value = null
 }
 
-function showTianshuPending(name: string) {
-    notify.info(t('success.dashboard.actions.tianshuFeaturePending', {name}))
+function handleAiAction(action: TeacherAiAction) {
+    if (action.kind !== 'ai') return
+    void enterAiMode(action.to)
+}
+
+function showTianshuNotice(action: TeacherAiAction) {
+    if (action.kind !== 'notice') return
+    notify.info(action.notice, {duration: TIANSHU_NOTICE_DURATION})
 }
 
 function handleCourseSelected(course: Course) {

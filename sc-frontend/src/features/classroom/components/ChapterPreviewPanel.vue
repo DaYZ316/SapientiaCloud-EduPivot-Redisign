@@ -2,18 +2,18 @@
   <aside class="chapter-preview-panel">
     <header class="panel-header">
       <div>
-        <span>Chapter Preview</span>
-        <h2>章节内容预览</h2>
+        <span>{{ t('courseDetail.classSession.chapterPanelKicker') }}</span>
+        <h2>{{ t('courseDetail.classSession.chapterPanelTitle') }}</h2>
       </div>
       <button class="icon-button" type="button" @click="$emit('close')">
         <X :size="18" stroke-width="1.8"/>
       </button>
     </header>
 
-    <div v-if="loading" class="panel-state">加载中...</div>
+    <div v-if="loading" class="panel-state">{{ t('courseDetail.classSession.chapterLoading') }}</div>
     <div v-else-if="loadFailed" class="panel-state">
-      <p>章节内容加载失败</p>
-      <button class="text-button" type="button" @click="loadChapters">重试</button>
+      <p>{{ t('courseDetail.classSession.chapterLoadFailed') }}</p>
+      <button class="text-button" type="button" @click="loadChapters">{{ t('courseDetail.classSession.retry') }}</button>
     </div>
 
     <template v-else>
@@ -34,16 +34,16 @@
         </div>
 
         <article class="chapter-detail">
-          <div v-if="detailLoading" class="panel-state compact">正在加载章节...</div>
+          <div v-if="detailLoading" class="panel-state compact">{{ t('courseDetail.classSession.chapterDetailLoading') }}</div>
           <template v-else-if="selectedChapter">
-            <span class="detail-kicker">当前章节</span>
+            <span class="detail-kicker">{{ t('courseDetail.classSession.currentChapter') }}</span>
             <h3>{{ selectedChapter.chapterName }}</h3>
             <p v-if="selectedChapter.description" class="chapter-description">{{ selectedChapter.description }}</p>
             <div v-if="selectedChapter.content" class="chapter-content" v-html="selectedChapter.content"></div>
-            <p v-else class="content-placeholder">暂无内容</p>
+            <p v-else class="content-placeholder">{{ t('courseDetail.classSession.noChapterContent') }}</p>
 
             <section class="attachment-section">
-              <span class="detail-kicker">附件</span>
+              <span class="detail-kicker">{{ t('courseDetail.classSession.attachments') }}</span>
               <template v-if="selectedAttachments.length">
                 <router-link
                     v-for="attachment in storageAttachments"
@@ -64,22 +64,22 @@
                     target="_blank"
                 >
                   <FileText :size="14" stroke-width="1.8"/>
-                  <span>{{ attachment.displayName || attachment.fileName || `附件 ${index + 1}` }}</span>
+                  <span>{{ attachment.displayName || attachment.fileName || t('courseDetail.classSession.attachmentFallback', {number: index + 1}) }}</span>
                 </a>
               </template>
-              <p v-else class="content-placeholder">当前章节暂无附件资料。</p>
+              <p v-else class="content-placeholder">{{ t('courseDetail.classSession.noChapterAttachments') }}</p>
             </section>
 
             <div class="chapter-meta">
-              <span><Eye :size="14" stroke-width="1.8"/> {{ selectedChapter.viewCount }} 浏览</span>
-              <span><Heart :size="14" stroke-width="1.8"/> {{ selectedChapter.likeCount }} 点赞</span>
+              <span><Eye :size="14" stroke-width="1.8"/> {{ t('courseDetail.classSession.viewCount', {count: selectedChapter.viewCount}) }}</span>
+              <span><Heart :size="14" stroke-width="1.8"/> {{ t('courseDetail.classSession.likeCount', {count: selectedChapter.likeCount}) }}</span>
             </div>
           </template>
         </article>
       </section>
 
       <div v-else class="panel-state">
-        <p>暂无章节</p>
+        <p>{{ t('courseDetail.classSession.noChapters') }}</p>
       </div>
     </template>
   </aside>
@@ -87,6 +87,7 @@
 
 <script lang="ts" setup>
 import {computed, onMounted, ref} from 'vue'
+import {useI18n} from 'vue-i18n'
 import {Eye, FileText, Heart, X} from 'lucide-vue-next'
 
 import {getChapter, getChapterTree, viewChapter} from '@/features/course/api/chapter'
@@ -99,6 +100,7 @@ const props = defineProps<{
 
 defineEmits<{ close: [] }>()
 
+const {t} = useI18n()
 const chapterTree = ref<Chapter[]>([])
 const selectedChapterId = ref<string | null>(null)
 const selectedChapter = ref<Chapter | null>(null)

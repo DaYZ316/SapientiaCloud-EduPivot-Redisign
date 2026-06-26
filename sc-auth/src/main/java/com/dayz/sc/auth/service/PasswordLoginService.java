@@ -150,6 +150,7 @@ public class PasswordLoginService {
     private Map<String, Object> buildClaims(User user) {
         Map<String, Object> claims = new LinkedHashMap<>();
         claims.put("userId", user.getId().toString());
+        claims.put("profileComplete", user.getRole() != null && StringUtils.hasText(user.getDisplayName()));
         if (user.getRole() != null) {
             claims.put("role", user.getRole());
         }

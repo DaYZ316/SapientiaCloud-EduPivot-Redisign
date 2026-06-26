@@ -28,7 +28,7 @@
 <script setup lang="ts">
 import {computed, onMounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {useRoute, useRouter} from 'vue-router'
+import {onBeforeRouteLeave, useRoute, useRouter} from 'vue-router'
 import {CircleAlert} from 'lucide-vue-next'
 
 import ClassroomLiveExperience from '@/features/classroom/components/ClassroomLiveExperience.vue'
@@ -37,10 +37,12 @@ import {getCourse} from '@/features/course/api/course'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {ClassLiveStatus, type ClassParticipant, type ClassSession} from '@/features/course/types/classSession'
 import type {CourseDetail} from '@/features/course/types/course'
+import {useClassroomLiveMiniStore} from '@/features/classroom/stores/classroomLiveMini'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const liveMini = useClassroomLiveMiniStore()
 const {t} = useI18n()
 
 const sessionId = computed(() => route.params.sessionId as string)
@@ -72,6 +74,10 @@ onMounted(() => {
   void loadSession()
 })
 
+onBeforeRouteLeave(() => {
+  showMiniWindowIfLive()
+})
+
 async function loadSession() {
   loading.value = true
   try {
@@ -81,9 +87,10 @@ async function loadSession() {
       await router.replace({name: 'course-overview', params: {id: sessionData.courseId}})
       return
     }
-    session.value = sessionData
     course.value = courseData
     participants.value = await listClassSessionParticipants(sessionData.id)
+    liveMini.clearSession(sessionData.id)
+    session.value = sessionData
   } catch {
     session.value = null
   } finally {
@@ -101,9 +108,11 @@ function canEnterClassroom(courseData: CourseDetail) {
 
 function applySessionUpdate(nextSession: ClassSession) {
   session.value = nextSession
+  liveMini.updateSession(nextSession)
 }
 
 function backToRoom() {
+  showMiniWindowIfLive()
   router.push({
     name: 'class-session-room',
     params: {sessionId: sessionId.value},
@@ -122,7 +131,22 @@ function backToCourse() {
 function shouldMinimizeTeacherLive() {
   return Boolean(isSessionOpeningTeacher.value
       && session.value
-      && (session.value.liveStatus === ClassLiveStatus.LIVE || session.value.liveStatus === ClassLiveStatus.PAUSED))
+      && session.value.liveStatus === ClassLiveStatus.LIVE)
+}
+
+function showMiniWindowIfLive() {
+  if (!session.value) {
+    return
+  }
+  if (!shouldMinimizeTeacherLive()) {
+    liveMini.updateSession(session.value)
+    return
+  }
+  liveMini.show({
+    session: session.value,
+    isTeacher: isSessionOpeningTeacher.value,
+    canParticipate: canUseClassroomLive.value,
+  })
 }
 </script>
 

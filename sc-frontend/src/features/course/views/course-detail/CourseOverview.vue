@@ -2,9 +2,9 @@
   <section class="tab-panel course-overview-workbench">
     <section class="overview-ledger">
       <div class="overview-copy">
-        <span class="section-kicker">Course status</span>
+        <span class="section-kicker">{{ t('courseDetail.overview.courseStatusKicker') }}</span>
         <h2>{{ course.title }}</h2>
-        <p>{{ course.description || '暂未添加课程简介。' }}</p>
+        <p>{{ course.description || t('courseDetail.noDescription') }}</p>
       </div>
 
       <dl class="overview-facts">
@@ -16,7 +16,7 @@
 
       <div class="progress-block">
         <div class="progress-header">
-          <span>学习进度 · {{ progressRatioLabel }}</span>
+          <span>{{ t('courseDetail.overview.learningProgress', {progress: progressRatioLabel}) }}</span>
           <strong>{{ progressPercent }}%</strong>
         </div>
         <div class="progress-track">
@@ -27,26 +27,26 @@
 
     <section class="next-action-panel">
       <div class="next-action-main">
-        <span class="section-kicker">Next action</span>
+        <span class="section-kicker">{{ t('courseDetail.overview.nextActionKicker') }}</span>
         <h3>{{ nextActionTitle }}</h3>
         <p>{{ nextActionDescription }}</p>
 
         <div v-if="canManageCourse" class="action-grid">
           <button class="primary-command" type="button" @click="emit('openChapterEditor')">
             <Plus :size="15" stroke-width="1.8"/>
-            创建章节
+            {{ t('courseDetail.overview.createChapter') }}
           </button>
           <button class="secondary-command" type="button" @click="emit('openClassSessionCreator')">
             <Presentation :size="15" stroke-width="1.8"/>
-            管理课堂
+            {{ t('courseDetail.overview.manageClasses') }}
           </button>
           <button class="secondary-command" type="button" @click="navigateTo('course-banks')">
             <Database :size="15" stroke-width="1.8"/>
-            管理题库
+            {{ t('courseDetail.overview.manageBanks') }}
           </button>
           <button class="secondary-command" type="button" @click="navigateTo('course-files')">
             <FileDown :size="15" stroke-width="1.8"/>
-            上传资料
+            {{ t('courseDetail.overview.uploadFiles') }}
           </button>
         </div>
 
@@ -60,14 +60,14 @@
             {{ enrollActionLabel }}
           </button>
           <button class="secondary-command" type="button" @click="navigateTo('course-chapters')">
-            先看课程结构
+            {{ t('courseDetail.overview.previewStructure') }}
           </button>
         </div>
 
         <div v-else-if="canAccessCourseContent" class="action-grid">
           <button class="primary-command" type="button" @click="continueLearning">
             <BookOpen :size="15" stroke-width="1.8"/>
-            继续学习
+            {{ t('courseDetail.overview.continueLearning') }}
           </button>
           <button
               :disabled="!canEnterClassSessions"
@@ -76,18 +76,18 @@
               @click="navigateTo('course-class-sessions')"
           >
             <Presentation :size="15" stroke-width="1.8"/>
-            进入课堂
+            {{ t('courseDetail.overview.enterClassroom') }}
           </button>
           <button class="secondary-command" type="button" @click="navigateTo('course-banks')">
             <Database :size="15" stroke-width="1.8"/>
-            查看题库
+            {{ t('courseDetail.overview.viewBanks') }}
           </button>
         </div>
 
         <div v-else class="action-grid">
-          <button class="primary-command" disabled type="button">选课后访问</button>
+          <button class="primary-command" disabled type="button">{{ t('courseDetail.overview.lockedUntilEnrolled') }}</button>
           <button class="secondary-command" type="button" @click="navigateTo('course-chapters')">
-            查看可公开内容
+            {{ t('courseDetail.overview.viewPublicContent') }}
           </button>
         </div>
       </div>
@@ -103,10 +103,10 @@
     <section class="navigation-section">
       <div class="section-heading">
         <div>
-          <span class="section-kicker">Course navigation</span>
-          <h3>课程功能导航</h3>
+          <span class="section-kicker">{{ t('courseDetail.overview.courseNavigationKicker') }}</span>
+          <h3>{{ t('courseDetail.overview.courseNavigationTitle') }}</h3>
         </div>
-        <p>每个入口只跳转到已有功能页，并显示当前可用状态。</p>
+        <p>{{ t('courseDetail.overview.courseNavigationDescription') }}</p>
       </div>
 
       <div class="navigation-grid">
@@ -142,8 +142,8 @@
     <section class="teaching-team-summary">
       <div>
         <span class="section-kicker">{{ t('courseDetail.teachingTeam') }}</span>
-        <h3>教学团队摘要</h3>
-        <p>教师信息保留为辅助摘要，主体操作已前移到课程导航。</p>
+        <h3>{{ t('courseDetail.overview.teachingTeamSummaryTitle') }}</h3>
+        <p>{{ t('courseDetail.overview.teachingTeamSummaryDescription') }}</p>
       </div>
 
       <div class="team-row">
@@ -167,8 +167,8 @@
           <strong>{{ assistants.length }}</strong>
         </div>
         <div>
-          <span>答疑安排</span>
-          <strong>以课程公告为准</strong>
+          <span>{{ t('courseDetail.overview.qaSchedule') }}</span>
+          <strong>{{ t('courseDetail.overview.seeCourseAnnouncements') }}</strong>
         </div>
       </div>
     </section>
@@ -304,25 +304,25 @@ const progressPercent = computed(() => {
   return clampPercent((countedClassSessionCount.value / totalClassHours.value) * 100)
 })
 const progressRatioLabel = computed(() => {
-  if (!hasCourseProgressStats.value && (!props.classSessionsLoaded || props.classSessionsLoading)) return '统计中'
+  if (!hasCourseProgressStats.value && (!props.classSessionsLoaded || props.classSessionsLoading)) return t('courseDetail.overview.calculating')
   if (totalClassHours.value === 0) return `${countedClassSessionCount.value} / ${t('courseDetail.toBeArranged')}`
   return `${countedClassSessionCount.value} / ${totalClassHours.value} ${t('courseDetail.classHoursUnit')}`
 })
 
 const enrollActionLabel = computed(() => {
-  if (props.enrolling) return '选课中...'
-  if (!isPublished.value) return '暂未开放'
-  if (isFull.value) return '名额已满'
-  return '选课'
+  if (props.enrolling) return t('courseDetail.enrolling')
+  if (!isPublished.value) return t('courseDetail.notOpen')
+  if (isFull.value) return t('courseDetail.full')
+  return t('courseDetail.enroll')
 })
 
 const statusLabel = computed(() => {
-  if (props.course.status === 1) return '已发布'
-  if (props.course.status === 2) return '已归档'
-  return '草稿'
+  if (props.course.status === 1) return t('courses.status.published')
+  if (props.course.status === 2) return t('courses.status.archived')
+  return t('courses.status.draft')
 })
 
-const visibilityLabel = computed(() => props.course.isPublic === 1 ? '公开课程' : '私有课程')
+const visibilityLabel = computed(() => props.course.isPublic === 1 ? t('courses.visibility.public') : t('courses.visibility.private'))
 const totalClassHoursLabel = computed(() => {
   if (!props.course.totalClassHours || props.course.totalClassHours <= 0) return t('courseDetail.toBeArranged')
   return `${props.course.totalClassHours} ${t('courseDetail.classHoursUnit')}`
@@ -341,100 +341,112 @@ const overviewFacts = computed(() => [
   {label: t('courseDetail.status'), value: statusLabel.value},
   {label: t('courseDetail.capacity'), value: capacityLabel.value},
   {
-    label: '已上课时',
+    label: t('courseDetail.overview.completedClassHours'),
     value: hasCourseProgressStats.value || (props.classSessionsLoaded && !props.classSessionsLoading)
       ? `${countedClassSessionCount.value} ${t('courseDetail.classHoursUnit')}`
-      : '统计中',
+      : t('courseDetail.overview.calculating'),
   },
 ])
 
 const nextActionTitle = computed(() => {
-  if (props.canManageCourse) return '维护课程内容'
-  if (showEnrollAction.value) return '加入课程'
-  if (props.canAccessCourseContent) return '继续学习'
-  return '选课后解锁内容'
+  if (props.canManageCourse) return t('courseDetail.overview.nextManageTitle')
+  if (showEnrollAction.value) return t('courseDetail.overview.nextEnrollTitle')
+  if (props.canAccessCourseContent) return t('courseDetail.overview.nextContinueTitle')
+  return t('courseDetail.overview.nextLockedTitle')
 })
 
 const nextActionDescription = computed(() => {
-  if (props.canManageCourse) return '创建章节、管理课堂、维护题库和资料，让学生进入清晰的学习路径。'
-  if (showEnrollAction.value) return '选课后可访问章节、讨论、题库和课程资料。'
-  if (props.canAccessCourseContent) return '从章节、课堂或题库继续推进当前课程。'
-  return '当前账号暂不能访问课程内容，完成选课或等待课程公开后再进入。'
+  if (props.canManageCourse) return t('courseDetail.overview.nextManageDescription')
+  if (showEnrollAction.value) return t('courseDetail.overview.nextEnrollDescription')
+  if (props.canAccessCourseContent) return t('courseDetail.overview.nextContinueDescription')
+  return t('courseDetail.overview.nextLockedDescription')
 })
 
 const roleSummaries = computed(() => [
   {
-    label: '学生状态',
-    value: props.course.enrolled ? '已选课' : props.isStudent ? '未选课' : '非学生账号',
+    label: t('courseDetail.overview.studentStatus'),
+    value: props.course.enrolled
+      ? t('courseDetail.overview.studentEnrolled')
+      : props.isStudent ? t('courseDetail.overview.studentNotEnrolled') : t('courseDetail.overview.nonStudentAccount'),
   },
   {
-    label: '教学权限',
-    value: props.canManageCourse ? props.isAdmin ? '管理员可管理' : '教学团队可管理' : '不可管理',
+    label: t('courseDetail.overview.teachingPermission'),
+    value: props.canManageCourse
+      ? props.isAdmin ? t('courseDetail.overview.adminCanManage') : t('courseDetail.overview.teachingTeamCanManage')
+      : t('courseDetail.overview.cannotManage'),
   },
   {
-    label: '内容访问',
-    value: props.canAccessCourseContent ? '可访问' : '选课后可访问',
+    label: t('courseDetail.overview.contentAccess'),
+    value: props.canAccessCourseContent ? t('courseDetail.overview.accessible') : t('courseDetail.overview.accessAfterEnrollment'),
   },
 ])
 
 const chapterSummary = computed(() => {
-  if (props.chaptersLoading) return '正在加载章节'
+  if (props.chaptersLoading) return t('courseDetail.overview.loadingChapters')
   if (flatChapters.value.length === 0) {
-    return props.canManageCourse ? '暂无章节，可创建第一个章节' : '等待教师发布章节'
+    return props.canManageCourse ? t('courseDetail.overview.noChaptersCreate') : t('courseDetail.overview.waitingChapters')
   }
-  return `${flatChapters.value.length} 个章节 · ${publishedChapters.value.length} 个已发布`
+  return t('courseDetail.overview.chapterCountSummary', {
+    total: flatChapters.value.length,
+    published: publishedChapters.value.length,
+  })
 })
 
 const banksSummary = computed(() => {
-  if (!props.banksLoaded) return '进入后查看题库数量'
-  if (bankCount.value === 0) return props.canManageCourse ? '暂无题库，可新建' : '等待教师发布题库'
-  return `${bankCount.value} 个题库`
+  if (!props.banksLoaded) return t('courseDetail.overview.viewBankCountAfterEnter')
+  if (bankCount.value === 0) return props.canManageCourse ? t('courseDetail.overview.noBanksCreate') : t('courseDetail.overview.waitingBanks')
+  return t('courseDetail.overview.bankCountSummary', {count: bankCount.value})
 })
 
 const filesSummary = computed(() => {
-  if (!props.filesLoaded) return '进入后查看资料数量'
-  if (fileCount.value === 0) return props.canManageCourse ? '暂无资料，可上传' : '等待教师上传资料'
-  return `${fileCount.value} 份资料`
+  if (!props.filesLoaded) return t('courseDetail.overview.viewFileCountAfterEnter')
+  if (fileCount.value === 0) return props.canManageCourse ? t('courseDetail.overview.noFilesUpload') : t('courseDetail.overview.waitingFiles')
+  return t('courseDetail.overview.fileCountSummary', {count: fileCount.value})
 })
 
 const navigationEntries = computed<NavigationEntry[]>(() => {
   const entries: NavigationEntry[] = [
     {
       key: 'chapters',
-      title: '章节学习',
-      description: '查看课程章节与学习材料。',
+      title: t('courseDetail.overview.chaptersEntryTitle'),
+      description: t('courseDetail.overview.chaptersEntryDescription'),
       summary: chapterSummary.value,
-      actionLabel: flatChapters.value.length === 0 && props.canManageCourse ? '创建章节' : '进入章节',
+      actionLabel: flatChapters.value.length === 0 && props.canManageCourse
+        ? t('courseDetail.overview.createChapter')
+        : t('courseDetail.overview.enterChapters'),
       available: props.canManageCourse || (props.canAccessCourseContent && publishedChapters.value.length > 0),
       reason: flatChapters.value.length === 0
-        ? props.canManageCourse ? '可创建' : '等待发布'
-        : props.canAccessCourseContent || props.canManageCourse ? '可用' : '选课后可用',
+        ? props.canManageCourse ? t('courseDetail.overview.canCreate') : t('courseDetail.overview.waitingPublish')
+        : props.canAccessCourseContent || props.canManageCourse ? t('courseDetail.overview.available') : t('courseDetail.overview.availableAfterEnrollment'),
       icon: BookOpen,
       action: flatChapters.value.length === 0 && props.canManageCourse ? 'createChapter' : 'route',
       routeName: 'course-chapters',
     },
     {
       key: 'class-sessions',
-      title: '课堂安排 / 3D 教室',
-      description: '查看课堂安排并进入 3D 教室。',
+      title: t('courseDetail.overview.classSessionsEntryTitle'),
+      description: t('courseDetail.overview.classSessionsEntryDescription'),
       summary: countedClassSessionCount.value > 0
-        ? `已上 ${countedClassSessionCount.value} ${t('courseDetail.classHoursUnit')}`
-        : props.canManageCourse ? '还未开始上课，可创建安排' : '等待教师开课',
-      actionLabel: '进入课堂',
+        ? t('courseDetail.overview.completedHoursSummary', {
+          count: countedClassSessionCount.value,
+          unit: t('courseDetail.classHoursUnit'),
+        })
+        : props.canManageCourse ? t('courseDetail.overview.noClassesCreate') : t('courseDetail.overview.waitingClasses'),
+      actionLabel: t('courseDetail.overview.enterClassroom'),
       available: props.canEnterClassSessions,
-      reason: props.canEnterClassSessions ? '可用' : '选课后可用',
+      reason: props.canEnterClassSessions ? t('courseDetail.overview.available') : t('courseDetail.overview.availableAfterEnrollment'),
       icon: Presentation,
       action: 'route',
       routeName: 'course-class-sessions',
     },
     {
       key: 'forums',
-      title: '讨论区',
-      description: '课程讨论、提问与助教答疑。',
-      summary: '进入后查看主题与未读',
-      actionLabel: '进入讨论',
+      title: t('courseDetail.overview.forumsEntryTitle'),
+      description: t('courseDetail.overview.forumsEntryDescription'),
+      summary: t('courseDetail.overview.forumsSummary'),
+      actionLabel: t('courseDetail.overview.enterForums'),
       available: props.canAccessCourseContent,
-      reason: props.canAccessCourseContent ? '可用' : '选课后可用',
+      reason: props.canAccessCourseContent ? t('courseDetail.overview.available') : t('courseDetail.overview.availableAfterEnrollment'),
       icon: MessageCircle,
       action: 'route',
       routeName: 'course-forums',
@@ -443,14 +455,14 @@ const navigationEntries = computed<NavigationEntry[]>(() => {
 
   entries.push({
     key: 'banks',
-    title: props.canManageCourse ? '题库管理' : '课程题库',
-    description: props.canManageCourse ? '维护课程题库与题目内容。' : '查看课程题库中的题目内容。',
+    title: props.canManageCourse ? t('courseDetail.overview.bankManageEntryTitle') : t('courseDetail.overview.banksEntryTitle'),
+    description: props.canManageCourse ? t('courseDetail.overview.bankManageEntryDescription') : t('courseDetail.overview.banksEntryDescription'),
     summary: banksSummary.value,
-    actionLabel: props.canManageCourse ? '管理题库' : '查看题库',
+    actionLabel: props.canManageCourse ? t('courseDetail.overview.manageBanks') : t('courseDetail.overview.viewBanks'),
     available: props.canManageCourse || (props.canAccessCourseContent && (!props.banksLoaded || bankCount.value > 0)),
     reason: props.canManageCourse
-      ? '可管理'
-      : props.canAccessCourseContent && (!props.banksLoaded || bankCount.value > 0) ? '可查看' : '等待发布',
+      ? t('courseDetail.overview.canManage')
+      : props.canAccessCourseContent && (!props.banksLoaded || bankCount.value > 0) ? t('courseDetail.overview.canView') : t('courseDetail.overview.waitingPublish'),
     icon: Database,
     action: 'route',
     routeName: 'course-banks',
@@ -459,12 +471,12 @@ const navigationEntries = computed<NavigationEntry[]>(() => {
   if (props.canViewLivePractices) {
     entries.push({
       key: 'live-practices',
-      title: '直播练习',
-      description: '查看实时练习活动与提交反馈。',
-      summary: '当前无进行中活动',
-      actionLabel: '查看活动',
+      title: t('courseDetail.overview.livePracticeEntryTitle'),
+      description: t('courseDetail.overview.livePracticeEntryDescription'),
+      summary: t('courseDetail.overview.noActiveActivities'),
+      actionLabel: t('courseDetail.overview.viewActivities'),
       available: props.canAccessCourseContent,
-      reason: props.canAccessCourseContent ? '可用' : '当前不可见',
+      reason: props.canAccessCourseContent ? t('courseDetail.overview.available') : t('courseDetail.overview.currentlyHidden'),
       icon: ClipboardList,
       action: 'route',
       routeName: 'course-live-practices',
@@ -473,14 +485,14 @@ const navigationEntries = computed<NavigationEntry[]>(() => {
 
   entries.push({
     key: 'files',
-    title: '课程资料',
-    description: '查看讲义、模板与参考资料。',
+    title: t('courseDetail.overview.filesEntryTitle'),
+    description: t('courseDetail.overview.filesEntryDescription'),
     summary: filesSummary.value,
-    actionLabel: props.canManageCourse ? '上传资料' : '查看资料',
+    actionLabel: props.canManageCourse ? t('courseDetail.overview.uploadFiles') : t('courseDetail.overview.viewFiles'),
     available: props.canManageCourse || (props.canAccessCourseContent && (!props.filesLoaded || fileCount.value > 0)),
     reason: props.canManageCourse
-      ? '可管理'
-      : props.canAccessCourseContent && (!props.filesLoaded || fileCount.value > 0) ? '可用' : '等待上传',
+      ? t('courseDetail.overview.canManage')
+      : props.canAccessCourseContent && (!props.filesLoaded || fileCount.value > 0) ? t('courseDetail.overview.available') : t('courseDetail.overview.waitingUpload'),
     icon: FileDown,
     action: 'route',
     routeName: 'course-files',
@@ -489,12 +501,12 @@ const navigationEntries = computed<NavigationEntry[]>(() => {
   if (props.canViewStudents) {
     entries.push({
       key: 'students',
-      title: '学生名单',
-      description: '查看已加入课程的学生与学习状态。',
-      summary: `${studentCount.value} 名学生`,
-      actionLabel: '查看名单',
+      title: t('courseDetail.overview.studentsEntryTitle'),
+      description: t('courseDetail.overview.studentsEntryDescription'),
+      summary: t('courseDetail.overview.studentCountSummary', {count: studentCount.value}),
+      actionLabel: t('courseDetail.overview.viewRoster'),
       available: true,
-      reason: props.canManageCourse ? '教学团队可见' : '公开课程可见',
+      reason: props.canManageCourse ? t('courseDetail.overview.visibleToTeachingTeam') : t('courseDetail.overview.visibleForPublicCourse'),
       icon: Users,
       action: 'route',
       routeName: 'course-students',
@@ -504,12 +516,12 @@ const navigationEntries = computed<NavigationEntry[]>(() => {
   if (props.canViewAssistants) {
     entries.push({
       key: 'assistants',
-      title: '助教团队',
-      description: '查看参与课程支持的助教成员。',
-      summary: `${props.assistants.length} 名助教`,
-      actionLabel: '查看团队',
+      title: t('courseDetail.overview.assistantsEntryTitle'),
+      description: t('courseDetail.overview.assistantsEntryDescription'),
+      summary: t('courseDetail.overview.assistantCountSummary', {count: props.assistants.length}),
+      actionLabel: t('courseDetail.overview.viewTeam'),
       available: true,
-      reason: props.canManageCourse ? '教学团队可见' : '公开课程可见',
+      reason: props.canManageCourse ? t('courseDetail.overview.visibleToTeachingTeam') : t('courseDetail.overview.visibleForPublicCourse'),
       icon: UserCheck,
       action: 'route',
       routeName: 'course-assistants',

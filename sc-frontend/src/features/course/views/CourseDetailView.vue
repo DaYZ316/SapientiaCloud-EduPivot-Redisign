@@ -22,13 +22,13 @@
     <div v-else class="detail-layout">
       <main class="detail-canvas">
         <section class="course-main-column">
-          <button class="back-link" type="button" @click="router.push('/courses')">
+          <button class="back-link" type="button" @click="router.push({name: 'dashboard'})">
             <ArrowLeft :size="16" stroke-width="1.8"/>
-            {{ t('courseDetail.backToCourses') }}
+            {{ t('courseDetail.back') }}
           </button>
 
           <section class="course-hero">
-            <div class="hero-kicker">Academic Course</div>
+            <div class="hero-kicker">{{ t('courseDetail.overview.academicCourse') }}</div>
             <h1>{{ course.title }}</h1>
             <p class="course-description">{{ course.description || t('courseDetail.noDescription') }}</p>
 
@@ -214,7 +214,7 @@
 
           <section class="enrollment-panel">
             <div class="capacity-block">
-              <span class="year-badge">{{ course.semester || 'Academic Year' }}</span>
+              <span class="year-badge">{{ course.semester || t('courseDetail.overview.academicYear') }}</span>
               <h3>{{ t('courseDetail.capacity') }}</h3>
               <div class="capacity-header">
                 <span>{{ course.currentStudents }} {{ t('courseDetail.enrolled') }}</span>
@@ -226,7 +226,7 @@
             </div>
 
             <div v-if="canManageCourse" class="admin-actions">
-              <h3>Administration</h3>
+              <h3>{{ t('courseDetail.overview.administration') }}</h3>
               <button class="secondary-action" type="button" @click="openEditModal">
                 <Pencil :size="18" stroke-width="1.8"/>
                 {{ t('courseDetail.editCourse') }}
@@ -466,7 +466,7 @@ const primaryActionDisabled = computed(() => {
 })
 const maxStudentsLabel = computed(() => {
   if (!course.value || course.value.maxStudents <= 0) return t('courseDetail.unlimited')
-  return `${course.value.maxStudents} Max`
+  return t('courseDetail.overview.maxStudents', {count: course.value.maxStudents})
 })
 const emptyActionLabel = computed(() => {
   if (!firstChapter.value) return t('courseDetail.noChapterAction')

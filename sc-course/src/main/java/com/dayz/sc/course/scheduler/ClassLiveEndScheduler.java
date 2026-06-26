@@ -16,11 +16,17 @@ import org.springframework.stereotype.Component;
 public class ClassLiveEndScheduler {
 
     private static final long LIVE_END_SCAN_DELAY_MS = 60_000L;
+    private static final long LIVE_HEARTBEAT_SCAN_DELAY_MS = 15_000L;
 
     private final ClassSessionService classSessionService;
 
     @Scheduled(fixedDelay = LIVE_END_SCAN_DELAY_MS)
     public void endExpiredLiveSessions() {
         classSessionService.endExpiredLiveSessions();
+    }
+
+    @Scheduled(fixedDelay = LIVE_HEARTBEAT_SCAN_DELAY_MS)
+    public void pauseDisconnectedLiveSessions() {
+        classSessionService.pauseDisconnectedLiveSessions();
     }
 }

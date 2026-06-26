@@ -166,35 +166,38 @@
         </section>
 
         <section class="quick-question">
-          <h3>快速出题</h3>
-          <label>
-            <span>题干</span>
-            <input v-model="quickQuestion.questionTitle" type="text"/>
-          </label>
-          <label>
-            <span>题型</span>
-            <BaseSelect
-              v-model="quickQuestion.questionType"
-              :options="questionTypeOptions"
-              min-width="100%"
-            />
-          </label>
-          <label class="check-row disabled">
-            <input disabled type="checkbox"/>
-            <span>AI 判分（待开发）</span>
-          </label>
-          <label v-if="quickQuestion.questionType === 4">
+          <div class="quick-question-header">
+            <h3>快速出题</h3>
+            <span>{{ createdQuestions.length }} 道已加入</span>
+          </div>
+          <div class="quick-question-grid">
+            <label class="quick-title-field">
+              <span>题干</span>
+              <input v-model="quickQuestion.questionTitle" placeholder="输入题目内容" type="text"/>
+            </label>
+            <label>
+              <span>题型</span>
+              <BaseSelect
+                v-model="quickQuestion.questionType"
+                :options="questionTypeOptions"
+                min-width="100%"
+              />
+            </label>
+          </div>
+          <label v-if="quickQuestion.questionType === 4" class="quick-answer-field">
             <span>参考答案 / 评分要点</span>
             <textarea v-model="quickQuestion.answerContent" placeholder="输入参考答案或关键给分点"></textarea>
           </label>
-          <div v-if="quickQuestion.questionType <= 2" class="option-grid">
+          <div v-if="quickQuestion.questionType <= 2" class="option-grid quick-option-grid">
             <label v-for="option in quickQuestion.options" :key="option.optionLabel">
               <span>{{ option.optionLabel }}</span>
-              <input v-model="option.optionContent" type="text"/>
+              <input v-model="option.optionContent" placeholder="选项内容" type="text"/>
               <input v-model="option.isCorrect" type="checkbox"/>
             </label>
           </div>
-          <button class="text-button" type="button" @click="addQuickQuestion">加入本次发布</button>
+          <div class="quick-question-actions">
+            <button class="text-button" type="button" @click="addQuickQuestion">加入本次发布</button>
+          </div>
           <div v-if="createdQuestions.length > 0" class="created-list">
             <span v-for="(question, index) in createdQuestions" :key="index">{{ question.questionTitle }}</span>
           </div>
@@ -1101,6 +1104,67 @@ textarea {
   gap: 12px;
 }
 
+.quick-question {
+  gap: 12px;
+}
+
+.quick-question-header,
+.quick-question-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.quick-question-header span {
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+}
+
+.quick-question-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(132px, 0.34fr);
+  gap: 10px;
+  align-items: end;
+}
+
+.quick-title-field,
+.quick-answer-field {
+  min-width: 0;
+}
+
+.quick-answer-field textarea {
+  min-height: 82px;
+}
+
+.quick-option-grid {
+  padding: 10px;
+  background: var(--color-surface-canvas);
+  border: 1px solid var(--color-outline-light);
+}
+
+.quick-option-grid label {
+  grid-template-columns: 20px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 8px;
+}
+
+.quick-option-grid label > span {
+  color: var(--color-on-surface);
+  font-family: var(--font-label);
+  font-size: 12px;
+  text-align: center;
+}
+
+.quick-option-grid input[type='text'] {
+  min-width: 0;
+}
+
+.quick-question-actions {
+  padding-top: 2px;
+}
+
 .ai-grading-hint,
 .ai-status-block p {
   margin: 0;
@@ -1616,6 +1680,7 @@ textarea {
 
   .time-grid,
   .option-grid,
+  .quick-question-grid,
   .practice-loading-grid {
     grid-template-columns: 1fr;
   }

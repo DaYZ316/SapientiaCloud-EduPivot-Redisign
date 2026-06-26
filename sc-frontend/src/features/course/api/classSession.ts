@@ -72,7 +72,11 @@ export function pauseClassLive(id: string) {
     return request<ClassSession>({method: 'POST', url: `/api/class-sessions/${id}/live/pause`, silent: true})
 }
 
-export function pauseClassLiveKeepalive(id: string) {
+export function heartbeatClassLive(id: string) {
+    return request<void>({method: 'POST', url: `/api/class-sessions/${id}/live/heartbeat`, silent: true})
+}
+
+export function heartbeatClassLiveKeepalive(id: string) {
     if (typeof navigator === 'undefined') {
         return false
     }
@@ -84,7 +88,7 @@ export function pauseClassLiveKeepalive(id: string) {
         headers.Authorization = `Bearer ${token}`
     }
 
-    return fetch(`${import.meta.env.VITE_API_BASE_URL ?? ''}/api/class-sessions/${id}/live/pause`, {
+    return fetch(`${import.meta.env.VITE_API_BASE_URL ?? ''}/api/class-sessions/${id}/live/heartbeat`, {
         method: 'POST',
         headers,
         body: '{}',

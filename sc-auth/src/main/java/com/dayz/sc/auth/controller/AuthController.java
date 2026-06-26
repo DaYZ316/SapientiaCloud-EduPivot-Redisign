@@ -5,6 +5,7 @@ import com.dayz.sc.auth.model.vo.LoginResponseVO;
 import com.dayz.sc.auth.service.GitHubLoginService;
 import com.dayz.sc.auth.service.GoogleLoginService;
 import com.dayz.sc.auth.service.PasswordLoginService;
+import com.dayz.sc.auth.service.UserManagementService;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.response.ApiResponse;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * 认证接口
@@ -45,6 +47,7 @@ public class AuthController {
     private final TokenBlacklistService tokenBlacklistService;
     private final JwtTokenService jwtTokenService;
     private final JwtDecoder jwtDecoder;
+    private final UserManagementService userManagementService;
 
     @PostMapping("/google/login")
     @RateLimited
@@ -89,7 +92,9 @@ public class AuthController {
             throw new BusinessException(ErrorCodes.UNAUTHORIZED, "Refresh Token 无效或已过期");
         }
 
-        Integer role = refreshTokenService.getRoleFromToken(oldRefreshToken);
+        UUID parsedUserId = parseRefreshUserId(userId);
+        UserManagementService.AuthTokenState authTokenState = userManagementService.getAuthTokenState(parsedUserId);
+        Integer role = authTokenState.role();
 
         // 轮转 Refresh Token
         String newRefreshToken = refreshTokenService.rotateRefreshToken(oldRefreshToken, userId, role);
@@ -100,6 +105,7 @@ public class AuthController {
         // 签发新 Access Token
         Map<String, Object> claims = new LinkedHashMap<>();
         claims.put("userId", userId);
+        claims.put("profileComplete", authTokenState.profileComplete());
         if (role != null) {
             claims.put("role", role);
         }
@@ -163,5 +169,13 @@ public class AuthController {
         }
 
         return request.getRemoteAddr();
+    }
+
+    private UUID parseRefreshUserId(String userId) {
+        try {
+            return UUID.fromString(userId);
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "Invalid user id in refresh token");
+        }
     }
 }

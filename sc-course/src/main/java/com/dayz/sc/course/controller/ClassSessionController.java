@@ -155,6 +155,15 @@ public class ClassSessionController {
         return ApiResponse.ok(classSessionService.pauseLive(id, userId, JwtPrincipalResolver.role(jwt)));
     }
 
+    @PostMapping("/{id}/live/heartbeat")
+    public ApiResponse<@NonNull Void> heartbeatLive(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        classSessionService.heartbeatLive(id, userId, JwtPrincipalResolver.role(jwt));
+        return ApiResponse.ok(null);
+    }
+
     @PostMapping("/{id}/live/resume")
     public ApiResponse<@NonNull ClassSessionVO> resumeLive(
             @PathVariable UUID id,

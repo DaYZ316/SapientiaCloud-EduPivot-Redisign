@@ -78,6 +78,9 @@ class ClassSessionServiceTest {
     @Mock
     private ClassSeatSyncWebSocketHub seatSyncWebSocketHub;
 
+    @Mock
+    private ClassLivePresenceService classLivePresenceService;
+
     @Captor
     private ArgumentCaptor<ClassSession> sessionCaptor;
 
@@ -106,7 +109,8 @@ class ClassSessionServiceTest {
                 liveKitRoomService,
                 classroomUserInfoResolver,
                 classSeatSyncTokenService,
-                seatSyncWebSocketHub
+                seatSyncWebSocketHub,
+                classLivePresenceService
         );
         lenient().when(classroomUserInfoResolver.resolve(anyList())).thenReturn(Map.of());
     }
@@ -468,6 +472,7 @@ class ClassSessionServiceTest {
         assertThat(result.liveStatus()).isEqualTo(ClassLiveStatus.LIVE.getCode());
         verify(classSessionRepository).update(sessionCaptor.capture());
         assertThat(sessionCaptor.getValue().getLiveStartedAt()).isNotNull();
+        verify(classLivePresenceService).heartbeat(sessionId, teacherId);
         verify(seatSyncWebSocketHub).broadcastLiveStatus(eq(sessionId), any(), eq("live_started"));
     }
 
@@ -507,7 +512,59 @@ class ClassSessionServiceTest {
                 .isEqualTo(ClassLiveStatus.LIVE.getCode());
         assertThat(classSessionService.stopLive(sessionId, teacherId, 2).liveStatus())
                 .isEqualTo(ClassLiveStatus.ENDED.getCode());
+        verify(classLivePresenceService).heartbeat(sessionId, teacherId);
         verify(liveKitRoomService).deleteRoom(session.getLiveRoomName());
+    }
+
+    @Test
+    void heartbeatLive_shouldRefreshPresence_whenTeacherLive() {
+        UUID sessionId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        ClassSession session = session(sessionId, Instant.now());
+        session.setTeacherId(teacherId);
+        session.setLiveStatus(ClassLiveStatus.LIVE.getCode());
+        when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(courseTeacherRepository.existsByCourseIdAndTeacherId(session.getCourseId(), teacherId)).thenReturn(true);
+
+        classSessionService.heartbeatLive(sessionId, teacherId, 2);
+
+        verify(classLivePresenceService).heartbeat(sessionId, teacherId);
+    }
+
+    @Test
+    void pauseDisconnectedLiveSessions_shouldPauseLiveWithoutTeacherHeartbeat() {
+        UUID sessionId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        ClassSession session = session(sessionId, Instant.now());
+        session.setTeacherId(teacherId);
+        session.setLiveStatus(ClassLiveStatus.LIVE.getCode());
+        when(classSessionRepository.findLiveSessions(ClassLiveStatus.LIVE.getCode(), 100)).thenReturn(List.of(session));
+        when(classLivePresenceService.isPresent(sessionId, teacherId)).thenReturn(false);
+        when(classSessionRepository.findByIdForUpdate(sessionId)).thenReturn(Optional.of(session));
+
+        int pausedCount = classSessionService.pauseDisconnectedLiveSessions();
+
+        assertThat(pausedCount).isEqualTo(1);
+        verify(classSessionRepository).update(sessionCaptor.capture());
+        assertThat(sessionCaptor.getValue().getLiveStatus()).isEqualTo(ClassLiveStatus.PAUSED.getCode());
+        verify(seatSyncWebSocketHub).broadcastLiveStatus(eq(sessionId), any(), eq("live_paused"));
+    }
+
+    @Test
+    void pauseDisconnectedLiveSessions_shouldKeepLiveWithTeacherHeartbeat() {
+        UUID sessionId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        ClassSession session = session(sessionId, Instant.now());
+        session.setTeacherId(teacherId);
+        session.setLiveStatus(ClassLiveStatus.LIVE.getCode());
+        when(classSessionRepository.findLiveSessions(ClassLiveStatus.LIVE.getCode(), 100)).thenReturn(List.of(session));
+        when(classLivePresenceService.isPresent(sessionId, teacherId)).thenReturn(true);
+
+        int pausedCount = classSessionService.pauseDisconnectedLiveSessions();
+
+        assertThat(pausedCount).isZero();
+        verify(classSessionRepository, never()).update(any());
+        verify(seatSyncWebSocketHub, never()).broadcastLiveStatus(eq(sessionId), any(), eq("live_paused"));
     }
 
     @Test
