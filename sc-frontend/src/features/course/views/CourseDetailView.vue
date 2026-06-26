@@ -405,6 +405,7 @@ const isPublicCourse = computed(() => course.value?.isPublic === 1)
 const canAccessCourseContent = computed(() => {
   return canManageCourse.value || Boolean(course.value?.enrolled) || isPublicPublishedCourse.value
 })
+const shouldShowContentTabs = computed(() => canAccessCourseContent.value || canManageCourse.value)
 const canEnterClassSessions = computed(() => {
   if (isTeacher.value) return canManageCourse.value
   return canManageCourse.value || Boolean(course.value?.enrolled)
@@ -546,6 +547,7 @@ const tabs = computed(() => [
 const visibleTabs = computed(() => {
   const role = authStore.user?.role ?? 1
   return tabs.value.filter(tab => tab.roles.includes(role)
+      && (tab.key === 'overview' || shouldShowContentTabs.value)
       && (!tab.requiresViewLivePractices || canViewLivePractices.value)
       && (!tab.requiresViewStudents || canViewStudents.value)
       && (!tab.requiresViewAssistants || canViewAssistants.value))

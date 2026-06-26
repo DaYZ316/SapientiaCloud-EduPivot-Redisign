@@ -48,8 +48,11 @@
         <td>
           <div class="course-cell">
             <div class="course-cover">
-              <img v-if="course.coverUrl" :src="course.coverUrl" alt=""/>
-              <BookOpen v-else :size="22" stroke-width="1.5"/>
+              <img
+                :src="getCourseCoverUrl(course.coverUrl)"
+                alt=""
+                @error="handleCourseCoverError"
+              >
             </div>
             <div class="course-summary">
               <strong>{{ course.title }}</strong>
@@ -119,9 +122,10 @@
 
 <script lang="ts" setup>
 import {useI18n} from 'vue-i18n'
-import {BookOpen, Eye, Pencil, Trash2, UserPlus} from 'lucide-vue-next'
+import {Eye, Pencil, Trash2, UserPlus} from 'lucide-vue-next'
 
 import type {Course} from '@/features/course/types/course'
+import {getCourseCoverUrl, handleCourseCoverError} from '@/shared/utils/courseCover'
 
 withDefaults(defineProps<{
   courses: Course[]

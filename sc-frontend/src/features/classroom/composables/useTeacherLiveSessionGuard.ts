@@ -14,7 +14,6 @@ type GuardedLiveSession = {
 }
 
 export const TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT = 'edupivot:teacher-live-unexpected-paused'
-export const CLASSROOM_LIVE_REMOTE_PAUSED_EVENT = 'edupivot:classroom-live-remote-paused'
 
 let guardedSession: GuardedLiveSession | null = null
 let pageLifecycleListenersRegistered = false
@@ -60,20 +59,6 @@ export function pauseTeacherLiveBecauseOfUnexpectedDisconnect(sessionId: string)
             return session
         })
         .catch(() => null)
-}
-
-export function notifyRemoteLivePaused(session: ClassSession) {
-    if (typeof window === 'undefined') {
-        return
-    }
-    window.dispatchEvent(new CustomEvent(CLASSROOM_LIVE_REMOTE_PAUSED_EVENT, {
-        detail: {
-            session: {
-                ...session,
-                liveStatus: ClassLiveStatus.PAUSED,
-            },
-        },
-    }))
 }
 
 export function isTeacherLivePageLifecycleLeaving() {

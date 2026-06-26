@@ -41,11 +41,13 @@ public class PracticeSessionService {
     private final QuestionBankRepository questionBankRepository;
     private final QuestionRepository questionRepository;
     private final QuestionOptionRepository questionOptionRepository;
+    private final CourseContentAccessService courseContentAccessService;
 
     @Transactional(rollbackFor = Exception.class)
-    public UUID createPracticeSession(CreatePracticeSessionRequest request, UUID userId) {
+    public UUID createPracticeSession(CreatePracticeSessionRequest request, UUID userId, Integer role) {
         QuestionBank bank = questionBankRepository.findById(request.questionBankId())
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        courseContentAccessService.requireCourseContentAccess(bank.getCourseId(), userId, role);
 
         int questionCount = (int) questionRepository.countByQuestionBankId(request.questionBankId());
         if (questionCount == 0) {
@@ -175,7 +177,10 @@ public class PracticeSessionService {
                 .toList();
     }
 
-    public PracticeSessionVO getBankPracticeStats(UUID bankId) {
+    public PracticeSessionVO getBankPracticeStats(UUID bankId, UUID userId, Integer role) {
+        QuestionBank bank = questionBankRepository.findById(bankId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        courseContentAccessService.requireCourseContentAccess(bank.getCourseId(), userId, role);
         List<PracticeSession> sessions = practiceSessionRepository.findByQuestionBankId(bankId);
         long totalSessions = sessions.size();
         long completedSessions = sessions.stream().filter(s -> s.getStatus() == 1).count();

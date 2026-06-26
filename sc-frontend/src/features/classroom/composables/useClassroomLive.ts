@@ -6,7 +6,6 @@ import {heartbeatClassLive, issueClassLiveToken} from '@/features/course/api/cla
 import {ClassLiveStatus, type ClassParticipant, type ClassSession} from '@/features/course/types/classSession'
 import {
     isTeacherLivePageLifecycleLeaving,
-    notifyRemoteLivePaused,
     pauseTeacherLiveBecauseOfUnexpectedDisconnect,
 } from '@/features/classroom/composables/useTeacherLiveSessionGuard'
 import {
@@ -85,6 +84,8 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
     const cameraEnabled = ref(false)
     const microphoneEnabled = ref(false)
     const screenShareEnabled = ref(false)
+    const localVideoVisible = ref(false)
+    const remoteVideoVisible = ref(false)
     const remoteCameraVisible = ref(false)
     const remoteScreenShareVisible = ref(false)
     const cameraOverlayPosition = ref<CameraOverlayPosition>('bottom-right')
@@ -98,6 +99,7 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
     let networkStatsTimer: number | null = null
     let intentionalDisconnect = false
     const onlineCount = computed(() => onlineParticipants.value.length)
+    const hasVideoTrack = computed(() => currentIsTeacher.value ? localVideoVisible.value : remoteVideoVisible.value)
     let teacherLiveHeartbeatTimer: number | null = null
 
     function updateSession(nextSession: ClassSession) {
@@ -136,7 +138,6 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
                     detachVideoTrack(track, remoteVideoEl.value)
                     detachVideoTrack(track, remoteCameraVideoEl.value)
                     attachRemoteTracks()
-                    markRemotePausedIfNoVideo()
                 }
                 if (track.kind === Track.Kind.Audio && remoteAudioEl.value) {
                     track.detach(remoteAudioEl.value)
@@ -171,7 +172,6 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
                 delete connectionQualityByIdentity.value[participant.identity]
                 connectionQualityByIdentity.value = {...connectionQualityByIdentity.value}
                 refreshPresence()
-                markRemotePausedIfNoVideo()
             })
             nextRoom.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
                 updateConnectionQuality(participant, quality)
@@ -193,9 +193,6 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
                         ...currentSession.value,
                         liveStatus: ClassLiveStatus.PAUSED,
                     }
-                }
-                if (!currentIsTeacher.value && currentSession.value.liveStatus === ClassLiveStatus.LIVE) {
-                    markRemotePaused()
                 }
                 resetLiveState()
             })
@@ -229,6 +226,7 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
     function attachLocalTracks() {
         const currentRoom = room.value
         if (!currentRoom) {
+            localVideoVisible.value = false
             clearVideoTrack(localVideoEl.value)
             clearVideoTrack(localCameraVideoEl.value)
             return
@@ -236,6 +234,7 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
         const tracks = pickVideoTracks(currentRoom.localParticipant.videoTrackPublications.values())
         const mainTrack = tracks.screenShareTrack || tracks.cameraTrack || tracks.fallbackTrack
         const overlayTrack = tracks.screenShareTrack && tracks.cameraTrack ? tracks.cameraTrack : null
+        localVideoVisible.value = Boolean(mainTrack)
         attachVideoTrack(localVideoEl.value, mainTrack)
         attachVideoTrack(localCameraVideoEl.value, overlayTrack)
     }
@@ -243,6 +242,7 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
     function attachRemoteTracks() {
         const currentRoom = room.value
         if (!currentRoom) {
+            remoteVideoVisible.value = false
             remoteCameraVisible.value = false
             remoteScreenShareVisible.value = false
             clearVideoTrack(remoteVideoEl.value)
@@ -252,33 +252,12 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
         const tracks = pickRemoteVideoTracks()
         const mainTrack = tracks.screenShareTrack || tracks.cameraTrack || tracks.fallbackTrack
         const overlayTrack = tracks.screenShareTrack && tracks.cameraTrack ? tracks.cameraTrack : null
+        remoteVideoVisible.value = Boolean(mainTrack)
         remoteCameraVisible.value = Boolean(tracks.cameraTrack)
         remoteScreenShareVisible.value = Boolean(tracks.screenShareTrack)
         attachVideoTrack(remoteVideoEl.value, mainTrack)
         attachVideoTrack(remoteCameraVideoEl.value, overlayTrack)
         void sampleNetworkStats()
-    }
-
-    function markRemotePausedIfNoVideo() {
-        if (currentIsTeacher.value || currentSession.value.liveStatus !== ClassLiveStatus.LIVE) {
-            return
-        }
-        const tracks = pickRemoteVideoTracks()
-        if (tracks.screenShareTrack || tracks.cameraTrack || tracks.fallbackTrack) {
-            return
-        }
-        markRemotePaused()
-    }
-
-    function markRemotePaused() {
-        currentSession.value = {
-            ...currentSession.value,
-            liveStatus: ClassLiveStatus.PAUSED,
-        }
-        clearVideoElements()
-        remoteCameraVisible.value = false
-        remoteScreenShareVisible.value = false
-        notifyRemoteLivePaused(currentSession.value)
     }
 
     function attachRemoteAudioTracks() {
@@ -650,6 +629,8 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
         cameraEnabled.value = false
         microphoneEnabled.value = false
         screenShareEnabled.value = false
+        localVideoVisible.value = false
+        remoteVideoVisible.value = false
         remoteCameraVisible.value = false
         remoteScreenShareVisible.value = false
         connectionQualityByIdentity.value = {}
@@ -681,6 +662,7 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
         cameraOverlayPosition,
         onlineParticipants,
         onlineCount,
+        hasVideoTrack,
         connectionQualityByIdentity,
         networkStats,
         errorMessage,

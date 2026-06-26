@@ -115,7 +115,6 @@ async function loadCourses(append = false) {
       size: pageSize.value,
       keyword: searchKeyword.value || undefined,
       level: filterLevel.value,
-      isPublic: 1,
     }
     const response = await getCourses(query)
     if (append) {

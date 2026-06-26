@@ -3,6 +3,8 @@ package com.dayz.sc.course.service;
 import com.dayz.sc.common.feign.client.StorageInternalClient;
 import com.dayz.sc.common.feign.dto.StorageObjectInfo;
 import com.dayz.sc.common.response.ApiResponse;
+import com.dayz.sc.common.error.BusinessException;
+import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.course.model.dto.ChapterAttachmentRequest;
 import com.dayz.sc.course.model.dto.CreateChapterRequest;
 import com.dayz.sc.course.model.dto.UpdateChapterRequest;
@@ -11,8 +13,6 @@ import com.dayz.sc.course.model.entity.ChapterAttachment;
 import com.dayz.sc.course.model.vo.ChapterVO;
 import com.dayz.sc.course.repository.ChapterLikeRepository;
 import com.dayz.sc.course.repository.ChapterRepository;
-import com.dayz.sc.course.repository.CourseTeacherRepository;
-import com.dayz.sc.course.repository.EnrollmentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +31,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,10 +51,7 @@ class ChapterServiceTest {
     private ChapterLikeRepository chapterLikeRepository;
 
     @Mock
-    private EnrollmentRepository enrollmentRepository;
-
-    @Mock
-    private CourseTeacherRepository courseTeacherRepository;
+    private CourseContentAccessService courseContentAccessService;
 
     @Mock
     private StringRedisTemplate stringRedisTemplate;
@@ -71,8 +69,7 @@ class ChapterServiceTest {
         chapterService = new ChapterService(
                 chapterRepository,
                 chapterLikeRepository,
-                enrollmentRepository,
-                courseTeacherRepository,
+                courseContentAccessService,
                 stringRedisTemplate,
                 storageInternalClient
         );
@@ -314,7 +311,8 @@ class ChapterServiceTest {
         draft.setStatus(0);
         when(chapterRepository.findByCourseId(courseId)).thenReturn(List.of(published, draft));
 
-        List<ChapterVO> result = chapterService.getChapterTree(courseId, UUID.randomUUID(), 1);
+        UUID studentId = UUID.randomUUID();
+        List<ChapterVO> result = chapterService.getChapterTree(courseId, studentId, 1);
 
         assertThat(result).extracting(ChapterVO::id).containsExactly(published.getId());
     }
@@ -337,11 +335,23 @@ class ChapterServiceTest {
         UUID courseId = UUID.randomUUID();
         Chapter draft = chapter(UUID.randomUUID(), courseId, UUID.randomUUID(), "<p>draft</p>");
         draft.setStatus(0);
+        UUID adminId = UUID.randomUUID();
         when(chapterRepository.findByCourseId(courseId)).thenReturn(List.of(draft));
 
-        List<ChapterVO> result = chapterService.getChapterTree(courseId, UUID.randomUUID(), 0);
+        List<ChapterVO> result = chapterService.getChapterTree(courseId, adminId, 0);
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void getChapterTree_shouldRejectWhenCourseContentIsPrivateAndUserCannotRead() {
+        UUID courseId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        doThrow(new BusinessException(ErrorCodes.FORBIDDEN))
+                .when(courseContentAccessService).requireCourseContentAccess(courseId, studentId, 1);
+
+        assertThatThrownBy(() -> chapterService.getChapterTree(courseId, studentId, 1))
+                .isInstanceOf(BusinessException.class);
     }
 
     @Test

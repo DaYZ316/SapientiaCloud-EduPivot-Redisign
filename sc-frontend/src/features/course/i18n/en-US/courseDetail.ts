@@ -422,6 +422,7 @@ export default {
         streamEnded: 'Live stream ended',
         pressPlayStart: 'Press the call button to start live',
         waitingTeacher: 'Waiting for the teacher to start',
+        waitingForVideo: 'Live stream is on. Waiting for the teacher to share video.',
         connecting: 'Connecting to live stream',
         connectionMaintaining: 'Keeping live connection',
         connectionFailed: 'Live connection failed',

@@ -292,9 +292,12 @@ const restoreButtonStyle = computed(() => {
 })
 const stageMessage = computed(() => {
     if (!props.canParticipate) return props.isTeacher ? '' : t('courseDetail.live.takeSeatWatch')
+    if (props.session.liveStatus === ClassLiveStatus.NOT_STARTED) return props.isTeacher ? '' : t('courseDetail.live.waitingTeacher')
     if (isPaused.value) return t('courseDetail.live.streamPaused')
+    if (props.session.liveStatus === ClassLiveStatus.ENDED) return t('courseDetail.live.streamEnded')
     if (live.connecting.value) return t('courseDetail.live.connecting')
     if (live.errorMessage.value) return live.errorMessage.value
+    if (props.session.liveStatus === ClassLiveStatus.LIVE && !live.hasVideoTrack.value) return t('courseDetail.live.waitingForVideo')
     if (!live.connected.value) return t('courseDetail.live.connectionMaintaining')
     return ''
 })

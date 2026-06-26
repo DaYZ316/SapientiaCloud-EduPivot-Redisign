@@ -514,6 +514,10 @@ class ClassSessionServiceTest {
                 .isEqualTo(ClassLiveStatus.ENDED.getCode());
         verify(classLivePresenceService).heartbeat(sessionId, teacherId);
         verify(liveKitRoomService).deleteRoom(session.getLiveRoomName());
+        var liveStatusBroadcasts = inOrder(seatSyncWebSocketHub);
+        liveStatusBroadcasts.verify(seatSyncWebSocketHub).broadcastLiveStatus(eq(sessionId), any(), eq("live_paused"));
+        liveStatusBroadcasts.verify(seatSyncWebSocketHub).broadcastLiveStatus(eq(sessionId), any(), eq("live_resumed"));
+        liveStatusBroadcasts.verify(seatSyncWebSocketHub).broadcastLiveStatus(eq(sessionId), any(), eq("live_stopped"));
     }
 
     @Test

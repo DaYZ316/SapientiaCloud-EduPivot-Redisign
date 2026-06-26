@@ -24,8 +24,11 @@
     <div v-if="invitations.length > 0" class="invitations-list">
       <div v-for="inv in invitations" :key="inv.id" class="invitation-card">
         <div class="invitation-cover">
-          <img v-if="inv.courseCoverUrl" :src="inv.courseCoverUrl" alt="Cover"/>
-          <BookOpen v-else :size="24" stroke-width="1.5"/>
+          <img
+            :src="getCourseCoverUrl(inv.courseCoverUrl)"
+            alt="Cover"
+            @error="handleCourseCoverError"
+          >
         </div>
         <div class="invitation-info">
           <h3>{{ inv.courseTitle || '--' }}</h3>
@@ -116,7 +119,7 @@
 <script lang="ts" setup>
 import {computed, onMounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {BookOpen, Mail} from 'lucide-vue-next'
+import {Mail} from 'lucide-vue-next'
 
 import BaseConfirmDialog from '@/shared/components/BaseConfirmDialog.vue'
 import {
@@ -129,6 +132,7 @@ import {
 import type {CourseInvitation} from '@/features/course/types/invitation'
 import {InvitationStatus} from '@/features/course/types/invitation'
 import {notify} from '@/shared/composables/useGlobalNotification'
+import {getCourseCoverUrl, handleCourseCoverError} from '@/shared/utils/courseCover'
 
 const {t} = useI18n()
 

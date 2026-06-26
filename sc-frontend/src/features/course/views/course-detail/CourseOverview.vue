@@ -86,9 +86,6 @@
 
         <div v-else class="action-grid">
           <button class="primary-command" disabled type="button">{{ t('courseDetail.overview.lockedUntilEnrolled') }}</button>
-          <button class="secondary-command" type="button" @click="navigateTo('course-chapters')">
-            {{ t('courseDetail.overview.viewPublicContent') }}
-          </button>
         </div>
       </div>
 
@@ -405,6 +402,10 @@ const filesSummary = computed(() => {
 })
 
 const navigationEntries = computed<NavigationEntry[]>(() => {
+  if (!props.canManageCourse && !props.canAccessCourseContent) {
+    return []
+  }
+
   const entries: NavigationEntry[] = [
     {
       key: 'chapters',

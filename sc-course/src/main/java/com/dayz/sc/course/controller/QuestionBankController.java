@@ -46,20 +46,32 @@ public class QuestionBankController {
     }
 
     @GetMapping
-    public ApiResponse<@NonNull PageResponse<@NonNull QuestionBankVO>> listQuestionBanks(QuestionBankPageRequest request) {
-        PageResponse<@NonNull QuestionBankVO> response = questionBankService.listQuestionBanks(request);
+    public ApiResponse<@NonNull PageResponse<@NonNull QuestionBankVO>> listQuestionBanks(
+            QuestionBankPageRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        PageResponse<@NonNull QuestionBankVO> response = questionBankService.listQuestionBanks(request, userId, role);
         return ApiResponse.ok(response);
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<@NonNull QuestionBankVO> getQuestionBank(@PathVariable UUID id) {
-        QuestionBankVO bank = questionBankService.getQuestionBank(id);
+    public ApiResponse<@NonNull QuestionBankVO> getQuestionBank(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        QuestionBankVO bank = questionBankService.getQuestionBank(id, userId, role);
         return ApiResponse.ok(bank);
     }
 
     @GetMapping("/course/{courseId}")
-    public ApiResponse<@NonNull List<@NonNull QuestionBankVO>> listQuestionBanksByCourse(@PathVariable UUID courseId) {
-        List<QuestionBankVO> banks = questionBankService.listQuestionBanksByCourse(courseId);
+    public ApiResponse<@NonNull List<@NonNull QuestionBankVO>> listQuestionBanksByCourse(
+            @PathVariable UUID courseId,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        List<QuestionBankVO> banks = questionBankService.listQuestionBanksByCourse(courseId, userId, role);
         return ApiResponse.ok(banks);
     }
 

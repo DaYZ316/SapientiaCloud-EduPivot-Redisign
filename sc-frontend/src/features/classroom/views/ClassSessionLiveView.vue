@@ -26,18 +26,21 @@
 </template>
 
 <script setup lang="ts">
-import {computed, onMounted, ref} from 'vue'
+import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {onBeforeRouteLeave, useRoute, useRouter} from 'vue-router'
 import {CircleAlert} from 'lucide-vue-next'
 
 import ClassroomLiveExperience from '@/features/classroom/components/ClassroomLiveExperience.vue'
-import {getClassSession, listClassSessionParticipants} from '@/features/course/api/classSession'
+import {getClassSession, issueClassSessionSeatSyncToken, listClassSessionParticipants} from '@/features/course/api/classSession'
 import {getCourse} from '@/features/course/api/course'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {ClassLiveStatus, type ClassParticipant, type ClassSession} from '@/features/course/types/classSession'
 import type {CourseDetail} from '@/features/course/types/course'
 import {useClassroomLiveMiniStore} from '@/features/classroom/stores/classroomLiveMini'
+import type {SeatSyncMessage} from '@/features/classroom/types/classroom'
+import {mergeSeatSyncLiveStatus} from '@/features/classroom/composables/liveStatusSync'
+import {buildSeatSyncSocketUrl} from '@/features/classroom/composables/seatSyncSocket'
 
 const route = useRoute()
 const router = useRouter()
@@ -52,6 +55,11 @@ const loading = ref(true)
 const session = ref<ClassSession | null>(null)
 const course = ref<CourseDetail | null>(null)
 const participants = ref<ClassParticipant[]>([])
+let seatSocket: WebSocket | null = null
+let seatSocketStarted = false
+let seatSocketReconnectTimer: number | null = null
+let seatSocketReconnectAttempts = 0
+let destroyed = false
 
 const canManageSessionCourse = computed(() => {
   const userId = authStore.user?.id
@@ -74,6 +82,12 @@ onMounted(() => {
   void loadSession()
 })
 
+onBeforeUnmount(() => {
+  destroyed = true
+  disconnectSeatSocket()
+  clearSeatSocketReconnectTimer()
+})
+
 onBeforeRouteLeave(() => {
   showMiniWindowIfLive()
 })
@@ -91,6 +105,7 @@ async function loadSession() {
     participants.value = await listClassSessionParticipants(sessionData.id)
     liveMini.clearSession(sessionData.id)
     session.value = sessionData
+    void connectSeatSocket()
   } catch {
     session.value = null
   } finally {
@@ -109,6 +124,126 @@ function canEnterClassroom(courseData: CourseDetail) {
 function applySessionUpdate(nextSession: ClassSession) {
   session.value = nextSession
   liveMini.updateSession(nextSession)
+}
+
+async function connectSeatSocket() {
+  if (!session.value || destroyed || seatSocketStarted || isSeatSocketActive()) {
+    return
+  }
+  seatSocketStarted = true
+  try {
+    const token = await issueClassSessionSeatSyncToken(session.value.id)
+    if (destroyed || !session.value) {
+      return
+    }
+    const socket = new WebSocket(buildSeatSyncSocketUrl(session.value.id, token.token))
+    seatSocket = socket
+    socket.onopen = () => {
+      seatSocketReconnectAttempts = 0
+    }
+    socket.onmessage = (event) => handleSeatSyncMessage(event.data)
+    socket.onclose = () => {
+      if (seatSocket === socket) {
+        seatSocket = null
+        seatSocketStarted = false
+        scheduleSeatSocketReconnect()
+      }
+    }
+    socket.onerror = () => {
+      if (seatSocket === socket) {
+        socket.close()
+      }
+    }
+  } catch {
+    seatSocketStarted = false
+    scheduleSeatSocketReconnect()
+  }
+}
+
+function disconnectSeatSocket() {
+  const socket = seatSocket
+  seatSocket = null
+  seatSocketStarted = false
+  socket?.close()
+}
+
+function scheduleSeatSocketReconnect() {
+  if (destroyed || seatSocketReconnectTimer != null) {
+    return
+  }
+  seatSocketReconnectAttempts += 1
+  const delay = Math.min(1000 * seatSocketReconnectAttempts, 8000)
+  seatSocketReconnectTimer = window.setTimeout(() => {
+    seatSocketReconnectTimer = null
+    void connectSeatSocket()
+  }, delay)
+}
+
+function clearSeatSocketReconnectTimer() {
+  if (seatSocketReconnectTimer == null) {
+    return
+  }
+  window.clearTimeout(seatSocketReconnectTimer)
+  seatSocketReconnectTimer = null
+}
+
+function isSeatSocketActive() {
+  return seatSocket?.readyState === WebSocket.OPEN || seatSocket?.readyState === WebSocket.CONNECTING
+}
+
+function handleSeatSyncMessage(raw: string) {
+  try {
+    const message = JSON.parse(raw) as SeatSyncMessage
+    if (!session.value || message.sessionId !== session.value.id) {
+      return
+    }
+    if (message.type === 'seat_snapshot') {
+      participants.value = message.participants || []
+      applyLiveStatusMessage(message)
+      return
+    }
+    if (message.type === 'seat_upsert' && message.participant) {
+      upsertParticipant(message.participant)
+      return
+    }
+    if (message.type === 'seat_remove') {
+      removeParticipant(message.userId || '', message.seatIndex)
+      return
+    }
+    if (
+        message.type === 'live_started' ||
+        message.type === 'live_paused' ||
+        message.type === 'live_resumed' ||
+        message.type === 'live_stopped'
+    ) {
+      applyLiveStatusMessage(message)
+    }
+  } catch {
+    // Ignore malformed WebSocket payloads.
+  }
+}
+
+function applyLiveStatusMessage(message: SeatSyncMessage) {
+  if (!session.value || message.liveStatus == null) {
+    return
+  }
+  applySessionUpdate(mergeSeatSyncLiveStatus(session.value, message))
+}
+
+function upsertParticipant(participant: ClassParticipant) {
+  participants.value = [
+    ...participants.value.filter(item => item.userId !== participant.userId),
+    participant,
+  ]
+}
+
+function removeParticipant(userId: string, seatIndex?: number | null) {
+  participants.value = participants.value.filter(participant => {
+    if (participant.userId === userId) {
+      return false
+    }
+    return seatIndex == null || participant.seatIndex !== seatIndex
+  })
 }
 
 function backToRoom() {

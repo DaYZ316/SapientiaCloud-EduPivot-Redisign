@@ -422,6 +422,7 @@ export default {
         streamEnded: '直播已结束',
         pressPlayStart: '点击电话按钮开启直播',
         waitingTeacher: '等待教师开启直播',
+        waitingForVideo: '直播已开始，等待教师共享画面。',
         connecting: '正在连接直播',
         connectionMaintaining: '直播连接保持中',
         connectionFailed: '直播连接失败',

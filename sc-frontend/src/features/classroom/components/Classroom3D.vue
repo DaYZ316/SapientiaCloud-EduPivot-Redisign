@@ -35,6 +35,7 @@ import {SeatSpriteManager} from '@/features/classroom/composables/SeatSpriteMana
 import {createClassroomInteraction, type ClassroomInteractionControls} from '@/features/classroom/composables/useClassroomInteraction'
 import {getRoomSpec, type SeatSyncMessage} from '@/features/classroom/types/classroom'
 import {confirmDialog} from '@/shared/composables/useConfirmDialog'
+import {buildSeatSyncSocketUrl} from '@/features/classroom/composables/seatSyncSocket'
 
 const props = defineProps<{
   session: ClassSession
@@ -332,7 +333,7 @@ async function connectSeatSocket() {
     if (destroyed) {
       return
     }
-    const socket = new WebSocket(buildSeatSocketUrl(token.token))
+    const socket = new WebSocket(buildSeatSyncSocketUrl(props.session.id, token.token))
     websocket = socket
     socket.onopen = () => {
       seatSocketReconnectAttempts = 0
@@ -765,27 +766,6 @@ function disposeObject(object: THREE.Object3D) {
   geometries.forEach((geometry) => geometry.dispose())
   materials.forEach((material) => material.dispose())
   textures.forEach((texture) => texture.dispose())
-}
-
-function buildSeatSocketUrl(token: string) {
-  const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
-  const protocol = baseUrl.startsWith('https') ? 'wss:' : 'ws:'
-
-  let apiUrl: URL
-  if (baseUrl) {
-    apiUrl = new URL(baseUrl)
-    apiUrl.protocol = protocol
-  } else {
-    apiUrl = new URL(window.location.origin)
-    apiUrl.protocol = protocol
-  }
-
-  apiUrl.pathname = '/api/class-sessions/seats/ws'
-  apiUrl.search = new URLSearchParams({
-    sessionId: props.session.id,
-    token,
-  }).toString()
-  return apiUrl.toString()
 }
 
 function round(value: number) {

@@ -41,8 +41,9 @@ public class ForumController {
             @RequestParam(required = false) Long page,
             @RequestParam(required = false) Long size,
             @AuthenticationPrincipal Jwt jwt) {
-        JwtPrincipalResolver.requireUserId(jwt);
-        PageResponse<@NonNull ForumPostVO> response = forumService.listCourseComments(courseId, page, size);
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        PageResponse<@NonNull ForumPostVO> response = forumService.listCourseComments(courseId, page, size, userId, role);
         return ApiResponse.ok(response);
     }
 
@@ -85,8 +86,9 @@ public class ForumController {
     public ApiResponse<@NonNull List<@NonNull ForumReplyVO>> getCommentReplyTree(
             @PathVariable UUID postId,
             @AuthenticationPrincipal Jwt jwt) {
-        JwtPrincipalResolver.requireUserId(jwt);
-        List<ForumReplyVO> tree = forumService.getCourseCommentReplyTree(postId);
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        List<ForumReplyVO> tree = forumService.getCourseCommentReplyTree(postId, userId, role);
         return ApiResponse.ok(tree);
     }
 

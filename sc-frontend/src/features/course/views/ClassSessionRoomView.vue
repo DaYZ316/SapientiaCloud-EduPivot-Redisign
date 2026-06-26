@@ -115,6 +115,7 @@ import type {CourseDetail} from '@/features/course/types/course'
 import CourseEntryTransition from '@/features/course/components/CourseEntryTransition.vue'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {useClassroomLiveMiniStore} from '@/features/classroom/stores/classroomLiveMini'
+import {mergeSeatSyncLiveStatus} from '@/features/classroom/composables/liveStatusSync'
 
 const OPEN_CLASSROOM_LIVE_PANEL_EVENT = 'edupivot:open-classroom-live-panel'
 
@@ -405,14 +406,7 @@ function handleLiveStatusChange(message: SeatSyncMessage) {
   if (!session.value || message.sessionId !== session.value.id || message.liveStatus == null) {
     return
   }
-  session.value = {
-    ...session.value,
-    liveStatus: message.liveStatus,
-    liveStatusText: message.liveStatusText ?? session.value.liveStatusText,
-    liveStartedAt: message.liveStartedAt ?? session.value.liveStartedAt,
-    livePausedAt: message.livePausedAt ?? null,
-    liveEndedAt: message.liveEndedAt ?? session.value.liveEndedAt,
-  }
+  session.value = mergeSeatSyncLiveStatus(session.value, message)
   if (message.liveStatus !== ClassLiveStatus.LIVE && message.liveStatus !== ClassLiveStatus.PAUSED) {
     classroomLivePanelCompact.value = false
   }

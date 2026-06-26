@@ -14,11 +14,9 @@ import com.dayz.sc.course.model.dto.BindCourseFileRequest;
 import com.dayz.sc.course.model.entity.Course;
 import com.dayz.sc.course.model.entity.CourseFile;
 import com.dayz.sc.course.model.enums.CourseFileVisibility;
-import com.dayz.sc.course.model.enums.EnrollmentStatus;
 import com.dayz.sc.course.model.vo.CourseFileVO;
 import com.dayz.sc.course.repository.CourseFileRepository;
 import com.dayz.sc.course.repository.CourseRepository;
-import com.dayz.sc.course.repository.EnrollmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
@@ -47,7 +45,7 @@ public class CourseFileService {
 
     private final CourseFileRepository courseFileRepository;
     private final CourseRepository courseRepository;
-    private final EnrollmentRepository enrollmentRepository;
+    private final CourseContentAccessService courseContentAccessService;
     private final StorageInternalClient storageInternalClient;
 
     @Transactional(rollbackFor = Exception.class)
@@ -75,9 +73,8 @@ public class CourseFileService {
         int currentPage = PageUtils.normalizePage(page);
         int pageSize = PageUtils.normalizeSize(size);
         CourseFileVisibility visibility = courseFileVisibility(course);
-        boolean canReadFiles = visibility == CourseFileVisibility.PUBLIC || canReadPrivate(course, userId, role);
 
-        if (!canReadFiles) {
+        if (!courseContentAccessService.canReadCourseContent(course, userId, role)) {
             return PageResponse.empty(currentPage, pageSize);
         }
 
@@ -124,16 +121,6 @@ public class CourseFileService {
         if (!course.getTeacherId().equals(userId) && !SecurityUtils.isAdmin(role)) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
-    }
-
-    private boolean canReadPrivate(Course course, UUID userId, Integer role) {
-        if (course.getTeacherId().equals(userId) || SecurityUtils.isAdmin(role)) {
-            return true;
-        }
-        return enrollmentRepository.findByCourseIdAndStudentId(course.getId(), userId)
-                .map(enrollment -> enrollment.getStatus() == EnrollmentStatus.ACTIVE.getCode()
-                        || enrollment.getStatus() == EnrollmentStatus.COMPLETED.getCode())
-                .orElse(false);
     }
 
     private StorageObjectInfo requireStorageFile(UUID fileId) {

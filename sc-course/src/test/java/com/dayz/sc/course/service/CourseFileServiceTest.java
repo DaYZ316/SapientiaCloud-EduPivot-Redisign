@@ -9,7 +9,6 @@ import com.dayz.sc.course.model.entity.CourseFile;
 import com.dayz.sc.course.model.enums.CourseFileVisibility;
 import com.dayz.sc.course.repository.CourseFileRepository;
 import com.dayz.sc.course.repository.CourseRepository;
-import com.dayz.sc.course.repository.EnrollmentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,7 +43,7 @@ class CourseFileServiceTest {
     private CourseRepository courseRepository;
 
     @Mock
-    private EnrollmentRepository enrollmentRepository;
+    private CourseContentAccessService courseContentAccessService;
 
     @Mock
     private StorageInternalClient storageInternalClient;
@@ -59,7 +58,7 @@ class CourseFileServiceTest {
         courseFileService = new CourseFileService(
                 courseFileRepository,
                 courseRepository,
-                enrollmentRepository,
+                courseContentAccessService,
                 storageInternalClient
         );
     }

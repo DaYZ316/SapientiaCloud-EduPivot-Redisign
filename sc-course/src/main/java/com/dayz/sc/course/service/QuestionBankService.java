@@ -53,6 +53,7 @@ public class QuestionBankService {
     private final QuestionOptionRepository questionOptionRepository;
     private final QuestionAnswerRepository questionAnswerRepository;
     private final CourseTeacherRepository courseTeacherRepository;
+    private final CourseContentAccessService courseContentAccessService;
 
     // ==================== QuestionBank CRUD ====================
 
@@ -115,14 +116,18 @@ public class QuestionBankService {
         questionBankRepository.deleteById(bankId);
     }
 
-    public QuestionBankVO getQuestionBank(UUID bankId) {
+    public QuestionBankVO getQuestionBank(UUID bankId, UUID userId, Integer role) {
         QuestionBank bank = questionBankRepository.findById(bankId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        courseContentAccessService.requireCourseContentAccess(bank.getCourseId(), userId, role);
         long questionCount = questionRepository.countByQuestionBankId(bankId);
         return toQuestionBankVO(bank, questionCount);
     }
 
-    public PageResponse<@NonNull QuestionBankVO> listQuestionBanks(QuestionBankPageRequest request) {
+    public PageResponse<@NonNull QuestionBankVO> listQuestionBanks(QuestionBankPageRequest request, UUID userId, Integer role) {
+        if (request.courseId() != null) {
+            courseContentAccessService.requireCourseContentAccess(request.courseId(), userId, role);
+        }
         int page = PageUtils.normalizePage(request.page());
         int size = PageUtils.normalizeSize(request.size());
 
@@ -147,6 +152,11 @@ public class QuestionBankService {
         return banks.stream()
                 .map(bank -> toQuestionBankVO(bank, countMap.getOrDefault(bank.getId(), 0L)))
                 .toList();
+    }
+
+    public List<QuestionBankVO> listQuestionBanksByCourse(UUID courseId, UUID userId, Integer role) {
+        courseContentAccessService.requireCourseContentAccess(courseId, userId, role);
+        return listQuestionBanksByCourse(courseId);
     }
 
     // ==================== Question CRUD ====================
@@ -384,6 +394,7 @@ public class QuestionBankService {
     public QuestionVO getQuestion(UUID questionId, UUID userId, Integer role) {
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        courseContentAccessService.requireCourseContentAccess(question.getCourseId(), userId, role);
 
         // 草稿只有创建者可见
         if (question.getStatus() == QuestionStatus.DRAFT.getCode()
@@ -403,6 +414,14 @@ public class QuestionBankService {
     }
 
     public PageResponse<@NonNull QuestionVO> listQuestions(QuestionPageRequest request, UUID userId, Integer role) {
+        if (request.courseId() != null) {
+            courseContentAccessService.requireCourseContentAccess(request.courseId(), userId, role);
+        }
+        if (request.questionBankId() != null) {
+            QuestionBank bank = questionBankRepository.findById(request.questionBankId())
+                    .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+            courseContentAccessService.requireCourseContentAccess(bank.getCourseId(), userId, role);
+        }
         int page = PageUtils.normalizePage(request.page());
         int size = PageUtils.normalizeSize(request.size());
         UUID visibleUserId = SecurityUtils.isAdmin(role) ? null : userId;

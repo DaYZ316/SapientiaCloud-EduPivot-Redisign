@@ -37,7 +37,8 @@ public class PracticeSessionController {
             @Valid @RequestBody CreatePracticeSessionRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
-        UUID sessionId = practiceSessionService.createPracticeSession(request, userId);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        UUID sessionId = practiceSessionService.createPracticeSession(request, userId, role);
         return ApiResponse.ok(sessionId);
     }
 
@@ -79,8 +80,12 @@ public class PracticeSessionController {
     }
 
     @GetMapping("/bank/{bankId}/stats")
-    public ApiResponse<@NonNull PracticeSessionVO> getBankPracticeStats(@PathVariable UUID bankId) {
-        PracticeSessionVO stats = practiceSessionService.getBankPracticeStats(bankId);
+    public ApiResponse<@NonNull PracticeSessionVO> getBankPracticeStats(
+            @PathVariable UUID bankId,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        PracticeSessionVO stats = practiceSessionService.getBankPracticeStats(bankId, userId, role);
         return ApiResponse.ok(stats);
     }
 }

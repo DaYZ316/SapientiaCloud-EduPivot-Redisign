@@ -60,12 +60,14 @@ public class ForumService {
     private final EnrollmentRepository enrollmentRepository;
     private final ForumPostRepository forumPostRepository;
     private final ForumReplyRepository forumReplyRepository;
+    private final CourseContentAccessService courseContentAccessService;
     private final AuthInternalClient authInternalClient;
     private final StorageInternalClient storageInternalClient;
 
-    public PageResponse<@NonNull ForumPostVO> listCourseComments(UUID courseId, Long pageValue, Long sizeValue) {
-        courseRepository.findById(courseId)
+    public PageResponse<@NonNull ForumPostVO> listCourseComments(UUID courseId, Long pageValue, Long sizeValue, UUID userId, Integer role) {
+        Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        courseContentAccessService.requireCourseContentAccess(course, userId, role);
 
         int page = PageUtils.normalizePage(pageValue);
         int size = PageUtils.normalizeSize(sizeValue);
@@ -146,10 +148,11 @@ public class ForumService {
         forumPostRepository.deleteById(postId);
     }
 
-    public List<ForumReplyVO> getCourseCommentReplyTree(UUID postId) {
+    public List<ForumReplyVO> getCourseCommentReplyTree(UUID postId, UUID userId, Integer role) {
         ForumPost post = forumPostRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
         requireCourseCommentPost(post);
+        courseContentAccessService.requireCourseContentAccess(post.getCourseId(), userId, role);
 
         List<ForumReply> allReplies = forumReplyRepository.findByPostId(postId, 1, 10000).getRecords();
         Map<UUID, List<ForumReply>> childrenMap = allReplies.stream()

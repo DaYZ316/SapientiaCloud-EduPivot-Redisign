@@ -537,7 +537,6 @@ import {
 } from '@/features/course/types/classSession'
 import {type CameraOverlayPosition, useClassroomLive} from '@/features/classroom/composables/useClassroomLive'
 import {
-    CLASSROOM_LIVE_REMOTE_PAUSED_EVENT,
     TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT,
     useTeacherLiveSessionGuard,
 } from '@/features/classroom/composables/useTeacherLiveSessionGuard'
@@ -665,6 +664,7 @@ const stageMessage = computed(() => {
     if (isNotStarted.value) return props.isTeacher ? t('courseDetail.live.pressPlayStart') : t('courseDetail.live.waitingTeacher')
     if (live.connecting.value) return t('courseDetail.live.connecting')
     if (live.errorMessage.value) return live.errorMessage.value
+    if (isLive.value && !live.hasVideoTrack.value) return t('courseDetail.live.waitingForVideo')
     return ''
 })
 
@@ -697,7 +697,6 @@ onMounted(async () => {
         updatePlayerFullscreenState()
         document.addEventListener('fullscreenchange', updatePlayerFullscreenState)
         window.addEventListener(TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT, handleUnexpectedPaused)
-        window.addEventListener(CLASSROOM_LIVE_REMOTE_PAUSED_EVENT, handleUnexpectedPaused)
     }
     await loadMessages()
     await loadParticipants()
@@ -708,7 +707,6 @@ onUnmounted(() => {
     if (typeof document !== 'undefined') {
         document.removeEventListener('fullscreenchange', updatePlayerFullscreenState)
         window.removeEventListener(TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT, handleUnexpectedPaused)
-        window.removeEventListener(CLASSROOM_LIVE_REMOTE_PAUSED_EVENT, handleUnexpectedPaused)
     }
 })
 
