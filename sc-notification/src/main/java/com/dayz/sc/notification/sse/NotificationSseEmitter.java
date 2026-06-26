@@ -8,6 +8,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -26,7 +27,7 @@ public class NotificationSseEmitter {
 
     private static final long NO_TIMEOUT = 0L;
     private static final long HEARTBEAT_INTERVAL_SECONDS = 15L;
-    private final Map<UUID, SseEmitter> emitters = new ConcurrentHashMap<>();
+    private final Map<UUID, Set<SseEmitter>> emitters = new ConcurrentHashMap<>();
     private final RedisSsePublisher redisSsePublisher;
     private final ScheduledExecutorService heartbeatExecutor = new ScheduledThreadPoolExecutor(1,
             r -> {
@@ -34,6 +35,7 @@ public class NotificationSseEmitter {
                 t.setDaemon(true);
                 return t;
             });
+
     public NotificationSseEmitter(RedisSsePublisher redisSsePublisher) {
         this.redisSsePublisher = redisSsePublisher;
         heartbeatExecutor.scheduleAtFixedRate(
@@ -48,31 +50,29 @@ public class NotificationSseEmitter {
 
         emitter.onCompletion(() -> {
             log.info("SSE connection completed for user: {}", userId);
-            emitters.remove(userId, emitter);
+            remove(userId, emitter);
         });
 
         emitter.onTimeout(() -> {
             log.info("SSE connection timeout for user: {}", userId);
-            emitters.remove(userId, emitter);
+            remove(userId, emitter);
         });
 
         emitter.onError(e -> {
             log.error("SSE connection error for user: {}", userId, e);
-            emitters.remove(userId, emitter);
+            remove(userId, emitter);
         });
 
-        SseEmitter oldEmitter = emitters.put(userId, emitter);
-        if (oldEmitter != null) {
-            oldEmitter.complete();
-        }
+        emitters.computeIfAbsent(userId, ignored -> ConcurrentHashMap.newKeySet()).add(emitter);
 
         try {
             emitter.send(SseEmitter.event()
                     .name("connected")
                     .data("Connected to notification stream"));
-        } catch (IOException e) {
+        } catch (IOException | IllegalStateException e) {
             log.error("Failed to send initial SSE message for user: {}", userId, e);
-            emitters.remove(userId, emitter);
+            remove(userId, emitter);
+            emitter.completeWithError(e);
         }
 
         return emitter;
@@ -105,49 +105,56 @@ public class NotificationSseEmitter {
      * 本地发送通知给指定用户，附带未读计数
      */
     public void sendToUserLocally(UUID userId, NotificationVO notification, long unreadCount) {
-        SseEmitter emitter = emitters.get(userId);
-        if (emitter == null) {
+        Set<SseEmitter> userEmitters = emitters.get(userId);
+        if (userEmitters == null) {
             return;
         }
-        try {
-            SsePayload payload = new SsePayload(notification, unreadCount);
-            emitter.send(SseEmitter.event()
-                    .name("notification")
-                    .data(payload));
-        } catch (IOException e) {
-            log.error("Failed to send SSE notification to user: {}", userId, e);
-            emitters.remove(userId, emitter);
-        }
-    }
-
-    public void broadcastLocally(NotificationVO notification) {
-        SsePayload payload = new SsePayload(notification, -1);
-        emitters.forEach((userId, emitter) -> {
+        SsePayload payload = new SsePayload(notification, unreadCount);
+        userEmitters.forEach(emitter -> {
             try {
                 emitter.send(SseEmitter.event()
                         .name("notification")
                         .data(payload));
-            } catch (IOException e) {
-                log.error("Failed to broadcast SSE notification to user: {}", userId, e);
-                emitters.remove(userId, emitter);
+            } catch (IOException | IllegalStateException e) {
+                log.error("Failed to send SSE notification to user: {}", userId, e);
+                remove(userId, emitter);
+                emitter.completeWithError(e);
             }
         });
     }
 
-    public void broadcastExceptLocally(UUID excludeUserId, NotificationVO notification) {
+    public void broadcastLocally(NotificationVO notification) {
         SsePayload payload = new SsePayload(notification, -1);
-        emitters.forEach((userId, emitter) -> {
-            if (userId.equals(excludeUserId)) {
-                return;
-            }
+        emitters.forEach((userId, userEmitters) -> userEmitters.forEach(emitter -> {
             try {
                 emitter.send(SseEmitter.event()
                         .name("notification")
                         .data(payload));
-            } catch (IOException e) {
+            } catch (IOException | IllegalStateException e) {
                 log.error("Failed to broadcast SSE notification to user: {}", userId, e);
-                emitters.remove(userId, emitter);
+                remove(userId, emitter);
+                emitter.completeWithError(e);
             }
+        }));
+    }
+
+    public void broadcastExceptLocally(UUID excludeUserId, NotificationVO notification) {
+        SsePayload payload = new SsePayload(notification, -1);
+        emitters.forEach((userId, userEmitters) -> {
+            if (userId.equals(excludeUserId)) {
+                return;
+            }
+            userEmitters.forEach(emitter -> {
+                try {
+                    emitter.send(SseEmitter.event()
+                            .name("notification")
+                            .data(payload));
+                } catch (IOException | IllegalStateException e) {
+                    log.error("Failed to broadcast SSE notification to user: {}", userId, e);
+                    remove(userId, emitter);
+                    emitter.completeWithError(e);
+                }
+            });
         });
     }
 
@@ -165,16 +172,28 @@ public class NotificationSseEmitter {
     }
 
     private void sendHeartbeat() {
-        emitters.forEach((userId, emitter) -> {
+        emitters.forEach((userId, userEmitters) -> userEmitters.forEach(emitter -> {
             try {
                 emitter.send(SseEmitter.event()
                         .name("heartbeat")
                         .data("ping"));
-            } catch (IOException e) {
+            } catch (IOException | IllegalStateException e) {
                 log.debug("SSE heartbeat failed for user: {}", userId, e);
-                emitters.remove(userId, emitter);
+                remove(userId, emitter);
+                emitter.completeWithError(e);
             }
-        });
+        }));
+    }
+
+    private void remove(UUID userId, SseEmitter emitter) {
+        Set<SseEmitter> userEmitters = emitters.get(userId);
+        if (userEmitters == null) {
+            return;
+        }
+        userEmitters.remove(emitter);
+        if (userEmitters.isEmpty()) {
+            emitters.remove(userId, userEmitters);
+        }
     }
 
     /**

@@ -20,6 +20,7 @@ const TOKEN_TYPE_KEY = 'edupivot.tokenType'
 const USER_KEY = 'edupivot.user'
 let sessionExpiredHandled = false
 let voluntaryLogoutInProgress = false
+let refreshSessionPromise: Promise<boolean> | null = null
 
 export class ApiError extends Error {
     readonly code?: number
@@ -59,6 +60,7 @@ export interface RequestOptions extends AxiosRequestConfig {
 
 export async function request<T>(config: RequestOptions, retryOnUnauthorized = true): Promise<T> {
     const {silent, suppressSessionExpiredDialog, ...axiosConfig} = config
+    const requestAccessToken = localStorage.getItem(ACCESS_TOKEN_KEY)
 
     try {
         const response = await http.request<ApiResponse<T>>(axiosConfig)
@@ -71,8 +73,10 @@ export async function request<T>(config: RequestOptions, retryOnUnauthorized = t
         return payload.data
     } catch (error) {
         if (error instanceof ApiError) {
-            if (retryOnUnauthorized && error.code === UNAUTHORIZED_CODE && await refreshSession()) {
-                return request<T>(config, false)
+            if (retryOnUnauthorized && error.code === UNAUTHORIZED_CODE) {
+                if (hasAccessTokenChanged(requestAccessToken) || await refreshSession()) {
+                    return request<T>(config, false)
+                }
             }
             if (error.code === PROFILE_INCOMPLETE_CODE) {
                 handleProfileIncomplete()
@@ -87,9 +91,10 @@ export async function request<T>(config: RequestOptions, retryOnUnauthorized = t
         const axiosError = error as AxiosError<ApiResponse<unknown>>
         const errorCode = axiosError.response?.data?.code
         if (retryOnUnauthorized
-            && isAuthenticationExpired(errorCode, axiosError.response?.status)
-            && await refreshSession()) {
-            return request<T>(config, false)
+            && isAuthenticationExpired(errorCode, axiosError.response?.status)) {
+            if (hasAccessTokenChanged(requestAccessToken) || await refreshSession()) {
+                return request<T>(config, false)
+            }
         }
 
         const message = resolveErrorMessage(axiosError)
@@ -119,6 +124,12 @@ function isAuthenticationExpired(code?: number, status?: number) {
     }
 
     return status === 401 && code == null
+}
+
+function hasAccessTokenChanged(requestAccessToken: string | null) {
+    const currentAccessToken = localStorage.getItem(ACCESS_TOKEN_KEY)
+
+    return Boolean(requestAccessToken && currentAccessToken && currentAccessToken !== requestAccessToken)
 }
 
 function handleSessionExpired(suppressDialog = false) {
@@ -177,6 +188,19 @@ export async function refreshSession() {
         return false
     }
 
+    if (refreshSessionPromise) {
+        return refreshSessionPromise
+    }
+
+    refreshSessionPromise = performRefreshSession()
+    try {
+        return await refreshSessionPromise
+    } finally {
+        refreshSessionPromise = null
+    }
+}
+
+async function performRefreshSession() {
     const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
     if (!refreshToken) {
         return false
@@ -189,6 +213,10 @@ export async function refreshSession() {
             data: {refreshToken},
         })
         if (response.data.code !== SUCCESS_CODE || !response.data.data?.accessToken) {
+            clearSession()
+            return false
+        }
+        if (voluntaryLogoutInProgress) {
             clearSession()
             return false
         }

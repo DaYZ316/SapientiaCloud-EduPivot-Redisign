@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
 import {ClassRoomSize} from '@/features/course/types/classSession'
-import {getDeskPosition, getDeskYaw, getSeatPosition, type RoomPlanDimensions} from '@/features/classroom/composables/useSeatLayout'
+import {getDeskPosition, getDeskYaw, type RoomPlanDimensions} from '@/features/classroom/composables/useSeatLayout'
 
 const LARGE_SEATS_PER_DESK = 4
 
@@ -61,13 +61,11 @@ export function createClassroomInteraction(options: ClassroomInteractionOptions)
         if (!hit) {
             return null
         }
+        const seatIndex = Number(hit.object.userData.seatIndex)
         const deskIndex = Number(hit.object.userData.deskIndex)
-        if (!Number.isFinite(deskIndex)) {
+        if (!Number.isFinite(seatIndex) || !Number.isFinite(deskIndex)) {
             return null
         }
-        const seatIndex = options.roomSize === ClassRoomSize.LARGE
-            ? deskIndex * 4 + largeSeatOffset(hit.point, hit.object, metrics)
-            : deskIndex
         return {seatIndex, deskIndex}
     }
 
@@ -84,19 +82,22 @@ export function createClassroomInteraction(options: ClassroomInteractionOptions)
             highlight.visible = false
             return
         }
+        const deskPosition = getDeskPosition(options.roomSize, hit.deskIndex, options.dimensions)
+        const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, getDeskYaw(options.roomSize, hit.deskIndex, options.dimensions), 0))
+
+        highlight.position.copy(deskPosition)
+
         if (options.roomSize === ClassRoomSize.LARGE) {
-            const position = getSeatPosition(options.roomSize, hit.seatIndex, options.dimensions)
-            const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, getDeskYaw(options.roomSize, hit.deskIndex, options.dimensions), 0))
-            highlight.position.copy(position)
-            highlight.quaternion.copy(quaternion)
-            highlight.visible = true
-        } else {
-            const position = getDeskPosition(options.roomSize, hit.deskIndex, options.dimensions)
-            const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, getDeskYaw(options.roomSize, hit.deskIndex, options.dimensions), 0))
-            highlight.position.copy(position)
-            highlight.quaternion.copy(quaternion)
-            highlight.visible = true
+            const seatInDesk = hit.seatIndex % LARGE_SEATS_PER_DESK
+            const seatWidth = Math.max(metrics.proxySize.z / LARGE_SEATS_PER_DESK, 0.4)
+            const seatLocalZ = metrics.proxyCenter.z - metrics.proxySize.z / 2 + (seatInDesk + 0.5) * seatWidth
+            const deltaZ = seatLocalZ - metrics.proxyCenter.z
+            const deltaWorld = new THREE.Vector3(0, 0, deltaZ).applyQuaternion(quaternion)
+            highlight.position.add(deltaWorld)
         }
+
+        highlight.quaternion.copy(quaternion)
+        highlight.visible = true
     }
 
     function handleMove(event: MouseEvent) {
@@ -224,9 +225,9 @@ function getDeskInteractionMetrics(instancedMeshes: THREE.InstancedMesh[], isLar
     let seatProxySize: THREE.Vector3 | undefined
     if (isLargeRoom) {
         seatProxySize = new THREE.Vector3(
-            Math.max(proxySize.x / LARGE_SEATS_PER_DESK, 0.4),
+            Math.max(proxySize.x, 0.4),
             Math.max(proxySize.y, 0.4),
-            Math.max(proxySize.z, 0.4),
+            Math.max(proxySize.z / LARGE_SEATS_PER_DESK, 0.4),
         )
     }
 
@@ -252,8 +253,6 @@ function createInteractionTargets(
     dimensions?: RoomPlanDimensions,
 ) {
     const group = new THREE.Group()
-    const geometry = new THREE.BoxGeometry(metrics.proxySize.x + 0.12, metrics.proxySize.y + 0.12, metrics.proxySize.z + 0.12)
-    geometry.translate(metrics.proxyCenter.x, metrics.proxyCenter.y, metrics.proxyCenter.z)
     const material = new THREE.MeshBasicMaterial({
         transparent: true,
         opacity: 0,
@@ -261,12 +260,44 @@ function createInteractionTargets(
         colorWrite: false,
     })
 
-    for (let index = 0; index < count; index += 1) {
-        const target = new THREE.Mesh(geometry, material)
-        target.position.copy(getDeskPosition(roomSize, index, dimensions))
-        target.quaternion.setFromEuler(new THREE.Euler(0, getDeskYaw(roomSize, index, dimensions), 0))
-        target.userData.deskIndex = index
-        group.add(target)
+    if (roomSize === ClassRoomSize.LARGE) {
+        const seatWidth = Math.max(metrics.proxySize.z / LARGE_SEATS_PER_DESK, 0.4)
+        const seatGeometry = new THREE.BoxGeometry(
+            metrics.proxySize.x + 0.12,
+            metrics.proxySize.y + 0.12,
+            seatWidth + 0.12,
+        )
+
+        for (let deskIndex = 0; deskIndex < count; deskIndex += 1) {
+            const deskPosition = getDeskPosition(roomSize, deskIndex, dimensions)
+            const deskQuaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, getDeskYaw(roomSize, deskIndex, dimensions), 0))
+
+            for (let seatInDesk = 0; seatInDesk < LARGE_SEATS_PER_DESK; seatInDesk += 1) {
+                const seatIndex = deskIndex * LARGE_SEATS_PER_DESK + seatInDesk
+                const seatGeometryOffset = seatGeometry.clone()
+                const seatZOffset = metrics.proxyCenter.z - metrics.proxySize.z / 2 + (seatInDesk + 0.5) * seatWidth
+                seatGeometryOffset.translate(metrics.proxyCenter.x, metrics.proxyCenter.y, seatZOffset)
+
+                const seatProxy = new THREE.Mesh(seatGeometryOffset, material)
+                seatProxy.position.copy(deskPosition)
+                seatProxy.quaternion.copy(deskQuaternion)
+                seatProxy.userData.seatIndex = seatIndex
+                seatProxy.userData.deskIndex = deskIndex
+                group.add(seatProxy)
+            }
+        }
+    } else {
+        const geometry = new THREE.BoxGeometry(metrics.proxySize.x + 0.12, metrics.proxySize.y + 0.12, metrics.proxySize.z + 0.12)
+        geometry.translate(metrics.proxyCenter.x, metrics.proxyCenter.y, metrics.proxyCenter.z)
+
+        for (let index = 0; index < count; index += 1) {
+            const target = new THREE.Mesh(geometry, material)
+            target.position.copy(getDeskPosition(roomSize, index, dimensions))
+            target.quaternion.setFromEuler(new THREE.Euler(0, getDeskYaw(roomSize, index, dimensions), 0))
+            target.userData.deskIndex = index
+            target.userData.seatIndex = index
+            group.add(target)
+        }
     }
 
     return group
@@ -353,12 +384,6 @@ function getBaseMatrix(mesh: THREE.InstancedMesh) {
         mesh.userData.baseQuaternion as THREE.Quaternion,
         mesh.userData.baseScale as THREE.Vector3,
     )
-}
-
-function largeSeatOffset(point: THREE.Vector3, object: THREE.Object3D, metrics: DeskInteractionMetrics) {
-    const localPoint = object.worldToLocal(point.clone())
-    const normalized = THREE.MathUtils.clamp((localPoint.z - metrics.seatMinX) / metrics.seatWidth, 0, 0.999)
-    return Math.floor(normalized * 4)
 }
 
 function disposeObject(object: THREE.Object3D) {

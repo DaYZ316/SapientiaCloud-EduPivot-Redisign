@@ -84,7 +84,10 @@
         </div>
       </div>
 
-      <div class="detail-workspace">
+      <div
+        class="detail-workspace"
+        :class="{'teacher-layout': canManageCourse}"
+      >
         <section class="question-ledger">
           <div class="ledger-header">
             <span>{{ t('courseDetail.livePractice.questionList') }}</span>
@@ -124,6 +127,66 @@
             class="empty-list"
           >
             {{ t('courseDetail.livePractice.emptyQuestions') }}
+          </div>
+        </section>
+
+        <section
+          v-if="canManageCourse"
+          class="teacher-overview"
+        >
+          <div class="overview-header">
+            <span>{{ t('courseDetail.livePractice.classOverview') }}</span>
+            <strong>{{ t('courseDetail.livePractice.questionCount', {count: questionMetrics.length}) }}</strong>
+          </div>
+
+          <div class="overview-stats">
+            <div>
+              <span>{{ t('courseDetail.livePractice.lowAccuracyQuestions') }}</span>
+              <strong>{{ lowAccuracyQuestionCount }}</strong>
+            </div>
+            <div>
+              <span>{{ t('courseDetail.livePractice.followUpStudents') }}</span>
+              <strong>{{ followUpStudentCount }}</strong>
+            </div>
+          </div>
+
+          <div class="overview-chart-panel">
+            <div class="chart-title-row">
+              <span>{{ t('courseDetail.livePractice.submissionProgressChart') }}</span>
+            </div>
+            <DashboardChart
+              :aria-label="t('courseDetail.livePractice.submissionProgressAria')"
+              :empty-text="t('courseDetail.livePractice.analysisChartEmpty')"
+              :has-data="submissionBreakdownHasData"
+              :option="submissionBreakdownOption"
+              height="220px"
+            />
+          </div>
+
+          <div class="overview-chart-panel">
+            <div class="chart-title-row">
+              <span>{{ t('courseDetail.livePractice.questionCorrectRateChart') }}</span>
+            </div>
+            <DashboardChart
+              :aria-label="t('courseDetail.livePractice.questionCorrectRateAria')"
+              :empty-text="t('courseDetail.livePractice.analysisChartEmpty')"
+              :has-data="questionMetrics.length > 0"
+              :option="questionCorrectRateOption"
+              height="220px"
+            />
+          </div>
+
+          <div class="overview-chart-panel">
+            <div class="chart-title-row">
+              <span>{{ t('courseDetail.livePractice.averageScoreRateChart') }}</span>
+            </div>
+            <DashboardChart
+              :aria-label="t('courseDetail.livePractice.averageScoreRateAria')"
+              :empty-text="t('courseDetail.livePractice.analysisChartEmpty')"
+              :has-data="questionMetrics.length > 0"
+              :option="questionAverageScoreOption"
+              height="220px"
+            />
           </div>
         </section>
 
@@ -260,15 +323,35 @@
               </div>
 
               <div
-                v-if="selectedQuestion.analysis && Object.keys(selectedQuestion.analysis.optionCounts || {}).length"
-                class="option-counts"
+                v-if="selectedQuestion.analysis && isObjectiveQuestion(selectedQuestion.questionType)"
+                class="analysis-chart-panel"
               >
-                <span
-                  v-for="(count, label) in selectedQuestion.analysis.optionCounts"
-                  :key="label"
-                >
-                  {{ label }} {{ count }}
-                </span>
+                <div class="chart-title-row">
+                  <span>{{ t('courseDetail.livePractice.optionDistributionChart') }}</span>
+                </div>
+                <DashboardChart
+                  :aria-label="t('courseDetail.livePractice.optionDistributionAria')"
+                  :empty-text="t('courseDetail.livePractice.analysisChartEmpty')"
+                  :has-data="selectedOptionDistributionHasData"
+                  :option="selectedOptionDistributionOption"
+                  height="220px"
+                />
+              </div>
+
+              <div
+                v-else-if="selectedQuestion.analysis"
+                class="analysis-chart-panel"
+              >
+                <div class="chart-title-row">
+                  <span>{{ t('courseDetail.livePractice.scoreDistributionChart') }}</span>
+                </div>
+                <DashboardChart
+                  :aria-label="t('courseDetail.livePractice.scoreDistributionAria')"
+                  :empty-text="t('courseDetail.livePractice.analysisChartEmpty')"
+                  :has-data="selectedScoreDistributionHasData"
+                  :option="selectedScoreDistributionOption"
+                  height="220px"
+                />
               </div>
 
               <div
@@ -425,6 +508,7 @@
 </template>
 
 <script lang="ts" setup>
+import type {EChartsCoreOption} from 'echarts/core'
 import {computed, onBeforeUnmount, reactive, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
@@ -448,7 +532,28 @@ import type {ClassSession} from '@/features/course/types/classSession'
 import type {CourseDetail} from '@/features/course/types/course'
 import type {LivePracticeGroup, LivePracticeQuestion} from '@/features/live-practice/types/livePractice'
 import {notify} from '@/shared/composables/useGlobalNotification'
+import DashboardChart from '@/features/dashboard/components/DashboardChart.vue'
 import RichMathContent from '@/shared/components/RichMathContent.vue'
+
+interface QuestionMetric {
+  id: string
+  label: string
+  submittedCount: number
+  correctRate: number
+  averageScoreRate: number
+  notSubmittedCount: number
+}
+
+interface SubmissionBreakdown {
+  submitted: number
+  late: number
+  missing: number
+}
+
+interface ScoreBucket {
+  label: string
+  value: number
+}
 
 const {t, locale} = useI18n()
 const route = useRoute()
@@ -508,6 +613,120 @@ const sessionTitle = computed(() => classSession.value?.title || t('courseDetail
 const sessionTimeRange = computed(() => {
   if (!classSession.value) return t('courseDetail.livePractice.publishedAt', {time: formatDateTime(group.value?.publishedAt)})
   return `${formatDateTime(classSession.value.scheduledStartAt)} - ${formatDateTime(classSession.value.scheduledEndAt)}`
+})
+const questionMetrics = computed<QuestionMetric[]>(() => {
+  return questions.value
+      .filter(question => Boolean(question.analysis))
+      .map(question => {
+        const analysis = question.analysis!
+        const submittedCount = Math.max(Number(analysis.submittedCount || 0), 0)
+        const totalScore = Math.max(Number(question.score || 0), 0)
+        return {
+          id: question.id,
+          label: t('courseDetail.livePractice.questionShortLabel', {order: question.questionOrder}),
+          submittedCount,
+          correctRate: submittedCount > 0 ? toPercent(Number(analysis.correctCount || 0) / submittedCount) : 0,
+          averageScoreRate: totalScore > 0 ? toPercent(Number(analysis.averageScore || 0) / totalScore) : 0,
+          notSubmittedCount: Math.max(Number(analysis.notSubmittedCount || 0), 0),
+        }
+      })
+})
+const submissionBreakdown = computed<SubmissionBreakdown>(() => {
+  return questionMetrics.value.reduce((breakdown, metric) => {
+    const question = questions.value.find(item => item.id === metric.id)
+    const late = Math.max(Number(question?.analysis?.lateSubmittedCount || 0), 0)
+    breakdown.late += late
+    breakdown.submitted += Math.max(metric.submittedCount - late, 0)
+    breakdown.missing += metric.notSubmittedCount
+    return breakdown
+  }, {submitted: 0, late: 0, missing: 0})
+})
+const submissionBreakdownHasData = computed(() => {
+  const breakdown = submissionBreakdown.value
+  return breakdown.submitted + breakdown.late + breakdown.missing > 0
+})
+const lowAccuracyQuestionCount = computed(() => {
+  return questionMetrics.value.filter(metric => metric.submittedCount > 0 && metric.correctRate < 60).length
+})
+const followUpStudentCount = computed(() => {
+  const studentIds = new Set<string>()
+  questions.value.forEach(question => {
+    question.analysis?.notSubmittedStudents.forEach(student => studentIds.add(student.id))
+  })
+  return studentIds.size
+})
+const submissionBreakdownOption = computed<EChartsCoreOption>(() => {
+  const breakdown = submissionBreakdown.value
+  return donutChartOption([
+    {name: t('courseDetail.livePractice.submittedOnTime'), value: breakdown.submitted},
+    {name: t('courseDetail.livePractice.lateSubmittedLabel'), value: breakdown.late},
+    {name: t('courseDetail.livePractice.notSubmittedLabel'), value: breakdown.missing},
+  ], t('courseDetail.livePractice.submissionProgressChart'))
+})
+const questionCorrectRateOption = computed<EChartsCoreOption>(() => {
+  return percentBarChartOption(
+      questionMetrics.value.map(metric => metric.label),
+      questionMetrics.value.map(metric => metric.correctRate),
+      t('courseDetail.livePractice.correctRateSeries'),
+      true,
+  )
+})
+const questionAverageScoreOption = computed<EChartsCoreOption>(() => {
+  return percentBarChartOption(
+      questionMetrics.value.map(metric => metric.label),
+      questionMetrics.value.map(metric => metric.averageScoreRate),
+      t('courseDetail.livePractice.averageScoreRateSeries'),
+  )
+})
+const selectedOptionDistribution = computed(() => {
+  const counts = selectedQuestion.value?.analysis?.optionCounts || {}
+  return Object.entries(counts).map(([label, count]) => ({
+    label,
+    value: Math.max(Number(count || 0), 0),
+  }))
+})
+const selectedOptionDistributionHasData = computed(() => {
+  return selectedOptionDistribution.value.some(item => item.value > 0)
+})
+const selectedOptionDistributionOption = computed<EChartsCoreOption>(() => {
+  return countBarChartOption(
+      selectedOptionDistribution.value.map(item => item.label),
+      selectedOptionDistribution.value.map(item => item.value),
+      t('courseDetail.livePractice.optionDistributionChart'),
+  )
+})
+const selectedScoreDistribution = computed<ScoreBucket[]>(() => {
+  const question = selectedQuestion.value
+  const submissions = question?.analysis?.submissions || []
+  if (!question || submissions.length === 0) return []
+  const totalScore = Math.max(Number(question.score || 0), 0)
+  const buckets: ScoreBucket[] = [
+    {label: '0%', value: 0},
+    {label: '1-59%', value: 0},
+    {label: '60-79%', value: 0},
+    {label: '80-99%', value: 0},
+    {label: '100%', value: 0},
+  ]
+  submissions.forEach(submission => {
+    const earnedScore = Math.max(Number(submission.earnedScore || 0), 0)
+    const percent = totalScore > 0 ? toPercent(earnedScore / totalScore) : 0
+    if (percent <= 0) buckets[0].value += 1
+    else if (percent < 60) buckets[1].value += 1
+    else if (percent < 80) buckets[2].value += 1
+    else if (percent < 100) buckets[3].value += 1
+    else buckets[4].value += 1
+  })
+  return buckets
+})
+const selectedScoreDistributionHasData = computed(() => {
+  return selectedScoreDistribution.value.some(item => item.value > 0)
+})
+const selectedScoreDistributionOption = computed<EChartsCoreOption>(() => {
+  return countBarChartOption(
+      selectedScoreDistribution.value.map(item => item.label),
+      selectedScoreDistribution.value.map(item => item.value),
+      t('courseDetail.livePractice.scoreDistributionChart'),
+  )
 })
 
 watch(() => [courseId.value, groupId.value], () => {
@@ -577,6 +796,105 @@ function formatDateTime(value?: string | null) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date)
+}
+
+function toPercent(value: number) {
+  if (!Number.isFinite(value)) return 0
+  return Math.round(Math.max(0, Math.min(value, 1)) * 1000) / 10
+}
+
+function donutChartOption(data: Array<{name: string; value: number}>, name: string): EChartsCoreOption {
+  return {
+    legend: {
+      bottom: 0,
+      left: 'center',
+    },
+    series: [
+      {
+        name,
+        type: 'pie',
+        radius: ['54%', '72%'],
+        center: ['50%', '42%'],
+        avoidLabelOverlap: true,
+        label: {
+          formatter: '{b}\n{c}',
+        },
+        labelLine: {
+          length: 8,
+          length2: 6,
+        },
+        data: data.filter(item => item.value > 0),
+      },
+    ],
+  }
+}
+
+function percentBarChartOption(labels: string[], values: number[], name: string, markLow = false): EChartsCoreOption {
+  return {
+    tooltip: {
+      trigger: 'axis',
+      valueFormatter: (value: unknown) => `${value}%`,
+    },
+    xAxis: {
+      type: 'category',
+      data: labels,
+      axisLabel: {
+        interval: 0,
+      },
+    },
+    yAxis: {
+      type: 'value',
+      max: 100,
+      axisLabel: {
+        formatter: '{value}%',
+      },
+    },
+    series: [
+      {
+        name,
+        type: 'bar',
+        barMaxWidth: 22,
+        barMinHeight: 3,
+        data: values.map(value => markLow && value < 60
+            ? {value, itemStyle: {color: '#b65f5f'}}
+            : value),
+        itemStyle: {
+          borderRadius: [3, 3, 0, 0],
+        },
+      },
+    ],
+  }
+}
+
+function countBarChartOption(labels: string[], values: number[], name: string): EChartsCoreOption {
+  return {
+    tooltip: {
+      trigger: 'axis',
+    },
+    xAxis: {
+      type: 'category',
+      data: labels,
+      axisLabel: {
+        interval: 0,
+      },
+    },
+    yAxis: {
+      type: 'value',
+      minInterval: 1,
+    },
+    series: [
+      {
+        name,
+        type: 'bar',
+        barMaxWidth: 24,
+        barMinHeight: 3,
+        data: values,
+        itemStyle: {
+          borderRadius: [3, 3, 0, 0],
+        },
+      },
+    ],
+  }
 }
 
 function questionTypeLabel(type: number) {
@@ -838,7 +1156,12 @@ function hasPendingAiGrading() {
   align-items: start;
 }
 
+.detail-workspace.teacher-layout {
+  grid-template-columns: minmax(260px, 3fr) minmax(320px, 4fr) minmax(420px, 5fr);
+}
+
 .question-ledger,
+.teacher-overview,
 .question-preview,
 .state-block {
   background: var(--color-surface-card);
@@ -859,6 +1182,90 @@ function hasPendingAiGrading() {
   font-family: var(--font-label);
   font-size: 12px;
   font-weight: 400;
+}
+
+.teacher-overview {
+  display: grid;
+  gap: 0;
+}
+
+.overview-header,
+.chart-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.overview-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-outline-light);
+}
+
+.overview-header span,
+.overview-stats span,
+.chart-title-row span {
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.overview-header strong {
+  color: var(--color-on-surface);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.overview-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-bottom: 1px solid var(--color-outline-light);
+}
+
+.overview-stats div {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px 16px;
+  border-left: 1px solid var(--color-outline-light);
+}
+
+.overview-stats div:first-child {
+  border-left: 0;
+}
+
+.overview-stats strong {
+  color: var(--color-on-surface);
+  font-family: var(--font-heading);
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.overview-chart-panel,
+.analysis-chart-panel {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.overview-chart-panel {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-outline-light);
+}
+
+.overview-chart-panel:last-child {
+  border-bottom: 0;
+}
+
+.analysis-chart-panel {
+  padding: 12px;
+  border: 1px solid var(--color-outline-light);
 }
 
 .question-row {
@@ -1357,7 +1764,8 @@ function hasPendingAiGrading() {
 }
 
 @media (max-width: 1180px) {
-  .detail-workspace {
+  .detail-workspace,
+  .detail-workspace.teacher-layout {
     grid-template-columns: 1fr;
   }
 

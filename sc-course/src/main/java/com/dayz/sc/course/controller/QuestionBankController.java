@@ -177,8 +177,12 @@ public class QuestionBankController {
 
     @PostMapping("/questions/{id}/view")
     @RateLimited
-    public ApiResponse<@NonNull Void> viewQuestion(@PathVariable UUID id) {
-        questionBankService.viewQuestion(id);
+    public ApiResponse<@NonNull Void> viewQuestion(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        Integer role = JwtPrincipalResolver.role(jwt);
+        questionBankService.viewQuestion(id, userId, role);
         return ApiResponse.ok(null);
     }
 }

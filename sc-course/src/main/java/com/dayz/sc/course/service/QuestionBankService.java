@@ -455,9 +455,10 @@ public class QuestionBankService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void viewQuestion(UUID questionId) {
+    public void viewQuestion(UUID questionId, UUID userId, Integer role) {
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
+        courseContentAccessService.requireCourseContentAccess(question.getCourseId(), userId, role);
         question.setViewCount(question.getViewCount() + 1);
         questionRepository.update(question);
     }

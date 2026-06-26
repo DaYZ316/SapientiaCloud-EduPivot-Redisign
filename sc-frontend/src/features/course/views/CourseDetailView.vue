@@ -698,6 +698,7 @@ async function handleEnroll() {
     course.value.enrolled = true
     course.value.currentStudents += 1
     notify.success(t('courseDetail.alert.enrollSuccess'))
+    await ensureActiveTabData()
   } catch {
     notify.error(t('courseDetail.alert.enrollFailed'))
   } finally {
@@ -808,9 +809,10 @@ async function openClassSessionCreator() {
 }
 
 async function ensureActiveTabData() {
+  if (!canAccessCourseContent.value && !['overview', 'students', 'assistants'].includes(activeTabKey.value)) return
   switch (activeTabKey.value) {
     case 'overview':
-      if (!chaptersLoaded.value && !chaptersLoading.value) await reloadChapters()
+      if (canAccessCourseContent.value && !chaptersLoaded.value && !chaptersLoading.value) await reloadChapters()
       if (!classSessionsLoading.value) await reloadClassSessionsForOverview()
       break
     case 'chapters':
@@ -872,6 +874,10 @@ async function handleListPageChange(page: number) {
 
 async function reloadChapters() {
   const targetCourseId = courseId.value
+  if (!canAccessCourseContent.value) {
+    chapterTree.value = []
+    return
+  }
   chaptersLoading.value = true
   try {
     const tree = await getChapterTree(targetCourseId)
@@ -885,6 +891,11 @@ async function reloadChapters() {
 
 async function reloadBanks(page = banksPage.value) {
   const targetCourseId = courseId.value
+  if (!canAccessCourseContent.value) {
+    courseBanks.value = []
+    banksTotal.value = 0
+    return
+  }
   if (banksLoading.value) return
   banksLoading.value = true
   try {
@@ -906,6 +917,11 @@ async function reloadBanks(page = banksPage.value) {
 
 async function reloadFiles(page = filesPage.value) {
   const targetCourseId = courseId.value
+  if (!canAccessCourseContent.value) {
+    courseFiles.value = []
+    filesTotal.value = 0
+    return
+  }
   if (filesLoading.value) return
   filesLoading.value = true
   try {

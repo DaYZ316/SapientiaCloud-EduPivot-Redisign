@@ -2,12 +2,8 @@ import {computed, onUnmounted, ref, shallowRef, unref, watch, type MaybeRef} fro
 import {createLocalTracks, Room, RoomEvent, Track, type ConnectionQuality, type Participant} from 'livekit-client'
 
 import {i18n} from '@/app/i18n'
-import {heartbeatClassLive, issueClassLiveToken} from '@/features/course/api/classSession'
+import {issueClassLiveToken} from '@/features/course/api/classSession'
 import {ClassLiveStatus, type ClassParticipant, type ClassSession} from '@/features/course/types/classSession'
-import {
-    isTeacherLivePageLifecycleLeaving,
-    pauseTeacherLiveBecauseOfUnexpectedDisconnect,
-} from '@/features/classroom/composables/useTeacherLiveSessionGuard'
 import {
     EMPTY_LIVE_NETWORK_STATS,
     mergeOnlineParticipants,
@@ -20,7 +16,6 @@ const CAMERA_OVERLAY_TOPIC = 'classroom-camera-overlay-position'
 const CAMERA_OVERLAY_MESSAGE_TYPE = 'camera_overlay_position'
 const CAMERA_OVERLAY_POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const
 const NETWORK_STATS_INTERVAL_MS = 2000
-const TEACHER_LIVE_HEARTBEAT_INTERVAL_MS = 15000
 const SCREEN_SHARE_CAPTURE_OPTIONS = {
     selfBrowserSurface: 'exclude',
     surfaceSwitching: 'include',
@@ -97,18 +92,11 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
     const textDecoder = new TextDecoder()
     const textEncoder = new TextEncoder()
     let networkStatsTimer: number | null = null
-    let intentionalDisconnect = false
     const onlineCount = computed(() => onlineParticipants.value.length)
     const hasVideoTrack = computed(() => currentIsTeacher.value ? localVideoVisible.value : remoteVideoVisible.value)
-    let teacherLiveHeartbeatTimer: number | null = null
 
     function updateSession(nextSession: ClassSession) {
         currentSession.value = nextSession
-        if (nextSession.liveStatus === ClassLiveStatus.LIVE) {
-            startTeacherLiveHeartbeat()
-            return
-        }
-        stopTeacherLiveHeartbeat()
     }
 
     function updateIsTeacher(nextIsTeacher: boolean) {
@@ -186,14 +174,6 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
             })
             nextRoom.on(RoomEvent.Disconnected, () => {
                 stopNetworkStatsSampler()
-                stopTeacherLiveHeartbeat()
-                if (!intentionalDisconnect && !isPageUnloading() && currentIsTeacher.value && currentSession.value.liveStatus === ClassLiveStatus.LIVE) {
-                    pauseTeacherLiveBecauseOfUnexpectedDisconnect(currentSession.value.id)
-                    currentSession.value = {
-                        ...currentSession.value,
-                        liveStatus: ClassLiveStatus.PAUSED,
-                    }
-                }
                 resetLiveState()
             })
             await nextRoom.connect(token.url, token.token)
@@ -204,7 +184,6 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
             attachRemoteAudioTracks()
             attachLocalTracks()
             startNetworkStatsSampler()
-            startTeacherLiveHeartbeat()
         } catch (error) {
             errorMessage.value = error instanceof Error ? error.message : i18n.global.t('courseDetail.live.connectionFailed')
             await disconnect()
@@ -353,12 +332,8 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
         const currentRoom = room.value
         room.value = null
         stopNetworkStatsSampler()
-        stopTeacherLiveHeartbeat()
         if (currentRoom) {
-            intentionalDisconnect = true
-            void currentRoom.disconnect().finally(() => {
-                intentionalDisconnect = false
-            })
+            currentRoom.disconnect()
         }
         resetLiveState()
     }
@@ -554,41 +529,6 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
         }
         window.clearInterval(networkStatsTimer)
         networkStatsTimer = null
-    }
-
-    function startTeacherLiveHeartbeat() {
-        stopTeacherLiveHeartbeat()
-        if (!currentIsTeacher.value || currentSession.value.liveStatus !== ClassLiveStatus.LIVE) {
-            return
-        }
-        void sendTeacherLiveHeartbeat()
-        teacherLiveHeartbeatTimer = window.setInterval(() => {
-            void sendTeacherLiveHeartbeat()
-        }, TEACHER_LIVE_HEARTBEAT_INTERVAL_MS)
-    }
-
-    function stopTeacherLiveHeartbeat() {
-        if (teacherLiveHeartbeatTimer == null) {
-            return
-        }
-        window.clearInterval(teacherLiveHeartbeatTimer)
-        teacherLiveHeartbeatTimer = null
-    }
-
-    async function sendTeacherLiveHeartbeat() {
-        if (!currentIsTeacher.value || currentSession.value.liveStatus !== ClassLiveStatus.LIVE) {
-            stopTeacherLiveHeartbeat()
-            return
-        }
-        try {
-            await heartbeatClassLive(currentSession.value.id)
-        } catch {
-            // Heartbeat failures are retried by the next interval.
-        }
-    }
-
-    function isPageUnloading() {
-        return isTeacherLivePageLifecycleLeaving()
     }
 
     async function sampleNetworkStats() {

@@ -16,7 +16,7 @@ import {CircleAlert} from 'lucide-vue-next'
 import * as THREE from 'three'
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js'
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
-import {RGBELoader} from 'three/examples/jsm/loaders/RGBELoader.js'
+import {HDRLoader} from 'three/examples/jsm/loaders/HDRLoader.js'
 
 import {
   issueClassSessionSeatSyncToken,
@@ -726,12 +726,11 @@ function loadGlb(path: string, onProgress?: (event?: ProgressEvent<EventTarget>)
 }
 
 function loadEnvironment(path: string): Promise<THREE.Texture> {
-  const loader = new RGBELoader()
+  const loader = new HDRLoader()
   return new Promise((resolve, reject) => {
     loader.load(
         path,
         (texture) => {
-          texture.colorSpace = THREE.SRGBColorSpace
           texture.mapping = THREE.EquirectangularReflectionMapping
           resolve(texture)
         },

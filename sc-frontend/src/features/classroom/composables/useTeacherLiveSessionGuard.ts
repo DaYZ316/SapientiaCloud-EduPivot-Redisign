@@ -1,6 +1,6 @@
 import {onUnmounted, watch, type Ref} from 'vue'
 
-import {heartbeatClassLiveKeepalive, pauseClassLive} from '@/features/course/api/classSession'
+import {heartbeatClassLive, heartbeatClassLiveKeepalive, pauseClassLive} from '@/features/course/api/classSession'
 import {ClassLiveStatus, type ClassSession} from '@/features/course/types/classSession'
 
 type TeacherLiveSessionGuardOptions = {
@@ -14,12 +14,15 @@ type GuardedLiveSession = {
 }
 
 export const TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT = 'edupivot:teacher-live-unexpected-paused'
+const TEACHER_LIVE_HEARTBEAT_INTERVAL_MS = 15000
 
+const guardSessions = new Map<symbol, GuardedLiveSession>()
 let guardedSession: GuardedLiveSession | null = null
 let pageLifecycleListenersRegistered = false
-let pageLifecycleLeaving = false
+let teacherLiveHeartbeatTimer: number | null = null
 
 export function useTeacherLiveSessionGuard(options: TeacherLiveSessionGuardOptions) {
+    const guardId = Symbol('teacher-live-session-guard')
     const stopWatch = watch(
         () => ({
             sessionId: options.session.value.id,
@@ -27,29 +30,29 @@ export function useTeacherLiveSessionGuard(options: TeacherLiveSessionGuardOptio
             isTeacher: options.isTeacher.value,
         }),
         ({sessionId, liveStatus, isTeacher}) => {
-            if (isTeacher && isActiveLiveStatus(liveStatus)) {
-                guardedSession = {sessionId, liveStatus}
+            if (isTeacher && isLiveStatus(liveStatus)) {
+                guardSessions.set(guardId, {sessionId, liveStatus})
                 registerPageLifecycleListeners()
-                return
+            } else {
+                guardSessions.delete(guardId)
             }
-            if (guardedSession?.sessionId === sessionId) {
-                guardedSession = null
-            }
+            refreshGuardedSession()
         },
         {immediate: true},
     )
 
-    onUnmounted(stopWatch)
+    onUnmounted(() => {
+        stopWatch()
+        guardSessions.delete(guardId)
+        refreshGuardedSession()
+    })
 }
 
 export function pauseTeacherLiveBecauseOfUnexpectedDisconnect(sessionId: string) {
-    if (guardedSession?.sessionId !== sessionId || !isActiveLiveStatus(guardedSession.liveStatus)) {
+    if (guardedSession?.sessionId !== sessionId || !isLiveStatus(guardedSession.liveStatus)) {
         return Promise.resolve(null)
     }
-    guardedSession = {
-        ...guardedSession,
-        liveStatus: ClassLiveStatus.PAUSED,
-    }
+    markGuardedSessionPaused(sessionId)
     return pauseClassLive(sessionId)
         .then((session) => {
             if (typeof window === 'undefined') return session
@@ -61,10 +64,6 @@ export function pauseTeacherLiveBecauseOfUnexpectedDisconnect(sessionId: string)
         .catch(() => null)
 }
 
-export function isTeacherLivePageLifecycleLeaving() {
-    return pageLifecycleLeaving
-}
-
 function registerPageLifecycleListeners() {
     if (pageLifecycleListenersRegistered || typeof window === 'undefined') {
         return
@@ -72,21 +71,69 @@ function registerPageLifecycleListeners() {
     pageLifecycleListenersRegistered = true
     window.addEventListener('pagehide', handlePageLifecycleExit)
     window.addEventListener('beforeunload', handlePageLifecycleExit)
-    window.addEventListener('pageshow', handlePageLifecycleReturn)
 }
 
 function handlePageLifecycleExit() {
-    pageLifecycleLeaving = true
-    if (!guardedSession || !isActiveLiveStatus(guardedSession.liveStatus)) {
+    if (!guardedSession || !isLiveStatus(guardedSession.liveStatus)) {
         return
     }
     heartbeatClassLiveKeepalive(guardedSession.sessionId)
 }
 
-function handlePageLifecycleReturn() {
-    pageLifecycleLeaving = false
+function refreshGuardedSession() {
+    const activeSessions = Array.from(guardSessions.values())
+    guardedSession = activeSessions.length > 0 ? activeSessions[activeSessions.length - 1] : null
+    syncTeacherLiveHeartbeat()
 }
 
-function isActiveLiveStatus(status: number) {
-    return status === ClassLiveStatus.LIVE || status === ClassLiveStatus.PAUSED
+function syncTeacherLiveHeartbeat() {
+    if (!guardedSession || !isLiveStatus(guardedSession.liveStatus)) {
+        stopTeacherLiveHeartbeat()
+        return
+    }
+    void sendTeacherLiveHeartbeat()
+    if (teacherLiveHeartbeatTimer != null || typeof window === 'undefined') {
+        return
+    }
+    teacherLiveHeartbeatTimer = window.setInterval(() => {
+        void sendTeacherLiveHeartbeat()
+    }, TEACHER_LIVE_HEARTBEAT_INTERVAL_MS)
+}
+
+function stopTeacherLiveHeartbeat() {
+    if (teacherLiveHeartbeatTimer == null || typeof window === 'undefined') {
+        teacherLiveHeartbeatTimer = null
+        return
+    }
+    window.clearInterval(teacherLiveHeartbeatTimer)
+    teacherLiveHeartbeatTimer = null
+}
+
+async function sendTeacherLiveHeartbeat() {
+    const session = guardedSession
+    if (!session || !isLiveStatus(session.liveStatus)) {
+        stopTeacherLiveHeartbeat()
+        return
+    }
+    try {
+        await heartbeatClassLive(session.sessionId)
+    } catch {
+        // Heartbeat failures are retried by the next interval.
+    }
+}
+
+function markGuardedSessionPaused(sessionId: string) {
+    for (const [guardId, session] of guardSessions) {
+        if (session.sessionId === sessionId) {
+            guardSessions.set(guardId, {
+                ...session,
+                liveStatus: ClassLiveStatus.PAUSED,
+            })
+        }
+    }
+    refreshGuardedSession()
+}
+
+function isLiveStatus(status: number) {
+    return status === ClassLiveStatus.LIVE
 }
