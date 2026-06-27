@@ -129,8 +129,8 @@
             <span>Word</span>
           </button>
           <button
-            v-if="canImportArtifact"
-            :disabled="importingQuestions"
+            v-if="showImportAction"
+            :disabled="!canImportArtifact || importingQuestions"
             :title="t('common.ai.studio.importToBank')"
             class="import-to-bank-button"
             type="button"
@@ -800,6 +800,10 @@ const canExportArtifact = computed(() => Boolean(
   && !artifact.value.terminated
   && questionCount.value > 0
   && aiStore.activeConversationId,
+))
+const showImportAction = computed(() => Boolean(
+  showExportActions.value
+  && artifact.value,
 ))
 const canImportArtifact = computed(() => Boolean(
   showExportActions.value

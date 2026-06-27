@@ -27,13 +27,22 @@ type LauncherPosition = {
   top: number
 }
 
+type LauncherCenter = {
+  x: number
+  y: number
+}
+
 const props = withDefaults(defineProps<{
   ariaLabel?: string
+  initialCenter?: LauncherCenter | null
   interactive?: boolean
+  snapInitialCenter?: boolean
   startAtCenter?: boolean
 }>(), {
   ariaLabel: '打开 AI 教学助手',
+  initialCenter: null,
   interactive: true,
+  snapInitialCenter: false,
   startAtCenter: false,
 })
 
@@ -79,7 +88,7 @@ let transitionPromise: Promise<void> | undefined
 let resolveTransition: (() => void) | undefined
 
 onMounted(() => {
-  position.value = props.startAtCenter ? getCenterPosition() : getInitialPosition()
+  position.value = getMountedPosition()
   LegendaryCursor.init({
     lineSize: 0.038,
     lineExpFactor: 0.6,
@@ -206,6 +215,18 @@ function playReturnTransition() {
   return playPositionTransition(startPosition, endPosition)
 }
 
+function placeAtCenter(center: LauncherCenter, options: {persist?: boolean; snapToEdge?: boolean} = {}) {
+  position.value = positionFromCenter(center, {snapToEdge: options.snapToEdge ?? false})
+  LegendaryCursor.setAutoPilotCenter(getCenter(position.value))
+  if (options.persist) {
+    persistPosition(position.value)
+  }
+}
+
+function getSnappedCenter(center: LauncherCenter) {
+  return getCenter(positionFromCenter(center, {snapToEdge: true}))
+}
+
 function playPositionTransition(startPosition: LauncherPosition, endPosition: LauncherPosition) {
   const path = createMomentumPath(startPosition, endPosition)
   const startedAt = performance.now()
@@ -267,6 +288,15 @@ function getInitialPosition() {
   return snapToNearestEdge(storedPosition ?? getDefaultPosition())
 }
 
+function getMountedPosition() {
+  if (props.startAtCenter) return getCenterPosition()
+  if (props.initialCenter) {
+    return positionFromCenter(props.initialCenter, {snapToEdge: props.snapInitialCenter})
+  }
+
+  return getInitialPosition()
+}
+
 function getDefaultPosition(): LauncherPosition {
   const {margin, size} = getMetrics()
   return {
@@ -281,6 +311,15 @@ function getCenterPosition(): LauncherPosition {
     left: window.innerWidth / 2 - size / 2,
     top: window.innerHeight / 2 - size / 2,
   })
+}
+
+function positionFromCenter(center: LauncherCenter, options: {snapToEdge?: boolean} = {}) {
+  const {size} = getMetrics()
+  const nextPosition = clampPosition({
+    left: center.x - size / 2,
+    top: center.y - size / 2,
+  })
+  return options.snapToEdge ? snapToNearestEdge(nextPosition) : nextPosition
 }
 
 function createMomentumPath(startPosition: LauncherPosition, endPosition: LauncherPosition): MomentumPath {
@@ -428,6 +467,9 @@ function isLauncherPosition(value: unknown): value is LauncherPosition {
 defineExpose({
   finishCenterTransition,
   finishTransition,
+  getLauncherCenter: () => getCenter(position.value),
+  getSnappedCenter,
+  placeAtCenter,
   playCenterTransition,
   playReturnTransition,
 })
