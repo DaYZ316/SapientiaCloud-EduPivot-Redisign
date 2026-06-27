@@ -129,8 +129,8 @@
             <span>Word</span>
           </button>
           <button
-            v-if="canImportArtifact"
-            :disabled="importingQuestions"
+            v-if="showImportAction"
+            :disabled="!canImportArtifact || importingQuestions"
             :title="t('common.ai.studio.importToBank')"
             class="import-to-bank-button"
             type="button"
@@ -686,6 +686,8 @@ type SelectOption = { label: string; value: SelectValue }
 type ArtifactTab = 'single' | 'overall' | 'trace'
 type ExportFormat = 'pdf' | 'docx'
 
+const ANSWER_VISIBILITY_STORAGE_KEY = 'aiStudioShowQuestionAnswer'
+
 const props = defineProps<{
   mode?: Exclude<AiAgentMode, 'CHAT'>
   generation: GenerationRequest
@@ -724,7 +726,7 @@ const activeArtifactTab = computed({
   set: (value: ArtifactTab) => emit('update:artifactTab', value),
 })
 const activeQuestionIndex = ref(0)
-const showQuestionAnswer = ref(true)
+const showQuestionAnswer = ref(loadAnswerVisibilityPreference())
 const exportingFormat = ref<ExportFormat | null>(null)
 const knowledgePointsText = ref('')
 const abilityGoalsText = ref('')
@@ -801,6 +803,10 @@ const canExportArtifact = computed(() => Boolean(
   && questionCount.value > 0
   && aiStore.activeConversationId,
 ))
+const showImportAction = computed(() => Boolean(
+  showExportActions.value
+  && artifact.value,
+))
 const canImportArtifact = computed(() => Boolean(
   showExportActions.value
   && artifact.value
@@ -838,8 +844,11 @@ const canSubmitImport = computed(() => Boolean(
 
 watch(() => artifact.value?.id, () => {
   activeQuestionIndex.value = 0
-  showQuestionAnswer.value = true
   resetImportState()
+})
+
+watch(showQuestionAnswer, (value) => {
+  saveAnswerVisibilityPreference(value)
 })
 
 watch(questionCount, (count) => {
@@ -1259,6 +1268,25 @@ function importAnswers(question: PayloadRecord, score: number) {
 
 function isExportableMessage(message: ChatMessage) {
   return message.messageType === 'QUESTION_SET' || message.messageType === 'PAPER'
+}
+
+function loadAnswerVisibilityPreference() {
+  try {
+    const storedValue = window.localStorage.getItem(ANSWER_VISIBILITY_STORAGE_KEY)
+    if (storedValue === 'false') return false
+    if (storedValue === 'true') return true
+  } catch {
+    // localStorage may be unavailable in restricted browser contexts.
+  }
+  return true
+}
+
+function saveAnswerVisibilityPreference(value: boolean) {
+  try {
+    window.localStorage.setItem(ANSWER_VISIBILITY_STORAGE_KEY, String(value))
+  } catch {
+    // Keep the in-memory switch usable even when persistence is unavailable.
+  }
 }
 
 async function exportArtifact(format: ExportFormat) {

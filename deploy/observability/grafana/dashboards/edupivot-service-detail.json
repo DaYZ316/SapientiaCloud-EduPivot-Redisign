@@ -27,10 +27,10 @@
       "keepTime": true,
       "tags": [],
       "targetBlank": false,
-      "title": "Service Detail",
+      "title": "Overview",
       "tooltip": "",
       "type": "link",
-      "url": "/d/edupivot-service-detail"
+      "url": "/d/edupivot-backend-overview"
     },
     {
       "asDropdown": false,
@@ -71,8 +71,8 @@
           },
           "links": [
             {
-              "title": "Open service detail",
-              "url": "/d/edupivot-service-detail/edupivot-service-detail?var-service=${service}&from=${__from}&to=${__to}"
+              "title": "Open logs",
+              "url": "/d/edupivot-logs/edupivot-logs?var-service=${service}&from=${__from}&to=${__to}"
             }
           ],
           "mappings": [
@@ -139,14 +139,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "up{job=\"sc-edupivot-backend\",instance=~\"${service:regex}:.*\"}",
+          "expr": "up{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",instance=~\"${service:regex}:.*\"}",
           "instant": false,
           "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Service Status",
+      "title": "Selected Service Status",
       "type": "stat"
     },
     {
@@ -242,14 +242,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (rate(http_server_requests_seconds_count{job=\"sc-edupivot-backend\",instance=~\"${service:regex}:.*\",uri!~\"/actuator/.*\"}[5m])) or sum by (instance) (up{job=\"sc-edupivot-backend\",instance=~\"${service:regex}:.*\"}) * 0",
+          "expr": "sum by (status, instance) (rate(http_server_requests_seconds_count{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",instance=~\"${service:regex}:.*\",uri!~\"/actuator/.*\"}[5m]))",
           "instant": false,
-          "legendFormat": "{{instance}}",
+          "legendFormat": "{{instance}} {{status}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "HTTP RPS",
+      "title": "HTTP RPS by Status",
       "type": "timeseries"
     },
     {
@@ -345,14 +345,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (rate(http_server_requests_seconds_count{job=\"sc-edupivot-backend\",instance=~\"${service:regex}:.*\",status=~\"5..\",uri!~\"/actuator/.*\"}[5m])) or sum by (instance) (up{job=\"sc-edupivot-backend\",instance=~\"${service:regex}:.*\"}) * 0",
+          "expr": "sum by (uri, status) (rate(http_server_requests_seconds_count{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",instance=~\"${service:regex}:.*\",status=~\"5..\",uri!~\"/actuator/.*\"}[5m]))",
           "instant": false,
-          "legendFormat": "{{instance}}",
+          "legendFormat": "{{status}} {{uri}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "HTTP 5xx",
+      "title": "HTTP 5xx by URI",
       "type": "timeseries"
     },
     {
@@ -360,7 +360,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "Histogram P95 with Spring Boot max fallback for sparse traffic.",
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -419,8 +419,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
-        "w": 8,
+        "h": 8,
+        "w": 12,
         "x": 0,
         "y": 4
       },
@@ -448,14 +448,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, instance) (rate(http_server_requests_seconds_bucket{job=\"sc-edupivot-backend\",instance=~\"${service:regex}:.*\",uri!~\"/actuator/.*\"}[5m]))) or max by (instance) (http_server_requests_seconds_max{job=\"sc-edupivot-backend\",instance=~\"${service:regex}:.*\",uri!~\"/actuator/.*\"})",
+          "expr": "topk(10, histogram_quantile(0.95, sum by (le, uri) (rate(http_server_requests_seconds_bucket{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",instance=~\"${service:regex}:.*\",uri!~\"/actuator/.*\"}[5m]))))",
           "instant": false,
-          "legendFormat": "{{instance}}",
+          "legendFormat": "{{uri}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "HTTP P95 Latency",
+      "title": "P95 Latency by URI",
       "type": "timeseries"
     },
     {
@@ -463,7 +463,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "Histogram P99 with Spring Boot max fallback for sparse traffic.",
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -522,9 +522,9 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
-        "w": 8,
-        "x": 8,
+        "h": 8,
+        "w": 12,
+        "x": 12,
         "y": 4
       },
       "id": 5,
@@ -551,14 +551,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, instance) (rate(http_server_requests_seconds_bucket{job=\"sc-edupivot-backend\",instance=~\"${service:regex}:.*\",uri!~\"/actuator/.*\"}[5m]))) or max by (instance) (http_server_requests_seconds_max{job=\"sc-edupivot-backend\",instance=~\"${service:regex}:.*\",uri!~\"/actuator/.*\"})",
+          "expr": "histogram_quantile(0.99, sum by (le, instance) (rate(http_server_requests_seconds_bucket{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",instance=~\"${service:regex}:.*\",uri!~\"/actuator/.*\"}[5m]))) or max by (instance) (http_server_requests_seconds_max{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",instance=~\"${service:regex}:.*\",uri!~\"/actuator/.*\"})",
           "instant": false,
           "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "HTTP P99 Latency",
+      "title": "P99 Latency by Instance",
       "type": "timeseries"
     },
     {
@@ -571,12 +571,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "links": [
-            {
-              "title": "Open service detail",
-              "url": "/d/edupivot-service-detail/edupivot-service-detail?var-service=${service}&from=${__from}&to=${__to}"
-            }
-          ],
+          "links": [],
           "max": 1,
           "min": 0,
           "thresholds": {
@@ -603,8 +598,8 @@
       "gridPos": {
         "h": 7,
         "w": 8,
-        "x": 16,
-        "y": 4
+        "x": 0,
+        "y": 12
       },
       "id": 6,
       "options": {
@@ -641,14 +636,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (jvm_memory_used_bytes{job=\"sc-edupivot-backend\",instance=~\"${service:regex}:.*\",area=\"heap\"}) / sum by (instance) (jvm_memory_max_bytes{job=\"sc-edupivot-backend\",instance=~\"${service:regex}:.*\",area=\"heap\"})",
+          "expr": "sum by (instance) (jvm_memory_used_bytes{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",instance=~\"${service:regex}:.*\",area=\"heap\"}) / sum by (instance) (jvm_memory_max_bytes{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",instance=~\"${service:regex}:.*\",area=\"heap\"})",
           "instant": false,
           "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "JVM Heap Usage",
+      "title": "Heap Usage",
       "type": "bargauge"
     },
     {
@@ -695,12 +690,7 @@
               "mode": "off"
             }
           },
-          "links": [
-            {
-              "title": "Open service detail",
-              "url": "/d/edupivot-service-detail/edupivot-service-detail?var-service=${service}&from=${__from}&to=${__to}"
-            }
-          ],
+          "links": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -710,15 +700,15 @@
               }
             ]
           },
-          "unit": "none"
+          "unit": "percentunit"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 7,
         "w": 8,
-        "x": 0,
-        "y": 11
+        "x": 8,
+        "y": 12
       },
       "id": 7,
       "options": {
@@ -744,117 +734,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "jvm_threads_live_threads{job=\"sc-edupivot-backend\",instance=~\"${service:regex}:.*\"}",
+          "expr": "process_cpu_usage{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",instance=~\"${service:regex}:.*\"}",
           "instant": false,
           "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "JVM Live Threads",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "description": "",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 12,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 4,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "links": [
-            {
-              "title": "Open service detail",
-              "url": "/d/edupivot-service-detail/edupivot-service-detail?var-service=${service}&from=${__from}&to=${__to}"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 7,
-        "w": 8,
-        "x": 8,
-        "y": 11
-      },
-      "id": 8,
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "pluginVersion": "12.3.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "code",
-          "expr": "sum by (instance) (rate(jvm_gc_pause_seconds_count{job=\"sc-edupivot-backend\",instance=~\"${service:regex}:.*\"}[5m]))",
-          "instant": false,
-          "legendFormat": "{{instance}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "JVM GC Pause Rate",
+      "title": "Process CPU Usage",
       "type": "timeseries"
     },
     {
@@ -911,7 +798,7 @@
               }
             ]
           },
-          "unit": "s"
+          "unit": "none"
         },
         "overrides": []
       },
@@ -919,9 +806,9 @@
         "h": 7,
         "w": 8,
         "x": 16,
-        "y": 11
+        "y": 12
       },
-      "id": 9,
+      "id": 8,
       "options": {
         "legend": {
           "calcs": [
@@ -945,15 +832,70 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "scrape_duration_seconds{job=\"sc-edupivot-backend\",instance=~\"${service:regex}:.*\"}",
+          "expr": "jvm_threads_live_threads{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",instance=~\"${service:regex}:.*\"}",
           "instant": false,
-          "legendFormat": "{{instance}}",
+          "legendFormat": "threads {{instance}}",
           "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (instance) (rate(jvm_gc_pause_seconds_count{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",instance=~\"${service:regex}:.*\"}[5m]))",
+          "instant": false,
+          "legendFormat": "gc/s {{instance}}",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Threads and GC",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Uses Loki labels only for service/env/level/container; trace id stays in the log body.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "id": 9,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{service=~\"${service:regex}\", level=~\"${level:regex}\"}",
+          "queryType": "range",
           "refId": "A"
         }
       ],
-      "title": "Prometheus Scrape Duration",
-      "type": "timeseries"
+      "title": "Recent Service Logs",
+      "type": "logs"
     }
   ],
   "preload": false,
@@ -963,7 +905,8 @@
     "edupivot",
     "spring-boot",
     "prometheus",
-    "overview"
+    "loki",
+    "service-detail"
   ],
   "templating": {
     "list": [
@@ -980,6 +923,22 @@
         "multi": false,
         "name": "service",
         "query": "sc-auth,sc-notification,sc-course,sc-storage,sc-ai,sc-gateway",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
+        "allValue": ".+",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Instance",
+        "multi": false,
+        "name": "instance",
+        "query": "sc-auth:28081,sc-notification:28082,sc-course:28084,sc-storage:28085,sc-ai:28086,sc-gateway:39080",
         "skipUrlSync": false,
         "type": "custom"
       },
@@ -1013,8 +972,8 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "EduPivot Overview",
-  "uid": "edupivot-backend-overview",
+  "title": "EduPivot Service Detail",
+  "uid": "edupivot-service-detail",
   "version": 1,
   "weekStart": ""
 }

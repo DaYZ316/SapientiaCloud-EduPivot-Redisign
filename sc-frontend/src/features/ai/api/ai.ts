@@ -209,16 +209,14 @@ export function subscribeLiveSummary(
 
 export function buildLiveSummaryAudioSocketUrl(classSessionId: string, token: string) {
   const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
-  const protocol = baseUrl.startsWith('https') ? 'wss:' : 'ws:'
 
   let url: URL
   if (baseUrl) {
     url = new URL(baseUrl)
-    url.protocol = protocol
   } else {
     url = new URL(window.location.origin)
-    url.protocol = protocol
   }
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
 
   url.pathname = `/api/ai/live-summaries/class-sessions/${classSessionId}/audio`
   url.search = new URLSearchParams({sessionId: classSessionId, token}).toString()

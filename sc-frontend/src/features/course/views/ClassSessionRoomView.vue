@@ -98,6 +98,8 @@
         :label="classroomProgressLabel"
         :progress="classroomProgress"
     />
+
+    <GlobalAiDrawer />
   </div>
 </template>
 
@@ -116,6 +118,7 @@ import CourseEntryTransition from '@/features/course/components/CourseEntryTrans
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {useClassroomLiveMiniStore} from '@/features/classroom/stores/classroomLiveMini'
 import {mergeSeatSyncLiveStatus} from '@/features/classroom/composables/liveStatusSync'
+import GlobalAiDrawer from '@/features/ai/components/GlobalAiDrawer.vue'
 
 const OPEN_CLASSROOM_LIVE_PANEL_EVENT = 'edupivot:open-classroom-live-panel'
 

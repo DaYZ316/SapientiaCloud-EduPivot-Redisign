@@ -23,7 +23,6 @@ x-java-env: &java-env
   KAFKA_BOOTSTRAP_SERVERS: kafka:9092
   SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
   TZ: Asia/Shanghai
-  JAVA_OPTS: ${JAVA_OPTS:-}
   JAVA_TOOL_OPTIONS: -javaagent:/skywalking/agent/skywalking-agent.jar
   SW_AGENT_COLLECTOR_BACKEND_SERVICES: skywalking-oap:11800
 
@@ -103,8 +102,11 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      skywalking-oap:
+        condition: service_started
     environment:
       <<: *java-env
+      JAVA_OPTS: ${EDUPIVOT_JAVA_OPTS_SMALL:--Xms128m -Xmx512m}
       SW_AGENT_NAME: sc-edupivot-auth
       REDIS_HOST: redis
       JWT_PRIVATE_KEY_B64: ${JWT_PRIVATE_KEY_B64}
@@ -141,10 +143,13 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      skywalking-oap:
+        condition: service_started
       sc-auth:
         condition: service_healthy
     environment:
       <<: *java-env
+      JAVA_OPTS: ${EDUPIVOT_JAVA_OPTS_SMALL:--Xms128m -Xmx512m}
       SW_AGENT_NAME: sc-edupivot-notification
       REDIS_HOST: redis
     volumes:
@@ -174,10 +179,13 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      skywalking-oap:
+        condition: service_started
       sc-auth:
         condition: service_healthy
     environment:
       <<: *java-env
+      JAVA_OPTS: ${EDUPIVOT_JAVA_OPTS_LARGE:--Xms256m -Xmx768m}
       SW_AGENT_NAME: sc-edupivot-course
       REDIS_HOST: redis
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
@@ -223,12 +231,15 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      skywalking-oap:
+        condition: service_started
       sc-auth:
         condition: service_healthy
       sc-course:
         condition: service_healthy
     environment:
       <<: *java-env
+      JAVA_OPTS: ${EDUPIVOT_JAVA_OPTS_SMALL:--Xms128m -Xmx512m}
       SW_AGENT_NAME: sc-edupivot-storage
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
@@ -262,12 +273,15 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      skywalking-oap:
+        condition: service_started
       sc-auth:
         condition: service_healthy
       sc-storage:
         condition: service_healthy
     environment:
       <<: *java-env
+      JAVA_OPTS: ${EDUPIVOT_JAVA_OPTS_LARGE:--Xms256m -Xmx768m}
       SW_AGENT_NAME: sc-edupivot-ai
       REDIS_HOST: redis
       EDUPIVOT_SECURITY_JWT_JWKS_URI: http://sc-auth:28081/.well-known/jwks.json
@@ -300,6 +314,8 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+      skywalking-oap:
+        condition: service_started
       sc-auth:
         condition: service_healthy
       sc-notification:
@@ -323,7 +339,7 @@ services:
       SPRING_DATA_REDIS_DATABASE: 0
       EDUPIVOT_SECURITY_JWT_JWKS_URI: http://sc-auth:28081/.well-known/jwks.json
       TZ: Asia/Shanghai
-      JAVA_OPTS: ${JAVA_OPTS:-}
+      JAVA_OPTS: ${EDUPIVOT_JAVA_OPTS_SMALL:--Xms128m -Xmx512m}
       JAVA_TOOL_OPTIONS: -javaagent:/skywalking/agent/skywalking-agent.jar
       SW_AGENT_NAME: sc-edupivot-gateway
       SW_AGENT_COLLECTOR_BACKEND_SERVICES: skywalking-oap:11800
@@ -362,6 +378,9 @@ services:
       MYSQL_SERVICE_DB_PARAM: characterEncoding=utf8
       MYSQL_SERVICE_USER: ${POSTGRES_USER}
       MYSQL_SERVICE_PASSWORD: ${POSTGRES_PASSWORD}
+      JVM_XMS: ${NACOS_JVM_XMS:-512m}
+      JVM_XMX: ${NACOS_JVM_XMX:-768m}
+      JVM_XMN: ${NACOS_JVM_XMN:-256m}
       JAVA_OPT_EXT: >-
         --spring.datasource.platform=postgresql
         --spring.sql.init.platform=postgresql
@@ -445,6 +464,7 @@ services:
     environment:
       SW_STORAGE: banyandb
       SW_STORAGE_BANYANDB_TARGETS: skywalking-banyandb:17912
+      JAVA_OPTS: ${SKYWALKING_OAP_JAVA_OPTS:--Xms512m -Xmx1536m}
       TZ: Asia/Shanghai
     expose:
       - "11800"
@@ -488,6 +508,8 @@ services:
       prometheus:
         condition: service_started
       loki:
+        condition: service_started
+      alloy:
         condition: service_started
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
@@ -617,6 +639,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_HEAP_OPTS: ${KAFKA_HEAP_OPTS:--Xms256m -Xmx512m}
       TZ: Asia/Shanghai
     ports:
       - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${KAFKA_PORT:-9092}:9092"

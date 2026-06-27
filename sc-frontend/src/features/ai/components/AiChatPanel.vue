@@ -1,6 +1,6 @@
 <template>
   <section
-    :class="{'is-empty': isEmpty}"
+    :class="[panelLayoutClass, {'is-empty': isEmpty}]"
     class="ai-chat-panel"
   >
     <header
@@ -230,12 +230,14 @@ const props = withDefaults(defineProps<{
   title?: string
   showHeader?: boolean
   showComposer?: boolean
+  layout?: 'page' | 'drawer'
   modelValue?: AiAgentMode
   generation?: GenerationRequest
 }>(), {
   title: '天枢教学助手',
   showHeader: true,
   showComposer: true,
+  layout: 'page',
   modelValue: undefined,
   generation: undefined,
 })
@@ -260,6 +262,7 @@ const streamFingerprint = computed(() =>
   aiStore.messages.map((message) => `${message.id}:${message.content.length}:${message.pending ? '1' : '0'}`).join('|'),
 )
 const canStopTask = computed(() => aiStore.streaming || Boolean(aiStore.activeGenerationMessage?.pending))
+const panelLayoutClass = computed(() => `is-${props.layout ?? 'page'}`)
 const speechButtonLabel = computed(() =>
   isListening.value ? t('common.ai.chat.stopVoiceInput') : t('common.ai.chat.startVoiceInput'),
 )
@@ -1254,6 +1257,56 @@ interface SpeechRecognitionErrorEventLike {
 .voice-action.is-listening:hover:not(:disabled) {
   background: color-mix(in srgb, var(--color-primary) 88%, var(--color-on-surface));
   color: var(--color-on-primary);
+}
+
+.ai-chat-panel.is-drawer .message-list {
+  padding: 18px 22px 14px;
+}
+
+.ai-chat-panel.is-drawer.is-empty .message-list {
+  padding-bottom: 196px;
+}
+
+.ai-chat-panel.is-drawer .message-row {
+  width: 100%;
+}
+
+.ai-chat-panel.is-drawer .message-row.has-generation-card .message-bubble :deep(.generation-card) {
+  width: 100%;
+}
+
+.ai-chat-panel.is-drawer .message-bubble {
+  max-width: min(100%, 44rem);
+}
+
+.ai-chat-panel.is-drawer .from-user .message-bubble {
+  max-width: min(100%, 36rem);
+}
+
+.ai-chat-panel.is-drawer .from-user.has-generation-request .message-bubble {
+  width: min(100%, 44rem);
+  max-width: 100%;
+}
+
+.ai-chat-panel.is-drawer .state-block {
+  width: 100%;
+}
+
+.ai-chat-panel.is-drawer .composer {
+  padding: 12px 22px 18px;
+}
+
+.ai-chat-panel.is-drawer .composer-shell {
+  width: 100%;
+}
+
+.ai-chat-panel.is-drawer.is-empty .composer {
+  width: calc(100% - 44px);
+}
+
+.ai-chat-panel.is-drawer .inline-error {
+  margin-right: 22px;
+  margin-left: 22px;
 }
 
 @keyframes shimmer {

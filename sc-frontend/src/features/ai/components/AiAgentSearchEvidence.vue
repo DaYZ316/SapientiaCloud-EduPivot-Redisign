@@ -68,11 +68,12 @@
               target="_blank"
             >
               <img
-                v-if="faviconUrl(item)"
-                :src="faviconUrl(item)"
+                v-if="visibleFaviconUrl(item)"
+                :src="visibleFaviconUrl(item)"
                 alt=""
                 class="agent-evidence__source-icon"
                 loading="lazy"
+                @error="markFaviconFailed(item)"
               >
               <span
                 v-else
@@ -122,7 +123,7 @@
 </template>
 
 <script lang="ts" setup>
-import {computed} from 'vue'
+import {computed, ref} from 'vue'
 import {RouterLink} from 'vue-router'
 import {ChevronDown} from 'lucide-vue-next'
 
@@ -135,6 +136,7 @@ const props = defineProps<{
 }>()
 
 const authStore = useAuthStore()
+const failedFaviconUrls = ref<Set<string>>(new Set())
 const records = computed(() => normalizeRecords(props.payload))
 const canViewIndexInfo = computed(() => authStore.user?.role === 0)
 const totalItems = computed(() => records.value.reduce((total, record) => total + (record.items?.length || 0), 0))
@@ -201,8 +203,25 @@ function sourceFallback(item: AgentSearchItem) {
   return sourcePrimary(item).trim().slice(0, 1).toUpperCase()
 }
 
+function visibleFaviconUrl(item: AgentSearchItem) {
+  const url = faviconUrl(item)
+  return url && !failedFaviconUrls.value.has(url) ? url : ''
+}
+
+function markFaviconFailed(item: AgentSearchItem) {
+  const url = faviconUrl(item)
+  if (!url) return
+  failedFaviconUrls.value = new Set([...failedFaviconUrls.value, url])
+}
+
 function faviconUrl(item: AgentSearchItem) {
   return textValue(item.metadata?.favicon)
+    || textValue(item.indexInfo?.favicon)
+    || textValue(item.metadata?.faviconUrl)
+    || textValue(item.indexInfo?.faviconUrl)
+    || textValue(item.metadata?.logo)
+    || textValue(item.indexInfo?.logo)
+    || inferredFaviconUrl(item)
 }
 
 function webDomain(item: AgentSearchItem) {
@@ -210,6 +229,18 @@ function webDomain(item: AgentSearchItem) {
   if (!url) return ''
   try {
     return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return ''
+  }
+}
+
+function inferredFaviconUrl(item: AgentSearchItem) {
+  const url = webUrl(item)
+  if (!url) return ''
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return ''
+    return `${parsed.origin}/favicon.ico`
   } catch {
     return ''
   }

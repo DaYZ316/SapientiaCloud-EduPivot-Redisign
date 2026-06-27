@@ -6,6 +6,7 @@ import {defineConfig, loadEnv} from 'vite'
 export default defineConfig(({mode}) => {
     const env = loadEnv(mode, process.cwd(), '')
     const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://localhost:39080'
+    const aiProxyTarget = env.VITE_AI_PROXY_TARGET || 'http://localhost:28086'
 
     return {
         plugins: [vue()],
@@ -18,6 +19,11 @@ export default defineConfig(({mode}) => {
         server: {
             port: 5173,
             proxy: {
+                '^/api/ai/live-summaries/class-sessions/[^/]+/audio(?:\\?.*)?$': {
+                    target: aiProxyTarget,
+                    changeOrigin: true,
+                    ws: true,
+                },
                 '/api': {
                     target: apiProxyTarget,
                     changeOrigin: true,
