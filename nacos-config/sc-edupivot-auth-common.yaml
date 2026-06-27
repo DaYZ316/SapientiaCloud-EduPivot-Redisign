@@ -32,6 +32,10 @@ logging:
     com.alibaba.nacos.plugin: WARN
 
 management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
   endpoints:
     web:
       exposure:

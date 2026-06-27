@@ -487,6 +487,8 @@ services:
     depends_on:
       prometheus:
         condition: service_started
+      loki:
+        condition: service_started
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
@@ -497,6 +499,37 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
       - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - sc-edupivot-net
+
+  loki:
+    image: grafana/loki:3.5.7
+    container_name: SC-Loki
+    restart: unless-stopped
+    command:
+      - -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./deploy/observability/loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+    networks:
+      - sc-edupivot-net
+
+  alloy:
+    image: grafana/alloy:v1.11.3
+    container_name: SC-Alloy
+    restart: unless-stopped
+    depends_on:
+      loki:
+        condition: service_started
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+    volumes:
+      - ./deploy/observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
     networks:
       - sc-edupivot-net
 
@@ -681,6 +714,10 @@ volumes:
     name: SC-Prometheus-Data
   grafana-data:
     name: SC-Grafana-Data
+  loki-data:
+    name: SC-Loki-Data
+  alloy-data:
+    name: SC-Alloy-Data
 
 networks:
   sc-edupivot-net:

@@ -1,0 +1,220 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: EduPivot Backend
+    folder: EduPivot
+    interval: 1m
+    rules:
+      - uid: edupivot-service-down
+        title: Service Down
+        condition: C
+        noDataState: Alerting
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: EduPivot backend service is down
+        labels:
+          severity: critical
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              datasource:
+                type: prometheus
+                uid: PBFA97CFB590B2093
+              expr: min(up{job="sc-edupivot-backend"})
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 1
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: C
+              type: threshold
+      - uid: edupivot-http-5xx
+        title: HTTP 5xx Detected
+        condition: C
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: EduPivot backend has HTTP 5xx responses
+        labels:
+          severity: warning
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              datasource:
+                type: prometheus
+                uid: PBFA97CFB590B2093
+              expr: sum(rate(http_server_requests_seconds_count{job="sc-edupivot-backend",status=~"5..",uri!~"/actuator/.*"}[5m]))
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: C
+              type: threshold
+      - uid: edupivot-http-p95-latency
+        title: HTTP P95 Latency High
+        condition: C
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: EduPivot backend HTTP P95 latency is above 2 seconds
+        labels:
+          severity: warning
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              datasource:
+                type: prometheus
+                uid: PBFA97CFB590B2093
+              expr: max(histogram_quantile(0.95, sum by (le, instance) (rate(http_server_requests_seconds_bucket{job="sc-edupivot-backend",uri!~"/actuator/.*"}[5m]))) or max by (instance) (http_server_requests_seconds_max{job="sc-edupivot-backend",uri!~"/actuator/.*"}))
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 2
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: C
+              type: threshold
+      - uid: edupivot-jvm-heap-high
+        title: JVM Heap Usage High
+        condition: C
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: EduPivot backend JVM heap usage is above 85%
+        labels:
+          severity: warning
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              datasource:
+                type: prometheus
+                uid: PBFA97CFB590B2093
+              expr: max(sum by (instance) (jvm_memory_used_bytes{job="sc-edupivot-backend",area="heap"}) / sum by (instance) (jvm_memory_max_bytes{job="sc-edupivot-backend",area="heap"}))
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0.85
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: C
+              type: threshold

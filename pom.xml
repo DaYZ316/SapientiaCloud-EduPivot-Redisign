@@ -44,6 +44,7 @@
         <pdfbox.version>3.0.0</pdfbox.version>
         <jlatexmath.version>1.0.7</jlatexmath.version>
         <spring-ai.version>2.0.0</spring-ai.version>
+        <skywalking.version>9.6.0</skywalking.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>

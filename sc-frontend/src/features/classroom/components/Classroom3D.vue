@@ -16,7 +16,7 @@ import {CircleAlert} from 'lucide-vue-next'
 import * as THREE from 'three'
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js'
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
-import {HDRLoader} from 'three/examples/jsm/loaders/HDRLoader.js'
+import {RGBELoader} from 'three/examples/jsm/loaders/RGBELoader.js'
 
 import {
   issueClassSessionSeatSyncToken,
@@ -67,13 +67,14 @@ const rendererRef = shallowRef<THREE.WebGLRenderer | null>(null)
 const controlsRef = shallowRef<OrbitControls | null>(null)
 const interactionRef = shallowRef<ClassroomInteractionControls | null>(null)
 const spriteManagerRef = shallowRef<SeatSpriteManager | null>(null)
-const exitDoorRef = shallowRef<THREE.Group | null>(null)
+const exitDoorRef = shallowRef<THREE.Group[]>([])
 const classroomDimensions = ref<ClassroomDimensions>({x: null, y: null, z: null})
 const classroomCameraBounds = shallowRef<THREE.Box3 | null>(null)
 const environmentTextureRef = shallowRef<THREE.Texture | null>(null)
 
 let frameId = 0
 let resizeObserver: ResizeObserver | null = null
+let mousemoveHandler: ((event: MouseEvent) => void) | null = null
 let websocket: WebSocket | null = null
 let seatSocketStarted = false
 let seatSocketReconnectTimer: number | null = null
@@ -85,7 +86,11 @@ const targetBeforeClamp = new THREE.Vector3()
 const targetAfterClamp = new THREE.Vector3()
 const targetClampDelta = new THREE.Vector3()
 const cameraAfterClamp = new THREE.Vector3()
-const DOOR_NAME = '\u95e8'
+const exitLabelMaterials: THREE.MeshBasicMaterial[] = []
+const exitLabelTextures: {normal: THREE.Texture; highlight: THREE.Texture}[] = []
+const hoveredExitDoorIndex = ref(-1)
+const exitRaycaster = new THREE.Raycaster()
+const exitPointer = new THREE.Vector2()
 const loadingLabel = (key: string) => t(`courseDetail.classSession.loadingSteps.${key}`)
 
 const roomSpec = computed(() => getRoomSpec(props.session.roomSize))
@@ -110,6 +115,10 @@ onUnmounted(() => {
   clearSeatSocketReconnectTimer()
   websocket?.close()
   resizeObserver?.disconnect()
+  if (mousemoveHandler && canvasRef.value) {
+    canvasRef.value.removeEventListener('mousemove', mousemoveHandler)
+  }
+  mousemoveHandler = null
   interactionRef.value?.dispose()
   spriteManagerRef.value?.dispose()
   controlsRef.value?.dispose()
@@ -120,10 +129,21 @@ onUnmounted(() => {
   for (const mesh of deskInstancedMeshes) {
     sceneRef.value?.remove(mesh)
   }
-  if (exitDoorRef.value) {
-    sceneRef.value?.remove(exitDoorRef.value)
-    disposeObject(exitDoorRef.value)
+  for (const doorGroup of exitDoorRef.value) {
+    sceneRef.value?.remove(doorGroup)
+    disposeObject(doorGroup)
   }
+  exitDoorRef.value = []
+  for (const material of exitLabelMaterials) {
+    material.dispose()
+  }
+  exitLabelMaterials.length = 0
+  for (const textures of exitLabelTextures) {
+    textures.normal.dispose()
+    textures.highlight.dispose()
+  }
+  exitLabelTextures.length = 0
+  hoveredExitDoorIndex.value = -1
   modelInstanceManager.dispose(deskInstancedMeshes)
   rendererRef.value?.dispose()
 })
@@ -177,6 +197,12 @@ async function setupScene() {
     setupSprites(scene)
     emitLoadingProgress(95, loadingLabel('interactions'))
     setupInteractions(canvas, camera, scene)
+    mousemoveHandler = (event: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect()
+      exitPointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+      exitPointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+    }
+    canvas.addEventListener('mousemove', mousemoveHandler)
     emitLoadingProgress(98, loadingLabel('interactions'))
     animate()
     emitLoadingProgress(100, loadingLabel('ready'))
@@ -207,7 +233,7 @@ async function loadModels(scene: THREE.Scene, camera: THREE.PerspectiveCamera, c
   classroom.scene.updateMatrixWorld(true)
   const classroomBounds = measureClassroomBounds(classroom.scene)
   classroomDimensions.value = measureClassroomDimensions(classroomBounds)
-  classroomCameraBounds.value = createCameraBounds(classroomBounds)
+  classroomCameraBounds.value = createCameraBounds(classroomBounds, props.session.roomSize)
   applyCameraPreset(camera, controls)
   classroom.scene.traverse((child) => {
     if (child instanceof THREE.Mesh) {
@@ -216,7 +242,7 @@ async function loadModels(scene: THREE.Scene, camera: THREE.PerspectiveCamera, c
     }
   })
   scene.add(classroom.scene)
-  setupExitDoor(scene, classroom.scene, classroomBounds)
+  setupExitDoor(scene, classroom.scene, classroomBounds, props.session.roomSize)
 
   emitLoadingProgress(91, loadingLabel('arrangingDesks'))
   const instancedMeshes = modelInstanceManager.createInstancedMeshes(desk.scene, roomSpec.value.deskInstanceCount, null)
@@ -243,7 +269,7 @@ function setupInteractions(canvas: HTMLCanvasElement, camera: THREE.PerspectiveC
     instancedMeshes: deskInstancedMeshes,
     roomSize: props.session.roomSize,
     dimensions: classroomDimensions.value,
-    exitTarget: exitDoorRef.value,
+    exitTarget: exitDoorRef.value.length > 0 ? exitDoorRef.value : null,
     onHover: () => undefined,
     onClick: handleSeatClick,
     onContextMenu: handleSeatContextMenu,
@@ -478,7 +504,44 @@ function animate() {
     keepCameraInsideClassroom(camera, controls)
   }
   spriteManagerRef.value?.updateCameraFacing(camera)
+  updateExitDoorHover(camera)
   rendererRef.value.render(sceneRef.value, camera)
+}
+
+function updateExitDoorHover(camera: THREE.PerspectiveCamera) {
+  if (!canvasRef.value || exitDoorRef.value.length === 0 || exitLabelMaterials.length === 0) {
+    return
+  }
+
+  exitRaycaster.setFromCamera(exitPointer, camera)
+
+  let hoveredIndex = -1
+  for (let i = 0; i < exitDoorRef.value.length; i += 1) {
+    const group = exitDoorRef.value[i]
+    const target = group.getObjectByName(`exit_door_target_${i}`)
+    if (target && exitRaycaster.intersectObject(target, false).length > 0) {
+      hoveredIndex = i
+      break
+    }
+  }
+
+  for (let i = 0; i < exitLabelMaterials.length; i += 1) {
+    const material = exitLabelMaterials[i]
+    const textures = exitLabelTextures[i]
+    const isHovered = i === hoveredIndex
+    const targetOpacity = isHovered ? 1.0 : 0.3
+    const targetTexture = isHovered ? textures.highlight : textures.normal
+
+    if (material.opacity !== targetOpacity) {
+      material.opacity = targetOpacity
+    }
+    if (material.map !== targetTexture) {
+      material.map = targetTexture
+    }
+    material.needsUpdate = true
+  }
+
+  hoveredExitDoorIndex.value = hoveredIndex
 }
 
 function resizeRenderer() {
@@ -503,72 +566,84 @@ function measureClassroomDimensions(box: THREE.Box3): ClassroomDimensions {
   return {x: size.x, y: size.y, z: size.z}
 }
 
-function setupExitDoor(scene: THREE.Scene, classroom: THREE.Object3D, bounds: THREE.Box3) {
-  const group = new THREE.Group()
-  group.name = 'exit_door'
+function setupExitDoor(scene: THREE.Scene, classroom: THREE.Object3D, bounds: THREE.Box3, roomSize: number) {
+  const anchors = findDoorAnchors(classroom, bounds, roomSize)
 
-  const anchor = findDoorAnchor(classroom, bounds)
-  group.position.copy(anchor.position)
-  group.quaternion.copy(anchor.quaternion)
+  for (let i = 0; i < anchors.length; i += 1) {
+    const group = new THREE.Group()
+    group.name = `exit_door_${i}`
 
-  const labelTexture = createExitLabelTexture()
-  const labelMaterial = new THREE.SpriteMaterial({
-    map: labelTexture,
-    transparent: true,
-    depthTest: false,
-    depthWrite: false,
-  })
-  const label = new THREE.Sprite(labelMaterial)
-  label.name = 'exit_door_label'
-  label.position.set(0, 1.35, 0)
-  label.scale.set(2.2, 0.68, 1)
-  group.add(label)
+    const anchor = anchors[i]
+    group.position.copy(anchor.position)
+    group.quaternion.copy(anchor.quaternion)
 
-  const targetGeometry = new THREE.BoxGeometry(2.6, 3.2, 0.8)
-  targetGeometry.translate(0, 1.2, 0)
-  const targetMaterial = new THREE.MeshBasicMaterial({
-    transparent: true,
-    opacity: 0,
-    depthWrite: false,
-    colorWrite: false,
-  })
-  const target = new THREE.Mesh(targetGeometry, targetMaterial)
-  target.name = 'exit_door_target'
-  group.add(target)
+    const textures = createExitLabelTextures()
+    exitLabelTextures.push(textures)
 
-  scene.add(group)
-  exitDoorRef.value = group
-}
+    const labelGeometry = new THREE.PlaneGeometry(2.2, 0.68)
+    const labelMaterial = new THREE.MeshBasicMaterial({
+      map: textures.normal,
+      transparent: true,
+      opacity: 0.3,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    })
+    exitLabelMaterials.push(labelMaterial)
+    const label = new THREE.Mesh(labelGeometry, labelMaterial)
+    label.name = `exit_door_label_${i}`
+    label.position.set(0, 1.35, 0)
+    group.add(label)
 
-function findDoorAnchor(classroom: THREE.Object3D, bounds: THREE.Box3) {
-  let doorMesh: THREE.Mesh | null = null
-  classroom.traverse((child) => {
-    if (child instanceof THREE.Mesh && isDoorObject(child) && !doorMesh) {
-      doorMesh = child
-    }
-  })
+    const targetGeometry = new THREE.BoxGeometry(2.6, 3.2, 0.8)
+    targetGeometry.translate(0, 1.2, 0)
+    const targetMaterial = new THREE.MeshBasicMaterial({
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      colorWrite: false,
+    })
+    const target = new THREE.Mesh(targetGeometry, targetMaterial)
+    target.name = `exit_door_target_${i}`
+    group.add(target)
 
-  if (doorMesh) {
-    const doorBounds = new THREE.Box3().setFromObject(doorMesh)
-    const doorCenter = new THREE.Vector3()
-    doorBounds.getCenter(doorCenter)
-    return {
-      position: new THREE.Vector3(doorCenter.x, Math.max(bounds.min.y, doorBounds.min.y), doorCenter.z),
-      quaternion: faceRoomCenter(doorCenter),
-    }
-  }
-
-  const size = new THREE.Vector3()
-  bounds.getSize(size)
-  const fallbackPosition = new THREE.Vector3(0, bounds.min.y, bounds.max.z - Math.max(size.z * 0.04, 0.35))
-  return {
-    position: fallbackPosition,
-    quaternion: faceRoomCenter(fallbackPosition),
+    scene.add(group)
+    exitDoorRef.value.push(group)
   }
 }
 
-function isDoorObject(object: THREE.Object3D) {
-  return object.name.includes(DOOR_NAME) || object.name.toLowerCase().includes('door')
+function findDoorAnchors(_classroom: THREE.Object3D, bounds: THREE.Box3, roomSize: number) {
+  const y = bounds.min.y + 2
+
+  switch (roomSize) {
+    case ClassRoomSize.SMALL:
+      return [
+        {position: new THREE.Vector3(-3.5, y, 3.5), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)},
+      ]
+
+    case ClassRoomSize.MEDIUM:
+      return [
+        {position: new THREE.Vector3(-7.4, y, 7.3), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)},
+        {position: new THREE.Vector3(-7.4, y, -7.3), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)},
+      ]
+
+    case ClassRoomSize.LARGE:
+      return [
+        {position: new THREE.Vector3(-7.5, y, 14.9), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI)},
+        {position: new THREE.Vector3(7.5, y, 14.9), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI)},
+      ]
+
+    case ClassRoomSize.XLARGE:
+      return [
+        {position: new THREE.Vector3(-10, y, 9), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)},
+        {position: new THREE.Vector3(10, y, 9), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)},
+      ]
+
+    default:
+      return [
+        {position: new THREE.Vector3(0, y, 5), quaternion: faceRoomCenter(new THREE.Vector3(0, y, 5))},
+      ]
+  }
 }
 
 function faceRoomCenter(position: THREE.Vector3) {
@@ -580,8 +655,16 @@ function faceRoomCenter(position: THREE.Vector3) {
   return quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction.normalize())
 }
 
-function createExitLabelTexture() {
+function createExitLabelTextures() {
   const labelText = t('courseDetail.classSession.exitClassroomLabel')
+
+  const normalTexture = createLabelTexture(labelText, false)
+  const highlightTexture = createLabelTexture(labelText, true)
+
+  return {normal: normalTexture, highlight: highlightTexture}
+}
+
+function createLabelTexture(labelText: string, isHighlight: boolean) {
   const canvas = document.createElement('canvas')
   canvas.width = 512
   canvas.height = 160
@@ -589,22 +672,13 @@ function createExitLabelTexture() {
   if (context) {
     context.clearRect(0, 0, canvas.width, canvas.height)
 
-    const borderRadius = 36
-    context.beginPath()
-    context.roundRect(20, 20, canvas.width - 40, canvas.height - 40, borderRadius)
-    context.fillStyle = 'rgba(15, 23, 42, 0.45)'
-    context.fill()
-    context.lineWidth = 2
-    context.strokeStyle = 'rgba(255, 255, 255, 0.3)'
-    context.stroke()
-
-    context.lineWidth = 8
-    context.strokeStyle = 'rgba(15, 23, 42, 0.82)'
+    context.lineWidth = isHighlight ? 10 : 6
+    context.strokeStyle = isHighlight ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.5)'
     context.font = '700 58px sans-serif'
     context.textAlign = 'center'
     context.textBaseline = 'middle'
     context.strokeText(labelText, canvas.width / 2, canvas.height / 2 + 3)
-    context.fillStyle = '#ffffff'
+    context.fillStyle = isHighlight ? '#ffffff' : '#e5e7eb'
     context.fillText(labelText, canvas.width / 2, canvas.height / 2 + 3)
   }
   const texture = new THREE.CanvasTexture(canvas)
@@ -615,10 +689,30 @@ function createExitLabelTexture() {
   return texture
 }
 
-function createCameraBounds(classroomBounds: THREE.Box3) {
-  const bounds = classroomBounds.clone()
+function createCameraBounds(classroomBounds: THREE.Box3, roomSize: number) {
   const size = new THREE.Vector3()
   classroomBounds.getSize(size)
+  const center = new THREE.Vector3()
+  classroomBounds.getCenter(center)
+
+  // XLARGE 教室使用模型 60% 大小的边界框
+  if (roomSize === ClassRoomSize.XLARGE) {
+    const bounds = new THREE.Box3()
+    bounds.min.set(
+      center.x - size.x * 0.3,
+      center.y - size.y * 0.3,
+      center.z - size.z * 0.3 - 4,
+    )
+    bounds.max.set(
+      center.x + size.x * 0.3,
+      center.y + size.y * 0.1,
+      center.z + size.z * 0.3 - 4,
+    )
+    return bounds
+  }
+
+  // 其他规模保持原有逻辑
+  const bounds = classroomBounds.clone()
   const horizontalInset = Math.min(Math.max(Math.min(size.x, size.z) * 0.035, 0.25), Math.max(Math.min(size.x, size.z) / 2 - 0.05, 0))
   const bottomInset = Math.min(Math.max(size.y * 0.08, 0.6), Math.max(size.y / 2 - 0.05, 0))
   const topInset = Math.min(Math.max(size.y * 0.12, 0.8), Math.max(size.y / 2 - 0.05, 0))
@@ -726,11 +820,12 @@ function loadGlb(path: string, onProgress?: (event?: ProgressEvent<EventTarget>)
 }
 
 function loadEnvironment(path: string): Promise<THREE.Texture> {
-  const loader = new HDRLoader()
+  const loader = new RGBELoader()
   return new Promise((resolve, reject) => {
     loader.load(
         path,
         (texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace
           texture.mapping = THREE.EquirectangularReflectionMapping
           resolve(texture)
         },

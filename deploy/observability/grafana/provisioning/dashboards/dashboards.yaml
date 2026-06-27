@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: EduPivot
+    orgId: 1
+    folder: EduPivot
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

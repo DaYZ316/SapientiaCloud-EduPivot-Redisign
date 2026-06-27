@@ -348,7 +348,7 @@ if "%SKIP_RESTART%"=="1" (
     exit /b 0
 )
 echo Restart infra
-call :REMOTE_COMPOSE "up -d postgres redis kafka minio skywalking-banyandb skywalking-oap skywalking-ui prometheus grafana nacos"
+call :REMOTE_COMPOSE "up -d postgres redis kafka minio skywalking-banyandb skywalking-oap skywalking-ui prometheus loki alloy grafana nacos"
 if errorlevel 1 exit /b 1
 call :REMOTE_COMPOSE "up -d --force-recreate nacos-config-init minio-init"
 exit /b %ERRORLEVEL%
