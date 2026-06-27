@@ -4,22 +4,31 @@ import com.dayz.sc.common.feign.client.CourseAiContextClient;
 import com.dayz.sc.common.feign.dto.AiCourseContext;
 import com.dayz.sc.common.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * PlatformDataTool.
+ *
+ * @author DaYZ
+ */
 @Component
 @RequiredArgsConstructor
 public class PlatformDataTool {
 
     private static final AiCourseContext EMPTY_CONTEXT =
             new AiCourseContext(List.of(), List.of(), List.of(), List.of(), List.of());
+    private static final String ROLE_TEACHER = "TEACHER";
+    private static final String ROLE_ASSISTANT = "ASSISTANT";
+    private static final String ROLE_STUDENT = "STUDENT";
 
     private final CourseAiContextClient courseAiContextClient;
 
     public AiCourseContext loadCourseContext(UUID courseId) {
-        ApiResponse<AiCourseContext> response = courseAiContextClient.getContext(courseId);
+        ApiResponse<@NonNull AiCourseContext> response = courseAiContextClient.getContext(courseId);
         if (response == null || response.code() != 0 || response.data() == null) {
             return EMPTY_CONTEXT;
         }
@@ -76,13 +85,13 @@ public class PlatformDataTool {
     }
 
     private String roleLabel(String role) {
-        if ("TEACHER".equalsIgnoreCase(role)) {
+        if (ROLE_TEACHER.equalsIgnoreCase(role)) {
             return "授课教师";
         }
-        if ("ASSISTANT".equalsIgnoreCase(role)) {
+        if (ROLE_ASSISTANT.equalsIgnoreCase(role)) {
             return "助教";
         }
-        if ("STUDENT".equalsIgnoreCase(role)) {
+        if (ROLE_STUDENT.equalsIgnoreCase(role)) {
             return "学生";
         }
         return "课程成员";

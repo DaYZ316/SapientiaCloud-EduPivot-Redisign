@@ -5,7 +5,7 @@
       class="user-avatar-link"
       v-bind="linkable ? { to: { name: 'user-profile', params: { userId } } } : {}"
       @click.stop
-    >
+  >
     <div class="user-avatar-link__avatar">
       <img v-if="avatarUrl" :alt="displayName || 'User'" :src="avatarUrl"/>
       <span v-else>{{ avatarInitials }}</span>

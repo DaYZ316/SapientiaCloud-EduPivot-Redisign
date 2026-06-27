@@ -12,9 +12,15 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+/**
+ * AiAgentService.
+ *
+ * @author DaYZ
+ */
 @Service
 @RequiredArgsConstructor
 public class AiAgentService {
@@ -30,7 +36,8 @@ public class AiAgentService {
         AiAgentMode mode = AiAgentMode.resolve(request.agentMode(), request.message());
         AiCourseContext context = platformDataTool.loadCourseContext(request.courseId());
         return switch (mode) {
-            case QUESTION -> questionGenerationService.generateQuestions(request.message(), request.generation(), context);
+            case QUESTION ->
+                    questionGenerationService.generateQuestions(request.message(), request.generation(), context);
             case PAPER -> questionGenerationService.generatePaper(request.message(), request.generation(), context);
             case CHAT -> chat(request, context);
         };
@@ -91,6 +98,7 @@ public class AiAgentService {
                 .user(request.message())
                 .call()
                 .content());
+        content = Objects.requireNonNullElse(content, "");
         return new AiAgentResult(content, AiMessageType.TEXT, Map.of(
                 "courseCount", context.courses().size(),
                 "chapterCount", context.chapters().size(),

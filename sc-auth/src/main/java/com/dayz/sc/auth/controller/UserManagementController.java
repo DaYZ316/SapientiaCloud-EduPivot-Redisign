@@ -1,17 +1,13 @@
 package com.dayz.sc.auth.controller;
 
-import com.dayz.sc.auth.model.dto.ChangePasswordRequest;
-import com.dayz.sc.auth.model.dto.UpdateUserRequest;
-import com.dayz.sc.auth.model.dto.CompleteOnboardingRequest;
-import com.dayz.sc.auth.model.dto.UserBasicInfo;
-import com.dayz.sc.auth.model.dto.UserPageRequest;
+import com.dayz.sc.auth.model.dto.*;
 import com.dayz.sc.auth.model.vo.LoginResponseVO;
 import com.dayz.sc.auth.model.vo.UserProfileVO;
 import com.dayz.sc.auth.service.UserManagementService;
+import com.dayz.sc.common.dashboard.DashboardUserSummary;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.feign.dto.InternalUserProfile;
-import com.dayz.sc.common.dashboard.DashboardUserSummary;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.ratelimit.RateLimited;
@@ -89,7 +85,7 @@ public class UserManagementController {
     @PutMapping("/{id}/reset-password")
     @RateLimited
     public ApiResponse<@NonNull Void> resetPassword(@PathVariable UUID id,
-                                           @AuthenticationPrincipal Jwt jwt) {
+                                                    @AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
         userManagementService.resetPassword(id);
         return ApiResponse.ok(null);

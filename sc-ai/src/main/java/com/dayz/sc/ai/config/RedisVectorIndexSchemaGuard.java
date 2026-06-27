@@ -3,6 +3,7 @@ package com.dayz.sc.ai.config;
 import com.dayz.sc.ai.service.ChatVectorMemoryService;
 import com.dayz.sc.ai.service.KnowledgeBaseService;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -14,14 +15,14 @@ import redis.clients.jedis.search.FieldName;
 import redis.clients.jedis.search.schemafields.SchemaField;
 import redis.clients.jedis.search.schemafields.TagField;
 
-import java.util.Collection;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * RedisVectorIndexSchemaGuard.
+ *
+ * @author DaYZ
+ */
 @Slf4j
 @Component
 @ConditionalOnProperty(prefix = "spring.ai.vectorstore.redis", name = "initialize-schema",
@@ -51,8 +52,36 @@ public class RedisVectorIndexSchemaGuard implements ApplicationRunner {
         this.indexName = indexName;
     }
 
+    static Set<String> indexedAttributes(Object attributes) {
+        Set<String> values = new LinkedHashSet<>();
+        collectAttributeNames(attributes, values);
+        return values;
+    }
+
+    private static void collectAttributeNames(Object value, Set<String> values) {
+        if (value instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                if (ATTRIBUTE_KEY.equals(String.valueOf(entry.getKey())) && entry.getValue() != null) {
+                    values.add(String.valueOf(entry.getValue()));
+                }
+                collectAttributeNames(entry.getValue(), values);
+            }
+            return;
+        }
+        if (value instanceof Collection<?> collection) {
+            Object previous = null;
+            for (Object item : collection) {
+                if (ATTRIBUTE_KEY.equals(String.valueOf(previous)) && item != null) {
+                    values.add(String.valueOf(item));
+                }
+                collectAttributeNames(item, values);
+                previous = item;
+            }
+        }
+    }
+
     @Override
-    public void run(ApplicationArguments args) {
+    public void run(@NonNull ApplicationArguments args) {
         try {
             ensureIndexSchema();
         } catch (Exception e) {
@@ -91,37 +120,9 @@ public class RedisVectorIndexSchemaGuard implements ApplicationRunner {
         return message != null && message.toLowerCase(Locale.ROOT).contains("unknown index");
     }
 
-    static Set<String> indexedAttributes(Object attributes) {
-        Set<String> values = new LinkedHashSet<>();
-        collectAttributeNames(attributes, values);
-        return values;
-    }
-
     private List<SchemaField> tagFields(Set<String> attributes) {
         return attributes.stream()
                 .map(attribute -> TagField.of(new FieldName("$." + attribute, attribute)))
                 .collect(Collectors.toList());
-    }
-
-    private static void collectAttributeNames(Object value, Set<String> values) {
-        if (value instanceof Map<?, ?> map) {
-            for (Map.Entry<?, ?> entry : map.entrySet()) {
-                if (ATTRIBUTE_KEY.equals(String.valueOf(entry.getKey())) && entry.getValue() != null) {
-                    values.add(String.valueOf(entry.getValue()));
-                }
-                collectAttributeNames(entry.getValue(), values);
-            }
-            return;
-        }
-        if (value instanceof Collection<?> collection) {
-            Object previous = null;
-            for (Object item : collection) {
-                if (ATTRIBUTE_KEY.equals(String.valueOf(previous)) && item != null) {
-                    values.add(String.valueOf(item));
-                }
-                collectAttributeNames(item, values);
-                previous = item;
-            }
-        }
     }
 }

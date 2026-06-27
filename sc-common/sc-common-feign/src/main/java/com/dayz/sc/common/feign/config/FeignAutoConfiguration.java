@@ -1,10 +1,6 @@
 package com.dayz.sc.common.feign.config;
 
-import com.dayz.sc.common.feign.client.AuthInternalClientFallback;
-import com.dayz.sc.common.feign.client.CourseAiContextClientFallback;
-import com.dayz.sc.common.feign.client.AuthDashboardInternalClientFallback;
-import com.dayz.sc.common.feign.client.NotificationDashboardInternalClientFallback;
-import com.dayz.sc.common.feign.client.StorageInternalClientFallback;
+import com.dayz.sc.common.feign.client.*;
 import feign.RequestInterceptor;
 import feign.Target;
 import jakarta.servlet.http.HttpServletRequest;

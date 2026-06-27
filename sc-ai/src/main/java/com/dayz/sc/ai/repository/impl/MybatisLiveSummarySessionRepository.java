@@ -11,6 +11,11 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * MybatisLiveSummarySessionRepository.
+ *
+ * @author DaYZ
+ */
 @Repository
 @RequiredArgsConstructor
 public class MybatisLiveSummarySessionRepository implements LiveSummarySessionRepository {

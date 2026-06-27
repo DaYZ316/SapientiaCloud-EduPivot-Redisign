@@ -13,13 +13,19 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum LivePracticeSubmitStatus {
 
-    /** 未提交 */
+    /**
+     * 未提交
+     */
     NOT_SUBMITTED(0, "未提交"),
 
-    /** 已提交 */
+    /**
+     * 已提交
+     */
     SUBMITTED(1, "已提交"),
 
-    /** 补交 */
+    /**
+     * 补交
+     */
     LATE_SUBMITTED(2, "补交");
 
     private final int code;

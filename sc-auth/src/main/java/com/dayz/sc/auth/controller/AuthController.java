@@ -128,7 +128,7 @@ public class AuthController {
     @PostMapping("/logout")
     @RateLimited
     public ApiResponse<@NonNull Void> logout(@RequestHeader(value = "Authorization", required = false) String authorization,
-                                    @RequestBody(required = false) LogoutRequest request) {
+                                             @RequestBody(required = false) LogoutRequest request) {
         // 从 Authorization header 提取 token 并加入黑名单
         if (StringUtils.hasText(authorization) && authorization.startsWith(BEARER_PREFIX)) {
             String accessToken = authorization.substring(BEARER_PREFIX.length());

@@ -40,7 +40,9 @@
               target="_blank"
           >
             <FileDown :size="16"/>
-            <span>{{ attachment.displayName || attachment.fileName || `${t('chapter.attachments')} ${index + 1}` }}</span>
+            <span>{{
+                attachment.displayName || attachment.fileName || `${t('chapter.attachments')} ${index + 1}`
+              }}</span>
           </a>
         </div>
       </section>

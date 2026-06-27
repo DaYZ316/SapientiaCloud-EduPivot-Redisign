@@ -201,7 +201,9 @@
                   target="_blank"
               >
                 <FileText :size="14" stroke-width="1.8"/>
-                <span>{{ attachment.displayName || attachment.fileName || `${t('chapter.attachments')} ${index + 1}` }}</span>
+                <span>{{
+                    attachment.displayName || attachment.fileName || `${t('chapter.attachments')} ${index + 1}`
+                  }}</span>
               </a>
             </template>
             <p v-else>{{ t('chapter.noAttachmentsHint') }}</p>

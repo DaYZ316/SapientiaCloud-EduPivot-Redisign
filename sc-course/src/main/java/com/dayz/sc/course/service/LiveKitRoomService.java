@@ -19,6 +19,11 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class LiveKitRoomService {
 
+    private static final String SECURE_WS_PREFIX = "wss://";
+    private static final String WS_PREFIX = "ws://";
+    private static final String SECURE_HTTP_PREFIX = "https://";
+    private static final String HTTP_PREFIX = "http://";
+
     private final LiveKitProperties properties;
     private final LiveKitTokenService liveKitTokenService;
     private final RestClient restClient = RestClient.create();
@@ -45,10 +50,10 @@ public class LiveKitRoomService {
             baseUrl = properties.getUrl();
         }
         baseUrl = baseUrl.trim();
-        if (baseUrl.startsWith("wss://")) {
-            baseUrl = "https://" + baseUrl.substring("wss://".length());
-        } else if (baseUrl.startsWith("ws://")) {
-            baseUrl = "http://" + baseUrl.substring("ws://".length());
+        if (baseUrl.startsWith(SECURE_WS_PREFIX)) {
+            baseUrl = SECURE_HTTP_PREFIX + baseUrl.substring(SECURE_WS_PREFIX.length());
+        } else if (baseUrl.startsWith(WS_PREFIX)) {
+            baseUrl = HTTP_PREFIX + baseUrl.substring(WS_PREFIX.length());
         }
         return baseUrl.replaceAll("/+$", "") + "/twirp/livekit.RoomService/DeleteRoom";
     }

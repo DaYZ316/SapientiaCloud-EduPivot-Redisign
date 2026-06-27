@@ -25,9 +25,9 @@
       <div v-for="inv in invitations" :key="inv.id" class="invitation-card">
         <div class="invitation-cover">
           <img
-            :src="getCourseCoverUrl(inv.courseCoverUrl)"
-            alt="Cover"
-            @error="handleCourseCoverError"
+              :src="getCourseCoverUrl(inv.courseCoverUrl)"
+              alt="Cover"
+              @error="handleCourseCoverError"
           >
         </div>
         <div class="invitation-info">

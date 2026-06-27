@@ -13,6 +13,11 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * LiveSummaryAudioHandshakeInterceptor.
+ *
+ * @author DaYZ
+ */
 @Component
 public class LiveSummaryAudioHandshakeInterceptor implements HandshakeInterceptor {
 

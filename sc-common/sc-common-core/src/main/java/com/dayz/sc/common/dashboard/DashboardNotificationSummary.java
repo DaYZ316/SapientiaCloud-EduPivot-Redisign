@@ -2,6 +2,11 @@ package com.dayz.sc.common.dashboard;
 
 import java.util.List;
 
+/**
+ * DashboardNotificationSummary.
+ *
+ * @author DaYZ
+ */
 public record DashboardNotificationSummary(
         long unreadTotal,
         long unreadSystem,

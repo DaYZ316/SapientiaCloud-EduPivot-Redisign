@@ -3,6 +3,11 @@ package com.dayz.sc.common.feign.dto;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * ClassSessionAiAccess.
+ *
+ * @author DaYZ
+ */
 public record ClassSessionAiAccess(
         UUID classSessionId,
         UUID courseId,

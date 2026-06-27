@@ -8,17 +8,19 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import javax.imageio.ImageIO;
-import javax.swing.JLabel;
-import java.awt.Color;
-import java.awt.Graphics2D;
-import java.awt.Insets;
-import java.awt.RenderingHints;
+import javax.swing.*;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+/**
+ * LatexImageRenderer.
+ *
+ * @author DaYZ
+ */
 @Slf4j
 @Component
 public class LatexImageRenderer {
@@ -26,6 +28,17 @@ public class LatexImageRenderer {
     private static final float INLINE_FONT_SIZE = 15f;
     private static final float DISPLAY_FONT_SIZE = 18f;
     private static final Pattern TEXTTT_PATTERN = Pattern.compile("\\\\texttt\\{([^{}]*)}");
+
+    private static String normalizeLatex(String latex) {
+        return TEXTTT_PATTERN.matcher(latex.trim()).replaceAll("\\\\mathtt{$1}");
+    }
+
+    private static byte[] pngBytes(BufferedImage image) throws IOException {
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            ImageIO.write(image, "png", output);
+            return output.toByteArray();
+        }
+    }
 
     public Optional<RenderedFormula> render(String latex, boolean display) {
         if (!StringUtils.hasText(latex)) {
@@ -58,17 +71,6 @@ public class LatexImageRenderer {
         } catch (Exception e) {
             log.warn("Failed to render LaTeX formula for export: {}", latex, e);
             return Optional.empty();
-        }
-    }
-
-    private static String normalizeLatex(String latex) {
-        return TEXTTT_PATTERN.matcher(latex.trim()).replaceAll("\\\\mathtt{$1}");
-    }
-
-    private static byte[] pngBytes(BufferedImage image) throws IOException {
-        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            ImageIO.write(image, "png", output);
-            return output.toByteArray();
         }
     }
 

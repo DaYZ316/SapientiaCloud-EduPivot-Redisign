@@ -10,17 +10,17 @@
       </header>
 
       <form
-        class="onboarding-form"
-        @submit.prevent="submit"
+          class="onboarding-form"
+          @submit.prevent="submit"
       >
         <div class="form-group">
           <label for="onboarding-display-name">{{ t('settings.displayName') }}</label>
           <input
-            id="onboarding-display-name"
-            v-model.trim="displayName"
-            :placeholder="t('settings.displayNamePlaceholder')"
-            class="input-field"
-            type="text"
+              id="onboarding-display-name"
+              v-model.trim="displayName"
+              :placeholder="t('settings.displayNamePlaceholder')"
+              class="input-field"
+              type="text"
           >
         </div>
 
@@ -28,26 +28,26 @@
           <span class="field-label">{{ t('login.roleLabel') }}</span>
           <div class="role-grid">
             <button
-              :class="{ active: role === 1 }"
-              class="role-option"
-              type="button"
-              @click="role = 1"
+                :class="{ active: role === 1 }"
+                class="role-option"
+                type="button"
+                @click="role = 1"
             >
               <GraduationCap
-                :size="20"
-                stroke-width="1.8"
+                  :size="20"
+                  stroke-width="1.8"
               />
               <span>{{ t('login.roleStudent') }}</span>
             </button>
             <button
-              :class="{ active: role === 2 }"
-              class="role-option"
-              type="button"
-              @click="role = 2"
+                :class="{ active: role === 2 }"
+                class="role-option"
+                type="button"
+                @click="role = 2"
             >
               <BookOpen
-                :size="20"
-                stroke-width="1.8"
+                  :size="20"
+                  stroke-width="1.8"
               />
               <span>{{ t('login.roleTeacher') }}</span>
             </button>
@@ -55,16 +55,16 @@
         </div>
 
         <p
-          v-if="message"
-          class="form-message"
+            v-if="message"
+            class="form-message"
         >
           {{ message }}
         </p>
 
         <button
-          :disabled="saving"
-          class="btn-primary"
-          type="submit"
+            :disabled="saving"
+            class="btn-primary"
+            type="submit"
         >
           {{ saving ? t('settings.saving') : t('login.onboardingSubmit') }}
         </button>

@@ -65,8 +65,26 @@ public interface ClassSessionRepository {
      */
     Page<ClassSession> findByCourseId(UUID courseId, int page, int size, boolean includeDrafts);
 
+    /**
+     * 查询教师正在进行的课堂会话
+     *
+     * @param teacherId 教师ID
+     * @param now       当前时间
+     * @param limit     查询条数
+     * @return 课堂会话列表
+     */
     List<ClassSession> findOngoingByTeacherId(UUID teacherId, Instant now, int limit);
 
+    /**
+     * 查询学生正在进行的课堂会话
+     *
+     * @param studentId       学生ID
+     * @param activeStatus    进行中状态码
+     * @param completedStatus 已完成状态码
+     * @param now             当前时间
+     * @param limit           查询条数
+     * @return 课堂会话列表
+     */
     List<ClassSession> findOngoingByStudentId(UUID studentId, int activeStatus, int completedStatus, Instant now, int limit);
 
     /**
@@ -77,7 +95,22 @@ public interface ClassSessionRepository {
      */
     Map<UUID, Long> countPublishedByCourseIds(List<UUID> courseIds);
 
+    /**
+     * 查询已超过结束时间的直播课堂会话
+     *
+     * @param now             当前时间
+     * @param endedLiveStatus 已结束直播状态码
+     * @param limit           查询条数
+     * @return 课堂会话列表
+     */
     List<ClassSession> findLiveSessionsPastEnd(Instant now, int endedLiveStatus, int limit);
 
+    /**
+     * 查询指定直播状态的课堂会话
+     *
+     * @param liveStatus 直播状态码
+     * @param limit      查询条数
+     * @return 课堂会话列表
+     */
     List<ClassSession> findLiveSessions(int liveStatus, int limit);
 }

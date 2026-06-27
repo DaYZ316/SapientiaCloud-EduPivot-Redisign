@@ -29,6 +29,100 @@ import static org.mockito.Mockito.when;
 
 class AiGenerationExportServiceTest {
 
+    private static String docxText(byte[] bytes) throws Exception {
+        try (XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(bytes));
+             XWPFWordExtractor extractor = new XWPFWordExtractor(document)) {
+            return extractor.getText();
+        }
+    }
+
+    private static String pdfText(byte[] bytes) throws Exception {
+        try (PDDocument document = Loader.loadPDF(bytes)) {
+            return new PDFTextStripper().getText(document);
+        }
+    }
+
+    private static String compact(String text) {
+        return Normalizer.normalize(text, Normalizer.Form.NFKC)
+                .replace('⻓', '长')
+                .replaceAll("\\s+", "");
+    }
+
+    private static AiGenerationExportService service(UUID conversationId, UUID userId, ChatMessage message) {
+        ConversationRepository conversationRepository = mock(ConversationRepository.class);
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        ConversationService conversationService = new ConversationService(
+                conversationRepository,
+                messageRepository,
+                mock(ChatVectorMemoryService.class));
+        when(conversationRepository.findByIdAndUserId(conversationId, userId))
+                .thenReturn(Optional.of(new Conversation()));
+        when(messageRepository.findById(message.getId())).thenReturn(Optional.of(message));
+        return new AiGenerationExportService(
+                conversationService,
+                messageRepository,
+                new QuestionPaperExportFormatter());
+    }
+
+    private static ChatMessage message(UUID conversationId, AiMessageType messageType, Map<String, Object> payload) {
+        ChatMessage message = new ChatMessage();
+        message.setId(UUID.randomUUID());
+        message.setConversationId(conversationId);
+        message.setMessageType(messageType.name());
+        message.setPayload(payload);
+        return message;
+    }
+
+    private static Map<String, Object> paperPayload() {
+        return Map.of(
+                "title", "Midterm Practice",
+                "generation", Map.of("paperType", "Quiz", "totalScore", 100, "totalEstimatedTime", 60),
+                "blueprint", Map.of(
+                        "totalScore", 100,
+                        "totalEstimatedTime", 60,
+                        "sections", List.of(Map.of(
+                                "sectionNo", 1,
+                                "sectionTitle", "Choice Section",
+                                "targetCount", 1))),
+                "questions", List.of(question("HashMap load factor", 0, "A")));
+    }
+
+    private static Map<String, Object> chineseLatexPayload() {
+        return Map.of(
+                "title", "中文试卷",
+                "questions", List.of(Map.of(
+                        "questionTitle", "Servlet 生命周期",
+                        "questionContent", "方法 $x^2$ 与 $\\texttt{init()}$ 的作用是什么？",
+                        "questionType", 0,
+                        "difficulty", 2,
+                        "score", 5,
+                        "estimatedTime", 3,
+                        "options", List.of(
+                                Map.of("optionLabel", "A", "optionContent", "初始化方法 $x^2$", "isCorrect", true),
+                                Map.of("optionLabel", "B", "optionContent", "销毁方法 $\\texttt{destroy()}$", "isCorrect", false)),
+                        "answers", List.of(Map.of("answerContent", "A")),
+                        "explanation", "$\\texttt{init()}$ 在实例创建后调用。")));
+    }
+
+    private static Map<String, Object> question(String title, Integer type, String answerLabel) {
+        return Map.of(
+                "questionTitle", title,
+                "questionContent", "Choose the correct answer.",
+                "questionType", type,
+                "difficulty", 2,
+                "score", 5,
+                "estimatedTime", 3,
+                "options", List.of(
+                        Map.of(
+                                "optionLabel", "A",
+                                "optionContent", "0.75",
+                                "isCorrect", "A".equals(answerLabel),
+                                "explanation", "0.75 is the usual default"),
+                        Map.of("optionLabel", "B", "optionContent", "1.0", "isCorrect", "B".equals(answerLabel))),
+                "answers", List.of(Map.of("answerContent", answerLabel)),
+                "explanation", "The default load factor is 0.75");
+    }
+
     @Test
     void exportShouldCreateDocxWithoutAnswersWhenDisabled() throws Exception {
         UUID conversationId = UUID.randomUUID();
@@ -274,99 +368,5 @@ class AiGenerationExportServiceTest {
         assertThatThrownBy(() -> service.export(conversationId, message.getId(), userId, "docx", false))
                 .isInstanceOfSatisfying(BusinessException.class, error ->
                         assertThat(error.getCode()).isEqualTo(ErrorCodes.BAD_REQUEST.code()));
-    }
-
-    private static String docxText(byte[] bytes) throws Exception {
-        try (XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(bytes));
-             XWPFWordExtractor extractor = new XWPFWordExtractor(document)) {
-            return extractor.getText();
-        }
-    }
-
-    private static String pdfText(byte[] bytes) throws Exception {
-        try (PDDocument document = Loader.loadPDF(bytes)) {
-            return new PDFTextStripper().getText(document);
-        }
-    }
-
-    private static String compact(String text) {
-        return Normalizer.normalize(text, Normalizer.Form.NFKC)
-                .replace('⻓', '长')
-                .replaceAll("\\s+", "");
-    }
-
-    private static AiGenerationExportService service(UUID conversationId, UUID userId, ChatMessage message) {
-        ConversationRepository conversationRepository = mock(ConversationRepository.class);
-        MessageRepository messageRepository = mock(MessageRepository.class);
-        ConversationService conversationService = new ConversationService(
-                conversationRepository,
-                messageRepository,
-                mock(ChatVectorMemoryService.class));
-        when(conversationRepository.findByIdAndUserId(conversationId, userId))
-                .thenReturn(Optional.of(new Conversation()));
-        when(messageRepository.findById(message.getId())).thenReturn(Optional.of(message));
-        return new AiGenerationExportService(
-                conversationService,
-                messageRepository,
-                new QuestionPaperExportFormatter());
-    }
-
-    private static ChatMessage message(UUID conversationId, AiMessageType messageType, Map<String, Object> payload) {
-        ChatMessage message = new ChatMessage();
-        message.setId(UUID.randomUUID());
-        message.setConversationId(conversationId);
-        message.setMessageType(messageType.name());
-        message.setPayload(payload);
-        return message;
-    }
-
-    private static Map<String, Object> paperPayload() {
-        return Map.of(
-                "title", "Midterm Practice",
-                "generation", Map.of("paperType", "Quiz", "totalScore", 100, "totalEstimatedTime", 60),
-                "blueprint", Map.of(
-                        "totalScore", 100,
-                        "totalEstimatedTime", 60,
-                        "sections", List.of(Map.of(
-                                "sectionNo", 1,
-                                "sectionTitle", "Choice Section",
-                                "targetCount", 1))),
-                "questions", List.of(question("HashMap load factor", 0, "A")));
-    }
-
-    private static Map<String, Object> chineseLatexPayload() {
-        return Map.of(
-                "title", "中文试卷",
-                "questions", List.of(Map.of(
-                        "questionTitle", "Servlet 生命周期",
-                        "questionContent", "方法 $x^2$ 与 $\\texttt{init()}$ 的作用是什么？",
-                        "questionType", 0,
-                        "difficulty", 2,
-                        "score", 5,
-                        "estimatedTime", 3,
-                        "options", List.of(
-                                Map.of("optionLabel", "A", "optionContent", "初始化方法 $x^2$", "isCorrect", true),
-                                Map.of("optionLabel", "B", "optionContent", "销毁方法 $\\texttt{destroy()}$", "isCorrect", false)),
-                        "answers", List.of(Map.of("answerContent", "A")),
-                        "explanation", "$\\texttt{init()}$ 在实例创建后调用。")));
-    }
-
-    private static Map<String, Object> question(String title, Integer type, String answerLabel) {
-        return Map.of(
-                "questionTitle", title,
-                "questionContent", "Choose the correct answer.",
-                "questionType", type,
-                "difficulty", 2,
-                "score", 5,
-                "estimatedTime", 3,
-                "options", List.of(
-                        Map.of(
-                                "optionLabel", "A",
-                                "optionContent", "0.75",
-                                "isCorrect", "A".equals(answerLabel),
-                                "explanation", "0.75 is the usual default"),
-                        Map.of("optionLabel", "B", "optionContent", "1.0", "isCorrect", "B".equals(answerLabel))),
-                "answers", List.of(Map.of("answerContent", answerLabel)),
-                "explanation", "The default load factor is 0.75");
     }
 }

@@ -5,6 +5,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+/**
+ * LivePracticeAiGradingRetryScheduler.
+ *
+ * @author DaYZ
+ */
 @Component
 @RequiredArgsConstructor
 public class LivePracticeAiGradingRetryScheduler {

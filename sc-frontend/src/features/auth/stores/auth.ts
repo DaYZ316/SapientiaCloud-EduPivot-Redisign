@@ -2,11 +2,11 @@ import {computed, ref} from 'vue'
 import {defineStore} from 'pinia'
 
 import {
+    completeOnboarding as completeOnboardingRequest,
     loginWithGitHub,
     loginWithGoogle,
     loginWithPassword,
     logout as logoutRequest,
-    completeOnboarding as completeOnboardingRequest,
     register
 } from '@/features/auth/api/auth'
 import type {LoginResponse, PasswordLoginRequest, RegisterRequest} from '@/features/auth/types/auth'

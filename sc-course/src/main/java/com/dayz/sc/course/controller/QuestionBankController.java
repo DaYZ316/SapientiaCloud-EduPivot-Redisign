@@ -1,8 +1,8 @@
 package com.dayz.sc.course.controller;
 
+import com.dayz.sc.common.question.CreateQuestionRequest;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
-import com.dayz.sc.common.question.CreateQuestionRequest;
 import com.dayz.sc.common.security.ratelimit.RateLimited;
 import com.dayz.sc.common.security.support.JwtPrincipalResolver;
 import com.dayz.sc.course.model.dto.*;
@@ -11,8 +11,8 @@ import com.dayz.sc.course.model.vo.QuestionBankVO;
 import com.dayz.sc.course.model.vo.QuestionVO;
 import com.dayz.sc.course.service.QuestionBankService;
 import jakarta.validation.Valid;
-import org.jspecify.annotations.NonNull;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -111,7 +111,7 @@ public class QuestionBankController {
     }
 
     @PostMapping("/questions/batch")
-    @RateLimited(maxRequests = 10)
+    @RateLimited
     public ApiResponse<@NonNull BatchCreateQuestionsResponse> batchCreateQuestions(
             @Valid @RequestBody BatchCreateQuestionsRequest request,
             @AuthenticationPrincipal Jwt jwt) {

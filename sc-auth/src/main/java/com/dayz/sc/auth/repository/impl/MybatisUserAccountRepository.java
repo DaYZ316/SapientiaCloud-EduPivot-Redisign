@@ -186,12 +186,17 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
 
     @Override
     public User saveUser(User user) {
+        String previousEmail = null;
+        if (user.getId() != null) {
+            User previous = userMapper.selectById(user.getId());
+            previousEmail = previous == null ? null : previous.getEmail();
+        }
         int updated = userMapper.updateById(user);
         if (updated == 0) {
             userMapper.insert(user);
         }
         // 只删除缓存，不主动更新（下次读取时自动重建）
-        evictUserCache(user.getId(), user.getEmail());
+        evictUserCache(user.getId(), previousEmail, user.getEmail());
         return user;
     }
 
@@ -317,9 +322,12 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
     /**
      * 清除用户相关缓存（写操作后调用）
      */
-    private void evictUserCache(UUID userId, String email) {
+    private void evictUserCache(UUID userId, String previousEmail, String email) {
         deleteCached(userKey(userId));
         deleteCached(providersKey(userId));
+        if (previousEmail != null && !previousEmail.isBlank()) {
+            deleteCached(emailKey(previousEmail));
+        }
         if (email != null && !email.isBlank()) {
             deleteCached(emailKey(email));
         }

@@ -18,16 +18,8 @@ import com.dayz.sc.course.model.entity.QuestionOption;
 import com.dayz.sc.course.model.enums.QuestionDifficulty;
 import com.dayz.sc.course.model.enums.QuestionStatus;
 import com.dayz.sc.course.model.enums.QuestionType;
-import com.dayz.sc.course.model.vo.QuestionAnswerVO;
-import com.dayz.sc.course.model.vo.BatchCreateQuestionsResponse;
-import com.dayz.sc.course.model.vo.QuestionBankVO;
-import com.dayz.sc.course.model.vo.QuestionOptionVO;
-import com.dayz.sc.course.model.vo.QuestionVO;
-import com.dayz.sc.course.repository.CourseTeacherRepository;
-import com.dayz.sc.course.repository.QuestionAnswerRepository;
-import com.dayz.sc.course.repository.QuestionBankRepository;
-import com.dayz.sc.course.repository.QuestionOptionRepository;
-import com.dayz.sc.course.repository.QuestionRepository;
+import com.dayz.sc.course.model.vo.*;
+import com.dayz.sc.course.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
@@ -54,6 +46,7 @@ public class QuestionBankService {
     private final QuestionAnswerRepository questionAnswerRepository;
     private final CourseTeacherRepository courseTeacherRepository;
     private final CourseContentAccessService courseContentAccessService;
+    private final CourseContentDeletionRepository courseContentDeletionRepository;
 
     // ==================== QuestionBank CRUD ====================
 
@@ -113,6 +106,7 @@ public class QuestionBankService {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
 
+        courseContentDeletionRepository.deleteQuestionBankContent(bankId);
         questionBankRepository.deleteById(bankId);
     }
 
@@ -279,7 +273,12 @@ public class QuestionBankService {
     }
 
     private void requireCourseTeacher(UUID courseId, UUID userId, Integer role) {
-        if (userId == null || (!SecurityUtils.isAdmin(role) && !courseTeacherRepository.existsByCourseIdAndTeacherId(courseId, userId))) {
+        boolean hasUser = userId != null;
+        boolean isAdmin = SecurityUtils.isAdmin(role);
+        boolean isCourseTeacher = hasUser && !isAdmin
+                && courseTeacherRepository.existsByCourseIdAndTeacherId(courseId, userId);
+        boolean accessDenied = !hasUser || (!isAdmin && !isCourseTeacher);
+        if (accessDenied) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
     }

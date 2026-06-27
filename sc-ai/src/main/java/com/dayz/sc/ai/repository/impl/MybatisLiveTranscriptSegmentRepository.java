@@ -10,6 +10,11 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * MybatisLiveTranscriptSegmentRepository.
+ *
+ * @author DaYZ
+ */
 @Repository
 @RequiredArgsConstructor
 public class MybatisLiveTranscriptSegmentRepository implements LiveTranscriptSegmentRepository {

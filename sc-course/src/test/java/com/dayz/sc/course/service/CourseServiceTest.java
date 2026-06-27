@@ -6,16 +6,15 @@ import com.dayz.sc.course.event.CourseEventPublisher;
 import com.dayz.sc.course.model.entity.Course;
 import com.dayz.sc.course.model.enums.CourseStatus;
 import com.dayz.sc.course.model.vo.CourseDetailVO;
-import com.dayz.sc.course.repository.ClassSessionRepository;
-import com.dayz.sc.course.repository.CourseRepository;
-import com.dayz.sc.course.repository.CourseTeacherRepository;
-import com.dayz.sc.course.repository.EnrollmentRepository;
+import com.dayz.sc.course.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.cache.annotation.CacheEvict;
 
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +22,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,6 +33,9 @@ class CourseServiceTest {
 
     @Mock
     private CourseTeacherRepository courseTeacherRepository;
+
+    @Mock
+    private CourseContentDeletionRepository courseContentDeletionRepository;
 
     @Mock
     private ClassSessionRepository classSessionRepository;
@@ -56,6 +59,7 @@ class CourseServiceTest {
         courseService = new CourseService(
                 courseRepository,
                 courseTeacherRepository,
+                courseContentDeletionRepository,
                 classSessionRepository,
                 enrollmentRepository,
                 storageInternalClient,
@@ -80,6 +84,43 @@ class CourseServiceTest {
 
         assertThat(detail.publishedClassSessionCount()).isEqualTo(31);
         assertThat(detail.courseProgress()).isEqualTo(48);
+    }
+
+    @Test
+    void deleteCourse_shouldDeleteContentTreeAndPublishEvent() {
+        UUID courseId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        Course course = course(courseId, teacherId);
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(course));
+
+        courseService.deleteCourse(courseId, teacherId, 2);
+
+        var inOrder = inOrder(courseContentDeletionRepository, courseRepository, courseTeacherRepository, courseEventPublisher);
+        inOrder.verify(courseContentDeletionRepository).deleteCourseContent(courseId);
+        inOrder.verify(courseRepository).deleteById(courseId);
+        inOrder.verify(courseTeacherRepository).deleteByCourseId(courseId);
+        inOrder.verify(courseEventPublisher).publishCourseDeleted(course);
+    }
+
+    @Test
+    void courseDetailCacheEvict_shouldUseCourseIdInsteadOfAllEntries() throws Exception {
+        Method create = CourseService.class.getMethod(
+                "createCourse",
+                com.dayz.sc.course.model.dto.CreateCourseRequest.class,
+                UUID.class);
+        Method update = CourseService.class.getMethod(
+                "updateCourse",
+                UUID.class,
+                com.dayz.sc.course.model.dto.UpdateCourseRequest.class,
+                UUID.class,
+                Integer.class);
+        Method delete = CourseService.class.getMethod("deleteCourse", UUID.class, UUID.class, Integer.class);
+
+        assertThat(create.getAnnotation(CacheEvict.class)).isNull();
+        assertThat(update.getAnnotation(CacheEvict.class).allEntries()).isFalse();
+        assertThat(update.getAnnotation(CacheEvict.class).key()).isEqualTo("#courseId");
+        assertThat(delete.getAnnotation(CacheEvict.class).allEntries()).isFalse();
+        assertThat(delete.getAnnotation(CacheEvict.class).key()).isEqualTo("#courseId");
     }
 
     private Course course(UUID courseId, UUID teacherId) {

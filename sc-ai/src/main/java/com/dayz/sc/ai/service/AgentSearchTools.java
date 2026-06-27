@@ -12,6 +12,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * AgentSearchTools.
+ *
+ * @author DaYZ
+ */
 @Component
 @RequiredArgsConstructor
 public class AgentSearchTools {
@@ -22,6 +27,11 @@ public class AgentSearchTools {
     public static final String CONTEXT_AUTHORIZATION = "authorization";
     public static final String CONTEXT_EVENT_EMITTER = "agentSearchEventEmitter";
     public static final String CONTEXT_CURRENT_DATE_TIME_OUTCOME = "currentDateTimeOutcome";
+
+    private static final String SCOPE_PRIMARY_TEACHING = "primaryTeaching";
+    private static final String SCOPE_ASSISTING = "assisting";
+    private static final String SCOPE_LEARNING = "learning";
+    private static final String SCOPE_ALL = "all";
 
     private final AgentSearchService agentSearchService;
 
@@ -269,14 +279,14 @@ public class AgentSearchTools {
     }
 
     private UUID uuidFromContext(ToolContext toolContext, String key) {
-        if (toolContext == null || toolContext.getContext() == null) {
+        if (toolContext == null) {
             return null;
         }
         return uuidValue(toolContext.getContext().get(key));
     }
 
     private Integer intFromContext(ToolContext toolContext, String key) {
-        if (toolContext == null || toolContext.getContext() == null) {
+        if (toolContext == null) {
             return null;
         }
         Object value = toolContext.getContext().get(key);
@@ -291,7 +301,7 @@ public class AgentSearchTools {
     }
 
     private String stringFromContext(ToolContext toolContext, String key) {
-        if (toolContext == null || toolContext.getContext() == null) {
+        if (toolContext == null) {
             return null;
         }
         Object value = toolContext.getContext().get(key);
@@ -299,7 +309,7 @@ public class AgentSearchTools {
     }
 
     private AgentSearchEventEmitter eventEmitter(ToolContext toolContext) {
-        if (toolContext == null || toolContext.getContext() == null) {
+        if (toolContext == null) {
             return null;
         }
         Object value = toolContext.getContext().get(CONTEXT_EVENT_EMITTER);
@@ -307,7 +317,7 @@ public class AgentSearchTools {
     }
 
     private AgentSearchOutcome currentDateTimeOutcome(ToolContext toolContext) {
-        if (toolContext == null || toolContext.getContext() == null) {
+        if (toolContext == null) {
             return null;
         }
         Object value = toolContext.getContext().get(CONTEXT_CURRENT_DATE_TIME_OUTCOME);
@@ -315,7 +325,7 @@ public class AgentSearchTools {
     }
 
     private void cacheCurrentDateTimeOutcome(ToolContext toolContext, AgentSearchOutcome outcome) {
-        if (toolContext == null || toolContext.getContext() == null || outcome == null) {
+        if (toolContext == null || outcome == null) {
             return;
         }
         try {
@@ -344,16 +354,16 @@ public class AgentSearchTools {
     }
 
     private String courseScopeLabel(String scope) {
-        if ("primaryTeaching".equals(scope)) {
+        if (SCOPE_PRIMARY_TEACHING.equals(scope)) {
             return "涓昏璇剧▼";
         }
-        if ("assisting".equals(scope)) {
+        if (SCOPE_ASSISTING.equals(scope)) {
             return "鍗忓姪璇剧▼";
         }
-        if ("learning".equals(scope)) {
+        if (SCOPE_LEARNING.equals(scope)) {
             return "瀛︿範璇剧▼";
         }
-        if ("all".equals(scope)) {
+        if (SCOPE_ALL.equals(scope)) {
             return "all courses";
         }
         return "璇剧▼";

@@ -1,18 +1,25 @@
 package com.dayz.sc.ai.model.vo;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * LiveSummarySessionVO.
+ *
+ * @author DaYZ
+ */
 public record LiveSummarySessionVO(
-        UUID id,
+        @Nullable UUID id,
         UUID classSessionId,
         UUID courseId,
         UUID teacherId,
         String status,
-        Instant startedAt,
-        Instant stoppedAt,
-        LiveSummarySnapshotVO latestSnapshot,
+        @Nullable Instant startedAt,
+        @Nullable Instant stoppedAt,
+        @Nullable LiveSummarySnapshotVO latestSnapshot,
         List<LiveTranscriptSegmentVO> recentTranscripts
 ) {
 }

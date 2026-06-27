@@ -1,5 +1,5 @@
 import {inject, type InjectionKey} from 'vue'
-import {useRouter, type RouteLocationRaw} from 'vue-router'
+import {type RouteLocationRaw, useRouter} from 'vue-router'
 
 export type EnterAiMode = (target?: RouteLocationRaw) => Promise<unknown>
 

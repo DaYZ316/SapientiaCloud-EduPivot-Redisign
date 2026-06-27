@@ -10,6 +10,11 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.List;
 
+/**
+ * QuestionImportRequest.
+ *
+ * @author DaYZ
+ */
 public record QuestionImportRequest(
         @NotBlank @Size(max = 500) String questionTitle,
         String questionContent,

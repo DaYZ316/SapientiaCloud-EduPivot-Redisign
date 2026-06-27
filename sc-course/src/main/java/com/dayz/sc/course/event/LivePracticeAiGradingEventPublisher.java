@@ -11,6 +11,11 @@ import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
 
+/**
+ * LivePracticeAiGradingEventPublisher.
+ *
+ * @author DaYZ
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor

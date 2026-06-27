@@ -1,17 +1,17 @@
 <template>
   <div v-if="notifications.length" class="notification-rows">
     <div
-      v-for="item in notifications"
-      :key="item.id"
-      class="notification-row"
-      :class="{unread: !item.read}"
+        v-for="item in notifications"
+        :key="item.id"
+        :class="{unread: !item.read}"
+        class="notification-row"
     >
       <span>{{ item.type === 1 ? t('success.dashboard.labels.teaching') : t('success.dashboard.labels.system') }}</span>
       <strong>{{ item.title }}</strong>
       <small>{{ formatDashboardDateTime(item.createdAt, String(locale)) }}</small>
     </div>
   </div>
-  <DashboardEmptyState v-else :text="t('success.dashboard.empty.notifications')" />
+  <DashboardEmptyState v-else :text="t('success.dashboard.empty.notifications')"/>
 </template>
 
 <script lang="ts" setup>
@@ -22,7 +22,7 @@ import DashboardEmptyState from '@/features/dashboard/components/DashboardEmptyS
 import {formatDashboardDateTime} from '@/features/dashboard/utils/dashboardFormatters'
 
 defineProps<{
-    notifications: DashboardNotificationItem[]
+  notifications: DashboardNotificationItem[]
 }>()
 
 const {t, locale} = useI18n()

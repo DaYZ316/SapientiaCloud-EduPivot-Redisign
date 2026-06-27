@@ -8,26 +8,36 @@ import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 class ConversationControllerExportTest {
+
+    private static MockMvc mockMvc(UUID userId, AiGenerationExportService exportService) {
+        ConversationController controller = new ConversationController(
+                mock(ConversationService.class),
+                exportService,
+                mock(RagChatService.class));
+        Jwt jwt = Jwt.withTokenValue("token")
+                .header("alg", "none")
+                .subject(userId.toString())
+                .build();
+        return MockMvcBuilders.standaloneSetup(controller)
+                .setCustomArgumentResolvers(new JwtArgumentResolver(jwt))
+                .build();
+    }
 
     @Test
     void exportMessageShouldReturnBinaryAttachment() throws Exception {
@@ -70,20 +80,6 @@ class ConversationControllerExportTest {
                 .andExpect(status().isOk());
 
         verify(exportService).export(conversationId, messageId, userId, "docx", false);
-    }
-
-    private static MockMvc mockMvc(UUID userId, AiGenerationExportService exportService) {
-        ConversationController controller = new ConversationController(
-                mock(ConversationService.class),
-                exportService,
-                mock(RagChatService.class));
-        Jwt jwt = Jwt.withTokenValue("token")
-                .header("alg", "none")
-                .subject(userId.toString())
-                .build();
-        return MockMvcBuilders.standaloneSetup(controller)
-                .setCustomArgumentResolvers(new JwtArgumentResolver(jwt))
-                .build();
     }
 
     private record JwtArgumentResolver(Jwt jwt) implements HandlerMethodArgumentResolver {

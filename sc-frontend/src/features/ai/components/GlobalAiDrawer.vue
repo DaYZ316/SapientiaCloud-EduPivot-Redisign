@@ -1,57 +1,57 @@
 <template>
   <Teleport to="body">
     <AiTrailLauncher
-      v-if="!open"
-      ref="launcherRef"
-      :initial-center="launcherSpawnCenter"
-      :interactive="!launcherLocked"
-      snap-initial-center
-      aria-label="打开 AI 教学助手"
-      @click="openDrawer"
+        v-if="!open"
+        ref="launcherRef"
+        :initial-center="launcherSpawnCenter"
+        :interactive="!launcherLocked"
+        aria-label="打开 AI 教学助手"
+        snap-initial-center
+        @click="openDrawer"
     />
 
     <div
-      v-if="open"
-      class="drawer-layer"
+        v-if="open"
+        class="drawer-layer"
     >
       <button
-        class="drawer-backdrop"
-        type="button"
-        @click="closeDrawer"
+          class="drawer-backdrop"
+          type="button"
+          @click="closeDrawer"
       />
       <aside
-        :class="{'is-dragging': isDraggingDrawer, 'is-resizing': isResizingDrawer}"
-        class="ai-drawer"
-        :style="drawerStyle"
+          :class="{'is-dragging': isDraggingDrawer, 'is-resizing': isResizingDrawer}"
+          :style="drawerStyle"
+          class="ai-drawer"
       >
         <div
-          class="drawer-topbar"
-          @pointerdown="startDrawerDrag"
+            class="drawer-topbar"
+            @pointerdown="startDrawerDrag"
         >
           <div>
             <span>Celestial Hub</span>
             <h2>天枢助手</h2>
           </div>
           <button
-            class="icon-button"
-            title="关闭"
-            type="button"
-            @click="closeDrawer"
+              class="icon-button"
+              title="关闭"
+              type="button"
+              @click="closeDrawer"
           >
             <X
-              :size="18"
-              stroke-width="1.8"
+                :size="18"
+                stroke-width="1.8"
             />
           </button>
         </div>
-        <AiWorkspaceShell layout="drawer" />
+        <AiWorkspaceShell layout="drawer"/>
         <button
-          v-for="handle in resizeHandles"
-          :key="handle"
-          :aria-label="`调整窗口${handle}`"
-          :class="`resize-handle resize-${handle}`"
-          type="button"
-          @pointerdown="startDrawerResize($event, handle)"
+            v-for="handle in resizeHandles"
+            :key="handle"
+            :aria-label="`调整窗口${handle}`"
+            :class="`resize-handle resize-${handle}`"
+            type="button"
+            @pointerdown="startDrawerResize($event, handle)"
         />
       </aside>
     </div>
@@ -93,8 +93,8 @@ const routeContext = computed(() => {
   const params = route.params
   const routeName = typeof route.name === 'string' ? route.name : ''
   const questionBankId = routeName === 'question-bank-detail'
-    ? stringParam(params.id)
-    : undefined
+      ? stringParam(params.id)
+      : undefined
   return {
     sourceRoute: route.fullPath,
     courseId: stringParam(params.courseId) || (questionBankId ? undefined : stringParam(params.id)),
@@ -184,8 +184,8 @@ function initDrawerPosition() {
   const width = Math.min(DRAWER_DEFAULT_WIDTH, Math.max(0, viewportWidth.value - DRAWER_MARGIN * 2))
   const height = Math.min(DRAWER_DEFAULT_HEIGHT, Math.max(0, viewportHeight.value - DRAWER_MARGIN * 2))
   drawerPosition.value = drawerPosition.value
-    ? clampDrawerPosition(drawerPosition.value)
-    : createInitialDrawerPosition(width, height, launcherSpawnCenter.value)
+      ? clampDrawerPosition(drawerPosition.value)
+      : createInitialDrawerPosition(width, height, launcherSpawnCenter.value)
 }
 
 function createInitialDrawerPosition(width: number, height: number, center: Point | null) {
@@ -204,11 +204,11 @@ function createInitialDrawerPosition(width: number, height: number, center: Poin
     width,
     height,
     left: prefersRightSide
-      ? center.x + DRAWER_MARGIN
-      : center.x - width - DRAWER_MARGIN,
+        ? center.x + DRAWER_MARGIN
+        : center.x - width - DRAWER_MARGIN,
     top: prefersBelow
-      ? center.y + DRAWER_MARGIN
-      : center.y - height - DRAWER_MARGIN,
+        ? center.y + DRAWER_MARGIN
+        : center.y - height - DRAWER_MARGIN,
   })
 }
 

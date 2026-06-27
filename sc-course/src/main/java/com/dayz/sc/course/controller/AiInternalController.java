@@ -1,10 +1,10 @@
 package com.dayz.sc.course.controller;
 
-import com.dayz.sc.common.feign.dto.AiCourseContext;
+import com.dayz.sc.common.feign.client.CourseAiContextClient;
 import com.dayz.sc.common.feign.dto.AgentSearchItem;
 import com.dayz.sc.common.feign.dto.AgentSearchResult;
+import com.dayz.sc.common.feign.dto.AiCourseContext;
 import com.dayz.sc.common.feign.dto.ClassSessionAiAccess;
-import com.dayz.sc.common.feign.client.CourseAiContextClient;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.security.support.JwtPrincipalResolver;
 import com.dayz.sc.course.service.AiCourseContextService;
@@ -12,15 +12,16 @@ import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * AiInternalController.
+ *
+ * @author DaYZ
+ */
 @RestController
 @RequestMapping("/internal/ai")
 @RequiredArgsConstructor

@@ -2,17 +2,18 @@
 
 ## 概述
 
-本项目使用 Flyway 管理数据库迁移。所有后端服务共享同一个 PostgreSQL 数据库和 schema，但每个服务使用独立的 Flyway 历史表。Flyway 的 versioned migration 只执行一次，执行记录由对应的 `flyway_schema_history_*` 表保存。
+本项目使用 Flyway 管理数据库迁移。所有后端服务共享同一个 PostgreSQL 数据库和 schema，但每个服务使用独立的 Flyway
+历史表。Flyway 的 versioned migration 只执行一次，执行记录由对应的 `flyway_schema_history_*` 表保存。
 
 ## 服务与迁移表映射
 
-| 服务 | 表前缀 | 迁移表 | 数据库 |
-|------|--------|--------|--------|
-| sc-auth | `auth_` | `flyway_schema_history_auth` | edupivot |
-| sc-course | `edu_` | `flyway_schema_history_course` | edupivot |
-| sc-notification | `ntf_` | `flyway_schema_history_notification` | edupivot |
-| sc-storage | `storage_` | `flyway_schema_history_storage` | edupivot |
-| sc-ai | `ai_` | `flyway_schema_history_ai` | edupivot |
+| 服务              | 表前缀        | 迁移表                                  | 数据库      |
+|-----------------|------------|--------------------------------------|----------|
+| sc-auth         | `auth_`    | `flyway_schema_history_auth`         | edupivot |
+| sc-course       | `edu_`     | `flyway_schema_history_course`       | edupivot |
+| sc-notification | `ntf_`     | `flyway_schema_history_notification` | edupivot |
+| sc-storage      | `storage_` | `flyway_schema_history_storage`      | edupivot |
+| sc-ai           | `ai_`      | `flyway_schema_history_ai`           | edupivot |
 
 历史例外：早期 `sc-auth` 迁移曾创建 `edu_*` 与 `ntf_*` 表。不要移动或重写这些已存在迁移；从现在开始禁止新增跨服务表前缀迁移。
 
@@ -48,7 +49,8 @@ V{yyyyMMdd}{NN}__{snake_case_description}.sql
 ## 配置规则
 
 - 禁止启用 `spring.flyway.out-of-order`。Flyway 默认按版本顺序执行，乱序迁移会让环境状态更难复现。
-- 本项目保留 `baseline-on-migrate: true` 作为共享 schema + 各服务独立 history 表的首次接入例外。不要用它掩盖连错库、连错 schema 或误删 history 表的问题。
+- 本项目保留 `baseline-on-migrate: true` 作为共享 schema + 各服务独立 history 表的首次接入例外。不要用它掩盖连错库、连错
+  schema 或误删 history 表的问题。
 - 各服务必须显式配置自己的 `spring.flyway.table`，避免多个服务写入同一个 history 表。
 
 ## 操作流程
@@ -73,7 +75,8 @@ V{yyyyMMdd}{NN}__{snake_case_description}.sql
 ### 修复迁移问题
 
 - `Checksum mismatch`：说明已应用迁移文件被改过。优先恢复原文件；只有确认 history 元数据需要修复时才使用 `repair`。
-- `Applied migration not resolved locally`：说明数据库记录存在但本地文件缺失。优先恢复文件；如确认为废弃历史，再评估 `repair`。
+- `Applied migration not resolved locally`：说明数据库记录存在但本地文件缺失。优先恢复文件；如确认为废弃历史，再评估
+  `repair`。
 - 迁移 SQL 失败：修复 SQL 后重新部署，Flyway 会重试失败迁移；如果迁移已成功执行，不要改旧文件。
 - 需要回滚业务结构：新增反向迁移，不直接编辑旧迁移。
 

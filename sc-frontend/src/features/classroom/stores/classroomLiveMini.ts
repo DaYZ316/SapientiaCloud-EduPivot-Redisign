@@ -53,7 +53,7 @@ export const useClassroomLiveMiniStore = defineStore('classroomLiveMini', () => 
         && session.value.liveStatus === ClassLiveStatus.LIVE))
     const restoreSessionId = computed(() => session.value?.id ?? storedMiniWindow.value?.sessionId ?? null)
 
-    function show(payload: {session: ClassSession; isTeacher: boolean; canParticipate: boolean}) {
+    function show(payload: { session: ClassSession; isTeacher: boolean; canParticipate: boolean }) {
         session.value = payload.session
         isTeacher.value = payload.isTeacher
         canParticipate.value = payload.canParticipate

@@ -47,6 +47,12 @@ public interface ConversationRepository {
      */
     void update(Conversation conversation);
 
+    /**
+     * 更新会话的最后更新时间
+     *
+     * @param id     会话ID
+     * @param userId 用户ID
+     */
     void touchUpdatedAt(UUID id, UUID userId);
 
     /**

@@ -163,7 +163,12 @@ import {
   viewChapter,
 } from '@/features/course/api/chapter'
 import {getCourse} from '@/features/course/api/course'
-import type {Chapter, ChapterInteraction, CreateChapterRequest, UpdateChapterRequest} from '@/features/course/types/chapter'
+import type {
+  Chapter,
+  ChapterInteraction,
+  CreateChapterRequest,
+  UpdateChapterRequest
+} from '@/features/course/types/chapter'
 import type {CourseDetail} from '@/features/course/types/course'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import ChapterContent from '@/features/course/components/ChapterContent.vue'

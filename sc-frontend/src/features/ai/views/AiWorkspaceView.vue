@@ -1,8 +1,8 @@
 <template>
   <main class="monolith-ai-page">
     <AiWorkspaceShell
-      ref="workspaceShellRef"
-      layout="page"
+        ref="workspaceShellRef"
+        layout="page"
     />
   </main>
 </template>
@@ -29,20 +29,20 @@ onMounted(() => {
 })
 
 watch(
-  () => route.fullPath,
-  () => aiStore.setContext({sourceRoute: route.fullPath}),
+    () => route.fullPath,
+    () => aiStore.setContext({sourceRoute: route.fullPath}),
 )
 
 watch(
-  () => route.query.mode,
-  () => syncModeFromRoute(),
+    () => route.query.mode,
+    () => syncModeFromRoute(),
 )
 
 watch(
-  () => route.query.conversationId,
-  () => {
-    void loadConversationFromRoute()
-  },
+    () => route.query.conversationId,
+    () => {
+      void loadConversationFromRoute()
+    },
 )
 
 function syncModeFromRoute() {

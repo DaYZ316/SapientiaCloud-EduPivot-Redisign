@@ -49,9 +49,9 @@
           <div class="course-cell">
             <div class="course-cover">
               <img
-                :src="getCourseCoverUrl(course.coverUrl)"
-                alt=""
-                @error="handleCourseCoverError"
+                  :src="getCourseCoverUrl(course.coverUrl)"
+                  alt=""
+                  @error="handleCourseCoverError"
               >
             </div>
             <div class="course-summary">

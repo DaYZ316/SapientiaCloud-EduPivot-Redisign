@@ -7,16 +7,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
-import org.springframework.web.socket.BinaryMessage;
-import org.springframework.web.socket.CloseStatus;
-import org.springframework.web.socket.PongMessage;
-import org.springframework.web.socket.TextMessage;
-import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
 import java.nio.ByteBuffer;
 import java.util.UUID;
 
+/**
+ * LiveSummaryAudioWebSocketHandler.
+ *
+ * @author DaYZ
+ */
 @Component
 @Slf4j
 public class LiveSummaryAudioWebSocketHandler extends AbstractWebSocketHandler {

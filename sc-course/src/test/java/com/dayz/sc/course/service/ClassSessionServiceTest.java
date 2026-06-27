@@ -52,6 +52,9 @@ class ClassSessionServiceTest {
     private ClassBarrageRepository classBarrageRepository;
 
     @Mock
+    private CourseContentDeletionRepository courseContentDeletionRepository;
+
+    @Mock
     private CourseRepository courseRepository;
 
     @Mock
@@ -101,6 +104,7 @@ class ClassSessionServiceTest {
                 classSessionRepository,
                 classParticipantRepository,
                 classBarrageRepository,
+                courseContentDeletionRepository,
                 courseRepository,
                 courseTeacherRepository,
                 enrollmentRepository,
@@ -275,6 +279,40 @@ class ClassSessionServiceTest {
         assertThatThrownBy(() -> classSessionService.deleteSession(sessionId, studentId, 1))
                 .isInstanceOf(BusinessException.class);
         verify(classSessionRepository, never()).deleteById(any());
+        verify(courseContentDeletionRepository, never()).deleteClassSessionContent(any());
+    }
+
+    @Test
+    void deleteSession_shouldDeleteDependentsAndSession() {
+        UUID sessionId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        ClassSession session = session(sessionId, Instant.now());
+        when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(courseTeacherRepository.existsByCourseIdAndTeacherId(session.getCourseId(), teacherId)).thenReturn(true);
+
+        classSessionService.deleteSession(sessionId, teacherId, 2);
+
+        var inOrder = inOrder(courseContentDeletionRepository, classSessionRepository);
+        inOrder.verify(courseContentDeletionRepository).deleteClassSessionContent(sessionId);
+        inOrder.verify(classSessionRepository).deleteById(sessionId);
+        verify(liveKitRoomService, never()).deleteRoom(any());
+    }
+
+    @Test
+    void deleteSession_shouldKeepDbDeleteWhenLiveKitDeleteFails() {
+        UUID sessionId = UUID.randomUUID();
+        UUID teacherId = UUID.randomUUID();
+        ClassSession session = session(sessionId, Instant.now());
+        session.setLiveStatus(ClassLiveStatus.LIVE.getCode());
+        when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(courseTeacherRepository.existsByCourseIdAndTeacherId(session.getCourseId(), teacherId)).thenReturn(true);
+        doThrow(new RuntimeException("livekit unavailable")).when(liveKitRoomService).deleteRoom(session.getLiveRoomName());
+
+        classSessionService.deleteSession(sessionId, teacherId, 2);
+
+        verify(courseContentDeletionRepository).deleteClassSessionContent(sessionId);
+        verify(classSessionRepository).deleteById(sessionId);
+        verify(liveKitRoomService).deleteRoom(session.getLiveRoomName());
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.dayz.sc.common.security.ratelimit;
 
+import com.dayz.sc.common.util.UuidV7Generator;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -23,11 +24,12 @@ public class RateLimiterService {
             local window = tonumber(ARGV[1])
             local maxRequests = tonumber(ARGV[2])
             local now = tonumber(ARGV[3])
+            local member = ARGV[4]
             local windowStart = now - window * 1000
             redis.call('ZREMRANGEBYSCORE', key, '-inf', windowStart)
             local count = redis.call('ZCARD', key)
             if count < maxRequests then
-                redis.call('ZADD', key, now, now .. '-' .. math.random(100000))
+                redis.call('ZADD', key, now, member)
                 redis.call('EXPIRE', key, window)
                 return 1
             else
@@ -48,6 +50,7 @@ public class RateLimiterService {
     public boolean tryAcquire(String key, int windowSeconds, int maxRequests) {
         String redisKey = KEY_PREFIX + key;
         long now = System.currentTimeMillis();
+        String member = now + "-" + UuidV7Generator.generate();
 
         try {
             Long result = redisTemplate.execute(
@@ -55,7 +58,8 @@ public class RateLimiterService {
                     Collections.singletonList(redisKey),
                     String.valueOf(windowSeconds),
                     String.valueOf(maxRequests),
-                    String.valueOf(now)
+                    String.valueOf(now),
+                    member
             );
             return result == 1L;
         } catch (Exception e) {

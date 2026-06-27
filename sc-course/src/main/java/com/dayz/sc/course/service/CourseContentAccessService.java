@@ -16,6 +16,11 @@ import org.springframework.stereotype.Service;
 
 import java.util.UUID;
 
+/**
+ * CourseContentAccessService.
+ *
+ * @author DaYZ
+ */
 @Service
 @RequiredArgsConstructor
 public class CourseContentAccessService {

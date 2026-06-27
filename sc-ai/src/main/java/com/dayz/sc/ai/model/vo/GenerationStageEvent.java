@@ -1,8 +1,15 @@
 package com.dayz.sc.ai.model.vo;
 
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.Map;
 
+/**
+ * GenerationStageEvent.
+ *
+ * @author DaYZ
+ */
 public record GenerationStageEvent(
         String requestId,
         String mode,
@@ -19,7 +26,7 @@ public record GenerationStageEvent(
                                           String status,
                                           String title,
                                           String summary,
-                                          Map<String, Object> payload) {
+                                          @Nullable Map<String, Object> payload) {
         return new GenerationStageEvent(
                 requestId,
                 mode,

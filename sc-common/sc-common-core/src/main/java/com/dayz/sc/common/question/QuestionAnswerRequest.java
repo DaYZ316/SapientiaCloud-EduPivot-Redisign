@@ -4,6 +4,11 @@ import jakarta.validation.constraints.NotBlank;
 
 import java.math.BigDecimal;
 
+/**
+ * QuestionAnswerRequest.
+ *
+ * @author DaYZ
+ */
 public record QuestionAnswerRequest(
         @NotBlank String answerContent,
         String explanation,

@@ -15,11 +15,10 @@ import com.dayz.sc.course.model.vo.CourseVO;
 import com.dayz.sc.course.service.CourseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
-
-import org.jspecify.annotations.NonNull;
 
 import java.util.UUID;
 

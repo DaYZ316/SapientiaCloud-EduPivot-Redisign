@@ -1,7 +1,7 @@
 <template>
   <AiChatPanel
-    :show-header="showHeader"
-    :title="title"
+      :show-header="showHeader"
+      :title="title"
   />
 </template>
 

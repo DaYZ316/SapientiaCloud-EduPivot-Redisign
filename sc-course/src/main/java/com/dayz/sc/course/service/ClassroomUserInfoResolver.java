@@ -11,16 +11,13 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
  * Resolves user basics for classroom surfaces with per-user cache entries.
+ *
+ * @author DaYZ
  */
 @Slf4j
 @Service
@@ -46,7 +43,7 @@ public class ClassroomUserInfoResolver {
         }
 
         Cache cache = cacheManager.getCache(CACHE_NAME);
-        Map<UUID, UserBasicInfo> resolved = new HashMap<>();
+        Map<UUID, UserBasicInfo> resolved = new HashMap<>(distinctUserIds.size());
         List<UUID> missingUserIds = new ArrayList<>();
 
         for (UUID userId : distinctUserIds) {

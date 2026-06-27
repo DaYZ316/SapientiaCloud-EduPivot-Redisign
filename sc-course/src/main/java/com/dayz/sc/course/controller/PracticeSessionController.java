@@ -10,9 +10,9 @@ import com.dayz.sc.course.model.vo.PracticeSessionVO;
 import com.dayz.sc.course.service.PracticeSessionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.jspecify.annotations.NonNull;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;

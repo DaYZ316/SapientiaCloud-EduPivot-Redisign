@@ -4,18 +4,17 @@ import com.dayz.sc.ai.model.entity.Conversation;
 import com.dayz.sc.ai.repository.ConversationRepository;
 import com.dayz.sc.ai.repository.MessageRepository;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class ConversationServiceTest {
 
     @Test
-    void deleteConversationShouldDeleteChatVectorMemoryBeforeDeletingRows() {
+    void deleteConversationShouldDeleteRowsBeforeChatVectorMemory() {
         ConversationRepository conversationRepository = mock(ConversationRepository.class);
         MessageRepository messageRepository = mock(MessageRepository.class);
         ChatVectorMemoryService chatVectorMemoryService = mock(ChatVectorMemoryService.class);
@@ -30,8 +29,9 @@ class ConversationServiceTest {
 
         service.deleteConversation(conversationId, userId);
 
-        verify(chatVectorMemoryService).deleteConversationMemory(conversationId, userId);
-        verify(messageRepository).deleteByConversationId(conversationId);
-        verify(conversationRepository).deleteByIdAndUserId(conversationId, userId);
+        InOrder inOrder = inOrder(messageRepository, conversationRepository, chatVectorMemoryService);
+        inOrder.verify(messageRepository).deleteByConversationId(conversationId);
+        inOrder.verify(conversationRepository).deleteByIdAndUserId(conversationId, userId);
+        inOrder.verify(chatVectorMemoryService).deleteConversationMemory(conversationId, userId);
     }
 }

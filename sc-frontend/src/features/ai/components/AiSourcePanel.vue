@@ -2,38 +2,38 @@
   <aside class="ai-source-panel">
     <nav class="quick-actions">
       <button
-        :class="{active: route.name === 'ai-workspace'}"
-        class="quick-action"
-        type="button"
-        @click="newConversation"
+          :class="{active: route.name === 'ai-workspace'}"
+          class="quick-action"
+          type="button"
+          @click="newConversation"
       >
         <Plus
-          :size="16"
-          stroke-width="1.9"
+            :size="16"
+            stroke-width="1.9"
         />
         <span>{{ t('common.ai.sidebar.newChat') }}</span>
       </button>
       <button
-        :class="{active: route.name === 'ai-history'}"
-        class="quick-action"
-        type="button"
-        @click="openHistory"
+          :class="{active: route.name === 'ai-history'}"
+          class="quick-action"
+          type="button"
+          @click="openHistory"
       >
         <History
-          :size="16"
-          stroke-width="1.9"
+            :size="16"
+            stroke-width="1.9"
         />
         <span>{{ t('common.ai.sidebar.history') }}</span>
       </button>
       <button
-        :class="{active: route.name === 'ai-favorites'}"
-        class="quick-action"
-        type="button"
-        @click="openFavorites"
+          :class="{active: route.name === 'ai-favorites'}"
+          class="quick-action"
+          type="button"
+          @click="openFavorites"
       >
         <Star
-          :size="16"
-          stroke-width="1.9"
+            :size="16"
+            stroke-width="1.9"
         />
         <span>{{ t('common.ai.sidebar.star') }}</span>
       </button>
@@ -44,98 +44,98 @@
         {{ t('common.ai.sidebar.recent') }}
       </div>
       <div
-        v-if="aiStore.loadingConversations"
-        :aria-label="t('common.ai.sidebar.loading')"
-        aria-busy="true"
-        class="session-loading-skeleton"
-        role="status"
+          v-if="aiStore.loadingConversations"
+          :aria-label="t('common.ai.sidebar.loading')"
+          aria-busy="true"
+          class="session-loading-skeleton"
+          role="status"
       >
         <article
-          v-for="row in 6"
-          :key="row"
-          class="session-skeleton-item"
+            v-for="row in 6"
+            :key="row"
+            class="session-skeleton-item"
         >
-          <span class="session-skeleton-line" />
-          <span class="session-skeleton-action" />
+          <span class="session-skeleton-line"/>
+          <span class="session-skeleton-action"/>
         </article>
       </div>
       <div
-        v-else-if="aiStore.sortedConversations.length === 0"
-        class="panel-state"
+          v-else-if="aiStore.sortedConversations.length === 0"
+          class="panel-state"
       >
         {{ t('common.ai.sidebar.empty') }}
       </div>
       <div
-        v-else
-        class="session-items"
+          v-else
+          class="session-items"
       >
         <article
-          v-for="conversation in aiStore.sortedConversations"
-          :key="conversation.id"
-          :class="{active: conversation.id === aiStore.activeConversationId}"
-          class="session-item"
+            v-for="conversation in aiStore.sortedConversations"
+            :key="conversation.id"
+            :class="{active: conversation.id === aiStore.activeConversationId}"
+            class="session-item"
         >
           <button
-            class="session-link"
-            type="button"
-            @click="openConversation(conversation.id)"
+              class="session-link"
+              type="button"
+              @click="openConversation(conversation.id)"
           >
             <span>{{ conversation.title }}</span>
           </button>
           <button
-            :aria-expanded="openMenuId === conversation.id"
-            :class="{'menu-open': openMenuId === conversation.id, pinned: conversation.pinned}"
-            class="session-more"
-            :title="t('common.ai.sidebar.deleteTitle')"
-            type="button"
-            @click.stop="toggleMenu(conversation.id)"
+              :aria-expanded="openMenuId === conversation.id"
+              :class="{'menu-open': openMenuId === conversation.id, pinned: conversation.pinned}"
+              :title="t('common.ai.sidebar.deleteTitle')"
+              class="session-more"
+              type="button"
+              @click.stop="toggleMenu(conversation.id)"
           >
             <Pin
-              v-if="conversation.pinned"
-              class="session-pin-icon"
-              :size="15"
-              stroke-width="1.9"
+                v-if="conversation.pinned"
+                :size="15"
+                class="session-pin-icon"
+                stroke-width="1.9"
             />
             <MoreVertical
-              class="session-more-icon"
-              :size="16"
-              stroke-width="2"
+                :size="16"
+                class="session-more-icon"
+                stroke-width="2"
             />
           </button>
           <div
-            v-if="openMenuId === conversation.id"
-            class="session-menu"
-            @click.stop
+              v-if="openMenuId === conversation.id"
+              class="session-menu"
+              @click.stop
           >
             <button
-              type="button"
-              @click="togglePinned(conversation)"
+                type="button"
+                @click="togglePinned(conversation)"
             >
               <Pin
-                :size="14"
-                stroke-width="1.8"
+                  :size="14"
+                  stroke-width="1.8"
               />
               <span>{{ conversation.pinned ? t('common.ai.sidebar.unpin') : t('common.ai.sidebar.pin') }}</span>
             </button>
             <button
-              type="button"
-              @click="toggleFavorited(conversation)"
+                type="button"
+                @click="toggleFavorited(conversation)"
             >
               <Star
-                :fill="conversation.favorited ? 'currentColor' : 'none'"
-                :size="14"
-                stroke-width="1.8"
+                  :fill="conversation.favorited ? 'currentColor' : 'none'"
+                  :size="14"
+                  stroke-width="1.8"
               />
               <span>{{ conversation.favorited ? t('common.ai.sidebar.unstar') : t('common.ai.sidebar.star') }}</span>
             </button>
             <button
-              class="danger"
-              type="button"
-              @click="removeConversation(conversation.id)"
+                class="danger"
+                type="button"
+                @click="removeConversation(conversation.id)"
             >
               <Trash2
-                :size="14"
-                stroke-width="1.8"
+                  :size="14"
+                  stroke-width="1.8"
               />
               <span>{{ t('common.ai.sidebar.delete') }}</span>
             </button>
@@ -364,10 +364,10 @@ async function removeConversation(id: string) {
 .session-skeleton-line,
 .session-skeleton-action {
   background: linear-gradient(
-    110deg,
-    var(--color-surface-container-high) 8%,
-    color-mix(in srgb, var(--color-on-surface) 9%, var(--color-surface-canvas)) 18%,
-    var(--color-surface-container-high) 33%
+      110deg,
+      var(--color-surface-container-high) 8%,
+      color-mix(in srgb, var(--color-on-surface) 9%, var(--color-surface-canvas)) 18%,
+      var(--color-surface-container-high) 33%
   );
   background-size: 200% 100%;
   animation: session-skeleton-shimmer 1.45s ease-in-out infinite;

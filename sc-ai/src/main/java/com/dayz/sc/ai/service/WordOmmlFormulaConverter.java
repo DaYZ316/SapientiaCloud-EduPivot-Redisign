@@ -2,30 +2,15 @@ package com.dayz.sc.ai.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
-import org.openxmlformats.schemas.officeDocument.x2006.math.CTF;
-import org.openxmlformats.schemas.officeDocument.x2006.math.CTOMath;
-import org.openxmlformats.schemas.officeDocument.x2006.math.CTOMathArg;
-import org.openxmlformats.schemas.officeDocument.x2006.math.CTOMathJc;
-import org.openxmlformats.schemas.officeDocument.x2006.math.CTOMathPara;
-import org.openxmlformats.schemas.officeDocument.x2006.math.CTOMathParaPr;
-import org.openxmlformats.schemas.officeDocument.x2006.math.CTOnOff;
-import org.openxmlformats.schemas.officeDocument.x2006.math.CTR;
-import org.openxmlformats.schemas.officeDocument.x2006.math.CTRad;
-import org.openxmlformats.schemas.officeDocument.x2006.math.CTSSub;
-import org.openxmlformats.schemas.officeDocument.x2006.math.CTSSubSup;
-import org.openxmlformats.schemas.officeDocument.x2006.math.CTSSup;
-import org.openxmlformats.schemas.officeDocument.x2006.math.CTText;
-import org.openxmlformats.schemas.officeDocument.x2006.math.STJc;
+import org.openxmlformats.schemas.officeDocument.x2006.math.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Slf4j
 final class WordOmmlFormulaConverter {
 
+    private static final int COMMAND_SYMBOL_CAPACITY = 136;
+    private static final int DELIMITER_SYMBOL_CAPACITY = 24;
     private static final Map<String, String> COMMAND_SYMBOLS = createCommandSymbols();
     private static final Map<String, String> DELIMITER_SYMBOLS = createDelimiterSymbols();
     private static final Set<String> RAW_TEXT_COMMANDS = Set.of(
@@ -79,75 +64,71 @@ final class WordOmmlFormulaConverter {
     }
 
     private static void appendNode(MathContainer container, Node node) {
-        if (node == null || node instanceof EmptyNode) {
-            return;
-        }
-
-        if (node instanceof SequenceNode sequenceNode) {
-            for (Node child : sequenceNode.children()) {
-                appendNode(container, child);
+        switch (node) {
+            case null -> {
             }
-            return;
-        }
-
-        if (node instanceof TextNode textNode) {
-            appendText(container, textNode.text());
-            return;
-        }
-
-        if (node instanceof DelimitedNode delimitedNode) {
-            appendText(container, delimitedNode.leftDelimiter());
-            appendNode(container, delimitedNode.content());
-            appendText(container, delimitedNode.rightDelimiter());
-            return;
-        }
-
-        if (node instanceof FractionNode fractionNode) {
-            CTF fraction = container.addFraction();
-            appendNode(asContainer(fraction.addNewNum()), fractionNode.numerator());
-            appendNode(asContainer(fraction.addNewDen()), fractionNode.denominator());
-            return;
-        }
-
-        if (node instanceof RadicalNode radicalNode) {
-            CTRad radical = container.addRadical();
-            if (radicalNode.degree() == null || radicalNode.degree() instanceof EmptyNode) {
-                CTOnOff degHide = radical.addNewRadPr().addNewDegHide();
-                degHide.setVal("1");
-                radical.addNewDeg();
-            } else {
-                appendNode(asContainer(radical.addNewDeg()), radicalNode.degree());
+            case EmptyNode ignored -> {
             }
-            appendNode(asContainer(radical.addNewE()), radicalNode.radicand());
+            case SequenceNode(var children) -> {
+                for (Node child : children) {
+                    appendNode(container, child);
+                }
+            }
+            case TextNode(var text) -> appendText(container, text);
+            case DelimitedNode(var leftDelimiter, var content, var rightDelimiter) -> {
+                appendText(container, leftDelimiter);
+                appendNode(container, content);
+                appendText(container, rightDelimiter);
+            }
+            case FractionNode(var numerator, var denominator) -> {
+                CTF fraction = container.addFraction();
+                appendNode(asContainer(fraction.addNewNum()), numerator);
+                appendNode(asContainer(fraction.addNewDen()), denominator);
+            }
+            case RadicalNode(var degree, var radicand) -> {
+                CTRad radical = container.addRadical();
+                if (isEmptyNode(degree)) {
+                    CTOnOff degHide = radical.addNewRadPr().addNewDegHide();
+                    degHide.setVal("1");
+                    radical.addNewDeg();
+                } else {
+                    appendNode(asContainer(radical.addNewDeg()), degree);
+                }
+                appendNode(asContainer(radical.addNewE()), radicand);
+            }
+            case ScriptNode(var base, var subscript, var superscript) ->
+                    appendScriptNode(container, base, subscript, superscript);
+        }
+    }
+
+    private static void appendScriptNode(MathContainer container, Node base, Node subscript, Node superscript) {
+        if (!isEmptyNode(subscript) && !isEmptyNode(superscript)) {
+            CTSSubSup subSup = container.addSubSuperscript();
+            appendNode(asContainer(subSup.addNewE()), base);
+            appendNode(asContainer(subSup.addNewSub()), subscript);
+            appendNode(asContainer(subSup.addNewSup()), superscript);
             return;
         }
 
-        if (node instanceof ScriptNode scriptNode) {
-            if (scriptNode.subscript() != null && !(scriptNode.subscript() instanceof EmptyNode)
-                    && scriptNode.superscript() != null && !(scriptNode.superscript() instanceof EmptyNode)) {
-                CTSSubSup subSup = container.addSubSuperscript();
-                appendNode(asContainer(subSup.addNewE()), scriptNode.base());
-                appendNode(asContainer(subSup.addNewSub()), scriptNode.subscript());
-                appendNode(asContainer(subSup.addNewSup()), scriptNode.superscript());
-                return;
-            }
-
-            if (scriptNode.subscript() != null && !(scriptNode.subscript() instanceof EmptyNode)) {
-                CTSSub sub = container.addSubscript();
-                appendNode(asContainer(sub.addNewE()), scriptNode.base());
-                appendNode(asContainer(sub.addNewSub()), scriptNode.subscript());
-                return;
-            }
-
-            if (scriptNode.superscript() != null && !(scriptNode.superscript() instanceof EmptyNode)) {
-                CTSSup sup = container.addSuperscript();
-                appendNode(asContainer(sup.addNewE()), scriptNode.base());
-                appendNode(asContainer(sup.addNewSup()), scriptNode.superscript());
-                return;
-            }
-
-            appendNode(container, scriptNode.base());
+        if (!isEmptyNode(subscript)) {
+            CTSSub sub = container.addSubscript();
+            appendNode(asContainer(sub.addNewE()), base);
+            appendNode(asContainer(sub.addNewSub()), subscript);
+            return;
         }
+
+        if (!isEmptyNode(superscript)) {
+            CTSSup sup = container.addSuperscript();
+            appendNode(asContainer(sup.addNewE()), base);
+            appendNode(asContainer(sup.addNewSup()), superscript);
+            return;
+        }
+
+        appendNode(container, base);
+    }
+
+    private static boolean isEmptyNode(Node node) {
+        return node == null || node instanceof EmptyNode;
     }
 
     private static void appendText(MathContainer container, String text) {
@@ -237,17 +218,293 @@ final class WordOmmlFormulaConverter {
         };
     }
 
+    private static Node simplify(List<Node> nodes) {
+        List<Node> normalized = new ArrayList<>();
+        for (Node node : nodes) {
+            if (node instanceof EmptyNode) {
+                continue;
+            }
+            if (node instanceof SequenceNode(var children)) {
+                normalized.addAll(children);
+                continue;
+            }
+            normalized.add(node);
+        }
+
+        if (normalized.isEmpty()) {
+            return new EmptyNode();
+        }
+        if (normalized.size() == 1) {
+            return normalized.getFirst();
+        }
+        return new SequenceNode(List.copyOf(normalized));
+    }
+
+    private static Node applyCombiningAccent(Node node, String accent) {
+        String plainText = flattenPlainText(node);
+        if (plainText.isEmpty()) {
+            return node;
+        }
+        return new TextNode(plainText + accent);
+    }
+
+    private static String flattenPlainText(Node node) {
+        return switch (node) {
+            case null -> "";
+            case EmptyNode ignored -> "";
+            case TextNode(var text) -> text;
+            case DelimitedNode(var leftDelimiter, var content, var rightDelimiter) ->
+                    leftDelimiter + flattenPlainText(content) + rightDelimiter;
+            case SequenceNode(var children) -> {
+                StringBuilder builder = new StringBuilder();
+                for (Node child : children) {
+                    builder.append(flattenPlainText(child));
+                }
+                yield builder.toString();
+            }
+            case FractionNode ignored -> "";
+            case RadicalNode ignored -> "";
+            case ScriptNode ignored -> "";
+        };
+    }
+
+    private static Map<String, String> createCommandSymbols() {
+        Map<String, String> symbols = new HashMap<>(COMMAND_SYMBOL_CAPACITY);
+        putGreekSymbols(symbols);
+        putOperatorSymbols(symbols);
+        putRelationSymbols(symbols);
+        putSetLogicSymbols(symbols);
+        putArrowSymbols(symbols);
+        putAggregateSymbols(symbols);
+        putFunctionSymbols(symbols);
+        putGeometrySymbols(symbols);
+        return symbols;
+    }
+
+    private static void putGreekSymbols(Map<String, String> symbols) {
+        symbols.put("alpha", "α");
+        symbols.put("beta", "β");
+        symbols.put("gamma", "γ");
+        symbols.put("delta", "δ");
+        symbols.put("epsilon", "ε");
+        symbols.put("varepsilon", "ε");
+        symbols.put("zeta", "ζ");
+        symbols.put("eta", "η");
+        symbols.put("theta", "θ");
+        symbols.put("vartheta", "ϑ");
+        symbols.put("iota", "ι");
+        symbols.put("kappa", "κ");
+        symbols.put("lambda", "λ");
+        symbols.put("mu", "μ");
+        symbols.put("nu", "ν");
+        symbols.put("xi", "ξ");
+        symbols.put("pi", "π");
+        symbols.put("varpi", "ϖ");
+        symbols.put("rho", "ρ");
+        symbols.put("varrho", "ϱ");
+        symbols.put("sigma", "σ");
+        symbols.put("varsigma", "ς");
+        symbols.put("tau", "τ");
+        symbols.put("upsilon", "υ");
+        symbols.put("phi", "φ");
+        symbols.put("varphi", "ϕ");
+        symbols.put("chi", "χ");
+        symbols.put("psi", "ψ");
+        symbols.put("omega", "ω");
+        symbols.put("Gamma", "Γ");
+        symbols.put("Delta", "Δ");
+        symbols.put("Theta", "Θ");
+        symbols.put("Lambda", "Λ");
+        symbols.put("Xi", "Ξ");
+        symbols.put("Pi", "Π");
+        symbols.put("Sigma", "Σ");
+        symbols.put("Upsilon", "Υ");
+        symbols.put("Phi", "Φ");
+        symbols.put("Psi", "Ψ");
+        symbols.put("Omega", "Ω");
+    }
+
+    private static void putOperatorSymbols(Map<String, String> symbols) {
+        symbols.put("pm", "±");
+        symbols.put("mp", "∓");
+        symbols.put("times", "×");
+        symbols.put("div", "÷");
+        symbols.put("cdot", "·");
+        symbols.put("ast", "∗");
+        symbols.put("star", "⋆");
+        symbols.put("circ", "∘");
+        symbols.put("bullet", "∙");
+    }
+
+    private static void putRelationSymbols(Map<String, String> symbols) {
+        symbols.put("leq", "≤");
+        symbols.put("le", "≤");
+        symbols.put("geq", "≥");
+        symbols.put("ge", "≥");
+        symbols.put("neq", "≠");
+        symbols.put("ne", "≠");
+        symbols.put("approx", "≈");
+        symbols.put("equiv", "≡");
+        symbols.put("sim", "∼");
+        symbols.put("simeq", "≃");
+        symbols.put("propto", "∝");
+        symbols.put("infty", "∞");
+        symbols.put("partial", "∂");
+        symbols.put("nabla", "∇");
+    }
+
+    private static void putSetLogicSymbols(Map<String, String> symbols) {
+        symbols.put("forall", "∀");
+        symbols.put("exists", "∃");
+        symbols.put("in", "∈");
+        symbols.put("notin", "∉");
+        symbols.put("subset", "⊂");
+        symbols.put("subseteq", "⊆");
+        symbols.put("subsetneq", "⊊");
+        symbols.put("supset", "⊃");
+        symbols.put("supseteq", "⊇");
+        symbols.put("supsetneq", "⊋");
+        symbols.put("cup", "∪");
+        symbols.put("cap", "∩");
+        symbols.put("setminus", "∖");
+        symbols.put("emptyset", "∅");
+        symbols.put("land", "∧");
+        symbols.put("wedge", "∧");
+        symbols.put("lor", "∨");
+        symbols.put("vee", "∨");
+        symbols.put("neg", "¬");
+        symbols.put("lnot", "¬");
+    }
+
+    private static void putArrowSymbols(Map<String, String> symbols) {
+        symbols.put("to", "→");
+        symbols.put("rightarrow", "→");
+        symbols.put("leftarrow", "←");
+        symbols.put("leftrightarrow", "↔");
+        symbols.put("Rightarrow", "⇒");
+        symbols.put("Leftarrow", "⇐");
+        symbols.put("Leftrightarrow", "⇔");
+        symbols.put("mapsto", "↦");
+        symbols.put("longrightarrow", "⟶");
+        symbols.put("Longrightarrow", "⟹");
+    }
+
+    private static void putAggregateSymbols(Map<String, String> symbols) {
+        symbols.put("sum", "∑");
+        symbols.put("prod", "∏");
+        symbols.put("coprod", "∐");
+        symbols.put("bigvee", "⋁");
+        symbols.put("bigwedge", "⋀");
+        symbols.put("oplus", "⊕");
+        symbols.put("otimes", "⊗");
+        symbols.put("int", "∫");
+        symbols.put("iint", "∬");
+        symbols.put("iiint", "∭");
+        symbols.put("oint", "∮");
+    }
+
+    private static void putFunctionSymbols(Map<String, String> symbols) {
+        symbols.put("sin", "sin");
+        symbols.put("cos", "cos");
+        symbols.put("tan", "tan");
+        symbols.put("cot", "cot");
+        symbols.put("sec", "sec");
+        symbols.put("csc", "csc");
+        symbols.put("arcsin", "arcsin");
+        symbols.put("arccos", "arccos");
+        symbols.put("arctan", "arctan");
+        symbols.put("ln", "ln");
+        symbols.put("log", "log");
+        symbols.put("lg", "lg");
+        symbols.put("exp", "exp");
+        symbols.put("lim", "lim");
+        symbols.put("max", "max");
+        symbols.put("min", "min");
+        symbols.put("sup", "sup");
+        symbols.put("inf", "inf");
+        symbols.put("det", "det");
+        symbols.put("deg", "deg");
+        symbols.put("Pr", "Pr");
+    }
+
+    private static void putGeometrySymbols(Map<String, String> symbols) {
+        symbols.put("because", "∵");
+        symbols.put("therefore", "∴");
+        symbols.put("angle", "∠");
+        symbols.put("triangle", "△");
+        symbols.put("perp", "⊥");
+        symbols.put("parallel", "∥");
+        symbols.put("degree", "°");
+        symbols.put("prime", "′");
+        symbols.put("ldotp", ".");
+    }
+
+    private static Map<String, String> createDelimiterSymbols() {
+        Map<String, String> delimiters = new HashMap<>(DELIMITER_SYMBOL_CAPACITY);
+        delimiters.put("(", "(");
+        delimiters.put(")", ")");
+        delimiters.put("[", "[");
+        delimiters.put("]", "]");
+        delimiters.put("{", "{");
+        delimiters.put("}", "}");
+        delimiters.put("|", "|");
+        delimiters.put("lbrace", "{");
+        delimiters.put("rbrace", "}");
+        delimiters.put("langle", "⟨");
+        delimiters.put("rangle", "⟩");
+        delimiters.put("mid", "|");
+        delimiters.put("lvert", "|");
+        delimiters.put("rvert", "|");
+        delimiters.put("lVert", "‖");
+        delimiters.put("rVert", "‖");
+        delimiters.put("lfloor", "⌊");
+        delimiters.put("rfloor", "⌋");
+        delimiters.put("lceil", "⌈");
+        delimiters.put("rceil", "⌉");
+        return delimiters;
+    }
+
     private interface MathContainer {
+        /**
+         * Adds a math run element to the current container.
+         *
+         * @return the created run element
+         */
         CTR addRun();
 
+        /**
+         * Adds a fraction element to the current container.
+         *
+         * @return the created fraction element
+         */
         CTF addFraction();
 
+        /**
+         * Adds a radical element to the current container.
+         *
+         * @return the created radical element
+         */
         CTRad addRadical();
 
+        /**
+         * Adds a subscript element to the current container.
+         *
+         * @return the created subscript element
+         */
         CTSSub addSubscript();
 
+        /**
+         * Adds a superscript element to the current container.
+         *
+         * @return the created superscript element
+         */
         CTSSup addSuperscript();
 
+        /**
+         * Adds a combined subscript and superscript element to the current container.
+         *
+         * @return the created subscript and superscript element
+         */
         CTSSubSup addSubSuperscript();
     }
 
@@ -619,223 +876,4 @@ final class WordOmmlFormulaConverter {
             return new UnsupportedLatexException("Unsupported latex command: \\" + command);
         }
     }
-
-    private static Node simplify(List<Node> nodes) {
-        List<Node> normalized = new ArrayList<>();
-        for (Node node : nodes) {
-            if (node instanceof EmptyNode) {
-                continue;
-            }
-            if (node instanceof SequenceNode sequenceNode) {
-                normalized.addAll(sequenceNode.children());
-                continue;
-            }
-            normalized.add(node);
-        }
-
-        if (normalized.isEmpty()) {
-            return new EmptyNode();
-        }
-        if (normalized.size() == 1) {
-            return normalized.get(0);
-        }
-        return new SequenceNode(List.copyOf(normalized));
-    }
-
-    private static Node applyCombiningAccent(Node node, String accent) {
-        String plainText = flattenPlainText(node);
-        if (plainText.isEmpty()) {
-            return node;
-        }
-        return new TextNode(plainText + accent);
-    }
-
-    private static String flattenPlainText(Node node) {
-        if (node == null || node instanceof EmptyNode) {
-            return "";
-        }
-        if (node instanceof TextNode textNode) {
-            return textNode.text();
-        }
-        if (node instanceof DelimitedNode delimitedNode) {
-            return delimitedNode.leftDelimiter() + flattenPlainText(delimitedNode.content()) + delimitedNode.rightDelimiter();
-        }
-        if (node instanceof SequenceNode sequenceNode) {
-            StringBuilder builder = new StringBuilder();
-            for (Node child : sequenceNode.children()) {
-                String childText = flattenPlainText(child);
-                if (childText == null) {
-                    return "";
-                }
-                builder.append(childText);
-            }
-            return builder.toString();
-        }
-        return "";
-    }
-
-    private static Map<String, String> createCommandSymbols() {
-        Map<String, String> symbols = new HashMap<>();
-        symbols.put("alpha", "α");
-        symbols.put("beta", "β");
-        symbols.put("gamma", "γ");
-        symbols.put("delta", "δ");
-        symbols.put("epsilon", "ε");
-        symbols.put("varepsilon", "ε");
-        symbols.put("zeta", "ζ");
-        symbols.put("eta", "η");
-        symbols.put("theta", "θ");
-        symbols.put("vartheta", "ϑ");
-        symbols.put("iota", "ι");
-        symbols.put("kappa", "κ");
-        symbols.put("lambda", "λ");
-        symbols.put("mu", "μ");
-        symbols.put("nu", "ν");
-        symbols.put("xi", "ξ");
-        symbols.put("pi", "π");
-        symbols.put("varpi", "ϖ");
-        symbols.put("rho", "ρ");
-        symbols.put("varrho", "ϱ");
-        symbols.put("sigma", "σ");
-        symbols.put("varsigma", "ς");
-        symbols.put("tau", "τ");
-        symbols.put("upsilon", "υ");
-        symbols.put("phi", "φ");
-        symbols.put("varphi", "ϕ");
-        symbols.put("chi", "χ");
-        symbols.put("psi", "ψ");
-        symbols.put("omega", "ω");
-        symbols.put("Gamma", "Γ");
-        symbols.put("Delta", "Δ");
-        symbols.put("Theta", "Θ");
-        symbols.put("Lambda", "Λ");
-        symbols.put("Xi", "Ξ");
-        symbols.put("Pi", "Π");
-        symbols.put("Sigma", "Σ");
-        symbols.put("Upsilon", "Υ");
-        symbols.put("Phi", "Φ");
-        symbols.put("Psi", "Ψ");
-        symbols.put("Omega", "Ω");
-        symbols.put("pm", "±");
-        symbols.put("mp", "∓");
-        symbols.put("times", "×");
-        symbols.put("div", "÷");
-        symbols.put("cdot", "·");
-        symbols.put("ast", "∗");
-        symbols.put("star", "⋆");
-        symbols.put("circ", "∘");
-        symbols.put("bullet", "∙");
-        symbols.put("leq", "≤");
-        symbols.put("le", "≤");
-        symbols.put("geq", "≥");
-        symbols.put("ge", "≥");
-        symbols.put("neq", "≠");
-        symbols.put("ne", "≠");
-        symbols.put("approx", "≈");
-        symbols.put("equiv", "≡");
-        symbols.put("sim", "∼");
-        symbols.put("simeq", "≃");
-        symbols.put("propto", "∝");
-        symbols.put("infty", "∞");
-        symbols.put("partial", "∂");
-        symbols.put("nabla", "∇");
-        symbols.put("forall", "∀");
-        symbols.put("exists", "∃");
-        symbols.put("in", "∈");
-        symbols.put("notin", "∉");
-        symbols.put("subset", "⊂");
-        symbols.put("subseteq", "⊆");
-        symbols.put("subsetneq", "⊊");
-        symbols.put("supset", "⊃");
-        symbols.put("supseteq", "⊇");
-        symbols.put("supsetneq", "⊋");
-        symbols.put("cup", "∪");
-        symbols.put("cap", "∩");
-        symbols.put("setminus", "∖");
-        symbols.put("emptyset", "∅");
-        symbols.put("land", "∧");
-        symbols.put("wedge", "∧");
-        symbols.put("lor", "∨");
-        symbols.put("vee", "∨");
-        symbols.put("neg", "¬");
-        symbols.put("lnot", "¬");
-        symbols.put("to", "→");
-        symbols.put("rightarrow", "→");
-        symbols.put("leftarrow", "←");
-        symbols.put("leftrightarrow", "↔");
-        symbols.put("Rightarrow", "⇒");
-        symbols.put("Leftarrow", "⇐");
-        symbols.put("Leftrightarrow", "⇔");
-        symbols.put("mapsto", "↦");
-        symbols.put("longrightarrow", "⟶");
-        symbols.put("Longrightarrow", "⟹");
-        symbols.put("sum", "∑");
-        symbols.put("prod", "∏");
-        symbols.put("coprod", "∐");
-        symbols.put("bigvee", "⋁");
-        symbols.put("bigwedge", "⋀");
-        symbols.put("oplus", "⊕");
-        symbols.put("otimes", "⊗");
-        symbols.put("int", "∫");
-        symbols.put("iint", "∬");
-        symbols.put("iiint", "∭");
-        symbols.put("oint", "∮");
-        symbols.put("sin", "sin");
-        symbols.put("cos", "cos");
-        symbols.put("tan", "tan");
-        symbols.put("cot", "cot");
-        symbols.put("sec", "sec");
-        symbols.put("csc", "csc");
-        symbols.put("arcsin", "arcsin");
-        symbols.put("arccos", "arccos");
-        symbols.put("arctan", "arctan");
-        symbols.put("ln", "ln");
-        symbols.put("log", "log");
-        symbols.put("lg", "lg");
-        symbols.put("exp", "exp");
-        symbols.put("lim", "lim");
-        symbols.put("max", "max");
-        symbols.put("min", "min");
-        symbols.put("sup", "sup");
-        symbols.put("inf", "inf");
-        symbols.put("det", "det");
-        symbols.put("deg", "deg");
-        symbols.put("Pr", "Pr");
-        symbols.put("because", "∵");
-        symbols.put("therefore", "∴");
-        symbols.put("angle", "∠");
-        symbols.put("triangle", "△");
-        symbols.put("perp", "⊥");
-        symbols.put("parallel", "∥");
-        symbols.put("degree", "°");
-        symbols.put("prime", "′");
-        symbols.put("ldotp", ".");
-        return symbols;
-    }
-
-    private static Map<String, String> createDelimiterSymbols() {
-        Map<String, String> delimiters = new HashMap<>();
-        delimiters.put("(", "(");
-        delimiters.put(")", ")");
-        delimiters.put("[", "[");
-        delimiters.put("]", "]");
-        delimiters.put("{", "{");
-        delimiters.put("}", "}");
-        delimiters.put("|", "|");
-        delimiters.put("lbrace", "{");
-        delimiters.put("rbrace", "}");
-        delimiters.put("langle", "⟨");
-        delimiters.put("rangle", "⟩");
-        delimiters.put("mid", "|");
-        delimiters.put("lvert", "|");
-        delimiters.put("rvert", "|");
-        delimiters.put("lVert", "‖");
-        delimiters.put("rVert", "‖");
-        delimiters.put("lfloor", "⌊");
-        delimiters.put("rfloor", "⌋");
-        delimiters.put("lceil", "⌈");
-        delimiters.put("rceil", "⌉");
-        return delimiters;
-    }
 }
-

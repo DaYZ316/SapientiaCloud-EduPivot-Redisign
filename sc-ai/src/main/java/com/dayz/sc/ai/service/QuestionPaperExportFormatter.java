@@ -12,11 +12,8 @@ import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.pdmodel.graphics.state.RenderingMode;
-import org.apache.poi.xwpf.usermodel.Document;
-import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import org.apache.poi.xwpf.usermodel.XWPFParagraph;
-import org.apache.poi.xwpf.usermodel.XWPFRun;
+import org.apache.poi.util.Units;
+import org.apache.poi.xwpf.usermodel.*;
 import org.scilab.forge.jlatexmath.TeXConstants;
 import org.scilab.forge.jlatexmath.TeXFormula;
 import org.scilab.forge.jlatexmath.TeXIcon;
@@ -26,35 +23,24 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import javax.imageio.ImageIO;
-import javax.swing.JLabel;
-import java.awt.Color;
-import java.awt.Graphics2D;
-import java.awt.Insets;
-import java.awt.RenderingHints;
+import javax.swing.*;
+import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.poi.util.Units;
-
+/**
+ * QuestionPaperExportFormatter.
+ *
+ * @author DaYZ
+ */
 @Slf4j
 @Component
 public class QuestionPaperExportFormatter {
@@ -98,10 +84,21 @@ public class QuestionPaperExportFormatter {
     private static final float PDF_TEXT_ASCENT_RATIO = 0.82F;
     private static final float PDF_TEXT_DESCENT_RATIO = 0.22F;
     private static final float WORD_MAX_CONTENT_WIDTH_PT = 480F;
+    private static final char LINE_FEED = '\n';
+    private static final char DOLLAR_SIGN = '$';
+    private static final char BACKSLASH = '\\';
+    private static final String DOUBLE_DOLLAR_DELIMITER = "$$";
+    private static final String DISPLAY_FORMULA_START = "\\[";
+    private static final String DISPLAY_FORMULA_END = "\\]";
+    private static final String INLINE_FORMULA_START = "\\(";
+    private static final String INLINE_FORMULA_END = "\\)";
+    private static final String LATEX_BEGIN_PREFIX = "\\begin{";
+    private static final String LATEX_END_PREFIX = "\\end{";
+    private static final float MIN_RENDER_DIMENSION = 0F;
 
     private final Map<FormulaRenderKey, RenderedFormula> renderedFormulaCache = new ConcurrentHashMap<>();
 
-    public ExportedPaperFile exportPdf(QuestionPaperExportRequestDTO request) {
+    ExportedPaperFile exportPdf(QuestionPaperExportRequestDTO request) {
         ExportContext context = normalizeRequest(request);
 
         try (PDDocument document = new PDDocument();
@@ -144,7 +141,7 @@ public class QuestionPaperExportFormatter {
         }
     }
 
-    public ExportedPaperFile exportWord(QuestionPaperExportRequestDTO request) {
+    ExportedPaperFile exportWord(QuestionPaperExportRequestDTO request) {
         ExportContext context = normalizeRequest(request);
 
         try (XWPFDocument document = new XWPFDocument();
@@ -277,11 +274,11 @@ public class QuestionPaperExportFormatter {
             previousBlank = false;
         }
 
-        while (!sanitizedLines.isEmpty() && sanitizedLines.get(0).isBlank()) {
-            sanitizedLines.remove(0);
+        while (!sanitizedLines.isEmpty() && sanitizedLines.getFirst().isBlank()) {
+            sanitizedLines.removeFirst();
         }
-        while (!sanitizedLines.isEmpty() && sanitizedLines.get(sanitizedLines.size() - 1).isBlank()) {
-            sanitizedLines.remove(sanitizedLines.size() - 1);
+        while (!sanitizedLines.isEmpty() && sanitizedLines.getLast().isBlank()) {
+            sanitizedLines.removeLast();
         }
 
         return String.join("\n", sanitizedLines);
@@ -649,7 +646,7 @@ public class QuestionPaperExportFormatter {
                 }
             }
             if (!correctLabels.isEmpty()) {
-                lines.add(0, "正确答案：" + String.join(", ", correctLabels));
+                lines.addFirst("正确答案：" + String.join(", ", correctLabels));
             }
         }
 
@@ -809,14 +806,14 @@ public class QuestionPaperExportFormatter {
                 continue;
             }
 
-            if (currentText.length() > 0) {
+            if (!currentText.isEmpty()) {
                 merged.add(InlineNode.text(currentText.toString()));
                 currentText.setLength(0);
             }
             merged.add(inlineNode);
         }
 
-        if (currentText.length() > 0) {
+        if (!currentText.isEmpty()) {
             merged.add(InlineNode.text(currentText.toString()));
         }
         return merged;
@@ -842,8 +839,8 @@ public class QuestionPaperExportFormatter {
             previousBlank = false;
         }
 
-        while (!trimmed.isEmpty() && trimmed.get(trimmed.size() - 1).type() == RenderBlockType.BLANK_LINE) {
-            trimmed.remove(trimmed.size() - 1);
+        while (!trimmed.isEmpty() && trimmed.getLast().type() == RenderBlockType.BLANK_LINE) {
+            trimmed.removeLast();
         }
         return trimmed;
     }
@@ -913,14 +910,14 @@ public class QuestionPaperExportFormatter {
     }
 
     private void appendDisplayPlaceholder(StringBuilder builder, String marker) {
-        if (builder.length() > 0 && builder.charAt(builder.length() - 1) != '\n') {
-            builder.append('\n');
+        if (!builder.isEmpty() && builder.charAt(builder.length() - 1) != LINE_FEED) {
+            builder.append(LINE_FEED);
         }
-        builder.append(marker).append('\n');
+        builder.append(marker).append(LINE_FEED);
     }
 
     private FormulaMatch matchFormulaAt(String content, int index) {
-        if (content.startsWith("$$", index) && !isEscapedDollar(content, index)) {
+        if (content.startsWith(DOUBLE_DOLLAR_DELIMITER, index) && !isEscapedDollar(content, index)) {
             int endIndex = findClosingDoubleDollar(content, index + 2);
             if (endIndex >= 0) {
                 return new FormulaMatch(
@@ -932,33 +929,34 @@ public class QuestionPaperExportFormatter {
             }
         }
 
-        if (content.startsWith("\\[", index)) {
-            int endIndex = content.indexOf("\\]", index + 2);
+        if (content.startsWith(DISPLAY_FORMULA_START, index)) {
+            int endIndex = content.indexOf(DISPLAY_FORMULA_END, index + DISPLAY_FORMULA_START.length());
             if (endIndex >= 0) {
                 return new FormulaMatch(
-                        content.substring(index + 2, endIndex),
+                        content.substring(index + DISPLAY_FORMULA_START.length(), endIndex),
                         true,
-                        content.substring(index, endIndex + 2),
-                        endIndex + 2
+                        content.substring(index, endIndex + DISPLAY_FORMULA_END.length()),
+                        endIndex + DISPLAY_FORMULA_END.length()
                 );
             }
         }
 
-        if (content.startsWith("\\(", index)) {
-            int endIndex = content.indexOf("\\)", index + 2);
+        if (content.startsWith(INLINE_FORMULA_START, index)) {
+            int endIndex = content.indexOf(INLINE_FORMULA_END, index + INLINE_FORMULA_START.length());
             if (endIndex >= 0) {
                 return new FormulaMatch(
-                        content.substring(index + 2, endIndex),
+                        content.substring(index + INLINE_FORMULA_START.length(), endIndex),
                         false,
-                        content.substring(index, endIndex + 2),
-                        endIndex + 2
+                        content.substring(index, endIndex + INLINE_FORMULA_END.length()),
+                        endIndex + INLINE_FORMULA_END.length()
                 );
             }
         }
 
-        if (content.charAt(index) == '$'
-                && !isEscapedDollar(content, index)
-                && (index + 1 >= content.length() || content.charAt(index + 1) != '$')) {
+        boolean startsWithSingleDollar = content.charAt(index) == DOLLAR_SIGN;
+        boolean dollarIsEscaped = isEscapedDollar(content, index);
+        boolean nextCharIsDollar = index + 1 < content.length() && content.charAt(index + 1) == DOLLAR_SIGN;
+        if (startsWithSingleDollar && !dollarIsEscaped && !nextCharIsDollar) {
             int endIndex = findClosingInlineDollar(content, index + 1);
             if (endIndex >= 0) {
                 return new FormulaMatch(
@@ -979,11 +977,11 @@ public class QuestionPaperExportFormatter {
     }
 
     private FormulaMatch matchBareLatexEnvironment(String content, int index) {
-        if (!content.startsWith("\\begin{", index)) {
+        if (!content.startsWith(LATEX_BEGIN_PREFIX, index)) {
             return null;
         }
 
-        int envNameStart = index + "\\begin{".length();
+        int envNameStart = index + LATEX_BEGIN_PREFIX.length();
         int envNameEnd = content.indexOf('}', envNameStart);
         if (envNameEnd < 0) {
             return null;
@@ -994,7 +992,7 @@ public class QuestionPaperExportFormatter {
             return null;
         }
 
-        String closingToken = "\\end{" + environment + "}";
+        String closingToken = LATEX_END_PREFIX + environment + "}";
         int closingIndex = content.indexOf(closingToken, envNameEnd + 1);
         if (closingIndex < 0) {
             return null;
@@ -1012,7 +1010,7 @@ public class QuestionPaperExportFormatter {
     private boolean isStandaloneFormula(String content, int startIndex, int endIndex) {
         for (int i = startIndex - 1; i >= 0; i--) {
             char current = content.charAt(i);
-            if (current == '\n') {
+            if (current == LINE_FEED) {
                 break;
             }
             if (!Character.isWhitespace(current)) {
@@ -1022,7 +1020,7 @@ public class QuestionPaperExportFormatter {
 
         for (int i = endIndex; i < content.length(); i++) {
             char current = content.charAt(i);
-            if (current == '\n') {
+            if (current == LINE_FEED) {
                 break;
             }
             if (!Character.isWhitespace(current)) {
@@ -1035,14 +1033,14 @@ public class QuestionPaperExportFormatter {
     private int findClosingDoubleDollar(String content, int startIndex) {
         int currentIndex = startIndex;
         while (currentIndex < content.length()) {
-            int closingIndex = content.indexOf("$$", currentIndex);
+            int closingIndex = content.indexOf(DOUBLE_DOLLAR_DELIMITER, currentIndex);
             if (closingIndex < 0) {
                 return -1;
             }
             if (!isEscapedDollar(content, closingIndex)) {
                 return closingIndex;
             }
-            currentIndex = closingIndex + 2;
+            currentIndex = closingIndex + DOUBLE_DOLLAR_DELIMITER.length();
         }
         return -1;
     }
@@ -1050,11 +1048,12 @@ public class QuestionPaperExportFormatter {
     private int findClosingInlineDollar(String content, int startIndex) {
         int currentIndex = startIndex;
         while (currentIndex < content.length()) {
-            int closingIndex = content.indexOf('$', currentIndex);
+            int closingIndex = content.indexOf(DOLLAR_SIGN, currentIndex);
             if (closingIndex < 0) {
                 return -1;
             }
-            boolean singleDollar = closingIndex + 1 >= content.length() || content.charAt(closingIndex + 1) != '$';
+            boolean singleDollar = closingIndex + 1 >= content.length()
+                    || content.charAt(closingIndex + 1) != DOLLAR_SIGN;
             if (!isEscapedDollar(content, closingIndex) && singleDollar) {
                 return closingIndex;
             }
@@ -1065,7 +1064,7 @@ public class QuestionPaperExportFormatter {
 
     private boolean isEscapedDollar(String content, int dollarIndex) {
         int backslashCount = 0;
-        for (int i = dollarIndex - 1; i >= 0 && content.charAt(i) == '\\'; i--) {
+        for (int i = dollarIndex - 1; i >= 0 && content.charAt(i) == BACKSLASH; i--) {
             backslashCount++;
         }
         return backslashCount % 2 == 1;
@@ -1167,7 +1166,7 @@ public class QuestionPaperExportFormatter {
                     outputStream.toByteArray(),
                     icon.getIconWidth(),
                     icon.getIconHeight(),
-                    Math.max(0F, icon.getIconDepth())
+                    Math.max(MIN_RENDER_DIMENSION, icon.getIconDepth())
             );
         } catch (Exception e) {
             log.warn("Failed to render latex formula. latex={}", key.latex(), e);
@@ -1177,6 +1176,27 @@ public class QuestionPaperExportFormatter {
 
     private String defaultString(String content) {
         return content == null ? "" : content;
+    }
+
+    /**
+     * 导出渲染块类型
+     */
+    private enum RenderBlockType {
+
+        /**
+         * 段落文本
+         */
+        PARAGRAPH,
+
+        /**
+         * 行间公式
+         */
+        DISPLAY_FORMULA,
+
+        /**
+         * 空行
+         */
+        BLANK_LINE
     }
 
     public record ExportedPaperFile(String fileName, String contentType, byte[] content) {
@@ -1207,12 +1227,6 @@ public class QuestionPaperExportFormatter {
                                       String latex,
                                       boolean display,
                                       String originalText) {
-    }
-
-    private enum RenderBlockType {
-        PARAGRAPH,
-        DISPLAY_FORMULA,
-        BLANK_LINE
     }
 
     private record RenderBlock(RenderBlockType type,
@@ -1261,11 +1275,11 @@ public class QuestionPaperExportFormatter {
                                    float depthPt) {
 
         private float aboveBaseline() {
-            return Math.max(0F, heightPt - depthPt);
+            return Math.max(MIN_RENDER_DIMENSION, heightPt - depthPt);
         }
 
         private RenderedFormula fitToWidth(float maxWidth) {
-            if (maxWidth <= 0F || widthPt <= maxWidth) {
+            if (maxWidth <= MIN_RENDER_DIMENSION || widthPt <= maxWidth) {
                 return this;
             }
             float scale = maxWidth / widthPt;
@@ -1294,7 +1308,7 @@ public class QuestionPaperExportFormatter {
         private static PdfInlineFragment formula(RenderedFormula formula, FormulaPlaceholder placeholder) {
             return new PdfInlineFragment(
                     null,
-                    0F,
+                    MIN_RENDER_DIMENSION,
                     false,
                     formula,
                     placeholder,

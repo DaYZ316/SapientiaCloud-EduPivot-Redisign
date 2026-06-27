@@ -23,6 +23,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * WebSearchClient.
+ *
+ * @author DaYZ
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -31,6 +36,9 @@ public class WebSearchClient {
     private static final int DEFAULT_MAX_RESULTS = 5;
     private static final int HARD_MAX_RESULTS = 10;
     private static final String PROVIDER = "tavily-compatible";
+    private static final int HTTP_UNAUTHORIZED = 401;
+    private static final int HTTP_FORBIDDEN = 403;
+    private static final int HTTP_TOO_MANY_REQUESTS = 429;
 
     private final AiProperties aiProperties;
 
@@ -85,7 +93,7 @@ public class WebSearchClient {
                     normalizedQuery,
                     "联网搜索失败",
                     httpFailureReason(e.getStatusCode()),
-                    e.getStatusCode().is5xxServerError() || e.getStatusCode().value() == 429,
+                    e.getStatusCode().is5xxServerError() || e.getStatusCode().value() == HTTP_TOO_MANY_REQUESTS,
                     durationMs(startedAtNanos));
         } catch (ResourceAccessException e) {
             log.warn("AgentSearch web search failed query={} reason=resource_access", normalizedQuery, e);
@@ -195,10 +203,10 @@ public class WebSearchClient {
 
     private String httpFailureReason(HttpStatusCode statusCode) {
         int value = statusCode.value();
-        if (value == 401 || value == 403) {
+        if (value == HTTP_UNAUTHORIZED || value == HTTP_FORBIDDEN) {
             return "联网搜索认证失败，请检查 API Key";
         }
-        if (value == 429) {
+        if (value == HTTP_TOO_MANY_REQUESTS) {
             return "联网搜索请求过于频繁或额度不足";
         }
         if (statusCode.is5xxServerError()) {

@@ -17,8 +17,8 @@ import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.tika.TikaDocumentReader;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,9 +38,13 @@ import java.util.UUID;
 @Service
 public class KnowledgeBaseService {
 
-    /** 向量库文档元数据键：所属用户 */
+    /**
+     * 向量库文档元数据键：所属用户
+     */
     public static final String META_USER_ID = "userId";
-    /** 向量库文档元数据键：所属知识库文档 */
+    /**
+     * 向量库文档元数据键：所属知识库文档
+     */
     public static final String META_DOC_ID = "docId";
     public static final String META_SOURCE_TYPE = "sourceType";
     public static final String META_SOURCE_TYPE_KNOWLEDGE_DOC = "KNOWLEDGE_DOC";
@@ -129,12 +133,15 @@ public class KnowledgeBaseService {
     public void delete(UUID docId, UUID userId) {
         KnowledgeDoc doc = knowledgeDocRepository.findByIdAndUserId(docId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.AI_KNOWLEDGE_DOC_NOT_FOUND));
-        // 删除向量库中该文档的所有切片
-        vectorStoreProvider.getObject().delete("%s == '%s' && %s == '%s' && %s == '%s'"
-                .formatted(META_SOURCE_TYPE, META_SOURCE_TYPE_KNOWLEDGE_DOC, META_DOC_ID, docId, META_USER_ID, userId));
         doc.setDeletedAt(Instant.now());
         knowledgeDocRepository.update(doc);
         knowledgeDocRepository.deleteByIdAndUserId(docId, userId);
+        try {
+            vectorStoreProvider.getObject().delete("%s == '%s' && %s == '%s' && %s == '%s'"
+                    .formatted(META_SOURCE_TYPE, META_SOURCE_TYPE_KNOWLEDGE_DOC, META_DOC_ID, docId, META_USER_ID, userId));
+        } catch (Exception e) {
+            log.warn("AI knowledge document vector deletion failed docId={} userId={}", docId, userId, e);
+        }
     }
 
     private List<Document> parseAndSplit(String downloadUrl) throws Exception {

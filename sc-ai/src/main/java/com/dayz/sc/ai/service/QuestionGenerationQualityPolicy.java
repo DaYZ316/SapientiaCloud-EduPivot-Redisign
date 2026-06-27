@@ -4,24 +4,34 @@ import com.dayz.sc.ai.model.dto.GenerationRequest;
 import com.dayz.sc.ai.model.vo.GenerationValidationIssue;
 import com.dayz.sc.ai.model.vo.PaperBlueprint;
 import com.dayz.sc.ai.model.vo.PaperSectionPlan;
+import org.jspecify.annotations.Nullable;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.Normalizer;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 final class QuestionGenerationQualityPolicy {
 
-    private static final List<Integer> PAPER_MIXED_BASE_TYPES = List.of(0, 1, 3, 4);
+    private static final int QUESTION_TYPE_SINGLE_CHOICE = 0;
+    private static final int QUESTION_TYPE_MULTI_CHOICE = 1;
+    private static final int QUESTION_TYPE_TRUE_FALSE = 2;
+    private static final int QUESTION_TYPE_FILL_BLANK = 3;
+    private static final int QUESTION_TYPE_SHORT_ANSWER = 4;
+    private static final int TWO_QUESTION_MIXED_COUNT = 2;
+    private static final int THREE_QUESTION_MIXED_COUNT = 3;
+    private static final int BASE_MIXED_TYPE_COUNT = 4;
+    private static final int MIN_PAPER_QUESTION_COUNT = 5;
+    private static final int MIN_MULTI_SELECT_OPTION_COUNT = 4;
+    private static final int MIN_TOPIC_DIVERSITY_COUNT = 2;
+    private static final String KEY_TAGS = "tags";
+    private static final List<Integer> PAPER_MIXED_BASE_TYPES = List.of(
+            QUESTION_TYPE_SINGLE_CHOICE,
+            QUESTION_TYPE_MULTI_CHOICE,
+            QUESTION_TYPE_FILL_BLANK,
+            QUESTION_TYPE_SHORT_ANSWER);
     private static final Set<String> REPAIRABLE_CODES = Set.of(
             "PAPER_OBJECTIVE_ONLY",
             "WEAK_MULTI_SELECT_DISTRACTOR",
@@ -36,36 +46,36 @@ final class QuestionGenerationQualityPolicy {
             return List.of();
         }
         if (totalCount == 1) {
-            return List.of(4);
+            return List.of(QUESTION_TYPE_SHORT_ANSWER);
         }
-        if (totalCount == 2) {
-            return List.of(0, 4);
+        if (totalCount == TWO_QUESTION_MIXED_COUNT) {
+            return List.of(QUESTION_TYPE_SINGLE_CHOICE, QUESTION_TYPE_SHORT_ANSWER);
         }
-        if (totalCount == 3) {
-            return List.of(0, 1, 4);
+        if (totalCount == THREE_QUESTION_MIXED_COUNT) {
+            return List.of(QUESTION_TYPE_SINGLE_CHOICE, QUESTION_TYPE_MULTI_CHOICE, QUESTION_TYPE_SHORT_ANSWER);
         }
-        if (totalCount == 4) {
-            return List.of(0, 1, 3, 4);
+        if (totalCount == BASE_MIXED_TYPE_COUNT) {
+            return PAPER_MIXED_BASE_TYPES;
         }
-        int judgeCount = totalCount >= 5 ? Math.max(1, Math.round(totalCount * 0.1f)) : 0;
+        int judgeCount = Math.max(1, Math.round(totalCount * 0.1f));
         int nonJudgeCount = Math.max(0, totalCount - judgeCount);
         List<Integer> types = new ArrayList<>(totalCount);
         for (int i = 0; i < nonJudgeCount; i++) {
             types.add(PAPER_MIXED_BASE_TYPES.get(i % PAPER_MIXED_BASE_TYPES.size()));
         }
         for (int i = 0; i < judgeCount; i++) {
-            types.add(2);
+            types.add(QUESTION_TYPE_TRUE_FALSE);
         }
         return types;
     }
 
     static long scoreWeight(int questionType, int difficulty) {
         BigDecimal typeWeight = switch (questionType) {
-            case 0 -> BigDecimal.valueOf(1.0);
-            case 1 -> BigDecimal.valueOf(1.2);
-            case 2 -> BigDecimal.valueOf(0.5);
-            case 3 -> BigDecimal.valueOf(1.4);
-            case 4 -> BigDecimal.valueOf(2.0);
+            case QUESTION_TYPE_SINGLE_CHOICE -> BigDecimal.valueOf(1.0);
+            case QUESTION_TYPE_MULTI_CHOICE -> BigDecimal.valueOf(1.2);
+            case QUESTION_TYPE_TRUE_FALSE -> BigDecimal.valueOf(0.5);
+            case QUESTION_TYPE_FILL_BLANK -> BigDecimal.valueOf(1.4);
+            case QUESTION_TYPE_SHORT_ANSWER -> BigDecimal.valueOf(2.0);
             default -> BigDecimal.ONE;
         };
         BigDecimal difficultyWeight = switch (difficulty) {
@@ -79,8 +89,8 @@ final class QuestionGenerationQualityPolicy {
     }
 
     static QualityReview review(List<Map<String, Object>> questions,
-                                GenerationRequest request,
-                                PaperBlueprint blueprint,
+                                @Nullable GenerationRequest request,
+                                @Nullable PaperBlueprint blueprint,
                                 boolean paper) {
         List<Map<String, Object>> safeQuestions = questions == null ? List.of() : questions;
         List<GenerationValidationIssue> issues = new ArrayList<>();
@@ -107,10 +117,10 @@ final class QuestionGenerationQualityPolicy {
 
     private static void appendPaperIssues(List<GenerationValidationIssue> issues,
                                           List<Map<String, Object>> questions,
-                                          GenerationRequest request,
-                                          PaperBlueprint blueprint) {
+                                          @Nullable GenerationRequest request,
+                                          @Nullable PaperBlueprint blueprint) {
         int targetCount = blueprint == null ? questions.size() : blueprint.totalQuestionCount();
-        if (request != null && request.questionCount() != null && targetCount > 0 && targetCount < 5) {
+        if (request != null && request.questionCount() != null && targetCount > 0 && targetCount < MIN_PAPER_QUESTION_COUNT) {
             issues.add(new GenerationValidationIssue(
                     "PAPER_TOO_FEW_QUESTIONS",
                     "warning",
@@ -119,9 +129,9 @@ final class QuestionGenerationQualityPolicy {
                     "建议将试卷题量提高到至少 5 道，或将本次结果作为专题小测使用。"));
         }
         long objectiveCount = questions.stream()
-                .filter(question -> questionType(question) <= 2)
+                .filter(question -> questionType(question) <= QUESTION_TYPE_TRUE_FALSE)
                 .count();
-        if (questions.size() >= 3 && objectiveCount == questions.size()) {
+        if (questions.size() >= QUESTION_TYPE_FILL_BLANK && objectiveCount == questions.size()) {
             issues.add(new GenerationValidationIssue(
                     "PAPER_OBJECTIVE_ONLY",
                     "warning",
@@ -133,7 +143,7 @@ final class QuestionGenerationQualityPolicy {
 
     private static void appendQuestionQualityIssues(List<GenerationValidationIssue> issues,
                                                     List<Map<String, Object>> questions,
-                                                    GenerationRequest request) {
+                                                    @Nullable GenerationRequest request) {
         for (int i = 0; i < questions.size(); i++) {
             Map<String, Object> question = questions.get(i);
             int index = i + 1;
@@ -143,7 +153,7 @@ final class QuestionGenerationQualityPolicy {
             if (threshold != null && score.compareTo(threshold) > 0) {
                 issues.add(highScoreIssue(type, index, score, threshold));
             }
-            if (type == 1 && isWeakMultiSelect(question)) {
+            if (type == QUESTION_TYPE_MULTI_CHOICE && isWeakMultiSelect(question)) {
                 issues.add(new GenerationValidationIssue(
                         "WEAK_MULTI_SELECT_DISTRACTOR",
                         "warning",
@@ -160,11 +170,11 @@ final class QuestionGenerationQualityPolicy {
                                                             BigDecimal score,
                                                             BigDecimal threshold) {
         String code = switch (type) {
-            case 0 -> "SINGLE_SCORE_TOO_HIGH";
-            case 1 -> "MULTI_SCORE_TOO_HIGH";
-            case 2 -> "JUDGE_SCORE_TOO_HIGH";
-            case 3 -> "BLANK_SCORE_TOO_HIGH";
-            case 4 -> "SHORT_SCORE_TOO_HIGH";
+            case QUESTION_TYPE_SINGLE_CHOICE -> "SINGLE_SCORE_TOO_HIGH";
+            case QUESTION_TYPE_MULTI_CHOICE -> "MULTI_SCORE_TOO_HIGH";
+            case QUESTION_TYPE_TRUE_FALSE -> "JUDGE_SCORE_TOO_HIGH";
+            case QUESTION_TYPE_FILL_BLANK -> "BLANK_SCORE_TOO_HIGH";
+            case QUESTION_TYPE_SHORT_ANSWER -> "SHORT_SCORE_TOO_HIGH";
             default -> "QUESTION_SCORE_TOO_HIGH";
         };
         return new GenerationValidationIssue(
@@ -177,7 +187,7 @@ final class QuestionGenerationQualityPolicy {
 
     private static boolean isWeakMultiSelect(Map<String, Object> question) {
         List<Map<String, Object>> options = mapList(question.get("options"));
-        if (options.size() < 4) {
+        if (options.size() < MIN_MULTI_SELECT_OPTION_COUNT) {
             return false;
         }
         long correctCount = options.stream()
@@ -187,15 +197,15 @@ final class QuestionGenerationQualityPolicy {
     }
 
     private static void appendTopicDiversityIssue(List<GenerationValidationIssue> issues,
-                                                 List<Map<String, Object>> questions,
-                                                 GenerationRequest request) {
+                                                  List<Map<String, Object>> questions,
+                                                  @Nullable GenerationRequest request) {
         List<String> requested = request == null ? List.of() : normalizeTerms(request.knowledgePoints());
-        if (requested.size() < 2 || questions.size() < 2) {
+        if (requested.size() < MIN_TOPIC_DIVERSITY_COUNT || questions.size() < MIN_TOPIC_DIVERSITY_COUNT) {
             return;
         }
         Set<String> covered = new LinkedHashSet<>();
         for (Map<String, Object> question : questions) {
-            for (String tag : normalizeTerms(question.get("tags"))) {
+            for (String tag : normalizeTerms(question.get(KEY_TAGS))) {
                 if (requested.contains(tag)) {
                     covered.add(tag);
                 }
@@ -213,8 +223,8 @@ final class QuestionGenerationQualityPolicy {
     }
 
     private static Map<String, Object> payload(List<Map<String, Object>> questions,
-                                               GenerationRequest request,
-                                               PaperBlueprint blueprint,
+                                               @Nullable GenerationRequest request,
+                                               @Nullable PaperBlueprint blueprint,
                                                List<GenerationValidationIssue> issues) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("questionCount", questions.size());
@@ -225,7 +235,7 @@ final class QuestionGenerationQualityPolicy {
         payload.put("estimatedTimes", estimatedTimeDistribution(questions));
         payload.put("knowledgePoints", knowledgePointCoverage(questions, request));
         if (blueprint != null) {
-            payload.put("blueprintSections", blueprint.sections() == null ? List.of() : blueprint.sections().stream()
+            payload.put("blueprintSections", blueprint.sections().stream()
                     .map(QuestionGenerationQualityPolicy::sectionPayload)
                     .toList());
         }
@@ -268,7 +278,8 @@ final class QuestionGenerationQualityPolicy {
         return payload;
     }
 
-    private static Map<String, Object> knowledgePointCoverage(List<Map<String, Object>> questions, GenerationRequest request) {
+    private static Map<String, Object> knowledgePointCoverage(List<Map<String, Object>> questions,
+                                                              @Nullable GenerationRequest request) {
         Map<String, Object> payload = new LinkedHashMap<>();
         List<String> requested = request == null ? List.of() : normalizeTerms(request.knowledgePoints());
         Set<String> generated = new LinkedHashSet<>();

@@ -9,9 +9,9 @@ import com.dayz.sc.course.model.vo.CourseFileVO;
 import com.dayz.sc.course.service.CourseFileService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.jspecify.annotations.NonNull;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -32,8 +32,8 @@ public class CourseFileController {
     @PostMapping
     @RateLimited
     public ApiResponse<@NonNull CourseFileVO> bindFile(@PathVariable UUID courseId,
-                                              @Valid @RequestBody BindCourseFileRequest request,
-                                              @AuthenticationPrincipal Jwt jwt) {
+                                                       @Valid @RequestBody BindCourseFileRequest request,
+                                                       @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
         return ApiResponse.ok(courseFileService.bindFile(courseId, request, userId, role));
@@ -41,9 +41,9 @@ public class CourseFileController {
 
     @GetMapping
     public ApiResponse<@NonNull PageResponse<@NonNull CourseFileVO>> listFiles(@PathVariable UUID courseId,
-                                                             @RequestParam(defaultValue = "1") int page,
-                                                             @RequestParam(defaultValue = "10") int size,
-                                                             @AuthenticationPrincipal Jwt jwt) {
+                                                                               @RequestParam(defaultValue = "1") int page,
+                                                                               @RequestParam(defaultValue = "10") int size,
+                                                                               @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
         return ApiResponse.ok(courseFileService.listFiles(courseId, userId, role, page, size));
@@ -52,8 +52,8 @@ public class CourseFileController {
     @DeleteMapping("/{courseFileId}")
     @RateLimited
     public ApiResponse<@NonNull Void> deleteFile(@PathVariable UUID courseId,
-                                        @PathVariable UUID courseFileId,
-                                        @AuthenticationPrincipal Jwt jwt) {
+                                                 @PathVariable UUID courseFileId,
+                                                 @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
         courseFileService.deleteCourseFile(courseId, courseFileId, userId, role);

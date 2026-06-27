@@ -1,5 +1,5 @@
 import {ACCESS_TOKEN_KEY, request} from '@/shared/api/request'
-import {subscribeSse, sseUrl} from '@/shared/api/sseManager'
+import {sseUrl, subscribeSse} from '@/shared/api/sseManager'
 import type {PageResponse} from '@/shared/types/common'
 import type {
     ClassBarrage,
@@ -12,6 +12,7 @@ import type {
     LiveKitToken,
     UpdateClassSessionRequest,
 } from '@/features/course/types/classSession'
+
 const CLASS_BARRAGE_IDLE_TIMEOUT_MS = 30000
 
 export function createClassSession(data: CreateClassSessionRequest) {

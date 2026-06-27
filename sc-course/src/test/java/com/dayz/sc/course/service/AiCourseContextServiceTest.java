@@ -2,15 +2,7 @@ package com.dayz.sc.course.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.error.BusinessException;
-import com.dayz.sc.course.model.entity.Chapter;
-import com.dayz.sc.course.model.entity.Course;
-import com.dayz.sc.course.model.entity.CourseFile;
-import com.dayz.sc.course.model.entity.Enrollment;
-import com.dayz.sc.course.model.entity.LivePracticeGroup;
-import com.dayz.sc.course.model.entity.LivePracticeQuestion;
-import com.dayz.sc.course.model.entity.PracticeSession;
-import com.dayz.sc.course.model.entity.Question;
-import com.dayz.sc.course.model.entity.QuestionBank;
+import com.dayz.sc.course.model.entity.*;
 import com.dayz.sc.course.model.enums.ChapterStatus;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
 import com.dayz.sc.course.repository.*;
@@ -23,10 +15,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class AiCourseContextServiceTest {
 

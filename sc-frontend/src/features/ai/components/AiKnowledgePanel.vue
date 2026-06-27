@@ -6,61 +6,61 @@
         <h2>知识库</h2>
       </div>
       <button
-        title="刷新"
-        type="button"
-        @click="loadDocs"
+          title="刷新"
+          type="button"
+          @click="loadDocs"
       >
         <RefreshCw
-          :size="15"
-          stroke-width="1.8"
+            :size="15"
+            stroke-width="1.8"
         />
       </button>
     </header>
 
     <form
-      class="ingest-form"
-      @submit.prevent="submit"
+        class="ingest-form"
+        @submit.prevent="submit"
     >
       <label>
         <span>Storage Object ID</span>
         <input
-          v-model.trim="storageObjectId"
-          placeholder="粘贴已上传文件 ID"
-          type="text"
+            v-model.trim="storageObjectId"
+            placeholder="粘贴已上传文件 ID"
+            type="text"
         >
       </label>
       <button
-        :disabled="!storageObjectId"
-        type="submit"
+          :disabled="!storageObjectId"
+          type="submit"
       >
         入库
       </button>
     </form>
 
     <div
-      v-if="aiStore.loadingKnowledgeDocs"
-      class="panel-state"
+        v-if="aiStore.loadingKnowledgeDocs"
+        class="panel-state"
     >
       加载文档中...
     </div>
     <div
-      v-else-if="aiStore.knowledgeDocs.length === 0"
-      class="panel-state"
+        v-else-if="aiStore.knowledgeDocs.length === 0"
+        class="panel-state"
     >
       暂无知识库文档
     </div>
     <div
-      v-else
-      class="doc-list"
+        v-else
+        class="doc-list"
     >
       <article
-        v-for="doc in aiStore.knowledgeDocs"
-        :key="doc.id"
-        class="doc-row"
+          v-for="doc in aiStore.knowledgeDocs"
+          :key="doc.id"
+          class="doc-row"
       >
         <FileText
-          :size="16"
-          stroke-width="1.7"
+            :size="16"
+            stroke-width="1.7"
         />
         <div>
           <strong>{{ doc.filename }}</strong>
@@ -72,20 +72,20 @@
     <section class="capability-block">
       <h3>二期能力</h3>
       <button
-        disabled
-        type="button"
+          disabled
+          type="button"
       >
         AI 出题
       </button>
       <button
-        disabled
-        type="button"
+          disabled
+          type="button"
       >
         AI 出卷
       </button>
       <button
-        disabled
-        type="button"
+          disabled
+          type="button"
       >
         AI 批卷
       </button>

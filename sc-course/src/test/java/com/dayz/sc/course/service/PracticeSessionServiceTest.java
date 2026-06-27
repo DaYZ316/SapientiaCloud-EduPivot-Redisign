@@ -6,11 +6,7 @@ import com.dayz.sc.course.model.entity.PracticeSession;
 import com.dayz.sc.course.model.entity.Question;
 import com.dayz.sc.course.model.entity.QuestionOption;
 import com.dayz.sc.course.model.vo.PracticeAnswerVO;
-import com.dayz.sc.course.repository.PracticeAnswerRepository;
-import com.dayz.sc.course.repository.PracticeSessionRepository;
-import com.dayz.sc.course.repository.QuestionBankRepository;
-import com.dayz.sc.course.repository.QuestionOptionRepository;
-import com.dayz.sc.course.repository.QuestionRepository;
+import com.dayz.sc.course.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,9 +20,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PracticeSessionServiceTest {

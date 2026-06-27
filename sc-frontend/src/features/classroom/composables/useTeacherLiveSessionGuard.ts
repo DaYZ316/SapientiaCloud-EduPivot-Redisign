@@ -1,4 +1,4 @@
-import {onUnmounted, watch, type Ref} from 'vue'
+import {onUnmounted, type Ref, watch} from 'vue'
 
 import {heartbeatClassLive, heartbeatClassLiveKeepalive, pauseClassLive} from '@/features/course/api/classSession'
 import {ClassLiveStatus, type ClassSession} from '@/features/course/types/classSession'

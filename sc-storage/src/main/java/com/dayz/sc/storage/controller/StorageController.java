@@ -38,7 +38,7 @@ public class StorageController {
     @PostMapping("/uploads")
     @RateLimited
     public ApiResponse<@NonNull UploadTicket> createUpload(@Valid @RequestBody CreateUploadRequest request,
-                                                  @AuthenticationPrincipal Jwt jwt) {
+                                                           @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
         return ApiResponse.ok(storageService.createUpload(request, userId, role));
@@ -47,7 +47,7 @@ public class StorageController {
     @PostMapping("/uploads/{objectId}/complete")
     @RateLimited
     public ApiResponse<@NonNull FileAsset> completeUpload(@PathVariable UUID objectId,
-                                                 @AuthenticationPrincipal Jwt jwt) {
+                                                          @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
         return ApiResponse.ok(storageService.completeUpload(objectId, userId, role));
@@ -55,7 +55,7 @@ public class StorageController {
 
     @GetMapping("/files/{fileId}")
     public ApiResponse<@NonNull FileAsset> getFile(@PathVariable UUID fileId,
-                                          @AuthenticationPrincipal Jwt jwt) {
+                                                   @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
         return ApiResponse.ok(storageService.getFile(fileId, userId, role));
@@ -63,7 +63,7 @@ public class StorageController {
 
     @GetMapping("/files/{fileId}/download-url")
     public ApiResponse<@NonNull DownloadUrlResponse> downloadUrl(@PathVariable UUID fileId,
-                                                        @AuthenticationPrincipal Jwt jwt) {
+                                                                 @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
         return ApiResponse.ok(storageService.createDownloadUrl(fileId, userId, role));
@@ -72,7 +72,7 @@ public class StorageController {
     @PostMapping("/files/{fileId}/convert")
     @RateLimited(maxRequests = 5)
     public ApiResponse<@NonNull DownloadUrlResponse> convertFile(@PathVariable UUID fileId,
-                                                        @AuthenticationPrincipal Jwt jwt) {
+                                                                 @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
         // 先校验用户对该文件的读权限
@@ -83,7 +83,7 @@ public class StorageController {
     @DeleteMapping("/files/{fileId}")
     @RateLimited
     public ApiResponse<@NonNull Void> deleteFile(@PathVariable UUID fileId,
-                                        @AuthenticationPrincipal Jwt jwt) {
+                                                 @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
         storageService.deleteFile(fileId, userId, role);

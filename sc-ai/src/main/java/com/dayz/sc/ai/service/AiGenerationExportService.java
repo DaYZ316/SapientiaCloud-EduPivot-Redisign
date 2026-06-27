@@ -15,6 +15,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * AiGenerationExportService.
+ *
+ * @author DaYZ
+ */
 @Service
 @RequiredArgsConstructor
 public class AiGenerationExportService {
@@ -24,6 +29,101 @@ public class AiGenerationExportService {
     private final ConversationService conversationService;
     private final MessageRepository messageRepository;
     private final QuestionPaperExportFormatter exportFormatter;
+
+    private static Object firstNonEmpty(Object first, Object second) {
+        return StringUtils.hasText(displayValue(first)) ? first : second;
+    }
+
+    private static String firstText(Object... values) {
+        for (Object value : values) {
+            String text = displayValue(value);
+            if (StringUtils.hasText(text)) {
+                return text.trim();
+            }
+        }
+        return "";
+    }
+
+    private static String displayValue(Object value) {
+        return value == null ? "" : String.valueOf(value);
+    }
+
+    private static Integer integerValue(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String text && StringUtils.hasText(text)) {
+            try {
+                return Integer.parseInt(text.trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private static BigDecimal decimalValue(Object value) {
+        if (value instanceof BigDecimal decimal) {
+            return decimal;
+        }
+        if (value instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
+        }
+        if (value instanceof String text && StringUtils.hasText(text)) {
+            try {
+                return new BigDecimal(text.trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isTruthy(Object value) {
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        if (value instanceof Number number) {
+            return number.intValue() == 1;
+        }
+        if (value instanceof String text) {
+            return "true".equalsIgnoreCase(text) || "1".equals(text);
+        }
+        return false;
+    }
+
+    private static List<String> stringListValue(Object value) {
+        if (!(value instanceof List<?> values)) {
+            return List.of();
+        }
+        List<String> result = new ArrayList<>();
+        for (Object item : values) {
+            String text = displayValue(item);
+            if (StringUtils.hasText(text)) {
+                result.add(text.trim());
+            }
+        }
+        return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> mapValue(Object value) {
+        return value instanceof Map<?, ?> map ? (Map<String, Object>) map : Map.of();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> mapList(Object value) {
+        if (!(value instanceof List<?> values)) {
+            return List.of();
+        }
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Object item : values) {
+            if (item instanceof Map<?, ?> map) {
+                result.add((Map<String, Object>) map);
+            }
+        }
+        return result;
+    }
 
     public ExportFile export(UUID conversationId, UUID messageId, UUID userId, String format, boolean includeAnswers) {
         ExportFormat exportFormat = ExportFormat.parse(format);
@@ -137,106 +237,19 @@ public class AiGenerationExportService {
         return answers;
     }
 
-    private static Object firstNonEmpty(Object first, Object second) {
-        return StringUtils.hasText(displayValue(first)) ? first : second;
-    }
-
-    private static String firstText(Object... values) {
-        for (Object value : values) {
-            String text = displayValue(value);
-            if (StringUtils.hasText(text)) {
-                return text.trim();
-            }
-        }
-        return "";
-    }
-
-    private static String displayValue(Object value) {
-        return value == null ? "" : String.valueOf(value);
-    }
-
-    private static Integer integerValue(Object value) {
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-        if (value instanceof String text && StringUtils.hasText(text)) {
-            try {
-                return Integer.parseInt(text.trim());
-            } catch (NumberFormatException ignored) {
-                return null;
-            }
-        }
-        return null;
-    }
-
-    private static BigDecimal decimalValue(Object value) {
-        if (value instanceof BigDecimal decimal) {
-            return decimal;
-        }
-        if (value instanceof Number number) {
-            return BigDecimal.valueOf(number.doubleValue());
-        }
-        if (value instanceof String text && StringUtils.hasText(text)) {
-            try {
-                return new BigDecimal(text.trim());
-            } catch (NumberFormatException ignored) {
-                return null;
-            }
-        }
-        return null;
-    }
-
-    private static boolean isTruthy(Object value) {
-        if (value instanceof Boolean bool) {
-            return bool;
-        }
-        if (value instanceof Number number) {
-            return number.intValue() == 1;
-        }
-        if (value instanceof String text) {
-            return "true".equalsIgnoreCase(text) || "1".equals(text);
-        }
-        return false;
-    }
-
-    private static List<String> stringListValue(Object value) {
-        if (!(value instanceof List<?> values)) {
-            return List.of();
-        }
-        List<String> result = new ArrayList<>();
-        for (Object item : values) {
-            String text = displayValue(item);
-            if (StringUtils.hasText(text)) {
-                result.add(text.trim());
-            }
-        }
-        return result;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> mapValue(Object value) {
-        return value instanceof Map<?, ?> map ? (Map<String, Object>) map : Map.of();
-    }
-
-    @SuppressWarnings("unchecked")
-    private static List<Map<String, Object>> mapList(Object value) {
-        if (!(value instanceof List<?> values)) {
-            return List.of();
-        }
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (Object item : values) {
-            if (item instanceof Map<?, ?> map) {
-                result.add((Map<String, Object>) map);
-            }
-        }
-        return result;
-    }
-
-    public record ExportFile(String filename, String contentType, byte[] bytes) {
-    }
-
+    /**
+     * 导出格式
+     */
     private enum ExportFormat {
+
+        /**
+         * PDF 格式
+         */
         PDF("pdf"),
+
+        /**
+         * Word 格式
+         */
         DOCX("docx");
 
         private final String value;
@@ -253,5 +266,8 @@ public class AiGenerationExportService {
             }
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Unsupported export format");
         }
+    }
+
+    public record ExportFile(String filename, String contentType, byte[] bytes) {
     }
 }

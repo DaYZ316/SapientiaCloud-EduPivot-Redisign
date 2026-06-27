@@ -1,18 +1,18 @@
 <template>
   <aside
-    :aria-label="t('common.ai.sidebar.history')"
-    class="drawer-conversation-rail"
+      :aria-label="t('common.ai.sidebar.history')"
+      class="drawer-conversation-rail"
   >
     <div class="rail-actions">
       <button
-        class="rail-new-chat"
-        :title="t('common.ai.sidebar.newChat')"
-        type="button"
-        @click="newConversation"
+          :title="t('common.ai.sidebar.newChat')"
+          class="rail-new-chat"
+          type="button"
+          @click="newConversation"
       >
         <Plus
-          :size="15"
-          stroke-width="1.9"
+            :size="15"
+            stroke-width="1.9"
         />
         <span>{{ t('common.ai.sidebar.newChat') }}</span>
       </button>
@@ -24,37 +24,37 @@
       </div>
 
       <div
-        v-if="aiStore.loadingConversations"
-        :aria-label="t('common.ai.sidebar.loading')"
-        aria-busy="true"
-        class="rail-loading"
-        role="status"
+          v-if="aiStore.loadingConversations"
+          :aria-label="t('common.ai.sidebar.loading')"
+          aria-busy="true"
+          class="rail-loading"
+          role="status"
       >
         <span
-          v-for="row in 6"
-          :key="row"
+            v-for="row in 6"
+            :key="row"
         />
       </div>
 
       <p
-        v-else-if="conversations.length === 0"
-        class="rail-empty"
+          v-else-if="conversations.length === 0"
+          class="rail-empty"
       >
         {{ t('common.ai.sidebar.empty') }}
       </p>
 
       <div
-        v-else
-        class="rail-items"
+          v-else
+          class="rail-items"
       >
         <button
-          v-for="conversation in conversations"
-          :key="conversation.id"
-          :class="{active: conversation.id === aiStore.activeConversationId}"
-          class="rail-conversation"
-          :title="conversation.title"
-          type="button"
-          @click="openConversation(conversation.id)"
+            v-for="conversation in conversations"
+            :key="conversation.id"
+            :class="{active: conversation.id === aiStore.activeConversationId}"
+            :title="conversation.title"
+            class="rail-conversation"
+            type="button"
+            @click="openConversation(conversation.id)"
         >
           <span>{{ conversation.title }}</span>
         </button>
@@ -234,10 +234,10 @@ async function openConversation(id: string) {
   height: 35px;
   border-radius: var(--radius-sm);
   background: linear-gradient(
-    110deg,
-    var(--color-surface-container-high) 8%,
-    color-mix(in srgb, var(--color-on-surface) 9%, var(--color-surface-canvas)) 18%,
-    var(--color-surface-container-high) 33%
+      110deg,
+      var(--color-surface-container-high) 8%,
+      color-mix(in srgb, var(--color-on-surface) 9%, var(--color-surface-canvas)) 18%,
+      var(--color-surface-container-high) 33%
   );
   background-size: 200% 100%;
   animation: rail-skeleton-shimmer 1.45s ease-in-out infinite;

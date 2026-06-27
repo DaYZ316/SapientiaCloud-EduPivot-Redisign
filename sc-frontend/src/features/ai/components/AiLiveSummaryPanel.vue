@@ -6,42 +6,42 @@
         <h2>课堂实时总结</h2>
       </div>
       <button class="icon-button" title="关闭" type="button" @click="$emit('close')">
-        <X :size="18" stroke-width="1.8" />
+        <X :size="18" stroke-width="1.8"/>
       </button>
     </header>
 
-    <section class="status-strip" :class="statusClass">
+    <section :class="statusClass" class="status-strip">
       <div>
         <strong>{{ statusLabel }}</strong>
         <span>{{ statusHint }}</span>
       </div>
       <div v-if="canManage" class="status-actions">
         <button
-          v-if="!isRunning"
-          class="primary-action"
-          type="button"
-          :disabled="busy"
-          @click="startSummary"
+            v-if="!isRunning"
+            :disabled="busy"
+            class="primary-action"
+            type="button"
+            @click="startSummary"
         >
-          <Sparkles :size="16" stroke-width="1.8" />
+          <Sparkles :size="16" stroke-width="1.8"/>
           开启
         </button>
-        <button v-else class="secondary-action" type="button" :disabled="busy" @click="stopSummary">
-          <Square :size="15" stroke-width="1.9" />
+        <button v-else :disabled="busy" class="secondary-action" type="button" @click="stopSummary">
+          <Square :size="15" stroke-width="1.9"/>
           停止
         </button>
       </div>
     </section>
 
-    <nav class="summary-tabs" aria-label="AI summary views">
+    <nav aria-label="AI summary views" class="summary-tabs">
       <button
-        v-for="tab in tabs"
-        :key="tab.key"
-        type="button"
-        :class="{active: activeTab === tab.key}"
-        @click="activeTab = tab.key"
+          v-for="tab in tabs"
+          :key="tab.key"
+          :class="{active: activeTab === tab.key}"
+          type="button"
+          @click="activeTab = tab.key"
       >
-        <component :is="tab.icon" :size="15" stroke-width="1.8" />
+        <component :is="tab.icon" :size="15" stroke-width="1.8"/>
         {{ tab.label }}
       </button>
     </nav>
@@ -68,7 +68,7 @@
         </article>
         <div class="keypoint-list">
           <article v-for="point in keyPoints" :key="point">
-            <CheckCircle2 :size="16" stroke-width="1.8" />
+            <CheckCircle2 :size="16" stroke-width="1.8"/>
             <span>{{ point }}</span>
           </article>
         </div>
@@ -92,7 +92,7 @@
       </section>
 
       <section v-else class="mindmap-view">
-        <div v-if="mindMap" ref="chartEl" class="mindmap-chart" role="img" aria-label="课堂思维导图"></div>
+        <div v-if="mindMap" ref="chartEl" aria-label="课堂思维导图" class="mindmap-chart" role="img"></div>
         <p v-else class="empty-state">思维导图会由结构化摘要生成。</p>
       </section>
     </main>
@@ -103,18 +103,10 @@
 import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {TreeChart} from 'echarts/charts'
 import {TooltipComponent} from 'echarts/components'
-import * as echarts from 'echarts/core'
 import type {EChartsCoreOption, EChartsType} from 'echarts/core'
+import * as echarts from 'echarts/core'
 import {SVGRenderer} from 'echarts/renderers'
-import {
-  CheckCircle2,
-  GitFork,
-  ListTree,
-  ScrollText,
-  Sparkles,
-  Square,
-  X,
-} from 'lucide-vue-next'
+import {CheckCircle2, GitFork, ListTree, ScrollText, Sparkles, Square, X,} from 'lucide-vue-next'
 
 import {
   buildLiveSummaryAudioSocketUrl,
@@ -193,8 +185,8 @@ const statusHint = computed(() => {
 const keyPoints = computed(() => stringList(latestSnapshot.value?.payload?.keyPoints))
 const questions = computed(() => stringList(latestSnapshot.value?.payload?.questions))
 const timeline = computed(() => Array.isArray(latestSnapshot.value?.payload?.timeline)
-  ? latestSnapshot.value?.payload?.timeline as LiveSummaryTimelineItem[]
-  : [])
+    ? latestSnapshot.value?.payload?.timeline as LiveSummaryTimelineItem[]
+    : [])
 const mindMap = computed(() => latestSnapshot.value?.payload?.mindMap || null)
 
 onMounted(async () => {

@@ -9,10 +9,10 @@
     </div>
     <Suspense>
       <CourseComments
-        :can-comment="canComment"
-        :can-manage-course="canManageCourse"
-        :course-id="courseId"
-        :current-user-id="currentUserId"
+          :can-comment="canComment"
+          :can-manage-course="canManageCourse"
+          :course-id="courseId"
+          :current-user-id="currentUserId"
       />
       <template #fallback>
         <div class="comments-loading">

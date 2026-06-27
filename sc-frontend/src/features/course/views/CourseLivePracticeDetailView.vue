@@ -1,36 +1,36 @@
 <template>
   <section class="practice-detail-page">
     <button
-      class="back-link"
-      type="button"
-      @click="backToList"
+        class="back-link"
+        type="button"
+        @click="backToList"
     >
       <ArrowLeft
-        :size="16"
-        stroke-width="1.8"
+          :size="16"
+          stroke-width="1.8"
       />
       {{ t('courseDetail.livePractice.backToList') }}
     </button>
 
     <div
-      v-if="loading"
-      class="state-block"
+        v-if="loading"
+        class="state-block"
     >
       {{ t('courseDetail.livePractice.loading') }}
     </div>
     <div
-      v-else-if="loadFailed"
-      class="state-block"
+        v-else-if="loadFailed"
+        class="state-block"
     >
       <CircleAlert
-        :size="28"
-        stroke-width="1.5"
+          :size="28"
+          stroke-width="1.5"
       />
       <h3>{{ t('courseDetail.livePractice.detailLoadFailed') }}</h3>
       <button
-        class="text-button"
-        type="button"
-        @click="loadData"
+          class="text-button"
+          type="button"
+          @click="loadData"
       >
         {{ t('courseDetail.livePractice.retry') }}
       </button>
@@ -56,37 +56,39 @@
       <div class="summary-strip">
         <div class="summary-item">
           <ClipboardList
-            :size="16"
-            stroke-width="1.8"
+              :size="16"
+              stroke-width="1.8"
           />
           <span>{{ t('courseDetail.livePractice.questionCount', {count: group.totalQuestions}) }}</span>
         </div>
         <div class="summary-item">
           <Users
-            :size="16"
-            stroke-width="1.8"
+              :size="16"
+              stroke-width="1.8"
           />
           <span>{{ t('courseDetail.livePractice.studentCount', {count: group.totalStudents}) }}</span>
         </div>
         <div class="summary-item">
           <Clock
-            :size="16"
-            stroke-width="1.8"
+              :size="16"
+              stroke-width="1.8"
           />
           <span>{{ sessionTimeRange }}</span>
         </div>
         <div class="summary-item">
           <Check
-            :size="16"
-            stroke-width="1.8"
+              :size="16"
+              stroke-width="1.8"
           />
-          <span>{{ group.allowLateSubmission === 1 ? t('courseDetail.livePractice.allowLate') : t('courseDetail.livePractice.disallowLate') }}</span>
+          <span>{{
+              group.allowLateSubmission === 1 ? t('courseDetail.livePractice.allowLate') : t('courseDetail.livePractice.disallowLate')
+            }}</span>
         </div>
       </div>
 
       <div
-        class="detail-workspace"
-        :class="{'teacher-layout': canManageCourse}"
+          :class="{'teacher-layout': canManageCourse}"
+          class="detail-workspace"
       >
         <section class="question-ledger">
           <div class="ledger-header">
@@ -95,12 +97,12 @@
           </div>
 
           <button
-            v-for="question in questions"
-            :key="question.id"
-            :class="{selected: selectedQuestion?.id === question.id}"
-            class="question-row"
-            type="button"
-            @click="selectedQuestionId = question.id"
+              v-for="question in questions"
+              :key="question.id"
+              :class="{selected: selectedQuestion?.id === question.id}"
+              class="question-row"
+              type="button"
+              @click="selectedQuestionId = question.id"
           >
             <span class="question-order">{{ question.questionOrder }}</span>
             <span class="question-main">
@@ -112,9 +114,9 @@
                   {{ t('courseDetail.livePractice.notSubmittedCount', {count: question.analysis.notSubmittedCount}) }}
                 </span>
                 <span
-                  v-else
-                  :class="submitStatusClass(question.mySubmission?.submitStatus)"
-                  class="submit-badge"
+                    v-else
+                    :class="submitStatusClass(question.mySubmission?.submitStatus)"
+                    class="submit-badge"
                 >
                   {{ submitStatusLabel(question.mySubmission?.submitStatus) }}
                 </span>
@@ -123,16 +125,16 @@
           </button>
 
           <div
-            v-if="questions.length === 0"
-            class="empty-list"
+              v-if="questions.length === 0"
+              class="empty-list"
           >
             {{ t('courseDetail.livePractice.emptyQuestions') }}
           </div>
         </section>
 
         <section
-          v-if="canManageCourse"
-          class="teacher-overview"
+            v-if="canManageCourse"
+            class="teacher-overview"
         >
           <div class="overview-header">
             <span>{{ t('courseDetail.livePractice.classOverview') }}</span>
@@ -155,11 +157,11 @@
               <span>{{ t('courseDetail.livePractice.submissionProgressChart') }}</span>
             </div>
             <DashboardChart
-              :aria-label="t('courseDetail.livePractice.submissionProgressAria')"
-              :empty-text="t('courseDetail.livePractice.analysisChartEmpty')"
-              :has-data="submissionBreakdownHasData"
-              :option="submissionBreakdownOption"
-              height="220px"
+                :aria-label="t('courseDetail.livePractice.submissionProgressAria')"
+                :empty-text="t('courseDetail.livePractice.analysisChartEmpty')"
+                :has-data="submissionBreakdownHasData"
+                :option="submissionBreakdownOption"
+                height="220px"
             />
           </div>
 
@@ -168,11 +170,11 @@
               <span>{{ t('courseDetail.livePractice.questionCorrectRateChart') }}</span>
             </div>
             <DashboardChart
-              :aria-label="t('courseDetail.livePractice.questionCorrectRateAria')"
-              :empty-text="t('courseDetail.livePractice.analysisChartEmpty')"
-              :has-data="questionMetrics.length > 0"
-              :option="questionCorrectRateOption"
-              height="220px"
+                :aria-label="t('courseDetail.livePractice.questionCorrectRateAria')"
+                :empty-text="t('courseDetail.livePractice.analysisChartEmpty')"
+                :has-data="questionMetrics.length > 0"
+                :option="questionCorrectRateOption"
+                height="220px"
             />
           </div>
 
@@ -181,11 +183,11 @@
               <span>{{ t('courseDetail.livePractice.averageScoreRateChart') }}</span>
             </div>
             <DashboardChart
-              :aria-label="t('courseDetail.livePractice.averageScoreRateAria')"
-              :empty-text="t('courseDetail.livePractice.analysisChartEmpty')"
-              :has-data="questionMetrics.length > 0"
-              :option="questionAverageScoreOption"
-              height="220px"
+                :aria-label="t('courseDetail.livePractice.averageScoreRateAria')"
+                :empty-text="t('courseDetail.livePractice.analysisChartEmpty')"
+                :has-data="questionMetrics.length > 0"
+                :option="questionAverageScoreOption"
+                height="220px"
             />
           </div>
         </section>
@@ -198,8 +200,8 @@
                 <h3>{{ selectedQuestion.questionTitle }}</h3>
               </div>
               <span
-                :class="difficultyClass(selectedQuestion.difficulty)"
-                class="difficulty-badge"
+                  :class="difficultyClass(selectedQuestion.difficulty)"
+                  class="difficulty-badge"
               >
                 {{ difficultyLabel(selectedQuestion.difficulty) }}
               </span>
@@ -208,22 +210,22 @@
             <div class="preview-meta">
               <span>
                 <FileText
-                  :size="14"
-                  stroke-width="1.8"
+                    :size="14"
+                    stroke-width="1.8"
                 />
                 {{ questionTypeLabel(selectedQuestion.questionType) }}
               </span>
               <span>
                 <Hash
-                  :size="14"
-                  stroke-width="1.8"
+                    :size="14"
+                    stroke-width="1.8"
                 />
                 {{ t('courseDetail.livePractice.scorePoints', {score: selectedQuestion.score}) }}
               </span>
               <span v-if="selectedQuestion.estimatedTime">
                 <Clock
-                  :size="14"
-                  stroke-width="1.8"
+                    :size="14"
+                    stroke-width="1.8"
                 />
                 {{ t('courseDetail.livePractice.estimatedMinutes', {minutes: selectedQuestion.estimatedTime}) }}
               </span>
@@ -232,63 +234,65 @@
             <section class="preview-section">
               <h4>{{ t('courseDetail.livePractice.stem') }}</h4>
               <RichMathContent
-                :content="selectedQuestion.questionContent || selectedQuestion.questionTitle"
-                class="question-content rich-content"
+                  :content="selectedQuestion.questionContent || selectedQuestion.questionTitle"
+                  class="question-content rich-content"
               />
             </section>
 
             <section
-              v-if="selectedQuestion.options?.length"
-              class="preview-section"
+                v-if="selectedQuestion.options?.length"
+                class="preview-section"
             >
               <h4>{{ t('courseDetail.livePractice.options') }}</h4>
               <div class="option-list">
                 <div
-                  v-for="option in selectedQuestion.options"
-                  :key="option.id"
-                  :class="{
+                    v-for="option in selectedQuestion.options"
+                    :key="option.id"
+                    :class="{
                     correct: shouldShowAnswerKey(selectedQuestion) && option.isCorrect === 1,
                     selected: isSelectedOption(option.id) || isDraftOptionSelected(selectedQuestion.id, option.id),
                     answerable: canAnswerQuestion(selectedQuestion),
                   }"
-                  class="option-row"
-                  @click="toggleDraftOption(selectedQuestion, option.id)"
+                    class="option-row"
+                    @click="toggleDraftOption(selectedQuestion, option.id)"
                 >
                   <span class="option-choice">
                     <input
-                      v-if="canAnswerQuestion(selectedQuestion)"
-                      :checked="isDraftOptionSelected(selectedQuestion.id, option.id)"
-                      :disabled="submittingQuestionId === selectedQuestion.id"
-                      :name="selectedQuestion.id"
-                      :type="selectedQuestion.questionType === 1 ? 'checkbox' : 'radio'"
-                      @click.stop
-                      @change="toggleDraftOption(selectedQuestion, option.id)"
+                        v-if="canAnswerQuestion(selectedQuestion)"
+                        :checked="isDraftOptionSelected(selectedQuestion.id, option.id)"
+                        :disabled="submittingQuestionId === selectedQuestion.id"
+                        :name="selectedQuestion.id"
+                        :type="selectedQuestion.questionType === 1 ? 'checkbox' : 'radio'"
+                        @change="toggleDraftOption(selectedQuestion, option.id)"
+                        @click.stop
                     >
                     <span class="option-label">{{ option.optionLabel }}</span>
                   </span>
                   <RichMathContent
-                    :content="option.optionContent"
-                    class="option-content rich-content"
+                      :content="option.optionContent"
+                      class="option-content rich-content"
                   />
-                  <strong v-if="shouldShowAnswerKey(selectedQuestion) && option.isCorrect === 1">{{ t('courseDetail.livePractice.correct') }}</strong>
+                  <strong v-if="shouldShowAnswerKey(selectedQuestion) && option.isCorrect === 1">{{
+                      t('courseDetail.livePractice.correct')
+                    }}</strong>
                   <strong v-else-if="isSelectedOption(option.id)">{{ t('courseDetail.livePractice.selected') }}</strong>
                 </div>
               </div>
             </section>
 
             <section
-              v-if="selectedQuestion.tags?.length"
-              class="preview-section"
+                v-if="selectedQuestion.tags?.length"
+                class="preview-section"
             >
               <h4>{{ t('courseDetail.livePractice.tags') }}</h4>
               <div class="tag-list">
                 <span
-                  v-for="tag in selectedQuestion.tags"
-                  :key="tag"
+                    v-for="tag in selectedQuestion.tags"
+                    :key="tag"
                 >
                   <Tag
-                    :size="13"
-                    stroke-width="1.8"
+                      :size="13"
+                      stroke-width="1.8"
                   />
                   {{ tag }}
                 </span>
@@ -296,13 +300,13 @@
             </section>
 
             <section
-              v-if="canManageCourse"
-              class="preview-section"
+                v-if="canManageCourse"
+                class="preview-section"
             >
               <h4>{{ t('courseDetail.livePractice.teacherAnalysis') }}</h4>
               <div
-                v-if="selectedQuestion.analysis"
-                class="analysis-grid"
+                  v-if="selectedQuestion.analysis"
+                  class="analysis-grid"
               >
                 <div>
                   <span>{{ t('courseDetail.livePractice.submittedLabel') }}</span>
@@ -323,60 +327,60 @@
               </div>
 
               <div
-                v-if="selectedQuestion.analysis && isObjectiveQuestion(selectedQuestion.questionType)"
-                class="analysis-chart-panel"
+                  v-if="selectedQuestion.analysis && isObjectiveQuestion(selectedQuestion.questionType)"
+                  class="analysis-chart-panel"
               >
                 <div class="chart-title-row">
                   <span>{{ t('courseDetail.livePractice.optionDistributionChart') }}</span>
                 </div>
                 <DashboardChart
-                  :aria-label="t('courseDetail.livePractice.optionDistributionAria')"
-                  :empty-text="t('courseDetail.livePractice.analysisChartEmpty')"
-                  :has-data="selectedOptionDistributionHasData"
-                  :option="selectedOptionDistributionOption"
-                  height="220px"
+                    :aria-label="t('courseDetail.livePractice.optionDistributionAria')"
+                    :empty-text="t('courseDetail.livePractice.analysisChartEmpty')"
+                    :has-data="selectedOptionDistributionHasData"
+                    :option="selectedOptionDistributionOption"
+                    height="220px"
                 />
               </div>
 
               <div
-                v-else-if="selectedQuestion.analysis"
-                class="analysis-chart-panel"
+                  v-else-if="selectedQuestion.analysis"
+                  class="analysis-chart-panel"
               >
                 <div class="chart-title-row">
                   <span>{{ t('courseDetail.livePractice.scoreDistributionChart') }}</span>
                 </div>
                 <DashboardChart
-                  :aria-label="t('courseDetail.livePractice.scoreDistributionAria')"
-                  :empty-text="t('courseDetail.livePractice.analysisChartEmpty')"
-                  :has-data="selectedScoreDistributionHasData"
-                  :option="selectedScoreDistributionOption"
-                  height="220px"
+                    :aria-label="t('courseDetail.livePractice.scoreDistributionAria')"
+                    :empty-text="t('courseDetail.livePractice.analysisChartEmpty')"
+                    :has-data="selectedScoreDistributionHasData"
+                    :option="selectedScoreDistributionOption"
+                    height="220px"
                 />
               </div>
 
               <div
-                v-if="selectedQuestion.analysis?.notSubmittedStudents.length"
-                class="not-submitted"
+                  v-if="selectedQuestion.analysis?.notSubmittedStudents.length"
+                  class="not-submitted"
               >
                 <span>{{ t('courseDetail.livePractice.notSubmittedStudents') }}</span>
                 <div>
                   <span
-                    v-for="student in selectedQuestion.analysis.notSubmittedStudents"
-                    :key="student.id"
+                      v-for="student in selectedQuestion.analysis.notSubmittedStudents"
+                      :key="student.id"
                   >
                     {{ student.displayName || student.id }}
                   </span>
                 </div>
               </div>
               <div
-                v-if="selectedQuestion.analysis?.submissions?.length"
-                class="ai-submission-list"
+                  v-if="selectedQuestion.analysis?.submissions?.length"
+                  class="ai-submission-list"
               >
                 <span>学生提交</span>
                 <article
-                  v-for="submission in selectedQuestion.analysis.submissions"
-                  :key="submission.id"
-                  class="ai-submission-row"
+                    v-for="submission in selectedQuestion.analysis.submissions"
+                    :key="submission.id"
+                    class="ai-submission-row"
                 >
                   <div>
                     <strong>{{ submission.studentName || submission.studentId }}</strong>
@@ -385,9 +389,9 @@
                     </span>
                   </div>
                   <RichMathContent
-                    v-if="submission.textAnswer"
-                    :content="submission.textAnswer"
-                    class="text-answer"
+                      v-if="submission.textAnswer"
+                      :content="submission.textAnswer"
+                      class="text-answer"
                   />
                   <p>
                     {{ submission.earnedScore }} / {{ selectedQuestion.score }} 分
@@ -399,103 +403,107 @@
             </section>
 
             <section
-              v-if="shouldShowAnswerKey(selectedQuestion) && answerItems.length"
-              class="preview-section"
+                v-if="shouldShowAnswerKey(selectedQuestion) && answerItems.length"
+                class="preview-section"
             >
               <h4>{{ t('courseDetail.livePractice.referenceAnswers') }}</h4>
               <div class="answer-list">
                 <RichMathContent
-                  v-for="answer in answerItems"
-                  :key="answer"
-                  :content="answer"
-                  class="answer-row"
+                    v-for="answer in answerItems"
+                    :key="answer"
+                    :content="answer"
+                    class="answer-row"
                 />
               </div>
             </section>
 
             <section
-              v-if="!canManageCourse"
-              class="preview-section"
+                v-if="!canManageCourse"
+                class="preview-section"
             >
               <h4>{{ t('courseDetail.livePractice.mySubmission') }}</h4>
               <div
-                v-if="selectedQuestion.mySubmission"
-                class="submission-card"
+                  v-if="selectedQuestion.mySubmission"
+                  class="submission-card"
               >
                 <div class="submission-meta">
                   <span :class="submitStatusClass(selectedQuestion.mySubmission.submitStatus)">
                     {{ submitStatusLabel(selectedQuestion.mySubmission.submitStatus) }}
                   </span>
-                  <strong>{{ t('courseDetail.livePractice.earnedScore', {score: selectedQuestion.mySubmission.earnedScore}) }}</strong>
+                  <strong>{{
+                      t('courseDetail.livePractice.earnedScore', {score: selectedQuestion.mySubmission.earnedScore})
+                    }}</strong>
                   <span>{{ formatDateTime(selectedQuestion.mySubmission.submittedAt) }}</span>
                 </div>
                 <div
-                  v-if="selectedOptionItems.length"
-                  class="answer-list"
+                    v-if="selectedOptionItems.length"
+                    class="answer-list"
                 >
                   <RichMathContent
-                    v-for="option in selectedOptionItems"
-                    :key="option"
-                    :content="option"
-                    class="answer-row"
+                      v-for="option in selectedOptionItems"
+                      :key="option"
+                      :content="option"
+                      class="answer-row"
                   />
                 </div>
                 <RichMathContent
-                  v-if="selectedQuestion.mySubmission.textAnswer"
-                  :content="selectedQuestion.mySubmission.textAnswer"
-                  class="text-answer"
+                    v-if="selectedQuestion.mySubmission.textAnswer"
+                    :content="selectedQuestion.mySubmission.textAnswer"
+                    class="text-answer"
                 />
                 <div
-                  v-if="selectedQuestion.aiGradingEnabled === 1"
-                  class="ai-result-card"
+                    v-if="selectedQuestion.aiGradingEnabled === 1"
+                    class="ai-result-card"
                 >
                   <span :class="aiStatusClass(selectedQuestion.mySubmission.aiGradingStatus)">
                     {{ aiStatusText(selectedQuestion.mySubmission.aiGradingStatus) }}
                   </span>
-                  <p v-if="selectedQuestion.mySubmission.aiGradingFeedback">{{ selectedQuestion.mySubmission.aiGradingFeedback }}</p>
-                  <p v-else-if="selectedQuestion.mySubmission.aiGradingError">{{ selectedQuestion.mySubmission.aiGradingError }}</p>
+                  <p v-if="selectedQuestion.mySubmission.aiGradingFeedback">
+                    {{ selectedQuestion.mySubmission.aiGradingFeedback }}</p>
+                  <p v-else-if="selectedQuestion.mySubmission.aiGradingError">
+                    {{ selectedQuestion.mySubmission.aiGradingError }}</p>
                 </div>
                 <div
-                  v-if="isObjectiveQuestion(selectedQuestion.questionType) && correctOptionItems.length"
-                  class="correct-answer-block"
+                    v-if="isObjectiveQuestion(selectedQuestion.questionType) && correctOptionItems.length"
+                    class="correct-answer-block"
                 >
                   <span>{{ t('courseDetail.livePractice.correctAnswers') }}</span>
                   <div class="answer-list">
                     <RichMathContent
-                      v-for="option in correctOptionItems"
-                      :key="option"
-                      :content="option"
-                      class="answer-row correct-answer-row"
+                        v-for="option in correctOptionItems"
+                        :key="option"
+                        :content="option"
+                        class="answer-row correct-answer-row"
                     />
                   </div>
                 </div>
               </div>
               <div
-                v-else
-                class="answer-form"
+                  v-else
+                  class="answer-form"
               >
                 <p class="muted-text">{{ t('courseDetail.livePractice.notSubmittedQuestion') }}</p>
                 <label
-                  v-if="!isObjectiveQuestion(selectedQuestion.questionType)"
-                  class="text-answer-input"
+                    v-if="!isObjectiveQuestion(selectedQuestion.questionType)"
+                    class="text-answer-input"
                 >
                   <span>{{ t('courseDetail.livePractice.answerLabel') }}</span>
                   <textarea
-                    v-model="textAnswers[selectedQuestion.id]"
-                    :disabled="submittingQuestionId === selectedQuestion.id"
-                    :placeholder="t('courseDetail.livePractice.answerPlaceholder')"
+                      v-model="textAnswers[selectedQuestion.id]"
+                      :disabled="submittingQuestionId === selectedQuestion.id"
+                      :placeholder="t('courseDetail.livePractice.answerPlaceholder')"
                   />
                 </label>
                 <button
-                  :disabled="!canSubmitAnswer || submittingQuestionId === selectedQuestion.id"
-                  class="submit-answer-button"
-                  type="button"
-                  @click="submitSelectedAnswer"
+                    :disabled="!canSubmitAnswer || submittingQuestionId === selectedQuestion.id"
+                    class="submit-answer-button"
+                    type="button"
+                    @click="submitSelectedAnswer"
                 >
                   {{
                     submittingQuestionId === selectedQuestion.id
-                      ? t('courseDetail.livePractice.submittingAnswer')
-                      : t('courseDetail.livePractice.submitAnswer')
+                        ? t('courseDetail.livePractice.submittingAnswer')
+                        : t('courseDetail.livePractice.submitAnswer')
                   }}
                 </button>
               </div>
@@ -512,17 +520,7 @@ import type {EChartsCoreOption} from 'echarts/core'
 import {computed, onBeforeUnmount, reactive, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
-import {
-  ArrowLeft,
-  Check,
-  CircleAlert,
-  ClipboardList,
-  Clock,
-  FileText,
-  Hash,
-  Tag,
-  Users,
-} from 'lucide-vue-next'
+import {ArrowLeft, Check, CircleAlert, ClipboardList, Clock, FileText, Hash, Tag, Users,} from 'lucide-vue-next'
 
 import {getClassSession} from '@/features/course/api/classSession'
 import {getCourse} from '@/features/course/api/course'
@@ -803,7 +801,7 @@ function toPercent(value: number) {
   return Math.round(Math.max(0, Math.min(value, 1)) * 1000) / 10
 }
 
-function donutChartOption(data: Array<{name: string; value: number}>, name: string): EChartsCoreOption {
+function donutChartOption(data: Array<{ name: string; value: number }>, name: string): EChartsCoreOption {
   return {
     legend: {
       bottom: 0,

@@ -10,8 +10,8 @@
       </button>
     </header>
 
-    <div v-if="loading" class="panel-loading-layout" aria-label="Loading live practice" aria-live="polite">
-      <div v-if="isTeacher" class="practice-loading-teacher" aria-hidden="true">
+    <div v-if="loading" aria-label="Loading live practice" aria-live="polite" class="panel-loading-layout">
+      <div v-if="isTeacher" aria-hidden="true" class="practice-loading-teacher">
         <div class="practice-loading-tabs">
           <span class="practice-skeleton skeleton-tab"></span>
           <span class="practice-skeleton skeleton-tab muted"></span>
@@ -36,7 +36,7 @@
         </section>
         <span class="practice-skeleton skeleton-action"></span>
       </div>
-      <div v-else class="practice-loading-student" aria-hidden="true">
+      <div v-else aria-hidden="true" class="practice-loading-student">
         <article v-for="item in 3" :key="item" class="practice-loading-card">
           <span class="practice-skeleton skeleton-kicker"></span>
           <span class="practice-skeleton skeleton-title wide"></span>
@@ -53,7 +53,7 @@
     </div>
 
     <template v-else>
-      <nav v-if="isTeacher" class="panel-tabs" aria-label="随堂练习面板">
+      <nav v-if="isTeacher" aria-label="随堂练习面板" class="panel-tabs">
         <button
             :class="{active: activeTeacherPanel === 'publish'}"
             type="button"
@@ -113,7 +113,8 @@
             <span>已选择 {{ selectedQuestionIds.length }} 道</span>
           </div>
           <div class="question-search-row">
-            <input v-model="questionKeyword" placeholder="搜索题目" type="search" @keydown.enter.prevent="searchQuestions"/>
+            <input v-model="questionKeyword" placeholder="搜索题目" type="search"
+                   @keydown.enter.prevent="searchQuestions"/>
             <button class="text-button" type="button" @click="searchQuestions">搜索</button>
           </div>
           <div v-if="questionsLoading" class="question-state">题目加载中...</div>
@@ -128,7 +129,9 @@
                 <span class="question-row-main">
                   <span>{{ question.questionTitle }}</span>
                   <span class="question-row-meta">
-                    {{ questionTypeName(question.questionType) }} · {{ difficultyName(question.difficulty) }} · {{ question.score }} 分
+                    {{ questionTypeName(question.questionType) }} · {{
+                      difficultyName(question.difficulty)
+                    }} · {{ question.score }} 分
                   </span>
                 </span>
               </label>
@@ -178,9 +181,9 @@
             <label>
               <span>题型</span>
               <BaseSelect
-                v-model="quickQuestion.questionType"
-                :options="questionTypeOptions"
-                min-width="100%"
+                  v-model="quickQuestion.questionType"
+                  :options="questionTypeOptions"
+                  min-width="100%"
               />
             </label>
           </div>
@@ -247,8 +250,8 @@
                   <input
                       :checked="answerSelected(question.id, option.id)"
                       :disabled="Boolean(question.mySubmission) || submittingQuestionId === question.id"
-                      :type="question.questionType === 1 ? 'checkbox' : 'radio'"
                       :name="question.id"
+                      :type="question.questionType === 1 ? 'checkbox' : 'radio'"
                       @change="toggleOption(question.id, option.id, question.questionType)"
                   />
                   <span>{{ option.optionLabel }}. {{ option.optionContent }}</span>
@@ -329,8 +332,8 @@
           <section class="preview-section">
             <h3>题干</h3>
             <RichMathContent
-              :content="previewQuestion.questionContent || previewQuestion.questionTitle"
-              class="question-content rich-content"
+                :content="previewQuestion.questionContent || previewQuestion.questionTitle"
+                class="question-content rich-content"
             />
           </section>
 
@@ -346,8 +349,8 @@
               >
                 <span class="option-label">{{ option.optionLabel }}</span>
                 <RichMathContent
-                  :content="option.optionContent"
-                  class="option-content rich-content"
+                    :content="option.optionContent"
+                    class="option-content rich-content"
                 />
               </div>
             </div>
@@ -359,10 +362,10 @@
             <p v-if="previewLoading" class="muted-text">正在加载题目详情...</p>
             <div v-else-if="previewAnswerItems.length" class="answer-list">
               <RichMathContent
-                v-for="answer in previewAnswerItems"
-                :key="answer"
-                :content="answer"
-                class="answer-row rich-content"
+                  v-for="answer in previewAnswerItems"
+                  :key="answer"
+                  :content="answer"
+                  class="answer-row rich-content"
               />
             </div>
             <p v-else class="muted-text">暂无答案</p>
@@ -371,8 +374,8 @@
           <section v-if="showPreviewAnswer" class="preview-section">
             <h3>解析</h3>
             <RichMathContent
-              :content="previewExplanationText"
-              class="explanation-content rich-content"
+                :content="previewExplanationText"
+                class="explanation-content rich-content"
             />
           </section>
 

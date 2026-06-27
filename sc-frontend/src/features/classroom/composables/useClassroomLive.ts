@@ -1,15 +1,15 @@
-import {computed, onUnmounted, ref, shallowRef, unref, watch, type MaybeRef} from 'vue'
-import {createLocalTracks, Room, RoomEvent, Track, type ConnectionQuality, type Participant} from 'livekit-client'
+import {computed, type MaybeRef, onUnmounted, ref, shallowRef, unref, watch} from 'vue'
+import {type ConnectionQuality, createLocalTracks, type Participant, Room, RoomEvent, Track} from 'livekit-client'
 
 import {i18n} from '@/app/i18n'
 import {issueClassLiveToken} from '@/features/course/api/classSession'
 import {ClassLiveStatus, type ClassParticipant, type ClassSession} from '@/features/course/types/classSession'
 import {
     EMPTY_LIVE_NETWORK_STATS,
-    mergeOnlineParticipants,
-    normalizeTrackStats,
     type LiveNetworkStats,
     type LiveOnlineParticipant,
+    mergeOnlineParticipants,
+    normalizeTrackStats,
 } from '@/features/classroom/composables/livePresence'
 
 const CAMERA_OVERLAY_TOPIC = 'classroom-camera-overlay-position'
@@ -373,7 +373,7 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
             return
         }
         try {
-            const message = JSON.parse(textDecoder.decode(payload)) as {type?: unknown; position?: unknown}
+            const message = JSON.parse(textDecoder.decode(payload)) as { type?: unknown; position?: unknown }
             if (message.type === CAMERA_OVERLAY_MESSAGE_TYPE && isCameraOverlayPosition(message.position)) {
                 cameraOverlayPosition.value = message.position
             }
@@ -418,7 +418,7 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
         return remoteTracks.screenShareTrack || remoteTracks.cameraTrack || remoteTracks.fallbackTrack
     }
 
-    function pickVideoTracks(publications: Iterable<{source: Track.Source; track?: Track}>) {
+    function pickVideoTracks(publications: Iterable<{ source: Track.Source; track?: Track }>) {
         let screenShareTrack: Track | null = null
         let cameraTrack: Track | null = null
         let fallbackTrack: Track | null = null

@@ -6,40 +6,40 @@
         <h2>AI 会话</h2>
       </div>
       <button
-        title="新建会话"
-        type="button"
-        @click="newConversation"
+          title="新建会话"
+          type="button"
+          @click="newConversation"
       >
         <Plus
-          :size="16"
-          stroke-width="1.8"
+            :size="16"
+            stroke-width="1.8"
         />
       </button>
     </div>
 
     <div
-      v-if="aiStore.loadingConversations"
-      class="list-state"
+        v-if="aiStore.loadingConversations"
+        class="list-state"
     >
       加载会话中...
     </div>
     <div
-      v-else-if="aiStore.sortedConversations.length === 0"
-      class="list-state"
+        v-else-if="aiStore.sortedConversations.length === 0"
+        class="list-state"
     >
       暂无会话
     </div>
     <div
-      v-else
-      class="conversation-rows"
+        v-else
+        class="conversation-rows"
     >
       <button
-        v-for="conversation in aiStore.sortedConversations"
-        :key="conversation.id"
-        :class="{active: conversation.id === aiStore.activeConversationId}"
-        class="conversation-row"
-        type="button"
-        @click="aiStore.loadMessages(conversation.id)"
+          v-for="conversation in aiStore.sortedConversations"
+          :key="conversation.id"
+          :class="{active: conversation.id === aiStore.activeConversationId}"
+          class="conversation-row"
+          type="button"
+          @click="aiStore.loadMessages(conversation.id)"
       >
         <span>{{ conversation.title }}</span>
         <small>{{ formatTime(conversation.updatedAt) }}</small>

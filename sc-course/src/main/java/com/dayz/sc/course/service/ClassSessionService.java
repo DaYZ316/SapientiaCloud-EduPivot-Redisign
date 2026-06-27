@@ -13,16 +13,8 @@ import com.dayz.sc.course.model.dto.CreateClassSessionRequest;
 import com.dayz.sc.course.model.dto.JoinClassSessionRequest;
 import com.dayz.sc.course.model.dto.UpdateClassSessionRequest;
 import com.dayz.sc.course.model.entity.*;
-import com.dayz.sc.course.model.enums.ClassLiveStatus;
-import com.dayz.sc.course.model.enums.ClassParticipantRole;
-import com.dayz.sc.course.model.enums.ClassRoomSize;
-import com.dayz.sc.course.model.enums.ClassSessionStatus;
-import com.dayz.sc.course.model.enums.EnrollmentStatus;
-import com.dayz.sc.course.model.vo.ClassBarrageVO;
-import com.dayz.sc.course.model.vo.ClassParticipantVO;
-import com.dayz.sc.course.model.vo.ClassSeatSyncTokenVO;
-import com.dayz.sc.course.model.vo.ClassSessionVO;
-import com.dayz.sc.course.model.vo.LiveKitTokenVO;
+import com.dayz.sc.course.model.enums.*;
+import com.dayz.sc.course.model.vo.*;
 import com.dayz.sc.course.repository.*;
 import com.dayz.sc.course.sse.ClassBarrageSseEmitter;
 import com.dayz.sc.course.websocket.ClassSeatSyncTokenService;
@@ -62,6 +54,7 @@ public class ClassSessionService {
     private final ClassSessionRepository classSessionRepository;
     private final ClassParticipantRepository classParticipantRepository;
     private final ClassBarrageRepository classBarrageRepository;
+    private final CourseContentDeletionRepository courseContentDeletionRepository;
     private final CourseRepository courseRepository;
     private final CourseTeacherRepository courseTeacherRepository;
     private final EnrollmentRepository enrollmentRepository;
@@ -146,7 +139,9 @@ public class ClassSessionService {
         ClassSession session = classSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
         requireSessionTeacher(session, userId, role);
+        courseContentDeletionRepository.deleteClassSessionContent(sessionId);
         classSessionRepository.deleteById(sessionId);
+        deleteLiveRoomQuietly(session);
     }
 
     public PageResponse<@NonNull ClassSessionVO> listByCourse(UUID courseId, int page, int size, UUID userId, Integer role) {
@@ -633,6 +628,17 @@ public class ClassSessionService {
 
     private boolean joined(UUID sessionId, UUID userId) {
         return userId != null && classParticipantRepository.existsBySessionIdAndUserId(sessionId, userId);
+    }
+
+    private void deleteLiveRoomQuietly(ClassSession session) {
+        if (session.getLiveRoomName() == null || liveStatus(session) == ClassLiveStatus.NOT_STARTED) {
+            return;
+        }
+        try {
+            liveKitRoomService.deleteRoom(session.getLiveRoomName());
+        } catch (RuntimeException ignored) {
+            // LiveKit cleanup is eventually consistent and should not roll back the business delete.
+        }
     }
 
     private void validateTimeRange(Instant startAt, Instant endAt) {

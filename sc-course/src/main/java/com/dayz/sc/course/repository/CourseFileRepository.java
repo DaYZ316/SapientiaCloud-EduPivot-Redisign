@@ -48,5 +48,11 @@ public interface CourseFileRepository {
      */
     Page<CourseFile> findByCourseId(UUID courseId, int page, int size);
 
+    /**
+     * 根据课程ID查询所有课程文件
+     *
+     * @param courseId 课程ID
+     * @return 文件列表
+     */
     List<CourseFile> findAllByCourseId(UUID courseId);
 }

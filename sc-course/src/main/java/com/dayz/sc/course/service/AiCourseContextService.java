@@ -3,9 +3,9 @@ package com.dayz.sc.course.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
-import com.dayz.sc.common.feign.dto.AiCourseContext;
 import com.dayz.sc.common.feign.dto.AgentSearchItem;
 import com.dayz.sc.common.feign.dto.AgentSearchResult;
+import com.dayz.sc.common.feign.dto.AiCourseContext;
 import com.dayz.sc.common.feign.dto.ClassSessionAiAccess;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.course.model.entity.*;
@@ -20,6 +20,11 @@ import org.springframework.util.StringUtils;
 
 import java.util.*;
 
+/**
+ * AiCourseContextService.
+ *
+ * @author DaYZ
+ */
 @Service
 @RequiredArgsConstructor
 public class AiCourseContextService {
@@ -216,7 +221,7 @@ public class AiCourseContextService {
                 liveStatus.getDescription(),
                 session.getScheduledStartAt(),
                 session.getScheduledEndAt(),
-                canView,
+                true,
                 canManage);
     }
 

@@ -4,6 +4,11 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * QuestionGenerationProgressEvent.
+ *
+ * @author DaYZ
+ */
 public record QuestionGenerationProgressEvent(
         UUID eventId,
         String requestId,

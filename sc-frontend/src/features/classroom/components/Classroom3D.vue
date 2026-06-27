@@ -9,7 +9,7 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import {computed, nextTick, onMounted, onUnmounted, ref, shallowRef} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {CircleAlert} from 'lucide-vue-next'
@@ -24,15 +24,22 @@ import {
   leaveClassSessionSeat,
   listClassSessionParticipants,
 } from '@/features/course/api/classSession'
-import {ClassRoomSize, type ClassParticipant, type ClassSession} from '@/features/course/types/classSession'
+import {type ClassParticipant, ClassRoomSize, type ClassSession} from '@/features/course/types/classSession'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import {getClassroomModelRoute} from '@/features/classroom/composables/useModelRouter'
 import {getAllSeatPositions, getDeskPosition} from '@/features/classroom/composables/useSeatLayout'
-import {computeCameraPositionsBySize, getCameraTarget, type ClassroomDimensions} from '@/features/classroom/composables/useCameraGroup'
+import {
+  type ClassroomDimensions,
+  computeCameraPositionsBySize,
+  getCameraTarget
+} from '@/features/classroom/composables/useCameraGroup'
 import {ModelInstanceManager} from '@/features/classroom/composables/ModelInstanceManager'
 import {SeatSpriteManager} from '@/features/classroom/composables/SeatSpriteManager'
-import {createClassroomInteraction, type ClassroomInteractionControls} from '@/features/classroom/composables/useClassroomInteraction'
+import {
+  type ClassroomInteractionControls,
+  createClassroomInteraction
+} from '@/features/classroom/composables/useClassroomInteraction'
 import {getRoomSpec, type SeatSyncMessage} from '@/features/classroom/types/classroom'
 import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {buildSeatSyncSocketUrl} from '@/features/classroom/composables/seatSyncSocket'
@@ -47,7 +54,7 @@ const emit = defineEmits<{
   exit: []
   'participants-change': [participants: ClassParticipant[]]
   'live-status-change': [message: SeatSyncMessage]
-  'loading-progress': [payload: {progress: number; label: string}]
+  'loading-progress': [payload: { progress: number; label: string }]
   ready: []
   loadError: [message: string]
 }>()
@@ -87,7 +94,7 @@ const targetAfterClamp = new THREE.Vector3()
 const targetClampDelta = new THREE.Vector3()
 const cameraAfterClamp = new THREE.Vector3()
 const exitLabelMaterials: THREE.MeshBasicMaterial[] = []
-const exitLabelTextures: {normal: THREE.Texture; highlight: THREE.Texture}[] = []
+const exitLabelTextures: { normal: THREE.Texture; highlight: THREE.Texture }[] = []
 const hoveredExitDoorIndex = ref(-1)
 const exitRaycaster = new THREE.Raycaster()
 const exitPointer = new THREE.Vector2()
@@ -618,25 +625,46 @@ function findDoorAnchors(_classroom: THREE.Object3D, bounds: THREE.Box3, roomSiz
   switch (roomSize) {
     case ClassRoomSize.SMALL:
       return [
-        {position: new THREE.Vector3(-3.5, y, 3.5), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)},
+        {
+          position: new THREE.Vector3(-3.5, y, 3.5),
+          quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)
+        },
       ]
 
     case ClassRoomSize.MEDIUM:
       return [
-        {position: new THREE.Vector3(-7.4, y, 7.3), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)},
-        {position: new THREE.Vector3(-7.4, y, -7.3), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)},
+        {
+          position: new THREE.Vector3(-7.4, y, 7.3),
+          quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)
+        },
+        {
+          position: new THREE.Vector3(-7.4, y, -7.3),
+          quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)
+        },
       ]
 
     case ClassRoomSize.LARGE:
       return [
-        {position: new THREE.Vector3(-7.5, y, 14.9), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI)},
-        {position: new THREE.Vector3(7.5, y, 14.9), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI)},
+        {
+          position: new THREE.Vector3(-7.5, y, 14.9),
+          quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI)
+        },
+        {
+          position: new THREE.Vector3(7.5, y, 14.9),
+          quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI)
+        },
       ]
 
     case ClassRoomSize.XLARGE:
       return [
-        {position: new THREE.Vector3(-10, y, 9), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)},
-        {position: new THREE.Vector3(10, y, 9), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)},
+        {
+          position: new THREE.Vector3(-10, y, 9),
+          quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)
+        },
+        {
+          position: new THREE.Vector3(10, y, 9),
+          quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)
+        },
       ]
 
     default:
@@ -699,14 +727,14 @@ function createCameraBounds(classroomBounds: THREE.Box3, roomSize: number) {
   if (roomSize === ClassRoomSize.XLARGE) {
     const bounds = new THREE.Box3()
     bounds.min.set(
-      center.x - size.x * 0.3,
-      center.y - size.y * 0.3,
-      center.z - size.z * 0.3 - 4,
+        center.x - size.x * 0.3,
+        center.y - size.y * 0.3,
+        center.z - size.z * 0.3 - 4,
     )
     bounds.max.set(
-      center.x + size.x * 0.3,
-      center.y + size.y * 0.1,
-      center.z + size.z * 0.3 - 4,
+        center.x + size.x * 0.3,
+        center.y + size.y * 0.1,
+        center.z + size.z * 0.3 - 4,
     )
     return bounds
   }

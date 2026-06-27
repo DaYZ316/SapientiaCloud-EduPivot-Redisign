@@ -5,6 +5,11 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * LivePracticeAiGradingRequestedEvent.
+ *
+ * @author DaYZ
+ */
 public record LivePracticeAiGradingRequestedEvent(
         UUID eventId,
         UUID submissionId,

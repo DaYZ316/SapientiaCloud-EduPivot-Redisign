@@ -4,7 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Part 0: 常用命令
 
-> 没有 Maven Wrapper（`mvnw`），直接使用本机 `mvn`（需 JDK 21）。前端使用 `pnpm`（版本见 `sc-frontend/package.json` 的 `packageManager`）。
+> 没有 Maven Wrapper（`mvnw`），直接使用本机 `mvn`（需 JDK 21）。前端使用 `pnpm`（版本见 `sc-frontend/package.json` 的
+`packageManager`）。
 
 ### 后端（根目录，Maven 多模块聚合工程）
 
@@ -52,7 +53,8 @@ docker compose up -d nacos postgres redis kafka minio skywalking-banyandb skywal
 
 ### 关键前置条件
 
-- **Nacos 配置**：服务启动依赖 Nacos 中已导入的配置（见 `nacos-config/` 与其 `README.md`）。`application.yaml` 仅含 Nacos 引导配置，业务/基础设施配置全部在 Nacos。
+- **Nacos 配置**：服务启动依赖 Nacos 中已导入的配置（见 `nacos-config/` 与其 `README.md`）。`application.yaml` 仅含 Nacos
+  引导配置，业务/基础设施配置全部在 Nacos。
 - **环境变量**：复制 `.env.example` 为 `.env` 后再 `docker compose up`。
 - **数据库迁移**：各服务通过 Flyway 在启动时自动执行 `src/main/resources/db/migration/` 下的脚本，无需手动建表。
 
@@ -402,7 +404,8 @@ public record PageResponse<T>(List<T> records, long total, long page, long size)
 - 不启用 `out-of-order`；新增迁移版本必须大于该服务已发布的最高版本
 - 不修改、重命名、移动已应用迁移；修复一律新增前向迁移
 - `baseline-on-migrate: true` 仅作为共享 schema + 独立 history 表的首次接入例外，禁止用于掩盖环境错误
-- `repair` 只在 `validate` 明确指出 checksum/deleted/resolved 元数据问题时使用，且必须先备份对应 `flyway_schema_history_*`
+- `repair` 只在 `validate` 明确指出 checksum/deleted/resolved 元数据问题时使用，且必须先备份对应
+  `flyway_schema_history_*`
 - 新迁移尽量使用 `IF NOT EXISTS` / `IF EXISTS`，复杂迁移包含 `COMMENT ON TABLE/COLUMN` 注释
 - 提交迁移前运行 `python scripts/validate_flyway_migrations.py`
 
@@ -449,7 +452,8 @@ src/
 - 路由守卫：`meta.requiresAuth`、`meta.guestOnly`
 - 懒加载：`() => import('@/features/...')`
 - 全屏 WebGL / 3D 教室页面必须定义为顶层受保护路由，使用 `meta.requiresAuth`，不要挂在 `MainLayout` 的 `children` 下。
-- 全屏页面根容器和 canvas 使用 `position: fixed`、`inset: 0`、`width: 100vw`、`height: 100dvh`，避免被 layout、padding、`.content-container` 限制。
+- 全屏页面根容器和 canvas 使用 `position: fixed`、`inset: 0`、`width: 100vw`、`height: 100dvh`，避免被 layout、padding、
+  `.content-container` 限制。
 - 普通业务页面继续走 `MainLayout`；不要为了单个沉浸式页面污染通用布局结构。
 
 **国际化：** Vue I18n，`en-US` + `zh-CN`，按功能模块拆分
@@ -504,7 +508,8 @@ src/
 - 泛型参数：`@NonNull`（如 `ApiResponse<@NonNull LoginResponse>`）
 - Qodana / 静态检查必须保持为 0 个新增问题；修复时优先用最小类型声明或局部代码调整，不做无关重构。
 - `@RateLimited` 使用默认值时写成 `@RateLimited`，不要写 `@RateLimited(maxRequests = 10)`。
-- `@NullMarked` 包内泛型必须补齐类型用途注解，例如 `ObjectProvider<@NonNull KafkaTemplate<@NonNull String, @NonNull Object>>`。
+- `@NullMarked` 包内泛型必须补齐类型用途注解，例如
+  `ObjectProvider<@NonNull KafkaTemplate<@NonNull String, @NonNull Object>>`。
 - `ApiResponse`、`PageResponse`、Feign DTO、集合元素类型都要按实际语义标注 `@NonNull` / `@Nullable`。
 - 已声明为非空的返回值不要再做无意义 null 判断；已有 null-safe 方法也不要在调用前重复写防御判断。
 - `DefaultRedisScript` 等 Spring 泛型类型按脚本或 API 的真实返回值声明类型用途 nullability。

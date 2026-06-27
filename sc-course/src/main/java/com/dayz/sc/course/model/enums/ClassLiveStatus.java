@@ -13,9 +13,24 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum ClassLiveStatus {
 
+    /**
+     * 未开播
+     */
     NOT_STARTED(0, "未开播"),
+
+    /**
+     * 直播中
+     */
     LIVE(1, "直播中"),
+
+    /**
+     * 已暂停
+     */
     PAUSED(2, "已暂停"),
+
+    /**
+     * 已结束
+     */
     ENDED(3, "已结束");
 
     private final int code;

@@ -1,8 +1,8 @@
 package com.dayz.sc.course.service;
 
-import com.dayz.sc.common.events.ai.LivePracticeAiGradingRequestedEvent;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
+import com.dayz.sc.common.events.ai.LivePracticeAiGradingRequestedEvent;
 import com.dayz.sc.common.feign.client.AuthInternalClient;
 import com.dayz.sc.common.feign.dto.UserBasicInfo;
 import com.dayz.sc.common.question.QuestionAnswerRequest;
@@ -10,18 +10,12 @@ import com.dayz.sc.common.question.QuestionOptionRequest;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.common.util.UuidV7Generator;
+import com.dayz.sc.course.event.LivePracticeAiGradingEventPublisher;
 import com.dayz.sc.course.model.dto.CreateLivePracticeQuestionRequest;
 import com.dayz.sc.course.model.dto.CreateLivePracticeRequest;
 import com.dayz.sc.course.model.dto.SubmitLivePracticeAnswerRequest;
-import com.dayz.sc.course.event.LivePracticeAiGradingEventPublisher;
 import com.dayz.sc.course.model.entity.*;
-import com.dayz.sc.course.model.enums.ClassParticipantRole;
-import com.dayz.sc.course.model.enums.EnrollmentStatus;
-import com.dayz.sc.course.model.enums.LivePracticeAiGradingStatus;
-import com.dayz.sc.course.model.enums.LivePracticeSubmitStatus;
-import com.dayz.sc.course.model.enums.QuestionDifficulty;
-import com.dayz.sc.course.model.enums.QuestionStatus;
-import com.dayz.sc.course.model.enums.QuestionType;
+import com.dayz.sc.course.model.enums.*;
 import com.dayz.sc.course.model.value.LivePracticeAnswerSnapshot;
 import com.dayz.sc.course.model.value.LivePracticeOptionSnapshot;
 import com.dayz.sc.course.model.vo.*;
@@ -62,6 +56,7 @@ public class LivePracticeService {
     private static final int QUESTION_TYPE_TRUE_FALSE = 2;
     private static final int QUESTION_TYPE_SHORT_ANSWER = 4;
     private static final int PARTIAL_CREDIT_SCALE = 2;
+    private static final int AI_GRADING_REQUIREMENT_MAX_LENGTH = 2000;
     private static final long AI_GRADING_RESUBMIT_GRACE_SECONDS = 120;
     private static final int AI_GRADING_RESUBMIT_BATCH_SIZE = 10;
 
@@ -756,8 +751,9 @@ public class LivePracticeService {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "AI grading requirement is required");
         }
         String trimmed = requirement.trim();
-        if (trimmed.length() > 2000) {
-            throw new BusinessException(ErrorCodes.BAD_REQUEST, "AI grading requirement cannot exceed 2000 characters");
+        if (trimmed.length() > AI_GRADING_REQUIREMENT_MAX_LENGTH) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST,
+                    "AI grading requirement cannot exceed " + AI_GRADING_REQUIREMENT_MAX_LENGTH + " characters");
         }
         return trimmed;
     }

@@ -23,10 +23,9 @@ import com.dayz.sc.course.repository.CourseRepository;
 import com.dayz.sc.course.repository.CourseTeacherRepository;
 import com.dayz.sc.course.repository.EnrollmentRepository;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import org.jspecify.annotations.NonNull;
 
 import java.time.Instant;
 import java.util.*;

@@ -4,6 +4,11 @@ import com.dayz.sc.common.feign.dto.AgentSearchItem;
 
 import java.util.List;
 
+/**
+ * AgentSearchOutcome.
+ *
+ * @author DaYZ
+ */
 public record AgentSearchOutcome(
         AgentSearchStatus status,
         String domain,

@@ -5,7 +5,7 @@
       <div class="percentage">{{ Math.round(clampedProgress) }}%</div>
       <div class="progress-wrap">
         <div class="progress-track">
-          <div class="progress-fill" :style="{width: `${clampedProgress}%`}"></div>
+          <div :style="{width: `${clampedProgress}%`}" class="progress-fill"></div>
         </div>
         <div class="loading-label">{{ displayLabel }}</div>
       </div>

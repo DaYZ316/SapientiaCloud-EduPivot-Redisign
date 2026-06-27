@@ -7,20 +7,20 @@
     </div>
     <div class="tool-actions">
       <button
-        disabled
-        type="button"
+          disabled
+          type="button"
       >
         生成题目
       </button>
       <button
-        disabled
-        type="button"
+          disabled
+          type="button"
       >
         补全解析
       </button>
       <button
-        disabled
-        type="button"
+          disabled
+          type="button"
       >
         难度校准
       </button>

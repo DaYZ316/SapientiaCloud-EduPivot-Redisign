@@ -21,12 +21,13 @@ import org.springframework.util.StringUtils;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
+/**
+ * AgentSearchService.
+ *
+ * @author DaYZ
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -142,7 +143,9 @@ public class AgentSearchService {
     }
 
     public List<AgentSearchItem> listCourseChapters(String courseTitle, UUID courseId, Integer limit, UUID userId, Integer role) {
-        if ((courseId == null && !StringUtils.hasText(courseTitle)) || userId == null || role == null) {
+        boolean hasCourseIdentifier = courseId != null || StringUtils.hasText(courseTitle);
+        boolean hasUserContext = userId != null && role != null;
+        if (!hasCourseIdentifier || !hasUserContext) {
             return List.of();
         }
         try {
@@ -276,7 +279,7 @@ public class AgentSearchService {
                 .build();
         try {
             List<Document> docs = aiProviderCallGuard.call(() -> vectorStoreProvider.getObject().similaritySearch(request));
-            if (docs == null || docs.isEmpty()) {
+            if (docs.isEmpty()) {
                 return List.of();
             }
             if (ChatVectorMemoryService.META_SOURCE_TYPE_CHAT_TURN.equals(sourceType)) {
@@ -309,7 +312,7 @@ public class AgentSearchService {
     }
 
     private AgentSearchItem toItem(Document document, String resultType) {
-        Map<String, Object> metadata = document.getMetadata() == null ? Map.of() : document.getMetadata();
+        Map<String, Object> metadata = document.getMetadata();
         return new AgentSearchItem(
                 resultType,
                 sourceLabel(resultType),

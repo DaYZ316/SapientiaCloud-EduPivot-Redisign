@@ -8,6 +8,11 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * LiveSummaryAudioTokenService.
+ *
+ * @author DaYZ
+ */
 @Service
 public class LiveSummaryAudioTokenService {
 

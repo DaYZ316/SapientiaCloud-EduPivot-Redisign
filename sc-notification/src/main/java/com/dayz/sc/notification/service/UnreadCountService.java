@@ -209,9 +209,10 @@ public class UnreadCountService {
 
     private UnreadCountVO readFromHash(String key) {
         var hashOps = redisTemplate.opsForHash();
-        long total = parseLong(hashOps.get(key, "total"));
-        long system = parseLong(hashOps.get(key, "system"));
-        long teaching = parseLong(hashOps.get(key, "teaching"));
+        List<Object> values = hashOps.multiGet(key, List.of("total", "system", "teaching"));
+        long total = parseLong(values.get(0));
+        long system = parseLong(values.get(1));
+        long teaching = parseLong(values.get(2));
         return new UnreadCountVO(total, system, teaching);
     }
 

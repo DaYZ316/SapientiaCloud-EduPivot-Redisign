@@ -1,8 +1,8 @@
 <template>
   <Suspense>
     <CourseLivePracticesContent
-      :can-manage-course="canManageCourse"
-      :course-id="courseId"
+        :can-manage-course="canManageCourse"
+        :course-id="courseId"
     />
     <template #fallback>
       <section class="tab-panel live-practice-page">

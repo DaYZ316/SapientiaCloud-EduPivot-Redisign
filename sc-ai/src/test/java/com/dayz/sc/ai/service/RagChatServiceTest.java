@@ -15,11 +15,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -28,23 +28,13 @@ import org.springframework.http.codec.ServerSentEvent;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.RETURNS_SELF;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.*;
 
 class RagChatServiceTest {
 
@@ -433,7 +423,7 @@ class RagChatServiceTest {
                 any(),
                 any(),
                 any(),
-                        any());
+                any());
     }
 
     @Test
@@ -842,15 +832,15 @@ class RagChatServiceTest {
                             "找到 1 门课程",
                             18L,
                             List.of(new com.dayz.sc.common.feign.dto.AgentSearchItem(
-                            "COURSE",
-                            "课程",
-                            "course-a",
-                            "course-a",
-                            "AI Course",
-                            "主讲课程",
-                            "课程简介",
-                            "主讲课程",
-                            Map.of("status", 1),
+                                    "COURSE",
+                                    "课程",
+                                    "course-a",
+                                    "course-a",
+                                    "AI Course",
+                                    "主讲课程",
+                                    "课程简介",
+                                    "主讲课程",
+                                    Map.of("status", 1),
                                     Map.of("sourceType", "COURSE", "sourceId", "course-a", "courseId", "course-a"))))));
             return requestSpec;
         });

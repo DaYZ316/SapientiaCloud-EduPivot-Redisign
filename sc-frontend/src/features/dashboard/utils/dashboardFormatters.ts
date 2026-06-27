@@ -87,7 +87,10 @@ export function formatSessionRange(session: ClassSession, locale: string) {
 export function progressBuckets(values: Array<number | null | undefined>): ChartDatum[] {
     return [
         {label: '0-30%', value: values.filter((value) => clampPercent(value) < 30).length},
-        {label: '30-70%', value: values.filter((value) => clampPercent(value) >= 30 && clampPercent(value) < 70).length},
+        {
+            label: '30-70%',
+            value: values.filter((value) => clampPercent(value) >= 30 && clampPercent(value) < 70).length
+        },
         {label: '70-100%', value: values.filter((value) => clampPercent(value) >= 70).length},
     ]
 }

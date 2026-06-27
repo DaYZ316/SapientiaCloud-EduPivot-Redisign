@@ -244,7 +244,9 @@
             <p v-if="passwordMessage" class="form-message">{{ passwordMessage }}</p>
             <div class="section-actions">
               <button :disabled="savingPassword" class="btn-secondary" type="button" @click="changePassword">
-                {{ savingPassword ? t('settings.saving') : t(hasLocalPassword ? 'settings.updatePassword' : 'settings.setPasswordAction') }}
+                {{
+                  savingPassword ? t('settings.saving') : t(hasLocalPassword ? 'settings.updatePassword' : 'settings.setPasswordAction')
+                }}
               </button>
             </div>
           </div>

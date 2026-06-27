@@ -138,7 +138,7 @@ function toStatsItems(stats: unknown): LiveTrackStatsLike[] {
 function isStatsReportLike(value: unknown): value is { forEach(callback: (item: unknown) => void): void } {
     return typeof value === 'object'
         && value != null
-        && typeof (value as {forEach?: unknown}).forEach === 'function'
+        && typeof (value as { forEach?: unknown }).forEach === 'function'
 }
 
 function isStatsLike(value: unknown): value is LiveTrackStatsLike {

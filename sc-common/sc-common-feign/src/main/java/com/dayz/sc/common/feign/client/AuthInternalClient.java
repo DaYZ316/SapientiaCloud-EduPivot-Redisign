@@ -1,7 +1,7 @@
 package com.dayz.sc.common.feign.client;
 
-import com.dayz.sc.common.feign.dto.UserBasicInfo;
 import com.dayz.sc.common.feign.dto.InternalUserProfile;
+import com.dayz.sc.common.feign.dto.UserBasicInfo;
 import com.dayz.sc.common.response.ApiResponse;
 import org.jspecify.annotations.NonNull;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -33,9 +33,21 @@ public interface AuthInternalClient {
     @GetMapping("/internal/basic")
     ApiResponse<@NonNull List<@NonNull UserBasicInfo>> getUsersBasicInfo(@RequestParam("ids") List<UUID> ids);
 
+    /**
+     * 根据用户ID获取用户档案
+     *
+     * @param id 用户ID
+     * @return 用户档案信息
+     */
     @GetMapping("/internal/profile")
     ApiResponse<@NonNull InternalUserProfile> getUserProfile(@RequestParam("id") UUID id);
 
+    /**
+     * 获取当前登录用户档案
+     *
+     * @param authorization Authorization 请求头
+     * @return 用户档案信息
+     */
     @GetMapping("/me")
     ApiResponse<@NonNull InternalUserProfile> getCurrentUserProfile(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization);

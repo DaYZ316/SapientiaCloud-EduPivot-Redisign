@@ -100,8 +100,8 @@ public Optional<User> findByEmail(String email) {
 
     // 2. 查 DB
     Optional<User> user = Optional.ofNullable(
-        userMapper.selectOne(new LambdaQueryWrapper<User>()
-            .eq(User::getEmail, email)));
+            userMapper.selectOne(new LambdaQueryWrapper<User>()
+                    .eq(User::getEmail, email)));
 
     // 3. 写缓存（存在 → 正常 TTL；不存在 → 短 TTL 空值标记）
     if (user.isPresent()) {
@@ -137,6 +137,7 @@ public Optional<User> findByEmail(String email) {
 **方案：分布式锁（Mutex Lock）**
 
 ```java
+
 @Override
 public Optional<User> findUser(UUID userId) {
     String cacheKey = userKey(userId);
@@ -179,7 +180,7 @@ public Optional<User> findUser(UUID userId) {
 ```java
 private boolean tryLock(String key, long timeoutMs) {
     Boolean result = redisTemplate.opsForValue()
-        .setIfAbsent(key, "1", Duration.ofMillis(timeoutMs));
+            .setIfAbsent(key, "1", Duration.ofMillis(timeoutMs));
     return Boolean.TRUE.equals(result);
 }
 
@@ -221,7 +222,7 @@ private void putCached(String key, Object value) {
     }
     // TTL 加随机偏移，防止同时过期
     Duration ttl = CACHE_TTL.plus(Duration.ofSeconds(
-        ThreadLocalRandom.current().nextLong(0, CACHE_JITTER.getSeconds())));
+            ThreadLocalRandom.current().nextLong(0, CACHE_JITTER.getSeconds())));
     redisTemplate.opsForValue().set(key, value, ttl);
 }
 ```
@@ -259,6 +260,7 @@ private void putCached(String key, Object value) {
 ```
 
 ```java
+
 @Override
 public User saveUser(User user) {
     int updated = userMapper.updateById(user);
@@ -285,6 +287,7 @@ public User saveUser(User user) {
 对于当前场景，最简单且最安全的方式：
 
 ```java
+
 @Override
 public User saveUser(User user) {
     int updated = userMapper.updateById(user);
@@ -345,6 +348,7 @@ Redis key 过长会浪费内存。建议：
 系统启动后，将热点数据提前加载到 Redis：
 
 ```java
+
 @Component
 public class CacheWarmer implements ApplicationRunner {
 
@@ -358,10 +362,10 @@ public class CacheWarmer implements ApplicationRunner {
 
     private void warmAdminUsers() {
         List<User> admins = userMapper.selectList(
-            new LambdaQueryWrapper<User>().eq(User::getRole, 0));
+                new LambdaQueryWrapper<User>().eq(User::getRole, 0));
         for (User admin : admins) {
             redisTemplate.opsForValue().set(
-                userKey(admin.getId()), admin, CACHE_TTL);
+                    userKey(admin.getId()), admin, CACHE_TTL);
         }
     }
 }
@@ -372,6 +376,7 @@ public class CacheWarmer implements ApplicationRunner {
 对于有规律的访问模式（如每天上课前），可以定时预热：
 
 ```java
+
 @Scheduled(cron = "0 0 7 * * ?") // 每天早上 7 点
 public void warmCourseCache() {
     // 预热当天有课的课程数据

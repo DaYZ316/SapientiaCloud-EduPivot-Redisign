@@ -41,7 +41,8 @@
           <button :title="t('courseDetail.editBank')" class="btn-icon" type="button" @click="openEditEditor(bank)">
             <Pencil :size="14" stroke-width="1.8"/>
           </button>
-          <button :title="t('courseDetail.deleteBank')" class="btn-icon danger" type="button" @click="handleDeleteBank(bank)">
+          <button :title="t('courseDetail.deleteBank')" class="btn-icon danger" type="button"
+                  @click="handleDeleteBank(bank)">
             <Trash2 :size="14" stroke-width="1.8"/>
           </button>
         </div>

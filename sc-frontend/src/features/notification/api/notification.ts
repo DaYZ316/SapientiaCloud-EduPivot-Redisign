@@ -1,5 +1,5 @@
 import {request} from '@/shared/api/request'
-import {subscribeSse, sseUrl} from '@/shared/api/sseManager'
+import {sseUrl, subscribeSse} from '@/shared/api/sseManager'
 import type {PageResponse} from '@/shared/types/common'
 
 export interface Notification {

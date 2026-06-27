@@ -10,8 +10,8 @@ import com.dayz.sc.common.events.ai.QuestionGenerationCompletedEvent;
 import com.dayz.sc.common.events.ai.QuestionGenerationProgressEvent;
 import com.dayz.sc.common.events.ai.QuestionGenerationRequestedEvent;
 import com.dayz.sc.common.events.config.KafkaTopicConstants;
-import org.junit.jupiter.api.Test;
 import org.jspecify.annotations.NonNull;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -31,9 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class QuestionGenerationKafkaBridgeTest {
 

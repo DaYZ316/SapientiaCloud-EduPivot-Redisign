@@ -14,11 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
 import java.util.UUID;
@@ -42,7 +38,7 @@ public class ChatController {
      */
     @PostMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @RateLimited(maxRequests = 20)
-    public ResponseEntity<Flux<@NonNull ServerSentEvent<String>>> chat(
+    public ResponseEntity<@NonNull Flux<@NonNull ServerSentEvent<@NonNull String>>> chat(
             @Valid @RequestBody ChatRequest request,
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @AuthenticationPrincipal Jwt jwt) {

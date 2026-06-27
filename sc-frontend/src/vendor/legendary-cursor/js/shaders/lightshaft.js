@@ -112,4 +112,4 @@ void main() {
 `;
 
 
-export { lightshaftv, lightshaftf }
+export {lightshaftv, lightshaftf}

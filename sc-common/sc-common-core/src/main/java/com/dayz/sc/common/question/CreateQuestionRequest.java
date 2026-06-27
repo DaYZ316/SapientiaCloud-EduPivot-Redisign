@@ -9,6 +9,11 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * CreateQuestionRequest.
+ *
+ * @author DaYZ
+ */
 public record CreateQuestionRequest(
         @NotNull UUID questionBankId,
         @NotBlank @Size(max = 500) String questionTitle,

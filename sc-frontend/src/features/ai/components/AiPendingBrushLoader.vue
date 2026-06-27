@@ -1,20 +1,20 @@
 <template>
   <span
-    ref="anchorRef"
-    aria-label="AI is generating a response"
-    class="pending-brush-loader"
-    role="status"
+      ref="anchorRef"
+      aria-label="AI is generating a response"
+      class="pending-brush-loader"
+      role="status"
   >
     <Teleport to="body">
       <AiBrushEffect
-        v-if="brushCenter"
-        :center-x="brushCenter.x"
-        :center-y="brushCenter.y"
-        :radius="radius"
-        :size="size"
-        :speed="speed"
-        :z-index="zIndex"
-        class="pending-brush-overlay"
+          v-if="brushCenter"
+          :center-x="brushCenter.x"
+          :center-y="brushCenter.y"
+          :radius="radius"
+          :size="size"
+          :speed="speed"
+          :z-index="zIndex"
+          class="pending-brush-overlay"
       />
     </Teleport>
   </span>

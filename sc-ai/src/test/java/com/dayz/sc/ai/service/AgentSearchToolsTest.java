@@ -1,20 +1,17 @@
 package com.dayz.sc.ai.service;
 
+import com.dayz.sc.common.feign.dto.AgentSearchItem;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ToolContext;
 
-import com.dayz.sc.common.feign.dto.AgentSearchItem;
-
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.ArrayList;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.*;
 
 class AgentSearchToolsTest {
 

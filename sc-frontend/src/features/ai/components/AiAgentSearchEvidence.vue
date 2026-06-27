@@ -1,23 +1,23 @@
 <template>
   <details
-    v-if="records.length > 0"
-    class="agent-evidence"
+      v-if="records.length > 0"
+      class="agent-evidence"
   >
     <summary class="agent-evidence__summary">
       <span>{{ summaryLabel }}</span>
       <ChevronDown
-        :size="15"
-        class="agent-evidence__chevron"
-        stroke-width="1.8"
+          :size="15"
+          class="agent-evidence__chevron"
+          stroke-width="1.8"
       />
     </summary>
 
     <div class="agent-evidence__timeline">
       <section
-        v-for="record in records"
-        :key="record.searchId || `${record.domain}-${record.query}`"
-        class="agent-evidence__record"
-        :class="`agent-evidence__record--${statusTone(record)}`"
+          v-for="record in records"
+          :key="record.searchId || `${record.domain}-${record.query}`"
+          :class="`agent-evidence__record--${statusTone(record)}`"
+          class="agent-evidence__record"
       >
         <header class="agent-evidence__record-header">
           <span class="agent-evidence__status">{{ statusLabel(record) }}</span>
@@ -28,30 +28,30 @@
         </header>
 
         <p
-          v-if="record.reason"
-          class="agent-evidence__reason"
+            v-if="record.reason"
+            class="agent-evidence__reason"
         >
           {{ record.reason }}
         </p>
 
         <div
-          v-if="record.items?.length"
-          class="agent-evidence__items"
+            v-if="record.items?.length"
+            class="agent-evidence__items"
         >
           <article
-            v-for="(item, index) in record.items"
-            :key="`${item.sourceType || 'source'}-${item.sourceId || item.title || index}`"
-            class="agent-evidence__item"
+              v-for="(item, index) in record.items"
+              :key="`${item.sourceType || 'source'}-${item.sourceId || item.title || index}`"
+              class="agent-evidence__item"
           >
             <RouterLink
-              v-if="navigationFor(item)"
-              :to="navigationFor(item)!.to"
-              :title="sourceTitle(item)"
-              class="agent-evidence__source-row"
+                v-if="navigationFor(item)"
+                :title="sourceTitle(item)"
+                :to="navigationFor(item)!.to"
+                class="agent-evidence__source-row"
             >
               <span
-                aria-hidden="true"
-                class="agent-evidence__source-icon agent-evidence__source-icon--fallback"
+                  aria-hidden="true"
+                  class="agent-evidence__source-icon agent-evidence__source-icon--fallback"
               >
                 {{ sourceFallback(item) }}
               </span>
@@ -60,25 +60,25 @@
             </RouterLink>
 
             <a
-              v-else-if="webUrl(item)"
-              :href="webUrl(item)"
-              :title="sourceTitle(item)"
-              class="agent-evidence__source-row"
-              rel="noopener noreferrer"
-              target="_blank"
+                v-else-if="webUrl(item)"
+                :href="webUrl(item)"
+                :title="sourceTitle(item)"
+                class="agent-evidence__source-row"
+                rel="noopener noreferrer"
+                target="_blank"
             >
               <img
-                v-if="visibleFaviconUrl(item)"
-                :src="visibleFaviconUrl(item)"
-                alt=""
-                class="agent-evidence__source-icon"
-                loading="lazy"
-                @error="markFaviconFailed(item)"
+                  v-if="visibleFaviconUrl(item)"
+                  :src="visibleFaviconUrl(item)"
+                  alt=""
+                  class="agent-evidence__source-icon"
+                  loading="lazy"
+                  @error="markFaviconFailed(item)"
               >
               <span
-                v-else
-                aria-hidden="true"
-                class="agent-evidence__source-icon agent-evidence__source-icon--fallback"
+                  v-else
+                  aria-hidden="true"
+                  class="agent-evidence__source-icon agent-evidence__source-icon--fallback"
               >
                 {{ sourceFallback(item) }}
               </span>
@@ -87,13 +87,13 @@
             </a>
 
             <div
-              v-else
-              :title="sourceTitle(item)"
-              class="agent-evidence__source-row is-static"
+                v-else
+                :title="sourceTitle(item)"
+                class="agent-evidence__source-row is-static"
             >
               <span
-                aria-hidden="true"
-                class="agent-evidence__source-icon agent-evidence__source-icon--fallback"
+                  aria-hidden="true"
+                  class="agent-evidence__source-icon agent-evidence__source-icon--fallback"
               >
                 {{ sourceFallback(item) }}
               </span>
@@ -102,8 +102,8 @@
             </div>
 
             <details
-              v-if="canViewIndexInfo && hasIndexInfo(item)"
-              class="agent-evidence__index"
+                v-if="canViewIndexInfo && hasIndexInfo(item)"
+                class="agent-evidence__index"
             >
               <summary>索引信息</summary>
               <pre>{{ formatIndexInfo(item) }}</pre>
@@ -112,8 +112,8 @@
         </div>
 
         <p
-          v-else
-          class="agent-evidence__empty"
+            v-else
+            class="agent-evidence__empty"
         >
           {{ emptyLabel(record) }}
         </p>
@@ -216,12 +216,12 @@ function markFaviconFailed(item: AgentSearchItem) {
 
 function faviconUrl(item: AgentSearchItem) {
   return textValue(item.metadata?.favicon)
-    || textValue(item.indexInfo?.favicon)
-    || textValue(item.metadata?.faviconUrl)
-    || textValue(item.indexInfo?.faviconUrl)
-    || textValue(item.metadata?.logo)
-    || textValue(item.indexInfo?.logo)
-    || inferredFaviconUrl(item)
+      || textValue(item.indexInfo?.favicon)
+      || textValue(item.metadata?.faviconUrl)
+      || textValue(item.indexInfo?.faviconUrl)
+      || textValue(item.metadata?.logo)
+      || textValue(item.indexInfo?.logo)
+      || inferredFaviconUrl(item)
 }
 
 function webDomain(item: AgentSearchItem) {

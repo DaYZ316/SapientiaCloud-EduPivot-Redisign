@@ -22,8 +22,19 @@ public interface MessageRepository {
      */
     ChatMessage save(ChatMessage message);
 
+    /**
+     * 更新对话消息
+     *
+     * @param message 消息实体
+     */
     void update(ChatMessage message);
 
+    /**
+     * 根据消息ID查询消息
+     *
+     * @param id 消息ID
+     * @return 消息实体，可能为空
+     */
     Optional<ChatMessage> findById(UUID id);
 
     /**

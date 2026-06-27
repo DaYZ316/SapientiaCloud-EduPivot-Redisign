@@ -9,6 +9,11 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 
+/**
+ * DashboardStudentVO.
+ *
+ * @author DaYZ
+ */
 public record DashboardStudentVO(
         DashboardNotificationSummary notifications,
         List<EnrollmentVO> enrollments,

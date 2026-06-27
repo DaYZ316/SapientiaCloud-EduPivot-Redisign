@@ -1,9 +1,9 @@
 import {request} from '@/shared/api/request'
 import type {
+    CompleteOnboardingRequest,
     GitHubLoginRequest,
     GoogleLoginRequest,
     LoginResponse,
-    CompleteOnboardingRequest,
     PasswordLoginRequest,
     RegisterRequest,
 } from '@/features/auth/types/auth'

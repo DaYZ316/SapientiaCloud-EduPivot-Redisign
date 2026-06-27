@@ -48,7 +48,7 @@ groups:
                     params:
                       - C
                   reducer:
-                    params: []
+                    params: [ ]
                     type: last
                   type: query
               datasource:
@@ -101,7 +101,7 @@ groups:
                     params:
                       - C
                   reducer:
-                    params: []
+                    params: [ ]
                     type: last
                   type: query
               datasource:
@@ -154,7 +154,7 @@ groups:
                     params:
                       - C
                   reducer:
-                    params: []
+                    params: [ ]
                     type: last
                   type: query
               datasource:
@@ -207,7 +207,7 @@ groups:
                     params:
                       - C
                   reducer:
-                    params: []
+                    params: [ ]
                     type: last
                   type: query
               datasource:

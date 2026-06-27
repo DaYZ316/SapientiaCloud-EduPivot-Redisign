@@ -1,13 +1,13 @@
 import {request} from '@/shared/api/request'
-import {subscribeSse, sseUrl} from '@/shared/api/sseManager'
+import {sseUrl, subscribeSse} from '@/shared/api/sseManager'
 import type {
     CreateLivePracticeRequest,
     LivePracticeEvent,
     LivePracticeGroup,
+    LivePracticeSubmission,
     LivePracticeSubscription,
     LivePracticeWorkbookItem,
     SubmitLivePracticeAnswerRequest,
-    LivePracticeSubmission,
 } from '@/features/live-practice/types/livePractice'
 
 export function createLivePractice(sessionId: string, data: CreateLivePracticeRequest) {

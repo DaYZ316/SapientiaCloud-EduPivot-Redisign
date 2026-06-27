@@ -4,6 +4,11 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * LivePracticeAiGradingCompletedEvent.
+ *
+ * @author DaYZ
+ */
 public record LivePracticeAiGradingCompletedEvent(
         UUID eventId,
         UUID submissionId,

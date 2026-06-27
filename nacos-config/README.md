@@ -87,7 +87,8 @@ refreshEnabled: false
 - Redis 连接（向量库与缓存共用）
 
 > 注意：sc-ai 需要 `DASHSCOPE_API_KEY` 环境变量（通义百炼 API Key），通过 `.env` 注入。
-> 课堂实时总结还会复用同一 Key 作为音频识别认证，实时总结间隔、增量阈值和 ASR WebSocket 地址统一在 `edupivot.ai.live-summary.*` 下配置。
+> 课堂实时总结还会复用同一 Key 作为音频识别认证，实时总结间隔、增量阈值和 ASR WebSocket 地址统一在
+`edupivot.ai.live-summary.*` 下配置。
 
 ### sc-gateway
 
@@ -178,4 +179,5 @@ NACOS_SERVER_ADDR=nacos:8848
 - 生产环境不建议在 Nacos 中明文保存真实密钥。
 - 真实密钥优先通过环境变量、密钥管理平台或部署平台注入。
 - 数据库、Redis 和认证密钥配置建议关闭热刷新。
-- 课堂直播使用 Docker 自部署 LiveKit；`LIVEKIT_URL` 面向浏览器，`LIVEKIT_SERVER_URL` 面向后端容器，部署细节见 `docs/livekit-docker-deployment.md`。
+- 课堂直播使用 Docker 自部署 LiveKit；`LIVEKIT_URL` 面向浏览器，`LIVEKIT_SERVER_URL` 面向后端容器，部署细节见
+  `docs/livekit-docker-deployment.md`。

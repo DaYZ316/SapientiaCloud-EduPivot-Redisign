@@ -1,12 +1,12 @@
 <template>
   <Teleport to="body">
     <div
-      v-if="visible"
-      ref="overlayRef"
-      :class="phaseClass"
-      :style="overlayStyle"
-      aria-hidden="true"
-      class="ai-mode-transition-overlay"
+        v-if="visible"
+        ref="overlayRef"
+        :class="phaseClass"
+        :style="overlayStyle"
+        aria-hidden="true"
+        class="ai-mode-transition-overlay"
     />
   </Teleport>
 </template>
@@ -92,8 +92,8 @@ function getCoverRadius() {
 
 function getMotionDuration() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    ? REDUCED_MOTION_MS
-    : TRANSITION_MS
+      ? REDUCED_MOTION_MS
+      : TRANSITION_MS
 }
 
 function clearFallbackTimer() {
@@ -120,12 +120,11 @@ defineExpose({
 }
 
 .ai-mode-transition-overlay.is-outward {
-  background:
-    radial-gradient(
+  background: radial-gradient(
       circle at center,
       color-mix(in srgb, var(--color-primary) 14%, var(--color-surface-card)) 0,
       var(--color-surface-card) 42%
-    );
+  );
   clip-path: circle(0 at center);
   will-change: clip-path;
 }

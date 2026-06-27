@@ -1,9 +1,9 @@
 <template>
   <section
-    :class="[`is-${props.layout}`, {'with-question-panel': isRightPanelVisible}]"
-    class="monolith-ai-shell"
+      :class="[`is-${props.layout}`, {'with-question-panel': isRightPanelVisible}]"
+      class="monolith-ai-shell"
   >
-    <AiDrawerConversationRail v-if="isDrawerLayout" />
+    <AiDrawerConversationRail v-if="isDrawerLayout"/>
 
     <div class="workspace-main">
       <header class="workspace-topbar">
@@ -12,35 +12,35 @@
         </div>
 
         <nav
-          :aria-label="t('common.ai.workspace.modesAria')"
-          class="workspace-tabs"
+            :aria-label="t('common.ai.workspace.modesAria')"
+            class="workspace-tabs"
         >
           <button
-            v-if="isPreviewPanelVisible"
-            class="workspace-preview-tab active"
-            type="button"
-            @click="activatePreviewPanel"
+              v-if="isPreviewPanelVisible"
+              class="workspace-preview-tab active"
+              type="button"
+              @click="activatePreviewPanel"
           >
             {{ t('common.ai.workspace.preview') }}
           </button>
           <button
-            :class="{active: chatMode === 'CHAT' && !isPreviewPanelVisible}"
-            type="button"
-            @click="setChatMode('CHAT')"
+              :class="{active: chatMode === 'CHAT' && !isPreviewPanelVisible}"
+              type="button"
+              @click="setChatMode('CHAT')"
           >
             {{ t('common.ai.workspace.ask') }}
           </button>
           <button
-            :class="{active: chatMode === 'QUESTION'}"
-            type="button"
-            @click="setChatMode('QUESTION')"
+              :class="{active: chatMode === 'QUESTION'}"
+              type="button"
+              @click="setChatMode('QUESTION')"
           >
             {{ t('common.ai.workspace.questionSet') }}
           </button>
           <button
-            :class="{active: chatMode === 'PAPER'}"
-            type="button"
-            @click="setChatMode('PAPER')"
+              :class="{active: chatMode === 'PAPER'}"
+              type="button"
+              @click="setChatMode('PAPER')"
           >
             {{ t('common.ai.workspace.paper') }}
           </button>
@@ -50,27 +50,27 @@
       <div class="workspace-content">
         <div class="chat-main-column">
           <AiChatPanel
-            v-model="chatMode"
-            :generation="generation"
-            :layout="props.layout"
-            :show-composer="!isGenerationDialogOpen"
-            :show-header="false"
-            :title="t('common.ai.workspace.title')"
-            @view-generation="openGenerationPanel"
+              v-model="chatMode"
+              :generation="generation"
+              :layout="props.layout"
+              :show-composer="!isGenerationDialogOpen"
+              :show-header="false"
+              :title="t('common.ai.workspace.title')"
+              @view-generation="openGenerationPanel"
           />
         </div>
 
         <div
-          :class="{'is-visible': isRightPanelVisible}"
-          class="question-panel-wrapper"
+            :class="{'is-visible': isRightPanelVisible}"
+            class="question-panel-wrapper"
         >
           <AiStudioPanel
-            v-model:artifact-tab="artifactTab"
-            v-model:generation="generation"
-            :mode="toolPanelMode"
-            :trace-message="aiStore.activeGenerationMessage"
-            @close="closeTools"
-            @generate="generateFromPanel"
+              v-model:artifact-tab="artifactTab"
+              v-model:generation="generation"
+              :mode="toolPanelMode"
+              :trace-message="aiStore.activeGenerationMessage"
+              @close="closeTools"
+              @generate="generateFromPanel"
           />
         </div>
       </div>
@@ -105,30 +105,30 @@ const panelDismissed = ref(false)
 const isDrawerLayout = computed(() => props.layout === 'drawer')
 const activeTitle = computed(() => aiStore.activeConversation?.title || t('common.ai.workspace.newInquiry'))
 const latestGeneratedArtifact = computed(() =>
-  [...aiStore.messages].reverse().find(message => isGenerationMessage(message)) || null,
+    [...aiStore.messages].reverse().find(message => isGenerationMessage(message)) || null,
 )
 const visibleArtifact = computed(() => aiStore.activeGenerationMessage || latestGeneratedArtifact.value || aiStore.latestArtifact)
 const completedArtifact = computed(() =>
-  visibleArtifact.value && !visibleArtifact.value.pending && !visibleArtifact.value.failed && !visibleArtifact.value.terminated,
+    visibleArtifact.value && !visibleArtifact.value.pending && !visibleArtifact.value.failed && !visibleArtifact.value.terminated,
 )
 const isQuestionPanelVisible = computed(() =>
-  chatMode.value !== 'CHAT'
-  || Boolean(aiStore.activeGenerationMessage)
-  || (Boolean(completedArtifact.value) && !panelDismissed.value),
+    chatMode.value !== 'CHAT'
+    || Boolean(aiStore.activeGenerationMessage)
+    || (Boolean(completedArtifact.value) && !panelDismissed.value),
 )
 const isGenerationDialogOpen = computed(() =>
-  chatMode.value === 'QUESTION' || chatMode.value === 'PAPER',
+    chatMode.value === 'QUESTION' || chatMode.value === 'PAPER',
 )
 const isRightPanelVisible = computed(() =>
-  isQuestionPanelVisible.value || Boolean(aiStore.activeGenerationMessage),
+    isQuestionPanelVisible.value || Boolean(aiStore.activeGenerationMessage),
 )
 const toolPanelMode = computed(() =>
-  chatMode.value === 'CHAT' ? undefined : chatMode.value,
+    chatMode.value === 'CHAT' ? undefined : chatMode.value,
 )
 const isPreviewPanelVisible = computed(() =>
-  !toolPanelMode.value
-  && Boolean(visibleArtifact.value)
-  && !panelDismissed.value,
+    !toolPanelMode.value
+    && Boolean(visibleArtifact.value)
+    && !panelDismissed.value,
 )
 
 watch(chatMode, (mode) => {
@@ -217,9 +217,9 @@ async function generateFromPanel() {
     questionBankId: generation.value.questionBankId || aiStore.context.questionBankId || null,
   }
   const message = generationRequest.requirement
-    || (mode === 'PAPER'
-      ? t('common.ai.workspace.defaultPaperPrompt')
-      : t('common.ai.workspace.defaultQuestionPrompt'))
+      || (mode === 'PAPER'
+          ? t('common.ai.workspace.defaultPaperPrompt')
+          : t('common.ai.workspace.defaultQuestionPrompt'))
   closeTools()
   await aiStore.sendMessage(message, {
     agentMode: mode,

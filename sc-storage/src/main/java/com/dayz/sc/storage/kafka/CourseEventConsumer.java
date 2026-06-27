@@ -30,6 +30,7 @@ import java.util.UUID;
 public class CourseEventConsumer {
 
     private static final String GROUP_ID = "sc-storage";
+    private static final String MINIO_ERROR_NO_SUCH_KEY = "NoSuchKey";
 
     private final StorageObjectMapper storageObjectMapper;
     private final MinioClient minioClient;
@@ -37,16 +38,36 @@ public class CourseEventConsumer {
 
     @KafkaListener(topics = "#{T(com.dayz.sc.common.events.config.KafkaTopicConstants).COURSE_EVENTS}", groupId = "sc-storage")
     public void onCourseEvent(Object event, Acknowledgment ack) {
-        try {
-            if (event instanceof CourseDeletedEvent e) {
-                if (!idempotencyGuard.tryAcquire(GROUP_ID, e.eventId())) {
-                    log.info("Duplicate CourseDeletedEvent skipped: {}", e.eventId());
-                    return;
-                }
-                handleCourseDeleted(e);
-            }
-        } finally {
+        if (!(event instanceof CourseDeletedEvent e)) {
             ack.acknowledge();
+            return;
+        }
+        if (!idempotencyGuard.tryAcquire(GROUP_ID, e.eventId())) {
+            log.info("Duplicate CourseDeletedEvent skipped: {}", e.eventId());
+            ack.acknowledge();
+            return;
+        }
+        try {
+            handleCourseDeleted(e);
+            ack.acknowledge();
+        } catch (RuntimeException exception) {
+            idempotencyGuard.release(GROUP_ID, e.eventId());
+            throw exception;
+        }
+    }
+
+    private void removeObject(StorageObject obj) {
+        try {
+            minioClient.removeObject(RemoveObjectArgs.builder()
+                    .bucket(obj.getBucket())
+                    .object(obj.getObjectKey())
+                    .build());
+        } catch (io.minio.errors.ErrorResponseException ex) {
+            if (!MINIO_ERROR_NO_SUCH_KEY.equals(ex.errorResponse().code())) {
+                throw new IllegalStateException("Failed to delete MinIO object " + obj.getBucket() + "/" + obj.getObjectKey(), ex);
+            }
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to delete MinIO object " + obj.getBucket() + "/" + obj.getObjectKey(), ex);
         }
     }
 
@@ -65,17 +86,8 @@ public class CourseEventConsumer {
         }
 
         // 先逐个删除 MinIO 对象
-        int cleaned = 0;
         for (StorageObject obj : objects) {
-            try {
-                minioClient.removeObject(RemoveObjectArgs.builder()
-                        .bucket(obj.getBucket())
-                        .object(obj.getObjectKey())
-                        .build());
-                cleaned++;
-            } catch (Exception ex) {
-                log.warn("Failed to delete MinIO object {}/{}: {}", obj.getBucket(), obj.getObjectKey(), ex.getMessage());
-            }
+            removeObject(obj);
         }
 
         // 批量更新数据库标记为已删除
@@ -83,6 +95,6 @@ public class CourseEventConsumer {
         Instant now = Instant.now();
         storageObjectMapper.batchUpdateDeleted(ids, StorageObject.DELETED, now);
 
-        log.info("Cleaned up {}/{} storage objects for deleted course: {}", cleaned, objects.size(), event.courseId());
+        log.info("Cleaned up {} storage objects for deleted course: {}", objects.size(), event.courseId());
     }
 }

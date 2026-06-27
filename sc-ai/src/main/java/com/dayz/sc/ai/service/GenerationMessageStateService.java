@@ -11,15 +11,17 @@ import com.dayz.sc.ai.repository.MessageRepository;
 import com.dayz.sc.common.util.UuidV7Generator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
+/**
+ * GenerationMessageStateService.
+ *
+ * @author DaYZ
+ */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -29,6 +31,8 @@ public class GenerationMessageStateService {
     private static final String STATUS_COMPLETED = "completed";
     private static final String STATUS_FAILED = "failed";
     private static final String STATUS_TERMINATED = "terminated";
+    private static final String STATUS_ERROR = "error";
+    private static final String PAYLOAD_KEY_GENERATION_STATUS = "generationStatus";
     private static final String STAGE_RECEIVED = "RECEIVED";
     private static final String STAGE_RESPONDED = "RESPONDED";
     private static final String STAGE_FAILED = "FAILED";
@@ -45,7 +49,7 @@ public class GenerationMessageStateService {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("generationRequestId", requestId);
         payload.put("generationMode", mode.name());
-        payload.put("generationStatus", STATUS_PROCESSING);
+        payload.put(PAYLOAD_KEY_GENERATION_STATUS, STATUS_PROCESSING);
         payload.put("generationStage", STAGE_RECEIVED);
         payload.put("generationStartedAt", now);
         payload.put("generationUpdatedAt", now);
@@ -85,7 +89,7 @@ public class GenerationMessageStateService {
             payload.put("generationRequestId", event.requestId());
             payload.put("generationMode", event.mode());
             payload.put("generationStage", event.stage());
-            payload.put("generationStatus", normalizeStatus(event));
+            payload.put(PAYLOAD_KEY_GENERATION_STATUS, normalizeStatus(event));
             if (!debugStage) {
                 promoteGeneratedQuestions(payload, event);
             }
@@ -123,7 +127,7 @@ public class GenerationMessageStateService {
             payload.put("generationRequestId", requestId);
             payload.put("generationMode", mode.name());
             payload.put("generationStage", STAGE_RESPONDED);
-            payload.put("generationStatus", STATUS_COMPLETED);
+            payload.put(PAYLOAD_KEY_GENERATION_STATUS, STATUS_COMPLETED);
             payload.put("generationUpdatedAt", Instant.now());
             message.setContent(result.content());
             message.setMessageType(result.messageType().name());
@@ -132,11 +136,12 @@ public class GenerationMessageStateService {
         });
     }
 
-    public void markFailed(UUID messageId, String requestId, AiAgentMode mode, String errorMessage) {
+    public void markFailed(UUID messageId, String requestId, AiAgentMode mode, @Nullable String errorMessage) {
         if (messageId == null) {
             return;
         }
         update(messageId, message -> {
+            String safeErrorMessage = Objects.toString(errorMessage, "");
             Map<String, Object> payload = payloadCopy(message.getPayload());
             if (isTerminated(payload)) {
                 return false;
@@ -148,18 +153,18 @@ public class GenerationMessageStateService {
                     STAGE_FAILED,
                     STATUS_FAILED,
                     "Generation failed",
-                    errorMessage,
-                    Map.of("errorMessage", errorMessage),
+                    safeErrorMessage,
+                    Map.of("errorMessage", safeErrorMessage),
                     trace.size(),
                     Instant.now()));
             payload.put("generationTrace", trace);
             payload.put("generationRequestId", requestId);
             payload.put("generationMode", mode.name());
             payload.put("generationStage", STAGE_FAILED);
-            payload.put("generationStatus", STATUS_FAILED);
-            payload.put("generationErrorMessage", errorMessage);
+            payload.put(PAYLOAD_KEY_GENERATION_STATUS, STATUS_FAILED);
+            payload.put("generationErrorMessage", safeErrorMessage);
             payload.put("generationUpdatedAt", Instant.now());
-            message.setContent(errorMessage == null ? "" : errorMessage);
+            message.setContent(safeErrorMessage);
             if (message.getMessageType() == null || AiMessageType.TEXT.name().equals(message.getMessageType())) {
                 message.setMessageType(messageType(mode).name());
             }
@@ -174,7 +179,7 @@ public class GenerationMessageStateService {
         }
         update(messageId, message -> {
             Map<String, Object> payload = payloadCopy(message.getPayload());
-            if (!STATUS_PROCESSING.equals(textValue(payload.get("generationStatus")))) {
+            if (!STATUS_PROCESSING.equals(textValue(payload.get(PAYLOAD_KEY_GENERATION_STATUS)))) {
                 return false;
             }
             Instant now = Instant.now();
@@ -197,7 +202,7 @@ public class GenerationMessageStateService {
             payload.put("generationRequestId", requestId);
             payload.put("generationMode", modeName);
             payload.put("generationStage", STAGE_TERMINATED);
-            payload.put("generationStatus", STATUS_TERMINATED);
+            payload.put(PAYLOAD_KEY_GENERATION_STATUS, STATUS_TERMINATED);
             payload.put("generationTerminatedAt", now);
             payload.put("generationErrorMessage", finalReason);
             payload.put("generationUpdatedAt", now);
@@ -221,7 +226,7 @@ public class GenerationMessageStateService {
     }
 
     private boolean isTerminated(Map<String, Object> payload) {
-        return STATUS_TERMINATED.equals(textValue(payload.get("generationStatus")))
+        return STATUS_TERMINATED.equals(textValue(payload.get(PAYLOAD_KEY_GENERATION_STATUS)))
                 || STAGE_TERMINATED.equals(textValue(payload.get("generationStage")));
     }
 
@@ -237,7 +242,7 @@ public class GenerationMessageStateService {
         List<Object> trace = new ArrayList<>();
         if (value instanceof List<?> list) {
             list.stream()
-                    .filter(item -> item != null)
+                    .filter(Objects::nonNull)
                     .forEach(trace::add);
         }
         return trace;
@@ -271,7 +276,7 @@ public class GenerationMessageStateService {
 
     private boolean isDebugStage(GenerationStageEvent event) {
         Map<String, Object> payload = event.payload();
-        Object detailType = payload == null ? null : payload.get("detailType");
+        Object detailType = payload.get("detailType");
         return DETAIL_RAW_AI_OUTPUT.equals(detailType == null ? null : detailType.toString());
     }
 
@@ -284,7 +289,7 @@ public class GenerationMessageStateService {
             return;
         }
         Map<String, Object> eventPayload = event.payload();
-        Object questions = eventPayload == null ? null : eventPayload.get("questions");
+        Object questions = eventPayload.get("questions");
         if (questions instanceof List<?> list) {
             payload.put("questions", Boolean.TRUE.equals(eventPayload.get("questionDelta"))
                     ? appendQuestions(payload.get("questions"), list)
@@ -307,10 +312,10 @@ public class GenerationMessageStateService {
 
     private String normalizeStatus(GenerationStageEvent event) {
         String status = event.status();
-        if (STAGE_FAILED.equals(event.stage()) || "error".equals(status)) {
+        if (STAGE_FAILED.equals(event.stage()) || STATUS_ERROR.equals(status)) {
             return STATUS_FAILED;
         }
-        return status == null || status.isBlank() ? STATUS_PROCESSING : status;
+        return status.isBlank() ? STATUS_PROCESSING : status;
     }
 
     private Map<String, Object> receivedTraceEntry(String requestId, AiAgentMode mode, Instant timestamp) {
@@ -340,14 +345,14 @@ public class GenerationMessageStateService {
     }
 
     private Map<String, Object> stageTraceEntry(String requestId,
-                                               String mode,
-                                               String stage,
-                                               String status,
-                                               String title,
-                                               String summary,
-                                               Map<String, Object> payload,
-                                               int index,
-                                               Instant timestamp) {
+                                                String mode,
+                                                String stage,
+                                                String status,
+                                                String title,
+                                                String summary,
+                                                Map<String, Object> payload,
+                                                int index,
+                                                Instant timestamp) {
         Map<String, Object> entry = new LinkedHashMap<>();
         entry.put("entryId", (requestId == null ? "generation" : requestId) + "-" + stage + "-" + index);
         entry.put("stage", stage);
@@ -390,7 +395,7 @@ public class GenerationMessageStateService {
         return AiMessageType.TEXT;
     }
 
-    private Map<String, Object> generationPayload(GenerationRequest request) {
+    private Map<String, Object> generationPayload(@Nullable GenerationRequest request) {
         Map<String, Object> payload = new LinkedHashMap<>();
         if (request == null) {
             return payload;
@@ -411,8 +416,18 @@ public class GenerationMessageStateService {
         return payload;
     }
 
+    /**
+     * 消息变更器函数接口
+     */
     @FunctionalInterface
     private interface GenerationMessageMutator {
+
+        /**
+         * 变更消息实体
+         *
+         * @param message 消息实体
+         * @return 是否发生了变更
+         */
         boolean mutate(ChatMessage message);
     }
 

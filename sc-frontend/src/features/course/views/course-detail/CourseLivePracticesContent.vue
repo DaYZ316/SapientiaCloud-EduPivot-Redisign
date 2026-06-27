@@ -2,48 +2,54 @@
   <section class="tab-panel live-practice-page">
     <header class="panel-header">
       <div>
-        <span>{{ canManageCourse ? t('courseDetail.livePractice.kicker') : t('courseDetail.livePractice.workbookKicker') }}</span>
-        <h2>{{ canManageCourse ? t('courseDetail.livePractice.title') : t('courseDetail.livePractice.workbookTitle') }}</h2>
+        <span>{{
+            canManageCourse ? t('courseDetail.livePractice.kicker') : t('courseDetail.livePractice.workbookKicker')
+          }}</span>
+        <h2>{{
+            canManageCourse ? t('courseDetail.livePractice.title') : t('courseDetail.livePractice.workbookTitle')
+          }}</h2>
         <p>
-          {{ canManageCourse ? t('courseDetail.livePractice.teacherDescription') : t('courseDetail.livePractice.studentDescription') }}
+          {{
+            canManageCourse ? t('courseDetail.livePractice.teacherDescription') : t('courseDetail.livePractice.studentDescription')
+          }}
         </p>
       </div>
       <button
-        class="btn-secondary refresh-button"
-        type="button"
-        @click="loadData"
+          class="btn-secondary refresh-button"
+          type="button"
+          @click="loadData"
       >
         {{ t('courseDetail.livePractice.refresh') }}
       </button>
     </header>
 
     <div
-      v-if="loading"
+        v-if="loading"
     >
       <CourseTabLoadingSkeleton :count="2" variant="practice"/>
     </div>
     <div
-      v-else-if="loadFailed"
-      class="state-block"
+        v-else-if="loadFailed"
+        class="state-block"
     >
       <p>{{ t('courseDetail.livePractice.loadFailed') }}</p>
       <button
-        class="btn-secondary"
-        type="button"
-        @click="loadData"
+          class="btn-secondary"
+          type="button"
+          @click="loadData"
       >
         {{ t('courseDetail.livePractice.retry') }}
       </button>
     </div>
 
     <div
-      v-else-if="canManageCourse"
-      class="practice-sessions"
+        v-else-if="canManageCourse"
+        class="practice-sessions"
     >
       <section
-        v-for="sessionGroup in teacherSessionGroups"
-        :key="sessionGroup.classSessionId"
-        class="practice-session"
+          v-for="sessionGroup in teacherSessionGroups"
+          :key="sessionGroup.classSessionId"
+          class="practice-session"
       >
         <header class="session-header">
           <div>
@@ -56,26 +62,28 @@
 
         <div class="teacher-groups">
           <article
-            v-for="group in sessionGroup.groups"
-            :key="group.id"
-            class="group-card"
+              v-for="group in sessionGroup.groups"
+              :key="group.id"
+              class="group-card"
           >
             <div class="group-header">
               <button
-                class="group-toggle"
-                type="button"
-                :aria-expanded="expandedGroupIds.has(group.id)"
-                :aria-label="groupToggleLabel(group.id)"
-                @click="toggleGroup(group.id)"
+                  :aria-expanded="expandedGroupIds.has(group.id)"
+                  :aria-label="groupToggleLabel(group.id)"
+                  class="group-toggle"
+                  type="button"
+                  @click="toggleGroup(group.id)"
               >
                 <ChevronRight
-                  class="toggle-icon"
-                  :class="{expanded: expandedGroupIds.has(group.id)}"
-                  :size="18"
-                  stroke-width="2"
+                    :class="{expanded: expandedGroupIds.has(group.id)}"
+                    :size="18"
+                    class="toggle-icon"
+                    stroke-width="2"
                 />
                 <span class="group-main">
-                  <span>{{ t('courseDetail.livePractice.groupOrder', {order: group.publishOrder}) }} · {{ formatDateTime(group.publishedAt) }}</span>
+                  <span>{{
+                      t('courseDetail.livePractice.groupOrder', {order: group.publishOrder})
+                    }} · {{ formatDateTime(group.publishedAt) }}</span>
                   <strong>{{ group.title }}</strong>
                 </span>
               </button>
@@ -83,50 +91,60 @@
                 <span>{{ t('courseDetail.livePractice.questionCount', {count: group.totalQuestions}) }}</span>
                 <strong>{{ group.submittedStudents }}/{{ group.totalStudents }}</strong>
                 <button
-                  class="btn-secondary compact"
-                  type="button"
-                  @click="openGroupDetail(group.id)"
+                    class="btn-secondary compact"
+                    type="button"
+                    @click="openGroupDetail(group.id)"
                 >
                   {{ t('courseDetail.livePractice.viewDetail') }}
                 </button>
               </div>
             </div>
             <div
-              v-if="expandedGroupIds.has(group.id)"
-              class="question-list"
+                v-if="expandedGroupIds.has(group.id)"
+                class="question-list"
             >
               <article
-                v-for="question in group.questions || []"
-                :key="question.id"
-                class="question-card"
+                  v-for="question in group.questions || []"
+                  :key="question.id"
+                  class="question-card"
               >
                 <h5>{{ question.questionOrder }}. {{ question.questionTitle }}</h5>
                 <p v-if="question.questionContent">
                   {{ question.questionContent }}
                 </p>
                 <div
-                  v-if="question.analysis"
-                  class="metric-row"
+                    v-if="question.analysis"
+                    class="metric-row"
                 >
-                  <span>{{ t('courseDetail.livePractice.submittedCount', {count: question.analysis.submittedCount}) }}</span>
-                  <span>{{ t('courseDetail.livePractice.lateSubmittedCount', {count: question.analysis.lateSubmittedCount}) }}</span>
-                  <span>{{ t('courseDetail.livePractice.notSubmittedCount', {count: question.analysis.notSubmittedCount}) }}</span>
-                  <span>{{ t('courseDetail.livePractice.correctCount', {count: question.analysis.correctCount}) }}</span>
-                  <span>{{ t('courseDetail.livePractice.averageScore', {score: question.analysis.averageScore}) }}</span>
+                  <span>{{
+                      t('courseDetail.livePractice.submittedCount', {count: question.analysis.submittedCount})
+                    }}</span>
+                  <span>{{
+                      t('courseDetail.livePractice.lateSubmittedCount', {count: question.analysis.lateSubmittedCount})
+                    }}</span>
+                  <span>{{
+                      t('courseDetail.livePractice.notSubmittedCount', {count: question.analysis.notSubmittedCount})
+                    }}</span>
+                  <span>{{
+                      t('courseDetail.livePractice.correctCount', {count: question.analysis.correctCount})
+                    }}</span>
+                  <span>{{
+                      t('courseDetail.livePractice.averageScore', {score: question.analysis.averageScore})
+                    }}</span>
                 </div>
                 <div
-                  v-if="question.analysis && Object.keys(question.analysis.optionCounts).length"
-                  class="option-counts"
+                    v-if="question.analysis && Object.keys(question.analysis.optionCounts).length"
+                    class="option-counts"
                 >
                   <span
-                    v-for="(count, label) in question.analysis.optionCounts"
-                    :key="label"
+                      v-for="(count, label) in question.analysis.optionCounts"
+                      :key="label"
                   >{{ label }} {{ count }}</span>
                 </div>
               </article>
               <div
-                v-if="!group.questions?.length"
-                class="empty-list"
+                  v-if="!group.questions?.length"
+                  class="empty-list"
               >
                 {{ t('courseDetail.livePractice.emptyQuestions') }}
               </div>
@@ -135,21 +153,21 @@
         </div>
       </section>
       <div
-        v-if="teacherGroups.length === 0"
-        class="empty-practice"
+          v-if="teacherGroups.length === 0"
+          class="empty-practice"
       >
         {{ t('courseDetail.livePractice.emptyTeacher') }}
       </div>
     </div>
 
     <div
-      v-else
-      class="workbook-list"
+        v-else
+        class="workbook-list"
     >
       <section
-        v-for="sessionGroup in workbookSessionGroups"
-        :key="sessionGroup.classSessionId"
-        class="practice-session"
+          v-for="sessionGroup in workbookSessionGroups"
+          :key="sessionGroup.classSessionId"
+          class="practice-session"
       >
         <header class="session-header">
           <div>
@@ -162,23 +180,23 @@
 
         <div class="workbook-items">
           <article
-            v-for="group in sessionGroup.groups"
-            :key="group.groupId"
-            class="workbook-card"
+              v-for="group in sessionGroup.groups"
+              :key="group.groupId"
+              class="workbook-card"
           >
             <div class="workbook-meta">
               <button
-                class="group-toggle"
-                type="button"
-                :aria-expanded="expandedGroupIds.has(group.groupId)"
-                :aria-label="groupToggleLabel(group.groupId)"
-                @click="toggleGroup(group.groupId)"
+                  :aria-expanded="expandedGroupIds.has(group.groupId)"
+                  :aria-label="groupToggleLabel(group.groupId)"
+                  class="group-toggle"
+                  type="button"
+                  @click="toggleGroup(group.groupId)"
               >
                 <ChevronRight
-                  class="toggle-icon"
-                  :class="{expanded: expandedGroupIds.has(group.groupId)}"
-                  :size="18"
-                  stroke-width="2"
+                    :class="{expanded: expandedGroupIds.has(group.groupId)}"
+                    :size="18"
+                    class="toggle-icon"
+                    stroke-width="2"
                 />
                 <span class="group-main">
                   <span>{{ t('courseDetail.livePractice.groupOrder', {order: group.publishOrder}) }}</span>
@@ -187,11 +205,13 @@
               </button>
               <div class="group-summary">
                 <span>{{ t('courseDetail.livePractice.questionCount', {count: group.items.length}) }}</span>
-                <span>{{ t('courseDetail.livePractice.deadlineAt', {time: formatDateTime(group.availableEndAt)}) }}</span>
+                <span>{{
+                    t('courseDetail.livePractice.deadlineAt', {time: formatDateTime(group.availableEndAt)})
+                  }}</span>
                 <button
-                  class="btn-secondary compact"
-                  type="button"
-                  @click="openGroupDetail(group.groupId)"
+                    class="btn-secondary compact"
+                    type="button"
+                    @click="openGroupDetail(group.groupId)"
                 >
                   {{ t('courseDetail.livePractice.viewDetail') }}
                 </button>
@@ -199,13 +219,13 @@
             </div>
 
             <div
-              v-if="expandedGroupIds.has(group.groupId)"
-              class="workbook-question-list"
+                v-if="expandedGroupIds.has(group.groupId)"
+                class="workbook-question-list"
             >
               <article
-                v-for="item in group.items"
-                :key="item.question.id"
-                class="question-card"
+                  v-for="item in group.items"
+                  :key="item.question.id"
+                  class="question-card"
               >
                 <div class="workbook-meta">
                   <span>{{ item.question.questionOrder }}. {{ item.question.questionTitle }}</span>
@@ -216,12 +236,14 @@
                 </p>
                 <div class="metric-row">
                   <span>{{ t('courseDetail.livePractice.scorePoints', {score: item.question.score}) }}</span>
-                  <span v-if="item.submission">{{ t('courseDetail.livePractice.earnedScore', {score: item.submission.earnedScore}) }}</span>
+                  <span v-if="item.submission">{{
+                      t('courseDetail.livePractice.earnedScore', {score: item.submission.earnedScore})
+                    }}</span>
                 </div>
               </article>
               <div
-                v-if="!group.items.length"
-                class="empty-list"
+                  v-if="!group.items.length"
+                  class="empty-list"
               >
                 {{ t('courseDetail.livePractice.emptyQuestions') }}
               </div>
@@ -230,8 +252,8 @@
         </div>
       </section>
       <div
-        v-if="workbookItems.length === 0"
-        class="empty-practice"
+          v-if="workbookItems.length === 0"
+          class="empty-practice"
       >
         {{ t('courseDetail.livePractice.emptyStudent') }}
       </div>
@@ -415,8 +437,8 @@ function toggleGroup(groupId: string) {
 
 function groupToggleLabel(groupId: string) {
   return expandedGroupIds.value.has(groupId)
-    ? t('courseDetail.livePractice.collapseGroup')
-    : t('courseDetail.livePractice.expandGroup')
+      ? t('courseDetail.livePractice.collapseGroup')
+      : t('courseDetail.livePractice.expandGroup')
 }
 
 function openGroupDetail(groupId: string) {

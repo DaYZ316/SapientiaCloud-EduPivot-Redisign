@@ -1,8 +1,8 @@
 <template>
   <span
-    ref="anchorRef"
-    aria-hidden="true"
-    class="ai-brush-effect"
+      ref="anchorRef"
+      aria-hidden="true"
+      class="ai-brush-effect"
   />
 </template>
 

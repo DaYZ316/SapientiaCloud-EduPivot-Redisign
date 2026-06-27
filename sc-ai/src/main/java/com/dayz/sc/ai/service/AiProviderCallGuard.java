@@ -5,6 +5,11 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
+/**
+ * AiProviderCallGuard.
+ *
+ * @author DaYZ
+ */
 @Component
 public class AiProviderCallGuard {
 

@@ -13,6 +13,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -20,10 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 /**
  * CourseEventPublisherTest 相关定义
@@ -105,6 +104,30 @@ class CourseEventPublisherTest {
         assertThat(event.teacherId()).isEqualTo(course.getTeacherId());
         assertThat(event.eventType()).isEqualTo("COURSE_DELETED");
         assertThat(event.source()).isEqualTo("sc-course");
+    }
+
+    @Test
+    void publishCourseDeleted_shouldSendAfterTransactionCommit() {
+        Course course = createCourse();
+        CompletableFuture<SendResult<String, Object>> future = CompletableFuture.completedFuture(null);
+        when(kafkaTemplate.send(eq(KafkaTopicConstants.COURSE_EVENTS), eq(course.getId().toString()), any()))
+                .thenReturn(future);
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            courseEventPublisher.publishCourseDeleted(course);
+
+            verify(kafkaTemplate, never()).send(any(), any(), any());
+
+            for (TransactionSynchronization synchronization : TransactionSynchronizationManager.getSynchronizations()) {
+                synchronization.afterCommit();
+            }
+
+            verify(kafkaTemplate).send(eq(KafkaTopicConstants.COURSE_EVENTS), eq(course.getId().toString()), courseDeletedEventCaptor.capture());
+            assertThat(courseDeletedEventCaptor.getValue().eventType()).isEqualTo("COURSE_DELETED");
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test

@@ -2,6 +2,11 @@ package com.dayz.sc.common.feign.dto;
 
 import java.util.Map;
 
+/**
+ * AgentSearchItem.
+ *
+ * @author DaYZ
+ */
 public record AgentSearchItem(
         String sourceType,
         String sourceLabel,

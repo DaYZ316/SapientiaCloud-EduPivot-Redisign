@@ -1,17 +1,17 @@
 <template>
   <button
-    :aria-label="ariaLabel"
-    :class="{'is-dragging': isDragging}"
-    :disabled="isTransitioning"
-    :style="launcherStyle"
-    :title="ariaLabel"
-    class="ai-trail-launcher"
-    type="button"
-    @click="handleClick"
-    @pointercancel="handlePointerCancel"
-    @pointerdown="handlePointerDown"
-    @pointermove="handlePointerMove"
-    @pointerup="handlePointerUp"
+      :aria-label="ariaLabel"
+      :class="{'is-dragging': isDragging}"
+      :disabled="isTransitioning"
+      :style="launcherStyle"
+      :title="ariaLabel"
+      class="ai-trail-launcher"
+      type="button"
+      @click="handleClick"
+      @pointercancel="handlePointerCancel"
+      @pointerdown="handlePointerDown"
+      @pointermove="handlePointerMove"
+      @pointerup="handlePointerUp"
   >
     <span>AI</span>
   </button>
@@ -215,7 +215,7 @@ function playReturnTransition() {
   return playPositionTransition(startPosition, endPosition)
 }
 
-function placeAtCenter(center: LauncherCenter, options: {persist?: boolean; snapToEdge?: boolean} = {}) {
+function placeAtCenter(center: LauncherCenter, options: { persist?: boolean; snapToEdge?: boolean } = {}) {
   position.value = positionFromCenter(center, {snapToEdge: options.snapToEdge ?? false})
   LegendaryCursor.setAutoPilotCenter(getCenter(position.value))
   if (options.persist) {
@@ -309,7 +309,7 @@ function getCenterPosition(): LauncherPosition {
   })
 }
 
-function positionFromCenter(center: LauncherCenter, options: {snapToEdge?: boolean} = {}) {
+function positionFromCenter(center: LauncherCenter, options: { snapToEdge?: boolean } = {}) {
   const {size} = getMetrics()
   const nextPosition = clampPosition({
     left: center.x - size / 2,
@@ -371,13 +371,13 @@ function sampleMomentumPath(path: MomentumPath, amount: number): LauncherPositio
 
   return {
     left: path.start.left * firstWeight
-      + path.controlOne.left * secondWeight
-      + path.controlTwo.left * thirdWeight
-      + path.end.left * fourthWeight,
+        + path.controlOne.left * secondWeight
+        + path.controlTwo.left * thirdWeight
+        + path.end.left * fourthWeight,
     top: path.start.top * firstWeight
-      + path.controlOne.top * secondWeight
-      + path.controlTwo.top * thirdWeight
-      + path.end.top * fourthWeight,
+        + path.controlOne.top * secondWeight
+        + path.controlTwo.top * thirdWeight
+        + path.end.top * fourthWeight,
   }
 }
 
@@ -446,8 +446,8 @@ function clamp(value: number, min: number, max: number) {
 
 function easeInOutCubic(value: number) {
   return value < 0.5
-    ? 4 * value * value * value
-    : 1 - Math.pow(-2 * value + 2, 3) / 2
+      ? 4 * value * value * value
+      : 1 - Math.pow(-2 * value + 2, 3) / 2
 }
 
 function readStoredPosition() {
@@ -475,11 +475,11 @@ function persistPosition(nextPosition: LauncherPosition) {
 function isLauncherPosition(value: unknown): value is LauncherPosition {
   if (!value || typeof value !== 'object') return false
 
-  const maybePosition = value as {left?: unknown; top?: unknown}
+  const maybePosition = value as { left?: unknown; top?: unknown }
   return typeof maybePosition.left === 'number'
-    && Number.isFinite(maybePosition.left)
-    && typeof maybePosition.top === 'number'
-    && Number.isFinite(maybePosition.top)
+      && Number.isFinite(maybePosition.left)
+      && typeof maybePosition.top === 'number'
+      && Number.isFinite(maybePosition.top)
 }
 
 defineExpose({

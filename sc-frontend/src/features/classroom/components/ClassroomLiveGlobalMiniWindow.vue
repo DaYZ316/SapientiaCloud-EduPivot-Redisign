@@ -1,16 +1,16 @@
 <template>
   <ClassroomLiveMiniWindow
-    v-if="liveMini.active && liveMini.session"
-    :can-participate="liveMini.canParticipate"
-    :is-teacher="liveMini.isTeacher"
-    :session="liveMini.session"
-    @close="handleClose"
-    @expand="returnToLivePage"
-    @session-change="liveMini.updateSession"
+      v-if="liveMini.active && liveMini.session"
+      :can-participate="liveMini.canParticipate"
+      :is-teacher="liveMini.isTeacher"
+      :session="liveMini.session"
+      @close="handleClose"
+      @expand="returnToLivePage"
+      @session-change="liveMini.updateSession"
   />
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import {onMounted, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 

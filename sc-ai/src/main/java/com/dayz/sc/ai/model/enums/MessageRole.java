@@ -8,12 +8,18 @@ package com.dayz.sc.ai.model.enums;
  */
 public enum MessageRole {
 
-    /** 用户消息 */
+    /**
+     * 用户消息
+     */
     USER,
 
-    /** AI 助手回复 */
+    /**
+     * AI 助手回复
+     */
     ASSISTANT,
 
-    /** 系统提示 */
+    /**
+     * 系统提示
+     */
     SYSTEM
 }

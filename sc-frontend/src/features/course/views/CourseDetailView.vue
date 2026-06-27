@@ -106,8 +106,8 @@
                 v-for="tab in visibleTabs"
                 :key="tab.key"
                 :class="{active: activeTabKey === tab.key}"
-                :to="'/courses/' + courseId + '/' + tab.key"
                 :title="tab.description"
+                :to="'/courses/' + courseId + '/' + tab.key"
                 class="tab-btn"
             >
               {{ tab.label }}
@@ -147,8 +147,8 @@
               :students-loaded="studentsLoaded"
               :students-total="studentsTotal"
               v-bind="activeListPaginationProps"
-              @refresh="reloadActiveTabData"
               @enroll="handlePrimaryAction"
+              @refresh="reloadActiveTabData"
               @open-class-session-creator="openClassSessionCreator"
               @open-chapter-editor="openChapterEditor"
               @select-chapter="handleChapterSelect"
@@ -514,8 +514,8 @@ const tabs = computed(() => [
     key: 'live-practices' as const,
     label: canManageCourse.value ? t('courseDetail.livePractice.teacherTab') : t('courseDetail.livePractice.studentTab'),
     description: canManageCourse.value
-      ? t('courseDetail.livePractice.teacherDescription')
-      : t('courseDetail.livePractice.studentDescription'),
+        ? t('courseDetail.livePractice.teacherDescription')
+        : t('courseDetail.livePractice.studentDescription'),
     icon: ClipboardList,
     roles: [0, 1, 2],
     requiresViewLivePractices: true,
@@ -620,12 +620,12 @@ const activeListPaginationProps = computed(() => {
 })
 
 watch(
-  courseId,
-  (newCourseId, oldCourseId) => {
-    if (newCourseId !== oldCourseId) resetCourseData()
-    void loadCourseDetail(newCourseId)
-  },
-  {immediate: true},
+    courseId,
+    (newCourseId, oldCourseId) => {
+      if (newCourseId !== oldCourseId) resetCourseData()
+      void loadCourseDetail(newCourseId)
+    },
+    {immediate: true},
 )
 
 watch(activeTabKey, () => {

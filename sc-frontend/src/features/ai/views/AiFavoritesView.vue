@@ -7,41 +7,41 @@
       </header>
 
       <div
-        v-if="aiStore.loadingConversations"
-        class="history-state"
+          v-if="aiStore.loadingConversations"
+          class="history-state"
       >
         {{ t('common.ai.history.loading') }}
       </div>
 
       <div
-        v-else-if="visibleGroups.length === 0"
-        class="history-state"
+          v-else-if="visibleGroups.length === 0"
+          class="history-state"
       >
         {{ t('common.ai.favorites.empty') }}
       </div>
 
       <div
-        v-else
-        class="history-groups"
+          v-else
+          class="history-groups"
       >
         <section
-          v-for="group in visibleGroups"
-          :key="group.kind"
-          class="history-group"
+            v-for="group in visibleGroups"
+            :key="group.kind"
+            class="history-group"
         >
           <h2>{{ group.label }}</h2>
           <div class="history-list">
             <button
-              v-for="(conversation, index) in group.items"
-              :key="conversation.id"
-              class="history-row"
-              type="button"
-              @click="openConversation(conversation.id)"
+                v-for="(conversation, index) in group.items"
+                :key="conversation.id"
+                class="history-row"
+                type="button"
+                @click="openConversation(conversation.id)"
             >
               <component
-                :is="rowIcon(index)"
-                :size="14"
-                stroke-width="1.8"
+                  :is="rowIcon(index)"
+                  :size="14"
+                  stroke-width="1.8"
               />
               <span>{{ conversation.title }}</span>
               <time>{{ formatConversationTime(conversation.updatedAt, group.kind) }}</time>
@@ -51,9 +51,9 @@
       </div>
 
       <div
-        v-if="visibleGroups.length > 0"
-        ref="paginationSentinelRef"
-        class="history-pagination"
+          v-if="visibleGroups.length > 0"
+          ref="paginationSentinelRef"
+          class="history-pagination"
       >
         <span v-if="aiStore.loadingMoreConversations">{{ t('common.ai.history.loadingMore') }}</span>
       </div>
@@ -117,11 +117,11 @@ const visibleGroups = computed(() => {
 })
 
 const updatedFavoriteConversations = computed(() =>
-  aiStore.conversations
-    .filter(conversation => conversation.favorited)
-    .sort((left, right) =>
-      new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
-    ),
+    aiStore.conversations
+        .filter(conversation => conversation.favorited)
+        .sort((left, right) =>
+            new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
+        ),
 )
 
 onMounted(async () => {
@@ -187,8 +187,8 @@ function isYesterday(date: Date) {
 
 function isSameDay(left: Date, right: Date) {
   return left.getFullYear() === right.getFullYear()
-    && left.getMonth() === right.getMonth()
-    && left.getDate() === right.getDate()
+      && left.getMonth() === right.getMonth()
+      && left.getDate() === right.getDate()
 }
 
 function formatConversationTime(value: string, kind: HistoryGroupKind) {

@@ -1,67 +1,67 @@
 <template>
   <aside
-    :class="{'is-embedded': embedded}"
-    class="generation-trace-panel"
+      :class="{'is-embedded': embedded}"
+      class="generation-trace-panel"
   >
     <header
-      v-if="!embedded"
-      class="trace-header"
+        v-if="!embedded"
+        class="trace-header"
     >
       <div>
         <span>{{ kindLabel }}</span>
         <h2>{{ panelTitle }}</h2>
       </div>
       <button
-        class="trace-close"
-        :title="t('common.ai.generationTrace.close')"
-        type="button"
-        @click="$emit('close')"
+          :title="t('common.ai.generationTrace.close')"
+          class="trace-close"
+          type="button"
+          @click="$emit('close')"
       >
         <X
-          :size="16"
-          stroke-width="1.9"
+            :size="16"
+            stroke-width="1.9"
         />
       </button>
     </header>
 
     <div
-      ref="bodyRef"
-      class="trace-body"
+        ref="bodyRef"
+        class="trace-body"
     >
       <div
-        v-if="visibleEntries.length"
-        class="trace-flow"
+          v-if="visibleEntries.length"
+          class="trace-flow"
       >
         <article
-          v-for="(entry, index) in visibleEntries"
-          :key="entry.entryId || `${entry.stage}-${index}`"
-          :class="{'is-last': index === visibleEntries.length - 1}"
-          class="trace-step"
+            v-for="(entry, index) in visibleEntries"
+            :key="entry.entryId || `${entry.stage}-${index}`"
+            :class="{'is-last': index === visibleEntries.length - 1}"
+            class="trace-step"
         >
           <div
-            aria-hidden="true"
-            class="trace-rail"
+              aria-hidden="true"
+              class="trace-rail"
           >
-            <span />
+            <span/>
           </div>
 
           <div class="trace-content">
             <span class="trace-stage">{{ stageLabel(entry.stage) }}</span>
             <h3>{{ entryTitle(entry) }}</h3>
             <AiMarkdownMessage
-              v-if="entry.summary"
-              :content="entry.summary"
-              class="trace-markdown trace-summary"
+                v-if="entry.summary"
+                :content="entry.summary"
+                class="trace-markdown trace-summary"
             />
 
             <div
-              v-if="entryMetrics(entry).length"
-              class="trace-metrics"
+                v-if="entryMetrics(entry).length"
+                class="trace-metrics"
             >
               <span
-                v-for="metric in entryMetrics(entry)"
-                :key="metric.label"
-                class="trace-metric"
+                  v-for="metric in entryMetrics(entry)"
+                  :key="metric.label"
+                  class="trace-metric"
               >
                 <small>{{ metric.label }}</small>
                 <strong>{{ metric.value }}</strong>
@@ -69,36 +69,36 @@
             </div>
 
             <p
-              v-if="strategyText(entry)"
-              class="trace-note"
+                v-if="strategyText(entry)"
+                class="trace-note"
             >
               {{ strategyText(entry) }}
             </p>
 
             <div
-              v-if="webSources(entry).length"
-              class="trace-web-sources"
+                v-if="webSources(entry).length"
+                class="trace-web-sources"
             >
               <a
-                v-for="(source, sourceIndex) in webSources(entry)"
-                :key="source.url || `${source.site}-${source.title}-${sourceIndex}`"
-                :href="source.url"
-                :title="source.title"
-                class="trace-web-source"
-                rel="noopener noreferrer"
-                target="_blank"
+                  v-for="(source, sourceIndex) in webSources(entry)"
+                  :key="source.url || `${source.site}-${source.title}-${sourceIndex}`"
+                  :href="source.url"
+                  :title="source.title"
+                  class="trace-web-source"
+                  rel="noopener noreferrer"
+                  target="_blank"
               >
                 <img
-                  v-if="source.favicon"
-                  :src="source.favicon"
-                  alt=""
-                  class="trace-web-source__icon"
-                  loading="lazy"
+                    v-if="source.favicon"
+                    :src="source.favicon"
+                    alt=""
+                    class="trace-web-source__icon"
+                    loading="lazy"
                 >
                 <span
-                  v-else
-                  aria-hidden="true"
-                  class="trace-web-source__icon trace-web-source__icon--fallback"
+                    v-else
+                    aria-hidden="true"
+                    class="trace-web-source__icon trace-web-source__icon--fallback"
                 >
                   {{ sourceFallback(source) }}
                 </span>
@@ -108,23 +108,23 @@
             </div>
 
             <div
-              v-if="entrySections(entry).length"
-              class="trace-section-grid"
+                v-if="entrySections(entry).length"
+                class="trace-section-grid"
             >
               <article
-                v-for="section in entrySections(entry)"
-                :key="section.key"
-                class="trace-mini-card"
+                  v-for="section in entrySections(entry)"
+                  :key="section.key"
+                  class="trace-mini-card"
               >
                 <h4>{{ section.title }}</h4>
                 <div
-                  v-if="section.metrics.length"
-                  class="trace-chip-row"
+                    v-if="section.metrics.length"
+                    class="trace-chip-row"
                 >
                   <span
-                    v-for="metric in section.metrics"
-                    :key="metric.label"
-                    class="trace-chip"
+                      v-for="metric in section.metrics"
+                      :key="metric.label"
+                      class="trace-chip"
                   >
                     {{ metric.label }}: {{ metric.value }}
                   </span>
@@ -136,20 +136,20 @@
             </div>
 
             <div
-              v-if="entryDistributions(entry).length"
-              class="trace-distributions"
+                v-if="entryDistributions(entry).length"
+                class="trace-distributions"
             >
               <article
-                v-for="distribution in entryDistributions(entry)"
-                :key="distribution.title"
-                class="trace-mini-card"
+                  v-for="distribution in entryDistributions(entry)"
+                  :key="distribution.title"
+                  class="trace-mini-card"
               >
                 <h4>{{ distribution.title }}</h4>
                 <div class="trace-chip-row">
                   <span
-                    v-for="item in distribution.items"
-                    :key="item.label"
-                    class="trace-chip"
+                      v-for="item in distribution.items"
+                      :key="item.label"
+                      class="trace-chip"
                   >
                     {{ item.label }}: {{ item.value }}
                   </span>
@@ -158,26 +158,28 @@
             </div>
 
             <div
-              v-if="knowledgeCoverage(entry)"
-              class="trace-mini-card"
+                v-if="knowledgeCoverage(entry)"
+                class="trace-mini-card"
             >
               <h4>{{ t('common.ai.generationTrace.labels.topicCoverage') }}</h4>
               <p v-if="knowledgeCoverage(entry)?.requested.length">
-                {{ t('common.ai.generationTrace.labels.requested') }}: {{ formatList(knowledgeCoverage(entry)?.requested || []) }}
+                {{ t('common.ai.generationTrace.labels.requested') }}:
+                {{ formatList(knowledgeCoverage(entry)?.requested || []) }}
               </p>
               <p v-if="knowledgeCoverage(entry)?.generated.length">
-                {{ t('common.ai.generationTrace.labels.generated') }}: {{ formatList(knowledgeCoverage(entry)?.generated || []) }}
+                {{ t('common.ai.generationTrace.labels.generated') }}:
+                {{ formatList(knowledgeCoverage(entry)?.generated || []) }}
               </p>
             </div>
 
             <div
-              v-if="entryIssues(entry).length"
-              class="trace-issue-list"
+                v-if="entryIssues(entry).length"
+                class="trace-issue-list"
             >
               <article
-                v-for="issue in entryIssues(entry)"
-                :key="issue.key"
-                class="trace-issue"
+                  v-for="issue in entryIssues(entry)"
+                  :key="issue.key"
+                  class="trace-issue"
               >
                 <div>
                   <span v-if="issue.code">{{ issue.code }}</span>
@@ -188,93 +190,105 @@
             </div>
 
             <div
-              v-if="entryQuestions(entry).length"
-              class="trace-question-list"
+                v-if="entryQuestions(entry).length"
+                class="trace-question-list"
             >
               <article
-                v-for="question in entryQuestions(entry)"
-                :key="question.key"
-                class="trace-question-card"
+                  v-for="question in entryQuestions(entry)"
+                  :key="question.key"
+                  class="trace-question-card"
               >
                 <header>
                   <h4>{{ question.title }}</h4>
                   <div class="trace-chip-row">
                     <span
-                      v-for="metric in question.metrics"
-                      :key="metric.label"
-                      class="trace-chip"
+                        v-for="metric in question.metrics"
+                        :key="metric.label"
+                        class="trace-chip"
                     >
                       {{ metric.label }}: {{ metric.value }}
                     </span>
                   </div>
                 </header>
                 <div
-                  v-if="question.tags.length"
-                  class="trace-tag-row"
+                    v-if="question.tags.length"
+                    class="trace-tag-row"
                 >
                   <span
-                    v-for="tag in question.tags"
-                    :key="tag"
+                      v-for="tag in question.tags"
+                      :key="tag"
                   >
                     {{ tag }}
                   </span>
                 </div>
                 <AiMarkdownMessage
-                  v-if="question.content"
-                  :content="question.content"
-                  class="trace-markdown trace-question-content"
+                    v-if="question.content"
+                    :content="question.content"
+                    class="trace-markdown trace-question-content"
                 />
                 <ol
-                  v-if="question.options.length"
-                  class="trace-option-list"
+                    v-if="question.options.length"
+                    class="trace-option-list"
                 >
                   <li
-                    v-for="option in question.options"
-                    :key="option.key"
-                    :class="{'is-correct': option.correct}"
+                      v-for="option in question.options"
+                      :key="option.key"
+                      :class="{'is-correct': option.correct}"
                   >
                     <strong>{{ option.label }}</strong>
                     <AiMarkdownMessage
-                      :content="option.content"
-                      class="trace-markdown trace-option-content"
+                        :content="option.content"
+                        class="trace-markdown trace-option-content"
                     />
-                    <span>{{ option.correct ? t('common.ai.generationTrace.labels.correct') : t('common.ai.generationTrace.labels.incorrect') }}</span>
-                    <small v-if="option.score">{{ t('common.ai.generationTrace.labels.score') }}: {{ option.score }}</small>
+                    <span>{{
+                        option.correct ? t('common.ai.generationTrace.labels.correct') : t('common.ai.generationTrace.labels.incorrect')
+                      }}</span>
+                    <small v-if="option.score">{{ t('common.ai.generationTrace.labels.score') }}: {{
+                        option.score
+                      }}</small>
                     <div
-                      v-if="option.explanation"
-                      class="trace-explanation-row"
+                        v-if="option.explanation"
+                        class="trace-explanation-row"
                     >
-                      <span class="trace-explanation-label">{{ t('common.ai.generationTrace.labels.explanation') }}:</span>
+                      <span class="trace-explanation-label">{{
+                          t('common.ai.generationTrace.labels.explanation')
+                        }}:</span>
                       <AiMarkdownMessage
-                        :content="option.explanation"
-                        class="trace-markdown trace-option-explanation"
+                          :content="option.explanation"
+                          class="trace-markdown trace-option-explanation"
                       />
                     </div>
                   </li>
                 </ol>
                 <div
-                  v-if="question.answers.length"
-                  class="trace-answer-list"
+                    v-if="question.answers.length"
+                    class="trace-answer-list"
                 >
                   <strong>{{ t('common.ai.generationTrace.labels.answer') }}</strong>
                   <article
-                    v-for="answer in question.answers"
-                    :key="answer.key"
+                      v-for="answer in question.answers"
+                      :key="answer.key"
                   >
                     <AiMarkdownMessage
-                      :content="answer.content"
-                      class="trace-markdown trace-answer-content"
+                        :content="answer.content"
+                        class="trace-markdown trace-answer-content"
                     />
-                    <span v-if="answer.score">{{ t('common.ai.generationTrace.labels.score') }}: {{ answer.score }}</span>
-                    <span v-if="answer.sortOrder">{{ t('common.ai.generationTrace.labels.sortOrder') }}: {{ answer.sortOrder }}</span>
+                    <span v-if="answer.score">{{ t('common.ai.generationTrace.labels.score') }}: {{
+                        answer.score
+                      }}</span>
+                    <span v-if="answer.sortOrder">{{
+                        t('common.ai.generationTrace.labels.sortOrder')
+                      }}: {{ answer.sortOrder }}</span>
                     <div
-                      v-if="answer.explanation"
-                      class="trace-explanation-row"
+                        v-if="answer.explanation"
+                        class="trace-explanation-row"
                     >
-                      <span class="trace-explanation-label">{{ t('common.ai.generationTrace.labels.explanation') }}:</span>
+                      <span class="trace-explanation-label">{{
+                          t('common.ai.generationTrace.labels.explanation')
+                        }}:</span>
                       <AiMarkdownMessage
-                        :content="answer.explanation"
-                        class="trace-markdown trace-answer-explanation"
+                          :content="answer.explanation"
+                          class="trace-markdown trace-answer-explanation"
                       />
                     </div>
                   </article>
@@ -283,14 +297,14 @@
             </div>
 
             <details
-              v-if="isAdmin && developerPayload(entry)"
-              class="trace-developer"
+                v-if="isAdmin && developerPayload(entry)"
+                class="trace-developer"
             >
               <summary>{{ t('common.ai.generationTrace.developerData') }}</summary>
               <div
-                v-for="rawOutput in rawAiOutputs(entry)"
-                :key="rawOutput.key"
-                class="trace-raw-output"
+                  v-for="rawOutput in rawAiOutputs(entry)"
+                  :key="rawOutput.key"
+                  class="trace-raw-output"
               >
                 <span>{{ rawOutput.label }}</span>
                 <pre>{{ rawOutput.content }}</pre>
@@ -302,37 +316,37 @@
             </details>
 
             <div
-              v-if="fallbackBlocks(entry).length"
-              class="trace-blocks"
+                v-if="fallbackBlocks(entry).length"
+                class="trace-blocks"
             >
               <AiMarkdownMessage
-                v-for="(block, blockIndex) in fallbackBlocks(entry)"
-                :key="blockIndex"
-                :content="markdownBlock(block)"
-                class="trace-block"
+                  v-for="(block, blockIndex) in fallbackBlocks(entry)"
+                  :key="blockIndex"
+                  :content="markdownBlock(block)"
+                  class="trace-block"
               />
             </div>
 
             <div
-              v-if="shouldShowSkeleton(index)"
-              class="trace-loading"
-              aria-hidden="true"
+                v-if="shouldShowSkeleton(index)"
+                aria-hidden="true"
+                class="trace-loading"
             >
-              <span class="line line-short" />
-              <span class="line" />
-              <span class="line line-medium" />
+              <span class="line line-short"/>
+              <span class="line"/>
+              <span class="line line-medium"/>
             </div>
           </div>
         </article>
       </div>
 
       <div
-        v-else
-        class="trace-empty"
+          v-else
+          class="trace-empty"
       >
         <FileClock
-          :size="28"
-          stroke-width="1.6"
+            :size="28"
+            stroke-width="1.6"
         />
         <h3>{{ t('common.ai.generationTrace.emptyTitle') }}</h3>
         <p>{{ t('common.ai.generationTrace.emptyBody') }}</p>
@@ -538,13 +552,13 @@ const rawEntries = computed(() => generationTrace(props.message))
 const debugEntries = computed(() => generationDebugTrace(props.message))
 const isAdmin = computed(() => authStore.user?.role === 0)
 const displayEntries = computed(() =>
-  isAdmin.value ? mergeAdminTrace(rawEntries.value, debugEntries.value) : rawEntries.value,
+    isAdmin.value ? mergeAdminTrace(rawEntries.value, debugEntries.value) : rawEntries.value,
 )
 const stage = computed(() => currentGenerationStage(props.message))
 const kindLabel = computed(() =>
-  props.message?.messageType === 'PAPER'
-    ? t('common.ai.generationTrace.paperKind')
-    : t('common.ai.generationTrace.questionKind'),
+    props.message?.messageType === 'PAPER'
+        ? t('common.ai.generationTrace.paperKind')
+        : t('common.ai.generationTrace.questionKind'),
 )
 const panelTitle = computed(() => {
   const latest = visibleEntries.value.at(-1) || displayEntries.value.at(-1)
@@ -553,7 +567,7 @@ const panelTitle = computed(() => {
   return t('common.ai.generationTrace.questionTitle')
 })
 const isStreaming = computed(() =>
-  props.message?.pending && stage.value !== 'RESPONDED' && stage.value !== 'FAILED' && stage.value !== 'TERMINATED',
+    props.message?.pending && stage.value !== 'RESPONDED' && stage.value !== 'FAILED' && stage.value !== 'TERMINATED',
 )
 
 watch(displayEntries, syncVisibleEntries, {deep: true, immediate: true})
@@ -658,9 +672,9 @@ function isTerminalStage(value?: string | null) {
 
 function mergeAdminTrace(visibleTrace: GenerationTraceEntry[], debugTrace: GenerationTraceEntry[]) {
   const merged = visibleTrace
-    .concat(debugTrace)
-    .slice()
-    .sort(compareTraceEntry)
+      .concat(debugTrace)
+      .slice()
+      .sort(compareTraceEntry)
   const entries: GenerationTraceEntry[] = []
   const pendingRawOutputs: GenerationTraceEntry[] = []
 
@@ -676,10 +690,10 @@ function mergeAdminTrace(visibleTrace: GenerationTraceEntry[], debugTrace: Gener
     }
 
     const pendingMatches = pendingRawOutputs.filter(rawEntry =>
-      isRawOutputTarget(entry, rawEntry),
+        isRawOutputTarget(entry, rawEntry),
     )
     const remainingRawOutputs = pendingRawOutputs.filter(rawEntry =>
-      !isRawOutputTarget(entry, rawEntry),
+        !isRawOutputTarget(entry, rawEntry),
     )
     pendingRawOutputs.splice(0, pendingRawOutputs.length, ...remainingRawOutputs)
 
@@ -717,12 +731,12 @@ function isRawOutputTarget(entry: GenerationTraceEntry, rawEntry: GenerationTrac
   const callType = textValue(rawPayload?.callType)
   if (callType === 'repair_generation') {
     return entry.detailType === 'repair_attempt'
-      && sameMetric(rawPayload, entryPayload, 'attemptNo')
+        && sameMetric(rawPayload, entryPayload, 'attemptNo')
   }
   if (callType === 'section_generation') {
     return entry.detailType === 'section_attempt'
-      && sameMetric(rawPayload, entryPayload, 'sectionNo')
-      && sameMetric(rawPayload, entryPayload, 'attemptNo')
+        && sameMetric(rawPayload, entryPayload, 'sectionNo')
+        && sameMetric(rawPayload, entryPayload, 'attemptNo')
   }
   return false
 }
@@ -865,12 +879,12 @@ function entrySections(entry: GenerationTraceEntry): DisplaySection[] {
   const payload = asRecord(entry.payload)
   if (!payload) return []
   const sections = listRecords(payload.sections).length
-    ? listRecords(payload.sections)
-    : listRecords(payload.blueprintSections)
+      ? listRecords(payload.sections)
+      : listRecords(payload.blueprintSections)
   return sections.map((section, index) => {
     const title = textValue(section.sectionTitle) || t(
-      'common.ai.generationTrace.labels.sectionNumber',
-      {index: textValue(section.sectionNo) || index + 1},
+        'common.ai.generationTrace.labels.sectionNumber',
+        {index: textValue(section.sectionNo) || index + 1},
     )
     const metrics = [
       metricItem(section, 'targetCount'),
@@ -940,8 +954,8 @@ function entryIssues(entry: GenerationTraceEntry): DisplayIssue[] {
   const payload = asRecord(entry.payload)
   return listRecords(payload?.issues).map((issue, index) => {
     const questionIndex = issue.questionIndex === undefined || issue.questionIndex === null
-      ? ''
-      : t('common.ai.generationTrace.labels.questionNumber', {index: Number(issue.questionIndex)})
+        ? ''
+        : t('common.ai.generationTrace.labels.questionNumber', {index: Number(issue.questionIndex)})
     const code = textValue(issue.code)
     const message = issueCodeLabel(code) || textValue(issue.message) || t('common.ai.generationTrace.labels.checkNeeded')
     return {
@@ -959,7 +973,7 @@ function entryQuestions(entry: GenerationTraceEntry, debug = false): DisplayQues
   const visibleQuestions = debug ? questions : questions.slice(0, 8)
   return visibleQuestions.map((question, index) => {
     const title = textValue(question.questionTitle)
-      || t('common.ai.generationTrace.labels.questionNumber', {index: index + 1})
+        || t('common.ai.generationTrace.labels.questionNumber', {index: index + 1})
     return {
       key: `${title}-${index}`,
       title,
@@ -972,10 +986,10 @@ function entryQuestions(entry: GenerationTraceEntry, debug = false): DisplayQues
       ].filter((item): item is DisplayMetric => Boolean(item)),
       tags: listValues(question.tags),
       options: listRecords(question.options).map((option, optionIndex) =>
-        displayOption(option, optionIndex),
+          displayOption(option, optionIndex),
       ),
       answers: listRecords(question.answers).map((answer, answerIndex) =>
-        displayAnswer(answer, answerIndex),
+          displayAnswer(answer, answerIndex),
       ),
     }
   })
@@ -1017,13 +1031,13 @@ function fallbackBlocks(entry: GenerationTraceEntry) {
 function webSources(entry: GenerationTraceEntry): WebSource[] {
   const payload = asRecord(entry.payload)
   return listRecords(payload?.webSources)
-    .map(source => ({
-      site: textValue(source.site),
-      title: textValue(source.title),
-      url: textValue(source.url),
-      favicon: textValue(source.favicon),
-    }))
-    .filter(source => Boolean(source.url))
+      .map(source => ({
+        site: textValue(source.site),
+        title: textValue(source.title),
+        url: textValue(source.url),
+        favicon: textValue(source.favicon),
+      }))
+      .filter(source => Boolean(source.url))
 }
 
 function sourceFallback(source: WebSource) {
@@ -1035,12 +1049,12 @@ function rawAiOutputs(entry: GenerationTraceEntry) {
   const rawRecords = listRecords(payload?.rawAiOutputs)
   const records = rawRecords.length ? rawRecords : textValue(payload?.rawOutput) ? [payload || {}] : []
   return records
-    .map((record, index) => ({
-      key: `${textValue(record.callType) || 'raw'}-${index}`,
-      label: rawOutputLabel(record),
-      content: textValue(record.rawOutput),
-    }))
-    .filter(item => Boolean(item.content))
+      .map((record, index) => ({
+        key: `${textValue(record.callType) || 'raw'}-${index}`,
+        label: rawOutputLabel(record),
+        content: textValue(record.rawOutput),
+      }))
+      .filter(item => Boolean(item.content))
 }
 
 function rawOutputLabel(payload: Record<string, unknown>) {
@@ -1054,8 +1068,8 @@ function rawOutputLabel(payload: Record<string, unknown>) {
 
 function buildEvidenceLine(item: Record<string, unknown>) {
   const title = textValue(item.title)
-    || textValue(item.sourceLabel)
-    || t('common.ai.generationTrace.labels.reference')
+      || textValue(item.sourceLabel)
+      || t('common.ai.generationTrace.labels.reference')
   const snippet = textValue(item.excerpt) || textValue(item.snippet)
   return [title, snippet].filter(Boolean).join('\n')
 }
@@ -1135,20 +1149,20 @@ function formatList(values: string[]) {
 function listRecords(value: unknown): Record<string, unknown>[] {
   if (!Array.isArray(value)) return []
   return value.filter((item): item is Record<string, unknown> =>
-    Boolean(item) && typeof item === 'object' && !Array.isArray(item),
+      Boolean(item) && typeof item === 'object' && !Array.isArray(item),
   )
 }
 
 function recordEntries(value: Record<string, unknown>) {
   return Object.entries(value).filter(([, item]) =>
-    item !== null && item !== undefined && item !== '',
+      item !== null && item !== undefined && item !== '',
   )
 }
 
 function listValues(value: unknown) {
   return Array.isArray(value)
-    ? value.map(item => formatValue(item)).filter(Boolean)
-    : []
+      ? value.map(item => formatValue(item)).filter(Boolean)
+      : []
 }
 
 function textValue(value: unknown) {
@@ -1689,10 +1703,10 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   width: 100%;
   height: 10px;
   background: linear-gradient(
-    110deg,
-    var(--color-surface-container-high) 8%,
-    color-mix(in srgb, var(--color-primary) 12%, var(--color-surface-canvas)) 18%,
-    var(--color-surface-container-high) 33%
+      110deg,
+      var(--color-surface-container-high) 8%,
+      color-mix(in srgb, var(--color-primary) 12%, var(--color-surface-canvas)) 18%,
+      var(--color-surface-container-high) 33%
   );
   background-size: 200% 100%;
   border-radius: 999px;

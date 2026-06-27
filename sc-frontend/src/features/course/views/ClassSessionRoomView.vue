@@ -20,14 +20,14 @@
     <Classroom3D
         v-else-if="session"
         :session="session"
+        @exit="exitClassroom"
         @joined="markJoined"
         @left="markLeft"
-        @exit="exitClassroom"
+        @ready="handleClassroomReady"
         @loading-progress="handleClassroomProgress"
         @load-error="handleClassroomLoadError"
         @live-status-change="handleLiveStatusChange"
         @participants-change="handleParticipantsChange"
-        @ready="handleClassroomReady"
     />
 
     <div v-if="session?.publishedAt" class="classroom-tool-actions">
@@ -46,7 +46,9 @@
       </button>
       <button v-if="canUseLivePracticePanel" class="floating-action" type="button" @click="openLivePracticePanel">
         <ClipboardList :size="18" stroke-width="1.8"/>
-        {{ canManageSessionCourse ? t('courseDetail.classSession.toolPublishPractice') : t('courseDetail.classSession.toolLivePractice') }}
+        {{
+          canManageSessionCourse ? t('courseDetail.classSession.toolPublishPractice') : t('courseDetail.classSession.toolLivePractice')
+        }}
       </button>
       <button class="floating-action" type="button" @click="openClassroomLivePanel">
         <Video :size="18" stroke-width="1.8"/>
@@ -99,7 +101,7 @@
         :progress="classroomProgress"
     />
 
-    <GlobalAiDrawer />
+    <GlobalAiDrawer/>
   </div>
 </template>
 
@@ -309,7 +311,7 @@ function openClassroomLivePanel() {
 }
 
 function handleOpenClassroomLivePanelRequest(event: Event) {
-  const detail = (event as CustomEvent<{sessionId?: string}>).detail
+  const detail = (event as CustomEvent<{ sessionId?: string }>).detail
   if (!session.value || detail?.sessionId !== session.value.id || !session.value.publishedAt) {
     return
   }
@@ -422,7 +424,7 @@ function handleClassroomLoadError() {
   classroomLoadFailed.value = true
 }
 
-function handleClassroomProgress(payload: number | {progress: number; label?: string}) {
+function handleClassroomProgress(payload: number | { progress: number; label?: string }) {
   const progress = typeof payload === 'number' ? payload : payload.progress
   if (!Number.isFinite(progress)) {
     return

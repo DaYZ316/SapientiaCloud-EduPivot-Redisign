@@ -74,7 +74,12 @@ export function createQuestion(data: CreateQuestionRequest) {
 }
 
 export function batchCreateQuestions(data: BatchCreateQuestionsRequest) {
-    return request<BatchCreateQuestionsResponse>({method: 'POST', url: '/api/question-banks/questions/batch', data, silent: true})
+    return request<BatchCreateQuestionsResponse>({
+        method: 'POST',
+        url: '/api/question-banks/questions/batch',
+        data,
+        silent: true
+    })
 }
 
 export function updateQuestion(id: string, data: UpdateQuestionRequest) {

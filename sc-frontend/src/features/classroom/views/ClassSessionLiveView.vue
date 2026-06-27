@@ -1,38 +1,48 @@
 <template>
   <main class="class-session-live-view">
     <section v-if="!loading && !session" class="live-state">
-      <CircleAlert :size="32" stroke-width="1.5" />
+      <CircleAlert :size="32" stroke-width="1.5"/>
       <h1>{{ t('courseDetail.live.liveClassNotFound') }}</h1>
-      <button class="btn-secondary" type="button" @click="router.push('/courses')">{{ t('courseDetail.backToCourses') }}</button>
+      <button class="btn-secondary" type="button" @click="router.push('/courses')">{{
+          t('courseDetail.backToCourses')
+        }}
+      </button>
     </section>
 
     <section v-else-if="session && !session.publishedAt" class="live-state">
-      <CircleAlert :size="32" stroke-width="1.5" />
+      <CircleAlert :size="32" stroke-width="1.5"/>
       <h1>{{ t('courseDetail.live.sessionNotPublished') }}</h1>
       <p>{{ t('courseDetail.live.publishBeforeLive') }}</p>
-      <button class="btn-secondary" type="button" @click="backToCourse">{{ t('courseDetail.classSession.backToCourse') }}</button>
+      <button class="btn-secondary" type="button" @click="backToCourse">{{
+          t('courseDetail.classSession.backToCourse')
+        }}
+      </button>
     </section>
 
     <ClassroomLiveExperience
-      v-else-if="session"
-      :can-participate="canUseClassroomLive"
-      :is-teacher="isSessionOpeningTeacher"
-      mode="fullscreen"
-      :session="session"
-      @close="backToRoom"
-      @session-change="applySessionUpdate"
+        v-else-if="session"
+        :can-participate="canUseClassroomLive"
+        :is-teacher="isSessionOpeningTeacher"
+        :session="session"
+        mode="fullscreen"
+        @close="backToRoom"
+        @session-change="applySessionUpdate"
     />
   </main>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {onBeforeRouteLeave, useRoute, useRouter} from 'vue-router'
 import {CircleAlert} from 'lucide-vue-next'
 
 import ClassroomLiveExperience from '@/features/classroom/components/ClassroomLiveExperience.vue'
-import {getClassSession, issueClassSessionSeatSyncToken, listClassSessionParticipants} from '@/features/course/api/classSession'
+import {
+  getClassSession,
+  issueClassSessionSeatSyncToken,
+  listClassSessionParticipants
+} from '@/features/course/api/classSession'
 import {getCourse} from '@/features/course/api/course'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {ClassLiveStatus, type ClassParticipant, type ClassSession} from '@/features/course/types/classSession'

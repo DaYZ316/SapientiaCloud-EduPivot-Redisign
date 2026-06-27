@@ -6,6 +6,11 @@ import com.dayz.sc.common.dashboard.DashboardUserSummary;
 
 import java.util.List;
 
+/**
+ * DashboardAdminVO.
+ *
+ * @author DaYZ
+ */
 public record DashboardAdminVO(
         DashboardUserSummary users,
         DashboardNotificationSummary notifications,

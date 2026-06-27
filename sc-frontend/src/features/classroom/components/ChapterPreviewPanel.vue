@@ -13,7 +13,10 @@
     <div v-if="loading" class="panel-state">{{ t('courseDetail.classSession.chapterLoading') }}</div>
     <div v-else-if="loadFailed" class="panel-state">
       <p>{{ t('courseDetail.classSession.chapterLoadFailed') }}</p>
-      <button class="text-button" type="button" @click="loadChapters">{{ t('courseDetail.classSession.retry') }}</button>
+      <button class="text-button" type="button" @click="loadChapters">{{
+          t('courseDetail.classSession.retry')
+        }}
+      </button>
     </div>
 
     <template v-else>
@@ -34,7 +37,10 @@
         </div>
 
         <article class="chapter-detail">
-          <div v-if="detailLoading" class="panel-state compact">{{ t('courseDetail.classSession.chapterDetailLoading') }}</div>
+          <div v-if="detailLoading" class="panel-state compact">{{
+              t('courseDetail.classSession.chapterDetailLoading')
+            }}
+          </div>
           <template v-else-if="selectedChapter">
             <span class="detail-kicker">{{ t('courseDetail.classSession.currentChapter') }}</span>
             <h3>{{ selectedChapter.chapterName }}</h3>
@@ -64,15 +70,21 @@
                     target="_blank"
                 >
                   <FileText :size="14" stroke-width="1.8"/>
-                  <span>{{ attachment.displayName || attachment.fileName || t('courseDetail.classSession.attachmentFallback', {number: index + 1}) }}</span>
+                  <span>{{
+                      attachment.displayName || attachment.fileName || t('courseDetail.classSession.attachmentFallback', {number: index + 1})
+                    }}</span>
                 </a>
               </template>
               <p v-else class="content-placeholder">{{ t('courseDetail.classSession.noChapterAttachments') }}</p>
             </section>
 
             <div class="chapter-meta">
-              <span><Eye :size="14" stroke-width="1.8"/> {{ t('courseDetail.classSession.viewCount', {count: selectedChapter.viewCount}) }}</span>
-              <span><Heart :size="14" stroke-width="1.8"/> {{ t('courseDetail.classSession.likeCount', {count: selectedChapter.likeCount}) }}</span>
+              <span><Eye :size="14" stroke-width="1.8"/> {{
+                  t('courseDetail.classSession.viewCount', {count: selectedChapter.viewCount})
+                }}</span>
+              <span><Heart :size="14" stroke-width="1.8"/> {{
+                  t('courseDetail.classSession.likeCount', {count: selectedChapter.likeCount})
+                }}</span>
             </div>
           </template>
         </article>

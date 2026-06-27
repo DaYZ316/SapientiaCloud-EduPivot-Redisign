@@ -10,6 +10,11 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
+/**
+ * AiGradingConsumer.
+ *
+ * @author DaYZ
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor

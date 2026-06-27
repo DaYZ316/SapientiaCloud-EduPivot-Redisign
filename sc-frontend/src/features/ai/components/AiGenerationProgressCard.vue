@@ -1,10 +1,10 @@
 <template>
   <button
-    :aria-pressed="active"
-    :class="{ 'is-complete': isComplete, 'is-failed': isFailed, 'is-terminated': isTerminated, 'is-active': active, 'is-pending': message.pending }"
-    class="generation-card"
-    type="button"
-    @click="$emit('view-trace', message.id)"
+      :aria-pressed="active"
+      :class="{ 'is-complete': isComplete, 'is-failed': isFailed, 'is-terminated': isTerminated, 'is-active': active, 'is-pending': message.pending }"
+      class="generation-card"
+      type="button"
+      @click="$emit('view-trace', message.id)"
   >
     <span class="generation-body">
       <span class="generation-title-row">
@@ -17,34 +17,34 @@
       </span>
       <span class="generation-summary">{{ summary }}</span>
       <span aria-hidden="true" class="generation-progress">
-        <span :style="{ width: `${progress}%` }" />
+        <span :style="{ width: `${progress}%` }"/>
       </span>
       <span class="generation-footer">
         <span>{{ footerText }}</span>
-        <ChevronRight :size="16" stroke-width="1.9" />
+        <ChevronRight :size="16" stroke-width="1.9"/>
       </span>
     </span>
     <span
-      v-if="message.pending"
-      class="generation-pending-brush"
+        v-if="message.pending"
+        class="generation-pending-brush"
     >
       <AiPendingBrushLoader
-        :anchor-size="92"
-        :radius="32"
-        :size="46"
-        center-on-anchor
+          :anchor-size="92"
+          :radius="32"
+          :size="46"
+          center-on-anchor
       />
     </span>
   </button>
 </template>
 
 <script lang="ts" setup>
-import { computed } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { ChevronRight } from 'lucide-vue-next'
+import {computed} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {ChevronRight} from 'lucide-vue-next'
 
 import AiPendingBrushLoader from '@/features/ai/components/AiPendingBrushLoader.vue'
-import type { ChatMessage } from '@/features/ai/types/ai'
+import type {ChatMessage} from '@/features/ai/types/ai'
 import {
   currentGenerationStage,
   generatedQuestionCount,
@@ -54,16 +54,16 @@ import {
 } from '@/features/ai/utils/generationTrace'
 
 const props = withDefaults(
-  defineProps<{
-    message: ChatMessage
-    active?: boolean
-  }>(),
-  {
-    active: false,
-  },
+    defineProps<{
+      message: ChatMessage
+      active?: boolean
+    }>(),
+    {
+      active: false,
+    },
 )
 
-const { t, locale } = useI18n()
+const {t, locale} = useI18n()
 
 defineEmits<{
   'view-trace': [messageId: string]
@@ -78,41 +78,43 @@ const isFailed = computed(() => !isTerminated.value && (props.message.failed || 
 const isComplete = computed(() => !isFailed.value && !isTerminated.value && !props.message.pending)
 const latestTraceEntry = computed(() => generationTrace(props.message).at(-1))
 const title = computed(() =>
-  latestTraceEntry.value?.title || generationStageLabel(stage.value),
+    latestTraceEntry.value?.title || generationStageLabel(stage.value),
 )
 const summary = computed(() =>
-  latestTraceEntry.value?.summary || footerText.value,
+    latestTraceEntry.value?.summary || footerText.value,
 )
 const generationTime = computed(() =>
-  formatGenerationTime(props.message.createdAt, {
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }),
-)
-const generationTimeTitle = computed(
-  () =>
-    t('common.ai.generationTrace.card.timeTitle', {time: formatGenerationTime(props.message.createdAt, {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
+    formatGenerationTime(props.message.createdAt, {
+      month: 'numeric',
+      day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    })}),
+    }),
+)
+const generationTimeTitle = computed(
+    () =>
+        t('common.ai.generationTrace.card.timeTitle', {
+          time: formatGenerationTime(props.message.createdAt, {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        }),
 )
 const actionLabel = computed(() =>
-  props.message.messageType === 'PAPER'
-    ? t('common.ai.generationTrace.card.paperAction')
-    : t('common.ai.generationTrace.card.questionAction'),
+    props.message.messageType === 'PAPER'
+        ? t('common.ai.generationTrace.card.paperAction')
+        : t('common.ai.generationTrace.card.questionAction'),
 )
 const footerText = computed(() => {
   if (isTerminated.value) return t('common.ai.generationTrace.card.terminated', {action: actionLabel.value})
   if (isFailed.value) return t('common.ai.generationTrace.card.failed', {action: actionLabel.value})
   if (props.message.pending)
     return traceCount.value > 0
-      ? t('common.ai.generationTrace.card.pendingWithSteps', {action: actionLabel.value, count: traceCount.value})
-      : t('common.ai.generationTrace.card.pending', {action: actionLabel.value})
+        ? t('common.ai.generationTrace.card.pendingWithSteps', {action: actionLabel.value, count: traceCount.value})
+        : t('common.ai.generationTrace.card.pending', {action: actionLabel.value})
   if (questionCount.value > 0) {
     return t('common.ai.generationTrace.card.completeWithQuestions', {
       action: actionLabel.value,
@@ -150,9 +152,8 @@ function formatGenerationTime(value: string, options: Intl.DateTimeFormatOptions
   cursor: pointer;
   font: inherit;
   text-align: left;
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease;
+  transition: background 0.18s ease,
+  border-color 0.18s ease;
 }
 
 .generation-card:hover {

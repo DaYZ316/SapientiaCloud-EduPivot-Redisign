@@ -499,7 +499,7 @@ services:
     container_name: SC-Redis
     restart: unless-stopped
     environment:
-      REDIS_ARGS: "--appendonly yes --requirepass ${REDIS_PASSWORD}"
+      REDIS_ARGS: "--appendonly yes --requirepass ${REDIS_PASSWORD} --maxmemory ${REDIS_MAXMEMORY:-0} --maxmemory-policy ${REDIS_MAXMEMORY_POLICY:-noeviction} --latency-monitor-threshold ${REDIS_LATENCY_MONITOR_THRESHOLD:-0}"
       TZ: Asia/Shanghai
     ports:
       - "${REDIS_PORT}:6379"

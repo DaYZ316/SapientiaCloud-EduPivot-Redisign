@@ -4,6 +4,11 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.dayz.sc.ai.model.entity.LiveTranscriptSegment;
 import org.apache.ibatis.annotations.Mapper;
 
+/**
+ * LiveTranscriptSegmentMapper.
+ *
+ * @author DaYZ
+ */
 @Mapper
 public interface LiveTranscriptSegmentMapper extends BaseMapper<LiveTranscriptSegment> {
 }

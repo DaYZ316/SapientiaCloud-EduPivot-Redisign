@@ -1,7 +1,7 @@
 <template>
-  <div class="enrollments-page" :class="{ 'my-courses-page': isTeacherPage }">
+  <div :class="{ 'my-courses-page': isTeacherPage }" class="enrollments-page">
     <template v-if="isTeacherPage">
-      <section class="courses-command-bar" aria-labelledby="teacher-my-courses-title">
+      <section aria-labelledby="teacher-my-courses-title" class="courses-command-bar">
         <div class="courses-title-block">
           <p class="section-kicker">{{ t('myEnrollments.teacher.workspace') }}</p>
           <h1 id="teacher-my-courses-title">{{ t('myEnrollments.title') }}</h1>
@@ -10,45 +10,46 @@
 
         <div class="courses-tools" role="search">
           <label class="search-field" for="teacher-course-search">
-            <Search :size="16" stroke-width="1.7" />
+            <Search :size="16" stroke-width="1.7"/>
             <input
-              id="teacher-course-search"
-              v-model.trim="searchKeyword"
-              type="search"
-              :placeholder="t('myEnrollments.searchPlaceholder')"
+                id="teacher-course-search"
+                v-model.trim="searchKeyword"
+                :placeholder="t('myEnrollments.searchPlaceholder')"
+                type="search"
             />
           </label>
           <div class="teacher-course-tabs">
             <button
-              type="button"
-              class="teacher-course-tab"
-              :class="{ active: teacherCourseRole === 'primary' }"
-              @click="switchTeacherRole('primary')"
+                :class="{ active: teacherCourseRole === 'primary' }"
+                class="teacher-course-tab"
+                type="button"
+                @click="switchTeacherRole('primary')"
             >
               {{ t('courses.teacherTabs.primary') }}
             </button>
             <button
-              type="button"
-              class="teacher-course-tab"
-              :class="{ active: teacherCourseRole === 'assistant' }"
-              @click="switchTeacherRole('assistant')"
+                :class="{ active: teacherCourseRole === 'assistant' }"
+                class="teacher-course-tab"
+                type="button"
+                @click="switchTeacherRole('assistant')"
             >
               {{ t('courses.teacherTabs.assistant') }}
             </button>
           </div>
           <button v-if="canCreateCourse" class="continue-button" type="button" @click="openCreateModal">
-            <Plus :size="16" stroke-width="1.8" />
+            <Plus :size="16" stroke-width="1.8"/>
             <span>{{ t('courses.createCourse') }}</span>
           </button>
           <div class="student-chip">
-            <img v-if="authStore.user?.avatarUrl" :src="authStore.user.avatarUrl" :alt="t('myEnrollments.teacher.avatarAlt')" />
+            <img v-if="authStore.user?.avatarUrl" :alt="t('myEnrollments.teacher.avatarAlt')"
+                 :src="authStore.user.avatarUrl"/>
             <span v-else class="student-chip__avatar">{{ teacherInitials }}</span>
             <span>{{ authStore.user?.displayName || t('myEnrollments.teacher.defaultName') }}</span>
           </div>
         </div>
       </section>
 
-      <section class="course-stats" :aria-label="t('myEnrollments.overviewAria')">
+      <section :aria-label="t('myEnrollments.overviewAria')" class="course-stats">
         <article v-for="stat in teacherStats" :key="stat.label" class="stat-cell">
           <span>{{ stat.label }}</span>
           <strong>{{ stat.value }}</strong>
@@ -63,10 +64,10 @@
               <p class="section-kicker">{{ t('myEnrollments.teacher.teachingCourses') }}</p>
               <h2>{{ teacherCourseRoleLabel }}</h2>
             </div>
-            <span>{{ t('myEnrollments.courseCount', { count: filteredTeacherCourses.length }) }}</span>
+            <span>{{ t('myEnrollments.courseCount', {count: filteredTeacherCourses.length}) }}</span>
           </div>
 
-          <div v-if="loading" class="course-list" :aria-label="t('myEnrollments.loadingAria')">
+          <div v-if="loading" :aria-label="t('myEnrollments.loadingAria')" class="course-list">
             <div v-for="n in 5" :key="n" class="course-row skeleton-row">
               <div class="skeleton-block course-mark"></div>
               <div class="skeleton-copy">
@@ -81,24 +82,27 @@
             <article v-for="course in filteredTeacherCourses" :key="course.id" class="course-row">
               <div class="course-mark">
                 <img
-                  :src="getCourseCoverUrl(course.coverUrl)"
-                  :alt="t('myEnrollments.courseCoverAlt', { title: course.title })"
-                  @error="handleCourseCoverError"
+                    :alt="t('myEnrollments.courseCoverAlt', { title: course.title })"
+                    :src="getCourseCoverUrl(course.coverUrl)"
+                    @error="handleCourseCoverError"
                 />
               </div>
 
               <div class="course-main">
                 <div class="course-title-line">
                   <h3>{{ course.title }}</h3>
-                  <span class="status-tag role-tag" :class="course.roleClass">{{ course.roleLabel }}</span>
-                  <span v-if="course.statusLabel" class="status-tag" :class="course.statusClass">{{ course.statusLabel }}</span>
+                  <span :class="course.roleClass" class="status-tag role-tag">{{ course.roleLabel }}</span>
+                  <span v-if="course.statusLabel" :class="course.statusClass" class="status-tag">{{
+                      course.statusLabel
+                    }}</span>
                 </div>
                 <div class="course-meta">
                   <span>{{ course.teacher }}</span>
                   <span>{{ course.schedule }}</span>
                   <span>{{ course.recentActivity }}</span>
                 </div>
-                <div class="progress-track" :aria-label="t('myEnrollments.classHourProgressAria', { title: course.title, progress: course.progress })">
+                <div :aria-label="t('myEnrollments.classHourProgressAria', { title: course.title, progress: course.progress })"
+                     class="progress-track">
                   <span :style="{ width: `${course.progress}%` }"></span>
                 </div>
               </div>
@@ -113,41 +117,41 @@
                   {{ t('myEnrollments.viewCourse') }}
                 </button>
                 <button
-                  v-if="course.canEdit"
-                  class="drop-button"
-                  type="button"
-                  :title="t('courses.edit')"
-                  :aria-label="t('courses.edit')"
-                  @click="editCourse(course.source)"
+                    v-if="course.canEdit"
+                    :aria-label="t('courses.edit')"
+                    :title="t('courses.edit')"
+                    class="drop-button"
+                    type="button"
+                    @click="editCourse(course.source)"
                 >
-                  <Pencil :size="14" stroke-width="1.8" />
+                  <Pencil :size="14" stroke-width="1.8"/>
                 </button>
                 <button
-                  v-if="course.canInviteAssistant"
-                  class="drop-button"
-                  type="button"
-                  :title="t('enrollmentManagement.inviteAssistant')"
-                  :aria-label="t('enrollmentManagement.inviteAssistant')"
-                  @click="openInviteModal(course.source)"
+                    v-if="course.canInviteAssistant"
+                    :aria-label="t('enrollmentManagement.inviteAssistant')"
+                    :title="t('enrollmentManagement.inviteAssistant')"
+                    class="drop-button"
+                    type="button"
+                    @click="openInviteModal(course.source)"
                 >
-                  <UserPlus :size="14" stroke-width="1.8" />
+                  <UserPlus :size="14" stroke-width="1.8"/>
                 </button>
                 <button
-                  v-if="course.canEdit"
-                  class="drop-button danger"
-                  type="button"
-                  :title="t('courses.delete')"
-                  :aria-label="t('courses.delete')"
-                  @click="confirmDeleteCourse(course.source)"
+                    v-if="course.canEdit"
+                    :aria-label="t('courses.delete')"
+                    :title="t('courses.delete')"
+                    class="drop-button danger"
+                    type="button"
+                    @click="confirmDeleteCourse(course.source)"
                 >
-                  <Trash2 :size="14" stroke-width="1.8" />
+                  <Trash2 :size="14" stroke-width="1.8"/>
                 </button>
               </div>
             </article>
           </div>
 
           <div v-else class="empty-state">
-            <GraduationCap :size="46" stroke-width="1.2" />
+            <GraduationCap :size="46" stroke-width="1.2"/>
             <h3>{{ teacherEmptyTitle }}</h3>
             <p>{{ teacherEmptyDescription }}</p>
             <button v-if="canCreateCourse" class="continue-button" type="button" @click="openCreateModal">
@@ -156,30 +160,32 @@
           </div>
 
           <div v-if="!loading && totalPages > 1" class="pagination">
-            <button class="page-button" :disabled="currentPage === 1" type="button" @click="changePage(currentPage - 1)">
+            <button :disabled="currentPage === 1" class="page-button" type="button"
+                    @click="changePage(currentPage - 1)">
               {{ t('myEnrollments.previous') }}
             </button>
             <button
-              v-for="page in displayedPages"
-              :key="page"
-              class="page-button"
-              :class="{ active: currentPage === page }"
-              type="button"
-              @click="changePage(page)"
+                v-for="page in displayedPages"
+                :key="page"
+                :class="{ active: currentPage === page }"
+                class="page-button"
+                type="button"
+                @click="changePage(page)"
             >
               {{ page }}
             </button>
-            <button class="page-button" :disabled="currentPage === totalPages" type="button" @click="changePage(currentPage + 1)">
+            <button :disabled="currentPage === totalPages" class="page-button" type="button"
+                    @click="changePage(currentPage + 1)">
               {{ t('myEnrollments.next') }}
             </button>
           </div>
         </div>
 
-        <aside class="courses-sidebar" :aria-label="t('myEnrollments.teacher.collaborationAria')">
+        <aside :aria-label="t('myEnrollments.teacher.collaborationAria')" class="courses-sidebar">
           <section class="side-panel">
             <div class="panel-heading compact">
               <h2>{{ t('myEnrollments.teacher.roleDescriptionTitle') }}</h2>
-              <CalendarDays :size="18" stroke-width="1.6" />
+              <CalendarDays :size="18" stroke-width="1.6"/>
             </div>
             <div class="task-list">
               <div v-for="item in teacherRoleNotes" :key="item.title" class="task-item">
@@ -195,7 +201,7 @@
           <section class="side-panel">
             <div class="panel-heading compact">
               <h2>{{ t('myEnrollments.teacher.statusTitle') }}</h2>
-              <Activity :size="18" stroke-width="1.6" />
+              <Activity :size="18" stroke-width="1.6"/>
             </div>
             <div class="deadline-list">
               <div v-for="summary in teacherStatusSummaries" :key="summary.title" class="deadline-item">
@@ -211,13 +217,13 @@
           <section class="side-panel">
             <div class="panel-heading compact">
               <h2>{{ t('myEnrollments.teacher.classHoursTitle') }}</h2>
-              <BookOpen :size="18" stroke-width="1.6" />
+              <BookOpen :size="18" stroke-width="1.6"/>
             </div>
-            <div class="rhythm-bars" :aria-label="t('myEnrollments.teacher.classHoursAria')">
+            <div :aria-label="t('myEnrollments.teacher.classHoursAria')" class="rhythm-bars">
               <span
-                v-for="(value, index) in progressBars"
-                :key="index"
-                :style="{ height: `${value}%` }"
+                  v-for="(value, index) in progressBars"
+                  :key="index"
+                  :style="{ height: `${value}%` }"
               ></span>
             </div>
             <p class="rhythm-note">{{ progressNote }}</p>
@@ -232,7 +238,7 @@
       <div class="page-header">
         <h1>{{ pageTitle }}</h1>
         <button v-if="canCreateCourse" class="btn-primary" @click="openCreateModal">
-          <Plus :size="16" />
+          <Plus :size="16"/>
           {{ t('courses.createCourse') }}
         </button>
       </div>
@@ -240,129 +246,129 @@
       <!-- Filter Bar -->
       <div v-if="isAdmin" class="filter-bar">
         <div class="search-input">
-          <Search :size="18" />
-          <input v-model="searchKeyword" :placeholder="t('courses.searchPlaceholder')" @keyup.enter="resetAndLoad" />
+          <Search :size="18"/>
+          <input v-model="searchKeyword" :placeholder="t('courses.searchPlaceholder')" @keyup.enter="resetAndLoad"/>
         </div>
-        <BaseSelect v-model="filterLevel" :options="levelFilterOptions" min-width="148px" @change="resetAndLoad" />
-        <BaseSelect v-model="filterStatus" :options="statusFilterOptions" min-width="148px" @change="resetAndLoad" />
+        <BaseSelect v-model="filterLevel" :options="levelFilterOptions" min-width="148px" @change="resetAndLoad"/>
+        <BaseSelect v-model="filterStatus" :options="statusFilterOptions" min-width="148px" @change="resetAndLoad"/>
       </div>
 
       <!-- Date Range Filters -->
       <div v-if="isAdmin" class="date-filter-bar">
         <BaseDateRangeFilter
-          v-model:start="createdAtStart"
-          v-model:end="createdAtEnd"
-          id-prefix="course-created-at"
-          :label="t('courses.createdAt')"
+            v-model:end="createdAtEnd"
+            v-model:start="createdAtStart"
+            :label="t('courses.createdAt')"
+            id-prefix="course-created-at"
         />
         <BaseDateRangeFilter
-          v-model:start="updatedAtStart"
-          v-model:end="updatedAtEnd"
-          id-prefix="course-updated-at"
-          :label="t('courses.updatedAt')"
+            v-model:end="updatedAtEnd"
+            v-model:start="updatedAtStart"
+            :label="t('courses.updatedAt')"
+            id-prefix="course-updated-at"
         />
         <div class="date-filter-actions">
           <button
-            class="btn-date-filter btn-date-filter-secondary"
-            type="button"
-            :disabled="!hasDateFilters"
-            @click="clearDateFilters"
+              :disabled="!hasDateFilters"
+              class="btn-date-filter btn-date-filter-secondary"
+              type="button"
+              @click="clearDateFilters"
           >
-            <X :size="15" stroke-width="2" />
+            <X :size="15" stroke-width="2"/>
             {{ t('courses.clearFilters') }}
           </button>
           <button class="btn-date-filter btn-date-filter-primary" type="button" @click="resetAndLoad">
-            <Search :size="15" stroke-width="2" />
+            <Search :size="15" stroke-width="2"/>
             {{ t('courses.search') }}
           </button>
         </div>
       </div>
 
       <CourseManagementTable
-        v-if="courses.length > 0 || loading"
-        :courses="courses"
-        :loading="loading"
-        :editable="canManageCourses"
-        :can-invite-assistant="canInviteAssistant"
-        @view="viewCourse"
-        @edit="editCourse"
-        @delete="confirmDeleteCourse"
-        @invite="openInviteModal"
+          v-if="courses.length > 0 || loading"
+          :can-invite-assistant="canInviteAssistant"
+          :courses="courses"
+          :editable="canManageCourses"
+          :loading="loading"
+          @delete="confirmDeleteCourse"
+          @edit="editCourse"
+          @invite="openInviteModal"
+          @view="viewCourse"
       />
 
       <div v-else class="empty-state">
-        <BookOpen :size="48" stroke-width="1.2" />
+        <BookOpen :size="48" stroke-width="1.2"/>
         <h3>{{ t('myEnrollments.noCourses') }}</h3>
       </div>
 
       <!-- Pagination -->
       <div v-if="totalPages > 1" class="pagination">
-        <button class="btn-page" :disabled="currentPage === 1" @click="changePage(currentPage - 1)">
+        <button :disabled="currentPage === 1" class="btn-page" @click="changePage(currentPage - 1)">
           {{ t('myEnrollments.previous') }}
         </button>
         <div class="page-numbers">
           <button
-            v-for="page in displayedPages"
-            :key="page"
-            class="btn-page"
-            :class="{ active: currentPage === page }"
-            @click="changePage(page)"
+              v-for="page in displayedPages"
+              :key="page"
+              :class="{ active: currentPage === page }"
+              class="btn-page"
+              @click="changePage(page)"
           >
             {{ page }}
           </button>
         </div>
-        <button class="btn-page" :disabled="currentPage === totalPages" @click="changePage(currentPage + 1)">
+        <button :disabled="currentPage === totalPages" class="btn-page" @click="changePage(currentPage + 1)">
           {{ t('myEnrollments.next') }}
         </button>
       </div>
     </template>
 
     <CourseFormModal
-      :visible="showCreateModal"
-      mode="create"
-      :submitting="submitting"
-      @close="closeCreateModal"
-      @created="submitCourse"
+        :submitting="submitting"
+        :visible="showCreateModal"
+        mode="create"
+        @close="closeCreateModal"
+        @created="submitCourse"
     />
 
     <CourseFormModal
-      :visible="showEditModal"
-      mode="edit"
-      :course="editingCourse"
-      :can-edit-course-status="canEditCourseStatus"
-      :submitting="submitting"
-      @close="closeEditModal"
-      @updated="submitEditCourse"
+        :can-edit-course-status="canEditCourseStatus"
+        :course="editingCourse"
+        :submitting="submitting"
+        :visible="showEditModal"
+        mode="edit"
+        @close="closeEditModal"
+        @updated="submitEditCourse"
     />
 
     <BaseConfirmDialog
-      :visible="showDeleteModal"
-      :title="t('courses.deleteModal.title')"
-      :message="t('courses.deleteModal.confirmMessage', { title: deleteTarget?.title })"
-      :cancel-text="t('courses.deleteModal.cancel')"
-      :confirm-text="t('courses.deleteModal.confirm')"
-      :close-label="t('courses.deleteModal.cancel')"
-      confirm-variant="danger"
-      @cancel="showDeleteModal = false"
-      @confirm="handleDeleteCourse"
+        :cancel-text="t('courses.deleteModal.cancel')"
+        :close-label="t('courses.deleteModal.cancel')"
+        :confirm-text="t('courses.deleteModal.confirm')"
+        :message="t('courses.deleteModal.confirmMessage', { title: deleteTarget?.title })"
+        :title="t('courses.deleteModal.title')"
+        :visible="showDeleteModal"
+        confirm-variant="danger"
+        @cancel="showDeleteModal = false"
+        @confirm="handleDeleteCourse"
     />
 
     <!-- Invite Assistant Modal -->
     <InviteAssistantModal
-      v-model="showInviteModal"
-      :course-id="inviteTarget?.id ?? ''"
-      :course-teacher-id="inviteTarget?.teacherId ?? ''"
-      :assistants="inviteTarget?.teacherInfos ?? []"
-      :is-admin="isAdmin"
-      @invited="onInviteSuccess"
+        v-model="showInviteModal"
+        :assistants="inviteTarget?.teacherInfos ?? []"
+        :course-id="inviteTarget?.id ?? ''"
+        :course-teacher-id="inviteTarget?.teacherId ?? ''"
+        :is-admin="isAdmin"
+        @invited="onInviteSuccess"
     />
   </div>
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter } from 'vue-router'
+import {computed, onMounted, ref, watch} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {useRoute, useRouter} from 'vue-router'
 import {
   Activity,
   BookOpen,
@@ -381,21 +387,16 @@ import CourseManagementTable from '@/features/course/components/CourseManagement
 import BaseConfirmDialog from '@/shared/components/BaseConfirmDialog.vue'
 import BaseDateRangeFilter from '@/shared/components/BaseDateRangeFilter.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
-import { notify } from '@/shared/composables/useGlobalNotification'
+import {notify} from '@/shared/composables/useGlobalNotification'
 import InviteAssistantModal from '@/features/course/components/InviteAssistantModal.vue'
-import { getAvatarInitials } from '@/shared/utils/avatar'
-import { getCourseCoverUrl, handleCourseCoverError } from '@/shared/utils/courseCover'
+import {getAvatarInitials} from '@/shared/utils/avatar'
+import {getCourseCoverUrl, handleCourseCoverError} from '@/shared/utils/courseCover'
 
-import { createCourse, deleteCourse, getCourses, getTeacherCourses, updateCourse } from '@/features/course/api/course'
-import { useAuthStore } from '@/features/auth/stores/auth'
-import type {
-  Course,
-  CreateCourseRequest,
-  TeacherCourseRole,
-  UpdateCourseRequest,
-} from '@/features/course/types/course'
+import {createCourse, deleteCourse, getCourses, getTeacherCourses, updateCourse} from '@/features/course/api/course'
+import {useAuthStore} from '@/features/auth/stores/auth'
+import type {Course, CreateCourseRequest, TeacherCourseRole, UpdateCourseRequest,} from '@/features/course/types/course'
 
-const { t } = useI18n()
+const {t} = useI18n()
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
@@ -405,7 +406,7 @@ const isTeacher = computed(() => authStore.user?.role === 2)
 const isTeacherPage = computed(() => route.name === 'teacher-courses')
 const isPrimaryTeacherCourses = computed(() => teacherCourseRole.value === 'primary')
 const canManageCourses = computed(
-  () => isAdmin.value || (isTeacher.value && isTeacherPage.value && isPrimaryTeacherCourses.value),
+    () => isAdmin.value || (isTeacher.value && isTeacherPage.value && isPrimaryTeacherCourses.value),
 )
 const canInviteAssistant = computed(() => canManageCourses.value)
 const canCreateCourse = computed(() => canManageCourses.value)
@@ -449,21 +450,21 @@ interface TeacherCourseWorkspaceItem {
 }
 
 const levelFilterOptions = computed<SelectOption[]>(() => [
-  { label: t('courses.allLevels'), value: undefined },
-  { label: t('courses.level.beginner'), value: 1 },
-  { label: t('courses.level.intermediate'), value: 2 },
-  { label: t('courses.level.advanced'), value: 3 },
+  {label: t('courses.allLevels'), value: undefined},
+  {label: t('courses.level.beginner'), value: 1},
+  {label: t('courses.level.intermediate'), value: 2},
+  {label: t('courses.level.advanced'), value: 3},
 ])
 
 const statusFilterOptions = computed<SelectOption[]>(() => [
-  { label: t('courses.allStatuses'), value: undefined },
-  { label: t('courses.status.draft'), value: 0 },
-  { label: t('courses.status.published'), value: 1 },
-  { label: t('courses.status.archived'), value: 2 },
+  {label: t('courses.allStatuses'), value: undefined},
+  {label: t('courses.status.draft'), value: 0},
+  {label: t('courses.status.published'), value: 1},
+  {label: t('courses.status.archived'), value: 2},
 ])
 
 const hasDateFilters = computed(() =>
-  Boolean(createdAtStart.value || createdAtEnd.value || updatedAtStart.value || updatedAtEnd.value),
+    Boolean(createdAtStart.value || createdAtEnd.value || updatedAtStart.value || updatedAtEnd.value),
 )
 
 // Admin / Teacher: course list
@@ -499,44 +500,44 @@ const displayedPages = computed(() => {
 })
 
 const teacherCourseRoleLabel = computed(() =>
-  teacherCourseRole.value === 'assistant' ? t('courses.teacherTabs.assistant') : t('courses.teacherTabs.primary'),
+    teacherCourseRole.value === 'assistant' ? t('courses.teacherTabs.assistant') : t('courses.teacherTabs.primary'),
 )
 
 const teacherRoleDescription = computed(() =>
-  teacherCourseRole.value === 'assistant'
-    ? t('myEnrollments.teacher.assistantDescription')
-    : t('myEnrollments.teacher.primaryDescription'),
+    teacherCourseRole.value === 'assistant'
+        ? t('myEnrollments.teacher.assistantDescription')
+        : t('myEnrollments.teacher.primaryDescription'),
 )
 
 const teacherInitials = computed(() => getAvatarInitials(authStore.user?.displayName))
 
 const teacherCourseItems = computed<TeacherCourseWorkspaceItem[]>(() =>
-  courses.value.map((course) => {
-    const statusLabel = course.status === 1 ? '' : getStatusLabel(course.status)
-    const roleLabel = teacherCourseRole.value === 'assistant' ? t('courses.teacherTabs.assistant') : t('courses.teacherTabs.primary')
+    courses.value.map((course) => {
+      const statusLabel = course.status === 1 ? '' : getStatusLabel(course.status)
+      const roleLabel = teacherCourseRole.value === 'assistant' ? t('courses.teacherTabs.assistant') : t('courses.teacherTabs.primary')
 
-    return {
-      id: course.id,
-      courseId: course.id,
-      title: course.title,
-      teacher: teacherCourseRole.value === 'assistant'
-        ? t('myEnrollments.teacher.primaryTeacherPrefix', { name: course.teacherName || t('courses.card.unset') })
-        : t('myEnrollments.teacher.primaryTeacherName', {
-            name: course.teacherName || authStore.user?.displayName || t('myEnrollments.teacher.defaultName'),
-          }),
-      coverUrl: course.coverUrl,
-      schedule: course.semester || course.location || t('courses.card.unset'),
-      recentActivity: formatCourseHours(course),
-      progress: course.courseProgress ?? 0,
-      statusLabel,
-      statusClass: getCourseStatusClass(course.status),
-      roleLabel,
-      roleClass: teacherCourseRole.value,
-      canEdit: canManageCourses.value,
-      canInviteAssistant: canInviteAssistant.value,
-      source: course,
-    }
-  }),
+      return {
+        id: course.id,
+        courseId: course.id,
+        title: course.title,
+        teacher: teacherCourseRole.value === 'assistant'
+            ? t('myEnrollments.teacher.primaryTeacherPrefix', {name: course.teacherName || t('courses.card.unset')})
+            : t('myEnrollments.teacher.primaryTeacherName', {
+              name: course.teacherName || authStore.user?.displayName || t('myEnrollments.teacher.defaultName'),
+            }),
+        coverUrl: course.coverUrl,
+        schedule: course.semester || course.location || t('courses.card.unset'),
+        recentActivity: formatCourseHours(course),
+        progress: course.courseProgress ?? 0,
+        statusLabel,
+        statusClass: getCourseStatusClass(course.status),
+        roleLabel,
+        roleClass: teacherCourseRole.value,
+        canEdit: canManageCourses.value,
+        canInviteAssistant: canInviteAssistant.value,
+        source: course,
+      }
+    }),
 )
 
 const filteredTeacherCourses = computed(() => {
@@ -544,9 +545,9 @@ const filteredTeacherCourses = computed(() => {
   if (!value) return teacherCourseItems.value
 
   return teacherCourseItems.value.filter((course) =>
-    [course.title, course.teacher, course.schedule, course.statusLabel].some((field) =>
-      field.toLowerCase().includes(value),
-    ),
+      [course.title, course.teacher, course.schedule, course.statusLabel].some((field) =>
+          field.toLowerCase().includes(value),
+      ),
   )
 })
 
@@ -563,8 +564,8 @@ const teacherStats = computed(() => [
     label: t('myEnrollments.teacher.stats.courseRole'),
     value: teacherCourseRoleLabel.value,
     note: teacherCourseRole.value === 'assistant'
-      ? t('myEnrollments.teacher.stats.assistantNote')
-      : t('myEnrollments.teacher.stats.primaryNote'),
+        ? t('myEnrollments.teacher.stats.assistantNote')
+        : t('myEnrollments.teacher.stats.primaryNote'),
   },
   {
     label: t('myEnrollments.teacher.stats.courseCount'),
@@ -579,41 +580,41 @@ const teacherStats = computed(() => [
 ])
 
 const teacherRoleNotes = computed(() =>
-  teacherCourseRole.value === 'assistant'
-    ? [
-        {
-          label: t('myEnrollments.teacher.roleNotes.role'),
-          title: t('myEnrollments.teacher.roleNotes.assistantCourse'),
-          note: t('myEnrollments.teacher.roleNotes.assistantCourseNote'),
-        },
-        {
-          label: t('myEnrollments.teacher.roleNotes.scope'),
-          title: t('myEnrollments.teacher.roleNotes.viewCourse'),
-          note: t('myEnrollments.teacher.roleNotes.viewCourseNote'),
-        },
-        {
-          label: t('myEnrollments.teacher.roleNotes.distinction'),
-          title: t('myEnrollments.teacher.roleNotes.noManagementActions'),
-          note: t('myEnrollments.teacher.roleNotes.noManagementActionsNote'),
-        },
-      ]
-    : [
-        {
-          label: t('myEnrollments.teacher.roleNotes.role'),
-          title: t('myEnrollments.teacher.roleNotes.primaryCourse'),
-          note: t('myEnrollments.teacher.roleNotes.primaryCourseNote'),
-        },
-        {
-          label: t('myEnrollments.teacher.roleNotes.scope'),
-          title: t('myEnrollments.teacher.roleNotes.courseMaintenance'),
-          note: t('myEnrollments.teacher.roleNotes.courseMaintenanceNote'),
-        },
-        {
-          label: t('myEnrollments.teacher.roleNotes.collaboration'),
-          title: t('myEnrollments.teacher.roleNotes.assistantManagement'),
-          note: t('myEnrollments.teacher.roleNotes.assistantManagementNote'),
-        },
-      ],
+    teacherCourseRole.value === 'assistant'
+        ? [
+          {
+            label: t('myEnrollments.teacher.roleNotes.role'),
+            title: t('myEnrollments.teacher.roleNotes.assistantCourse'),
+            note: t('myEnrollments.teacher.roleNotes.assistantCourseNote'),
+          },
+          {
+            label: t('myEnrollments.teacher.roleNotes.scope'),
+            title: t('myEnrollments.teacher.roleNotes.viewCourse'),
+            note: t('myEnrollments.teacher.roleNotes.viewCourseNote'),
+          },
+          {
+            label: t('myEnrollments.teacher.roleNotes.distinction'),
+            title: t('myEnrollments.teacher.roleNotes.noManagementActions'),
+            note: t('myEnrollments.teacher.roleNotes.noManagementActionsNote'),
+          },
+        ]
+        : [
+          {
+            label: t('myEnrollments.teacher.roleNotes.role'),
+            title: t('myEnrollments.teacher.roleNotes.primaryCourse'),
+            note: t('myEnrollments.teacher.roleNotes.primaryCourseNote'),
+          },
+          {
+            label: t('myEnrollments.teacher.roleNotes.scope'),
+            title: t('myEnrollments.teacher.roleNotes.courseMaintenance'),
+            note: t('myEnrollments.teacher.roleNotes.courseMaintenanceNote'),
+          },
+          {
+            label: t('myEnrollments.teacher.roleNotes.collaboration'),
+            title: t('myEnrollments.teacher.roleNotes.assistantManagement'),
+            note: t('myEnrollments.teacher.roleNotes.assistantManagementNote'),
+          },
+        ],
 )
 
 const teacherStatusSummaries = computed(() => [
@@ -640,9 +641,9 @@ const progressBars = computed(() => {
 })
 
 const progressNote = computed(() =>
-  courses.value.length > 0
-    ? t('myEnrollments.teacher.progressNote', { progress: averageCourseProgress.value })
-    : t('myEnrollments.teacher.noProgressData'),
+    courses.value.length > 0
+        ? t('myEnrollments.teacher.progressNote', {progress: averageCourseProgress.value})
+        : t('myEnrollments.teacher.noProgressData'),
 )
 
 const teacherEmptyTitle = computed(() => {
@@ -653,8 +654,8 @@ const teacherEmptyTitle = computed(() => {
 const teacherEmptyDescription = computed(() => {
   if (searchKeyword.value.trim()) return t('myEnrollments.noMatchedCoursesDesc')
   return teacherCourseRole.value === 'assistant'
-    ? t('myEnrollments.teacher.noAssistantCoursesDesc')
-    : t('myEnrollments.teacher.noPrimaryCoursesDesc')
+      ? t('myEnrollments.teacher.noAssistantCoursesDesc')
+      : t('myEnrollments.teacher.noPrimaryCoursesDesc')
 })
 
 function getStatusLabel(status: number): string {
@@ -668,7 +669,7 @@ function getStatusLabel(status: number): string {
 }
 
 function getCourseStatusClass(status: number): string {
-  const map: Record<number, string> = { 0: 'draft', 1: 'active', 2: 'completed' }
+  const map: Record<number, string> = {0: 'draft', 1: 'active', 2: 'completed'}
 
   return map[status] ?? 'draft'
 }
@@ -677,9 +678,9 @@ function formatCourseHours(course: Course): string {
   const publishedCount = course.publishedClassSessionCount ?? 0
   const totalClassHours = course.totalClassHours ?? 0
   if (totalClassHours <= 0) {
-    return t('myEnrollments.classHoursUnset', { publishedCount })
+    return t('myEnrollments.classHoursUnset', {publishedCount})
   }
-  return t('myEnrollments.classHoursProgress', { publishedCount, totalClassHours })
+  return t('myEnrollments.classHoursProgress', {publishedCount, totalClassHours})
 }
 
 // ���� Data Loading ����
@@ -688,8 +689,8 @@ async function loadData() {
   loading.value = true
   try {
     const response = isTeacherPage.value
-      ? await getTeacherCourses(currentPage.value, pageSize.value, teacherCourseRole.value)
-      : await getCourses({
+        ? await getTeacherCourses(currentPage.value, pageSize.value, teacherCourseRole.value)
+        : await getCourses({
           page: currentPage.value,
           size: pageSize.value,
           keyword: searchKeyword.value || undefined,
@@ -728,7 +729,7 @@ function switchTeacherRole(role: TeacherCourseRole) {
 
   router.replace({
     name: 'teacher-courses',
-    query: { role },
+    query: {role},
   })
 }
 
@@ -834,6 +835,7 @@ function onInviteSuccess() {
   notify.success(t('enrollmentManagement.alert.inviteSuccess'))
   void loadData()
 }
+
 function syncTeacherCourseRole() {
   if (!isTeacherPage.value) {
     return
@@ -843,11 +845,11 @@ function syncTeacherCourseRole() {
 }
 
 watch(
-  () => [route.name, route.query.role],
-  () => {
-    syncTeacherCourseRole()
-    resetAndLoad()
-  },
+    () => [route.name, route.query.role],
+    () => {
+      syncTeacherCourseRole()
+      resetAndLoad()
+    },
 )
 
 onMounted(() => {
@@ -1516,9 +1518,8 @@ onMounted(() => {
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
-  transition:
-    background 0.2s,
-    color 0.2s;
+  transition: background 0.2s,
+  color 0.2s;
 }
 
 .teacher-course-tab:hover,
@@ -1593,11 +1594,10 @@ onMounted(() => {
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
-  transition:
-    background 0.2s,
-    border-color 0.2s,
-    color 0.2s,
-    opacity 0.2s;
+  transition: background 0.2s,
+  border-color 0.2s,
+  color 0.2s,
+  opacity 0.2s;
 }
 
 .btn-date-filter svg {
@@ -1693,11 +1693,11 @@ onMounted(() => {
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--color-surface-card) 40%,
-    var(--color-surface-card) 60%,
-    transparent 100%
+      90deg,
+      transparent 0%,
+      var(--color-surface-card) 40%,
+      var(--color-surface-card) 60%,
+      transparent 100%
   );
   animation: shimmer 1.4s ease-in-out infinite;
 }
@@ -2172,9 +2172,8 @@ onMounted(() => {
   border-radius: var(--radius-sm);
   background: var(--color-surface-card);
   cursor: pointer;
-  transition:
-    background 0.2s,
-    border-color 0.2s;
+  transition: background 0.2s,
+  border-color 0.2s;
 }
 
 .invite-teacher-option:hover,

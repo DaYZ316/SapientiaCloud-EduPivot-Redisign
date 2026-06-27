@@ -9,8 +9,15 @@ import org.springframework.util.StringUtils;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * DashScopeAsrResultParser.
+ *
+ * @author DaYZ
+ */
 @Component
 public class DashScopeAsrResultParser {
+
+    private static final String EVENT_RESULT_GENERATED = "result-generated";
 
     private final ObjectMapper objectMapper;
 
@@ -22,7 +29,7 @@ public class DashScopeAsrResultParser {
         try {
             JsonNode root = objectMapper.readTree(rawMessage);
             String event = root.path("header").path("event").asText("");
-            if (!"result-generated".equals(event)) {
+            if (!EVENT_RESULT_GENERATED.equals(event)) {
                 return List.of();
             }
             JsonNode output = root.path("payload").path("output");

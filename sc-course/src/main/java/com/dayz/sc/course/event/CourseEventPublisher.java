@@ -10,6 +10,8 @@ import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -40,14 +42,8 @@ public class CourseEventPublisher {
         CourseCreatedEvent event = new CourseCreatedEvent(
                 UuidV7Generator.generate(), course.getId(), course.getTitle(), course.getTeacherId(), course.getSemester(),
                 "COURSE_CREATED", Instant.now(), "sc-course");
-        kafkaTemplate.send(KafkaTopicConstants.COURSE_EVENTS, course.getId().toString(), event)
-                .whenComplete((result, ex) -> {
-                    if (ex != null) {
-                        log.error("Failed to publish CourseCreatedEvent for course {}", course.getId(), ex);
-                    } else {
-                        log.debug("Published CourseCreatedEvent for course {}", course.getId());
-                    }
-                });
+        sendAfterCommit(() -> kafkaTemplate.send(KafkaTopicConstants.COURSE_EVENTS, course.getId().toString(), event)
+                .whenComplete((result, ex) -> logSendResult(ex, "CourseCreatedEvent", course.getId())));
     }
 
     public void publishCourseDeleted(Course course) {
@@ -63,14 +59,8 @@ public class CourseEventPublisher {
         CourseDeletedEvent event = new CourseDeletedEvent(
                 UuidV7Generator.generate(), course.getId(), course.getTitle(), course.getTeacherId(),
                 "COURSE_DELETED", Instant.now(), "sc-course");
-        kafkaTemplate.send(KafkaTopicConstants.COURSE_EVENTS, course.getId().toString(), event)
-                .whenComplete((result, ex) -> {
-                    if (ex != null) {
-                        log.error("Failed to publish CourseDeletedEvent for course {}", course.getId(), ex);
-                    } else {
-                        log.debug("Published CourseDeletedEvent for course {}", course.getId());
-                    }
-                });
+        sendAfterCommit(() -> kafkaTemplate.send(KafkaTopicConstants.COURSE_EVENTS, course.getId().toString(), event)
+                .whenComplete((result, ex) -> logSendResult(ex, "CourseDeletedEvent", course.getId())));
     }
 
     public void publishCourseStatusChanged(UUID courseId, String courseTitle, UUID teacherId, String action) {
@@ -82,14 +72,8 @@ public class CourseEventPublisher {
         CourseStatusChangedEvent event = new CourseStatusChangedEvent(
                 UuidV7Generator.generate(), courseId, courseTitle, teacherId, action,
                 "COURSE_STATUS_CHANGED", Instant.now(), "sc-course");
-        kafkaTemplate.send(KafkaTopicConstants.COURSE_EVENTS, courseId.toString(), event)
-                .whenComplete((result, ex) -> {
-                    if (ex != null) {
-                        log.error("Failed to publish CourseStatusChangedEvent for course {}", courseId, ex);
-                    } else {
-                        log.debug("Published CourseStatusChangedEvent for course {}", courseId);
-                    }
-                });
+        sendAfterCommit(() -> kafkaTemplate.send(KafkaTopicConstants.COURSE_EVENTS, courseId.toString(), event)
+                .whenComplete((result, ex) -> logSendResult(ex, "CourseStatusChangedEvent", courseId)));
     }
 
     public void publishEnrollmentChanged(UUID courseId, String courseTitle,
@@ -104,14 +88,8 @@ public class CourseEventPublisher {
                 UuidV7Generator.generate(), courseId, courseTitle,
                 studentId, studentName, teacherId, action,
                 "ENROLLMENT_CHANGED", Instant.now(), "sc-course");
-        kafkaTemplate.send(KafkaTopicConstants.COURSE_EVENTS, courseId.toString(), event)
-                .whenComplete((result, ex) -> {
-                    if (ex != null) {
-                        log.error("Failed to publish EnrollmentChangedEvent for course {}", courseId, ex);
-                    } else {
-                        log.debug("Published EnrollmentChangedEvent for course {}", courseId);
-                    }
-                });
+        sendAfterCommit(() -> kafkaTemplate.send(KafkaTopicConstants.COURSE_EVENTS, courseId.toString(), event)
+                .whenComplete((result, ex) -> logSendResult(ex, "EnrollmentChangedEvent", courseId)));
     }
 
     public void publishInvitationChanged(UUID courseId, String courseTitle,
@@ -127,13 +105,28 @@ public class CourseEventPublisher {
                 UuidV7Generator.generate(), courseId, courseTitle,
                 inviterId, inviterName, inviteeId, inviteeName, action,
                 "INVITATION_CHANGED", Instant.now(), "sc-course");
-        kafkaTemplate.send(KafkaTopicConstants.COURSE_EVENTS, courseId.toString(), event)
-                .whenComplete((result, ex) -> {
-                    if (ex != null) {
-                        log.error("Failed to publish InvitationChangedEvent for course {}", courseId, ex);
-                    } else {
-                        log.debug("Published InvitationChangedEvent for course {}", courseId);
-                    }
-                });
+        sendAfterCommit(() -> kafkaTemplate.send(KafkaTopicConstants.COURSE_EVENTS, courseId.toString(), event)
+                .whenComplete((result, ex) -> logSendResult(ex, "InvitationChangedEvent", courseId)));
+    }
+
+    private void sendAfterCommit(Runnable sendAction) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            sendAction.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                sendAction.run();
+            }
+        });
+    }
+
+    private void logSendResult(Throwable ex, String eventName, UUID courseId) {
+        if (ex != null) {
+            log.error("Failed to publish {} for course {}", eventName, courseId, ex);
+        } else {
+            log.debug("Published {} for course {}", eventName, courseId);
+        }
     }
 }

@@ -165,7 +165,8 @@
               <h3 :title="panelTitle">{{ panelTitle }}</h3>
             </div>
             <div class="form-actions">
-              <button v-if="canManageCourse && !isPreviewing" :disabled="submitting" class="btn-add primary" type="submit">
+              <button v-if="canManageCourse && !isPreviewing" :disabled="submitting" class="btn-add primary"
+                      type="submit">
                 {{ submitting ? t('courseDetail.saving') : t('courseDetail.save') }}
               </button>
               <button

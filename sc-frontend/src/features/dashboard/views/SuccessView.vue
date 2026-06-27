@@ -1,6 +1,6 @@
 <template>
   <main class="dashboard-workbench">
-    <section class="workbench-heading" aria-labelledby="dashboard-title">
+    <section aria-labelledby="dashboard-title" class="workbench-heading">
       <div>
         <p class="workbench-kicker">{{ roleCopy.kicker }}</p>
         <h1 id="dashboard-title">{{ greetingTitle }}</h1>
@@ -20,8 +20,9 @@
       </button>
     </section>
 
-    <section v-else-if="isLoading" class="dashboard-loading-layout" :aria-label="t('success.dashboard.state.loading')" aria-live="polite">
-      <section class="dashboard-loading-live dashboard-loading-surface" aria-hidden="true">
+    <section v-else-if="isLoading" :aria-label="t('success.dashboard.state.loading')" aria-live="polite"
+             class="dashboard-loading-layout">
+      <section aria-hidden="true" class="dashboard-loading-live dashboard-loading-surface">
         <div class="dashboard-loading-copy">
           <span class="dashboard-loading-pill"></span>
           <span class="dashboard-loading-line wide"></span>
@@ -30,7 +31,7 @@
         <span class="dashboard-loading-command"></span>
       </section>
 
-      <section class="dashboard-loading-metrics" aria-hidden="true">
+      <section aria-hidden="true" class="dashboard-loading-metrics">
         <article v-for="item in 6" :key="item" class="dashboard-loading-metric dashboard-loading-surface">
           <span class="dashboard-loading-line short"></span>
           <span class="dashboard-loading-number"></span>
@@ -38,7 +39,7 @@
         </article>
       </section>
 
-      <section class="dashboard-loading-grid" aria-hidden="true">
+      <section aria-hidden="true" class="dashboard-loading-grid">
         <div class="dashboard-loading-main">
           <article class="dashboard-loading-panel dashboard-loading-panel--large dashboard-loading-surface">
             <span class="dashboard-loading-line short"></span>
@@ -71,16 +72,16 @@
     </section>
 
     <AdminDashboardPanel
-      v-else-if="dashboard?.role === 0 && dashboard.admin"
-      :admin="dashboard.admin"
+        v-else-if="dashboard?.role === 0 && dashboard.admin"
+        :admin="dashboard.admin"
     />
     <TeacherDashboardPanel
-      v-else-if="dashboard?.role === 2 && dashboard.teacher"
-      :teacher="dashboard.teacher"
+        v-else-if="dashboard?.role === 2 && dashboard.teacher"
+        :teacher="dashboard.teacher"
     />
     <StudentDashboardPanel
-      v-else-if="dashboard?.role === 1 && dashboard.student"
-      :student="dashboard.student"
+        v-else-if="dashboard?.role === 1 && dashboard.student"
+        :student="dashboard.student"
     />
 
     <section v-else class="dashboard-state-panel">
@@ -95,10 +96,7 @@ import {computed, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 
 import {useAuthStore} from '@/features/auth/stores/auth'
-import {
-    getMyDashboard,
-    type DashboardResponse,
-} from '@/features/dashboard/api/dashboard'
+import {type DashboardResponse, getMyDashboard,} from '@/features/dashboard/api/dashboard'
 import AdminDashboardPanel from '@/features/dashboard/components/AdminDashboardPanel.vue'
 import StudentDashboardPanel from '@/features/dashboard/components/StudentDashboardPanel.vue'
 import TeacherDashboardPanel from '@/features/dashboard/components/TeacherDashboardPanel.vue'
@@ -115,34 +113,34 @@ const role = computed(() => authStore.user?.role ?? 1)
 const displayName = computed(() => authStore.user?.displayName || authStore.user?.email || 'SapientiaCloud')
 
 const roleLabel = computed(() => {
-    if (role.value === 0) return t('success.dashboard.role.admin')
-    if (role.value === 2) return t('success.dashboard.role.teacher')
-    return t('success.dashboard.role.student')
+  if (role.value === 0) return t('success.dashboard.role.admin')
+  if (role.value === 2) return t('success.dashboard.role.teacher')
+  return t('success.dashboard.role.student')
 })
 
 const greetingTitle = computed(() => {
-    if (role.value === 0) return t('success.dashboard.greeting.admin', {name: displayName.value})
-    if (role.value === 2) return t('success.dashboard.greeting.teacher', {name: displayName.value})
-    return t('success.dashboard.greeting.student', {name: displayName.value})
+  if (role.value === 0) return t('success.dashboard.greeting.admin', {name: displayName.value})
+  if (role.value === 2) return t('success.dashboard.greeting.teacher', {name: displayName.value})
+  return t('success.dashboard.greeting.student', {name: displayName.value})
 })
 
 const roleCopy = computed(() => {
-    if (role.value === 0) {
-        return {
-            kicker: t('success.dashboard.copy.admin.kicker'),
-            subtitle: t('success.dashboard.copy.admin.subtitle'),
-        }
-    }
-    if (role.value === 2) {
-        return {
-            kicker: t('success.dashboard.copy.teacher.kicker'),
-            subtitle: t('success.dashboard.copy.teacher.subtitle'),
-        }
-    }
+  if (role.value === 0) {
     return {
-        kicker: t('success.dashboard.copy.student.kicker'),
-        subtitle: t('success.dashboard.copy.student.subtitle'),
+      kicker: t('success.dashboard.copy.admin.kicker'),
+      subtitle: t('success.dashboard.copy.admin.subtitle'),
     }
+  }
+  if (role.value === 2) {
+    return {
+      kicker: t('success.dashboard.copy.teacher.kicker'),
+      subtitle: t('success.dashboard.copy.teacher.subtitle'),
+    }
+  }
+  return {
+    kicker: t('success.dashboard.copy.student.kicker'),
+    subtitle: t('success.dashboard.copy.student.subtitle'),
+  }
 })
 
 onMounted(loadDashboard)
@@ -153,16 +151,16 @@ watch(
 )
 
 async function loadDashboard() {
-    isLoading.value = true
-    loadError.value = false
-    try {
-        dashboard.value = await getMyDashboard()
-    } catch {
-        dashboard.value = null
-        loadError.value = true
-    } finally {
-        isLoading.value = false
-    }
+  isLoading.value = true
+  loadError.value = false
+  try {
+    dashboard.value = await getMyDashboard()
+  } catch {
+    dashboard.value = null
+    loadError.value = true
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
 

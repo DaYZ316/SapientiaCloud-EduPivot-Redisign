@@ -7,6 +7,11 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 
+/**
+ * DashboardTeacherVO.
+ *
+ * @author DaYZ
+ */
 public record DashboardTeacherVO(
         DashboardNotificationSummary notifications,
         List<CourseVO> primaryCourses,

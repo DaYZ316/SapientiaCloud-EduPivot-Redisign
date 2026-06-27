@@ -29,11 +29,16 @@ deploy_artifact.bat frontend
 deploy_artifact.bat all
 ```
 
-Double-click `deploy_artifact.bat` to open the menu. Run `all` for the first deployment. Use single-service targets for later updates.
+Double-click `deploy_artifact.bat` to open the menu. Run `all` for the first deployment. Use single-service targets for
+later updates.
 
-Set `EDUPIVOT_BIND_HOST=0.0.0.0` in `.env` when server ports should be reachable from outside the host. Use firewall or cloud security-group rules to restrict sensitive ports such as PostgreSQL, Redis, Nacos, Kafka, and MinIO to trusted IP addresses.
+Set `EDUPIVOT_BIND_HOST=0.0.0.0` in `.env` when server ports should be reachable from outside the host. Use firewall or
+cloud security-group rules to restrict sensitive ports such as PostgreSQL, Redis, Nacos, Kafka, and MinIO to trusted IP
+addresses.
 
-Classroom live streaming uses the self-hosted `livekit` container. Set `LIVEKIT_URL`, `LIVEKIT_SERVER_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` in the server `.env`; see `docs/livekit-docker-deployment.md` for DNS, certificate, and firewall requirements.
+Classroom live streaming uses the self-hosted `livekit` container. Set `LIVEKIT_URL`, `LIVEKIT_SERVER_URL`,
+`LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` in the server `.env`; see `docs/livekit-docker-deployment.md` for DNS,
+certificate, and firewall requirements.
 
 Backend service targets:
 
@@ -47,7 +52,8 @@ sc-gateway
 all-backend
 ```
 
-Backend builds use `mvn -pl <service> -am package`, so changed `sc-common` modules are rebuilt with the selected service. If a common change must reach every running service, deploy `all-backend`.
+Backend builds use `mvn -pl <service> -am package`, so changed `sc-common` modules are rebuilt with the selected
+service. If a common change must reach every running service, deploy `all-backend`.
 
 Override the server in cmd:
 
@@ -68,7 +74,8 @@ set "DEPLOY_DIR=/opt/sc-edupivot"
 set "DEPLOY_PASSWORD=your-server-password"
 ```
 
-When `DEPLOY_PASSWORD` is set, the script uses PuTTY `plink` and `pscp`, so both commands must be in `PATH`. The private local file is ignored by git.
+When `DEPLOY_PASSWORD` is set, the script uses PuTTY `plink` and `pscp`, so both commands must be in `PATH`. The private
+local file is ignored by git.
 
 Skip rebuilds and only upload existing artifacts:
 

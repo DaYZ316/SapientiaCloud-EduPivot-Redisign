@@ -1,10 +1,10 @@
 package com.dayz.sc.notification.service;
 
-import com.dayz.sc.common.error.BusinessException;
-import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.dashboard.DashboardChartPoint;
 import com.dayz.sc.common.dashboard.DashboardNotificationItem;
 import com.dayz.sc.common.dashboard.DashboardNotificationSummary;
+import com.dayz.sc.common.error.BusinessException;
+import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.common.util.UuidV7Generator;
@@ -19,8 +19,8 @@ import com.dayz.sc.notification.repository.NotificationReadStatusRepository;
 import com.dayz.sc.notification.repository.NotificationRepository;
 import com.dayz.sc.notification.repository.NotificationTargetRepository;
 import com.dayz.sc.notification.sse.NotificationSseEmitter;
-import org.jspecify.annotations.NonNull;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -182,6 +182,7 @@ public class NotificationService {
         if (userId.equals(notification.getSenderId())) {
             throw new BusinessException(ErrorCodes.NOTIFICATION_RECALL_FORBIDDEN);
         }
+        notificationTargetRepository.markDeleted(notificationId, userId);
         // 濡傛灉鏈锛屽厛閫掑噺璁℃暟
         readStatusRepository.findByNotificationIdAndUserId(notificationId, userId)
                 .ifPresentOrElse(
@@ -190,7 +191,6 @@ public class NotificationService {
                         },
                         () -> unreadCountService.decrement(userId, notification.getType())
                 );
-        notificationTargetRepository.markDeleted(notificationId, userId);
     }
 
     @Transactional(rollbackFor = Exception.class)

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-import {ClassRoomSize, type ClassParticipant} from '@/features/course/types/classSession'
+import {type ClassParticipant, ClassRoomSize} from '@/features/course/types/classSession'
 import {getAvatarInitials} from '@/shared/utils/avatar'
 
 const TEXTURE_SIZE = 192

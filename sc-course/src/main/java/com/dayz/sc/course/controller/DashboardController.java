@@ -14,6 +14,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
+/**
+ * DashboardController.
+ *
+ * @author DaYZ
+ */
 @RestController
 @RequestMapping("/api/dashboard")
 @RequiredArgsConstructor

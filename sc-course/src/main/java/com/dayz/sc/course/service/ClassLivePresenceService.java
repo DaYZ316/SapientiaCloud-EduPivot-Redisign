@@ -9,6 +9,8 @@ import java.util.UUID;
 
 /**
  * Tracks the opening teacher's live page presence with a short Redis TTL.
+ *
+ * @author DaYZ
  */
 @Service
 @RequiredArgsConstructor

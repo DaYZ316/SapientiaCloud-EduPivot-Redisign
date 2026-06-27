@@ -23,6 +23,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
@@ -31,24 +32,26 @@ import reactor.core.publisher.Flux;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * LiveSummaryService.
+ *
+ * @author DaYZ
+ */
 @Service
 @Slf4j
 public class LiveSummaryService {
 
     private static final String UNAVAILABLE_MESSAGE = "AI summary is temporarily unavailable.";
+    private static final String MARKDOWN_CODE_FENCE = "```";
     private static final int SUCCESS_CODE = 0;
+    private static final int SUMMARY_EXECUTOR_CORE_SIZE = 2;
+    private static final int SUMMARY_EXECUTOR_MAX_SIZE = 4;
+    private static final int SUMMARY_EXECUTOR_QUEUE_SIZE = 128;
+    private static final long SUMMARY_EXECUTOR_KEEP_ALIVE_SECONDS = 30L;
 
     private final LiveSummarySessionRepository sessionRepository;
     private final LiveTranscriptSegmentRepository transcriptRepository;
@@ -62,7 +65,13 @@ public class LiveSummaryService {
     private final AiProviderCallGuard aiProviderCallGuard;
     private final AiProperties aiProperties;
     private final ObjectMapper objectMapper;
-    private final ExecutorService summaryExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    private final ExecutorService summaryExecutor = new ThreadPoolExecutor(
+            SUMMARY_EXECUTOR_CORE_SIZE,
+            SUMMARY_EXECUTOR_MAX_SIZE,
+            SUMMARY_EXECUTOR_KEEP_ALIVE_SECONDS,
+            TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(SUMMARY_EXECUTOR_QUEUE_SIZE),
+            new ThreadPoolExecutor.CallerRunsPolicy());
     private final Map<UUID, ReentrantLock> summaryLocks = new ConcurrentHashMap<>();
     private final Map<UUID, Instant> lastSummaryAtBySession = new ConcurrentHashMap<>();
 
@@ -144,9 +153,9 @@ public class LiveSummaryService {
                 .orElseGet(() -> emptyVO(access));
     }
 
-    public Flux<ServerSentEvent<String>> stream(UUID classSessionId, UUID userId, Integer role) {
+    public Flux<@NonNull ServerSentEvent<@NonNull String>> stream(UUID classSessionId, UUID userId, Integer role) {
         LiveSummarySessionVO snapshot = get(classSessionId, userId, role);
-        List<ServerSentEvent<String>> initialEvents = new ArrayList<>();
+        List<ServerSentEvent<@NonNull String>> initialEvents = new ArrayList<>();
         initialEvents.add(eventHub.event("status", snapshot));
         if (snapshot.latestSnapshot() != null) {
             initialEvents.add(eventHub.event("summary_snapshot", snapshot.latestSnapshot()));
@@ -154,8 +163,8 @@ public class LiveSummaryService {
         snapshot.recentTranscripts().forEach(segment ->
                 initialEvents.add(eventHub.event("transcript", transcriptPayload(segment, true))));
 
-        Flux<ServerSentEvent<String>> liveEvents = eventHub.stream(classSessionId);
-        Flux<ServerSentEvent<String>> keepaliveEvents = Flux.interval(Duration.ofSeconds(15))
+        Flux<@NonNull ServerSentEvent<@NonNull String>> liveEvents = eventHub.stream(classSessionId);
+        Flux<@NonNull ServerSentEvent<@NonNull String>> keepaliveEvents = Flux.interval(Duration.ofSeconds(15))
                 .map(ignored -> eventHub.keepalive());
         return Flux.fromIterable(initialEvents)
                 .concatWith(Flux.merge(liveEvents, keepaliveEvents));
@@ -372,7 +381,7 @@ public class LiveSummaryService {
         String transcript = truncate(joinTranscript(newSegments), aiProperties.getLiveSummary().getMaxIncrementChars());
         return """
                 你是课堂直播的实时助教。请基于上一版压缩状态和新增教师转写，做增量课堂总结。
-
+                
                 要求：
                 - 只总结教师讲授内容，不编造学生互动或课堂事实。
                 - 保留可继续滚动压缩的知识结构。
@@ -382,10 +391,10 @@ public class LiveSummaryService {
                 - timeline 是对象数组，每项包含 time、title、detail。
                 - questions 是字符串数组，放学生可能需要复习的问题。
                 - mindMap 是 ECharts tree 数据：{"name":"课堂总结","children":[...]}。
-
+                
                 上一版压缩状态：
                 %s
-
+                
                 新增转写：
                 %s
                 """.formatted(state, transcript);
@@ -457,9 +466,9 @@ public class LiveSummaryService {
 
     private String extractJsonObject(String response) {
         String value = response.strip();
-        if (value.startsWith("```")) {
-            value = value.replaceFirst("^```[a-zA-Z]*\\s*", "");
-            value = value.replaceFirst("\\s*```$", "");
+        if (value.startsWith(MARKDOWN_CODE_FENCE)) {
+            value = value.replaceFirst("^" + MARKDOWN_CODE_FENCE + "[a-zA-Z]*\\s*", "");
+            value = value.replaceFirst("\\s*" + MARKDOWN_CODE_FENCE + "$", "");
         }
         int start = value.indexOf('{');
         int end = value.lastIndexOf('}');
@@ -506,14 +515,16 @@ public class LiveSummaryService {
 
     private ClassSessionAiAccess requireAccess(UUID classSessionId, UUID userId, Integer role, boolean manage) {
         ClassSessionAiAccess access = access(classSessionId, userId, role);
-        if (!access.canView() || (manage && !access.canManage())) {
+        boolean cannotView = !access.canView();
+        boolean cannotManage = manage && !access.canManage();
+        if (cannotView || cannotManage) {
             throw new BusinessException(ErrorCodes.FORBIDDEN);
         }
         return access;
     }
 
     private ClassSessionAiAccess access(UUID classSessionId, UUID userId, Integer role) {
-        ApiResponse<ClassSessionAiAccess> response = courseAiContextClient.classSessionAccess(
+        ApiResponse<@NonNull ClassSessionAiAccess> response = courseAiContextClient.classSessionAccess(
                 classSessionId,
                 userId == null ? null : userId.toString(),
                 role == null ? null : role.toString());

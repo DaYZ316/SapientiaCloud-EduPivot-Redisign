@@ -10,8 +10,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -19,13 +19,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 
+/**
+ * AiGradingService.
+ *
+ * @author DaYZ
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -35,6 +35,7 @@ public class AiGradingService {
     private static final String STATUS_FAILED = "FAILED";
     private static final int FLAG_ON = 1;
     private static final int FLAG_OFF = 0;
+    private static final String MARKDOWN_CODE_FENCE = "```";
     private static final Duration DEFAULT_GRADING_TIMEOUT = Duration.ofSeconds(30);
 
     private final ChatClient chatClient;
@@ -142,8 +143,10 @@ public class AiGradingService {
             throw new IllegalStateException("empty AI response");
         }
         String json = response.trim();
-        if (json.startsWith("```")) {
-            json = json.replaceFirst("^```(?:json)?", "").replaceFirst("```$", "").trim();
+        if (json.startsWith(MARKDOWN_CODE_FENCE)) {
+            json = json.replaceFirst("^" + MARKDOWN_CODE_FENCE + "(?:json)?", "")
+                    .replaceFirst(MARKDOWN_CODE_FENCE + "$", "")
+                    .trim();
         }
         return objectMapper.readValue(json, new TypeReference<>() {
         });

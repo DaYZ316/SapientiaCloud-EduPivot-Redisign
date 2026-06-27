@@ -1,62 +1,62 @@
 <template>
   <section
-    :class="[panelLayoutClass, {'is-empty': isEmpty}]"
-    class="ai-chat-panel"
+      :class="[panelLayoutClass, {'is-empty': isEmpty}]"
+      class="ai-chat-panel"
   >
     <header
-      v-if="showHeader"
-      class="chat-header"
+        v-if="showHeader"
+        class="chat-header"
     >
       <div>
         <span>{{ t('common.ai.chat.header') }}</span>
         <h2>{{ title }}</h2>
       </div>
       <button
-        :title="t('common.ai.sidebar.newChat')"
-        class="btn-close chat-new-button"
-        type="button"
-        @click="createNewConversation"
+          :title="t('common.ai.sidebar.newChat')"
+          class="btn-close chat-new-button"
+          type="button"
+          @click="createNewConversation"
       >
         <Plus
-          :size="17"
-          stroke-width="1.8"
+            :size="17"
+            stroke-width="1.8"
         />
       </button>
     </header>
 
     <div
-      ref="messageListRef"
-      class="message-list"
+        ref="messageListRef"
+        class="message-list"
     >
       <div
-        v-if="aiStore.loadingMessages"
-        :aria-label="t('common.ai.history.loading')"
-        class="state-block"
-        role="status"
+          v-if="aiStore.loadingMessages"
+          :aria-label="t('common.ai.history.loading')"
+          class="state-block"
+          role="status"
       >
         <div class="loading-track">
           <div class="loading-message-card loading-message-card--user loading-message-card--prompt">
-            <span class="loading-user-bar shimmer" />
+            <span class="loading-user-bar shimmer"/>
           </div>
           <div class="loading-message-card loading-message-card--assistant">
-            <span class="loading-avatar shimmer" />
+            <span class="loading-avatar shimmer"/>
             <div class="loading-copy">
-              <span class="loading-line loading-line--title shimmer" />
-              <span class="loading-line shimmer" />
-              <span class="loading-line loading-line--medium shimmer" />
+              <span class="loading-line loading-line--title shimmer"/>
+              <span class="loading-line shimmer"/>
+              <span class="loading-line loading-line--medium shimmer"/>
             </div>
           </div>
           <div class="loading-message-card loading-message-card--user">
             <div class="loading-copy">
-              <span class="loading-line loading-line--medium shimmer" />
-              <span class="loading-line loading-line--short shimmer" />
+              <span class="loading-line loading-line--medium shimmer"/>
+              <span class="loading-line loading-line--short shimmer"/>
             </div>
           </div>
           <div class="loading-message-card loading-message-card--assistant loading-message-card--compact">
-            <span class="loading-avatar shimmer" />
+            <span class="loading-avatar shimmer"/>
             <div class="loading-copy">
-              <span class="loading-line shimmer" />
-              <span class="loading-line loading-line--short shimmer" />
+              <span class="loading-line shimmer"/>
+              <span class="loading-line loading-line--short shimmer"/>
             </div>
           </div>
         </div>
@@ -64,19 +64,19 @@
 
       <template v-else-if="aiStore.messages.length > 0">
         <article
-          v-for="message in aiStore.messages"
-          :key="message.id"
-          :class="[messageClass(message.role), {
+            v-for="message in aiStore.messages"
+            :key="message.id"
+            :class="[messageClass(message.role), {
             failed: message.failed,
             streaming: message.pending && !message.failed,
             'has-generation-card': isGenerationMessage(message),
             'has-generation-request': isGenerationRequestMessage(message),
           }]"
-          class="message-row"
+            class="message-row"
         >
           <div
-            v-if="message.messageType && message.messageType !== 'TEXT' && !isGenerationMessage(message)"
-            class="message-meta"
+              v-if="message.messageType && message.messageType !== 'TEXT' && !isGenerationMessage(message)"
+              class="message-meta"
           >
             <small>
               {{ messageTypeLabel(message.messageType) }}
@@ -84,125 +84,125 @@
           </div>
           <div class="message-bubble">
             <AiGenerationProgressCard
-              v-if="isGenerationMessage(message)"
-              :active="aiStore.activeGenerationMessageId === message.id"
-              :message="message"
-              @view-trace="openGenerationTrace"
+                v-if="isGenerationMessage(message)"
+                :active="aiStore.activeGenerationMessageId === message.id"
+                :message="message"
+                @view-trace="openGenerationTrace"
             />
             <AiPendingBrushLoader
-              v-else-if="message.pending && isAssistantMessage(message.role) && !message.content"
-              class="pending-brush"
+                v-else-if="message.pending && isAssistantMessage(message.role) && !message.content"
+                class="pending-brush"
             />
             <AiGenerationRequestCard
-              v-else-if="isGenerationRequestMessage(message)"
-              :message="message"
+                v-else-if="isGenerationRequestMessage(message)"
+                :message="message"
             />
             <div
-              v-if="message.content && !isGenerationMessage(message) && !isGenerationRequestMessage(message)"
-              class="message-content"
+                v-if="message.content && !isGenerationMessage(message) && !isGenerationRequestMessage(message)"
+                class="message-content"
             >
               <AiMarkdownMessage
-                v-if="isAssistantMessage(message.role)"
-                :content="message.content"
+                  v-if="isAssistantMessage(message.role)"
+                  :content="message.content"
               />
               <template v-else>
                 {{ message.content }}
               </template>
             </div>
             <AiAgentSearchEvidence
-              v-if="!isGenerationMessage(message)"
-              :payload="agentSearchPayload(message)"
+                v-if="!isGenerationMessage(message)"
+                :payload="agentSearchPayload(message)"
             />
           </div>
         </article>
       </template>
 
       <div
-        v-else
-        class="empty-chat"
+          v-else
+          class="empty-chat"
       >
         <h3>{{ emptyTitle }}</h3>
       </div>
     </div>
 
     <div
-      v-if="aiStore.streamError"
-      class="inline-error"
+        v-if="aiStore.streamError"
+        class="inline-error"
     >
       {{ aiStore.streamError }}
     </div>
 
     <form
-      v-if="showComposer"
-      class="composer"
-      @submit.prevent="submit"
+        v-if="showComposer"
+        class="composer"
+        @submit.prevent="submit"
     >
       <div class="composer-shell">
         <div
-          aria-hidden="true"
-          class="composer-brand"
+            aria-hidden="true"
+            class="composer-brand"
         >
           <span>SC</span>
         </div>
 
         <textarea
-          ref="composerTextareaRef"
-          v-model="draft"
-          :disabled="aiStore.streaming"
-          :placeholder="placeholder"
-          maxlength="4000"
-          rows="1"
-          @input="resizeComposer"
-          @keydown.enter.exact.prevent="submit"
+            ref="composerTextareaRef"
+            v-model="draft"
+            :disabled="aiStore.streaming"
+            :placeholder="placeholder"
+            maxlength="4000"
+            rows="1"
+            @input="resizeComposer"
+            @keydown.enter.exact.prevent="submit"
         />
 
         <div class="tools-right">
           <button
-            v-if="canStopTask"
-            class="btn-secondary secondary-action"
-            :title="t('common.ai.chat.stopGenerating')"
-            type="button"
-            @click="aiStore.stopStreaming"
+              v-if="canStopTask"
+              :title="t('common.ai.chat.stopGenerating')"
+              class="btn-secondary secondary-action"
+              type="button"
+              @click="aiStore.stopStreaming"
           >
             <Square
-              :size="14"
-              stroke-width="1.9"
+                :size="14"
+                stroke-width="1.9"
             />
           </button>
           <button
-            v-if="draft.trim() && !isListening"
-            :disabled="aiStore.streaming"
-            class="btn-primary primary-action"
-            :title="t('common.ai.chat.send')"
-            type="submit"
+              v-if="draft.trim() && !isListening"
+              :disabled="aiStore.streaming"
+              :title="t('common.ai.chat.send')"
+              class="btn-primary primary-action"
+              type="submit"
           >
             <Send
-              :size="15"
-              stroke-width="1.9"
+                :size="15"
+                stroke-width="1.9"
             />
           </button>
           <button
-            v-else
-            :aria-label="speechButtonLabel"
-            :aria-pressed="isListening"
-            :class="{'is-listening': isListening}"
-            :disabled="aiStore.streaming"
-            class="btn-primary primary-action voice-action"
-            :title="speechButtonLabel"
-            type="button"
-            @click="toggleSpeechInput"
+              v-else
+              :aria-label="speechButtonLabel"
+              :aria-pressed="isListening"
+              :class="{'is-listening': isListening}"
+              :disabled="aiStore.streaming"
+              :title="speechButtonLabel"
+              class="btn-primary primary-action voice-action"
+              type="button"
+              @click="toggleSpeechInput"
           >
             <Mic
-              :size="21"
-              stroke-width="2.2"
+                :size="21"
+                stroke-width="2.2"
             />
           </button>
         </div>
       </div>
     </form>
     <p
-      v-if="isEmpty && showComposer"
-      class="composer-disclaimer"
+        v-if="isEmpty && showComposer"
+        class="composer-disclaimer"
     >
       {{ t('common.ai.chat.disclaimer') }}
     </p>
@@ -221,7 +221,13 @@ import AiGenerationProgressCard from '@/features/ai/components/AiGenerationProgr
 import AiGenerationRequestCard from '@/features/ai/components/AiGenerationRequestCard.vue'
 import AiMarkdownMessage from '@/features/ai/components/AiMarkdownMessage.vue'
 import AiPendingBrushLoader from '@/features/ai/components/AiPendingBrushLoader.vue'
-import type {AgentSearchPayload, AiAgentMode, AiMessageRole, ChatMessage, GenerationRequest} from '@/features/ai/types/ai'
+import type {
+  AgentSearchPayload,
+  AiAgentMode,
+  AiMessageRole,
+  ChatMessage,
+  GenerationRequest
+} from '@/features/ai/types/ai'
 import {hasGenerationRequestPayload} from '@/features/ai/utils/generationRequestPayload'
 import {isGenerationMessage} from '@/features/ai/utils/generationTrace'
 import {notify} from '@/shared/composables/useGlobalNotification'
@@ -259,12 +265,12 @@ const isEmpty = computed(() => !aiStore.loadingMessages && aiStore.messages.leng
 const hasConversationHistory = computed(() => aiStore.conversations.length > 0)
 const userDisplayName = computed(() => authStore.user?.displayName || authStore.user?.email || 'User')
 const streamFingerprint = computed(() =>
-  aiStore.messages.map((message) => `${message.id}:${message.content.length}:${message.pending ? '1' : '0'}`).join('|'),
+    aiStore.messages.map((message) => `${message.id}:${message.content.length}:${message.pending ? '1' : '0'}`).join('|'),
 )
 const canStopTask = computed(() => aiStore.streaming || Boolean(aiStore.activeGenerationMessage?.pending))
 const panelLayoutClass = computed(() => `is-${props.layout ?? 'page'}`)
 const speechButtonLabel = computed(() =>
-  isListening.value ? t('common.ai.chat.stopVoiceInput') : t('common.ai.chat.startVoiceInput'),
+    isListening.value ? t('common.ai.chat.stopVoiceInput') : t('common.ai.chat.startVoiceInput'),
 )
 let scrollFrame = 0
 let activeSpeechRecognition: SpeechRecognitionLike | null = null
@@ -322,8 +328,8 @@ async function submit() {
   const message = draft.value.trim()
   if (!message) return
   const generationRequest = activeMode.value === 'CHAT'
-    ? undefined
-    : normalizedGeneration({
+      ? undefined
+      : normalizedGeneration({
         ...props.generation,
         requirement: message,
       }, activeMode.value)
@@ -549,11 +555,13 @@ interface SpeechRecognitionEventLike {
 
 interface SpeechRecognitionResultListLike {
   length: number
+
   [index: number]: SpeechRecognitionResultLike
 }
 
 interface SpeechRecognitionResultLike {
   isFinal: boolean
+
   [index: number]: {
     transcript: string
   }
@@ -939,11 +947,11 @@ interface SpeechRecognitionErrorEventLike {
   left: 16px;
   width: 1px;
   background: linear-gradient(
-    180deg,
-    transparent,
-    color-mix(in srgb, var(--color-outline-light) 82%, transparent) 16%,
-    color-mix(in srgb, var(--color-outline-light) 42%, transparent) 72%,
-    transparent
+      180deg,
+      transparent,
+      color-mix(in srgb, var(--color-outline-light) 82%, transparent) 16%,
+      color-mix(in srgb, var(--color-outline-light) 42%, transparent) 72%,
+      transparent
   );
 }
 
@@ -1056,10 +1064,10 @@ interface SpeechRecognitionErrorEventLike {
 
 .shimmer {
   background: linear-gradient(
-    110deg,
-    var(--color-surface-container-high) 8%,
-    color-mix(in srgb, var(--color-on-surface) 10%, var(--color-surface-canvas)) 18%,
-    var(--color-surface-container-high) 33%
+      110deg,
+      var(--color-surface-container-high) 8%,
+      color-mix(in srgb, var(--color-on-surface) 10%, var(--color-surface-canvas)) 18%,
+      var(--color-surface-container-high) 33%
   );
   background-size: 200% 100%;
   animation: shimmer 1.55s ease-in-out infinite;
@@ -1067,20 +1075,20 @@ interface SpeechRecognitionErrorEventLike {
 
 .loading-message-card--user .shimmer {
   background: linear-gradient(
-    110deg,
-    color-mix(in srgb, var(--color-on-primary) 13%, transparent) 8%,
-    color-mix(in srgb, var(--color-on-primary) 24%, transparent) 18%,
-    color-mix(in srgb, var(--color-on-primary) 13%, transparent) 33%
+      110deg,
+      color-mix(in srgb, var(--color-on-primary) 13%, transparent) 8%,
+      color-mix(in srgb, var(--color-on-primary) 24%, transparent) 18%,
+      color-mix(in srgb, var(--color-on-primary) 13%, transparent) 33%
   );
   background-size: 200% 100%;
 }
 
 .loading-message-card--prompt .loading-user-bar {
   background: linear-gradient(
-    110deg,
-    color-mix(in srgb, var(--color-primary) 88%, var(--color-surface-card)) 8%,
-    var(--color-primary) 18%,
-    color-mix(in srgb, var(--color-primary) 88%, var(--color-surface-card)) 33%
+      110deg,
+      color-mix(in srgb, var(--color-primary) 88%, var(--color-surface-card)) 8%,
+      var(--color-primary) 18%,
+      color-mix(in srgb, var(--color-primary) 88%, var(--color-surface-card)) 33%
   );
   background-size: 200% 100%;
 }

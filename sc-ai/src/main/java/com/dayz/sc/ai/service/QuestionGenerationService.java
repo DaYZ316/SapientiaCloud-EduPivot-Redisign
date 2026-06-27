@@ -1,20 +1,10 @@
 package com.dayz.sc.ai.service;
 
-import com.dayz.sc.ai.model.dto.GenerationRequest;
-import com.dayz.sc.ai.model.dto.QuestionGenerateAnswerRecord;
-import com.dayz.sc.ai.model.dto.QuestionGenerateOptionRecord;
-import com.dayz.sc.ai.model.dto.QuestionGeneratePayload;
-import com.dayz.sc.ai.model.dto.QuestionGenerateRecord;
 import com.dayz.sc.ai.config.LatexPromptRules;
+import com.dayz.sc.ai.model.dto.*;
 import com.dayz.sc.ai.model.enums.AiAgentMode;
 import com.dayz.sc.ai.model.enums.AiMessageType;
-import com.dayz.sc.ai.model.vo.AiAgentResult;
-import com.dayz.sc.ai.model.vo.GeneratedQuestionDraft;
-import com.dayz.sc.ai.model.vo.GenerationStageEvent;
-import com.dayz.sc.ai.model.vo.GenerationTraceEntry;
-import com.dayz.sc.ai.model.vo.GenerationValidationIssue;
-import com.dayz.sc.ai.model.vo.PaperBlueprint;
-import com.dayz.sc.ai.model.vo.PaperSectionPlan;
+import com.dayz.sc.ai.model.vo.*;
 import com.dayz.sc.common.feign.dto.AgentSearchItem;
 import com.dayz.sc.common.feign.dto.AiCourseContext;
 import com.dayz.sc.common.question.CreateQuestionRequest;
@@ -33,19 +23,15 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.Normalizer;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
+/**
+ * QuestionGenerationService.
+ *
+ * @author DaYZ
+ */
 @Service
 @RequiredArgsConstructor
 public class QuestionGenerationService {
@@ -63,7 +49,47 @@ public class QuestionGenerationService {
     private static final int PROMPT_EVIDENCE_LIMIT = 4;
     private static final int PROMPT_EVIDENCE_EXCERPT_MAX_LENGTH = 180;
     private static final int ADMIN_ROLE_CODE = 0;
-    private static final List<Integer> MIXED_QUESTION_TYPES = List.of(0, 1, 2, 3, 4);
+    private static final int QUESTION_TYPE_SINGLE_CHOICE = 0;
+    private static final int QUESTION_TYPE_MULTI_CHOICE = 1;
+    private static final int QUESTION_TYPE_TRUE_FALSE = 2;
+    private static final int QUESTION_TYPE_FILL_BLANK = 3;
+    private static final int QUESTION_TYPE_SHORT_ANSWER = 4;
+    private static final int QUESTION_TYPE_MIXED = 5;
+    private static final int MIN_QUESTION_TYPE = QUESTION_TYPE_SINGLE_CHOICE;
+    private static final int MAX_QUESTION_TYPE = QUESTION_TYPE_SHORT_ANSWER;
+    private static final int MIN_DIFFICULTY = 1;
+    private static final int DEFAULT_DIFFICULTY = 2;
+    private static final int MAX_DIFFICULTY = 3;
+    private static final int MIN_MULTI_CHOICE_CORRECT_COUNT = 2;
+    private static final int TRUE_FALSE_OPTION_COUNT = 2;
+    private static final char FIRST_OPTION_LABEL = 'A';
+    private static final char LAST_OPTION_LABEL = 'Z';
+    private static final char OBJECTIVE_OPTION_LABEL_MAX = 'F';
+    private static final String TRUE_OPTION_LABEL = String.valueOf(FIRST_OPTION_LABEL);
+    private static final String FALSE_OPTION_LABEL = String.valueOf((char) (FIRST_OPTION_LABEL + 1));
+    private static final String OPTION_LABEL_DOT = ".";
+    private static final String OPTION_LABEL_FULLWIDTH_DOT = "．";
+    private static final String OPTION_LABEL_SEPARATOR = "、";
+    private static final String SOURCE_TYPE_CHAT_MEMORY = "CHAT_MEMORY";
+    private static final String SOURCE_TYPE_LIVE_PRACTICE = "LIVE_PRACTICE";
+    private static final String SOURCE_TYPE_PRACTICE = "PRACTICE";
+    private static final String SOURCE_TYPE_QUESTION = "QUESTION";
+    private static final String FIELD_ANSWERS = "answers";
+    private static final String FIELD_QUESTION_TYPE = "questionType";
+    private static final String FIELD_RAW = "raw";
+    private static final String FIELD_SCORE = "score";
+    private static final String FIELD_ESTIMATED_TIME = "estimatedTime";
+    private static final String TRUE_TEXT = "正确";
+    private static final String TRUE_EN = "TRUE";
+    private static final String FALSE_TEXT = "错误";
+    private static final String FALSE_NEGATIVE_TEXT = "不正确";
+    private static final String FALSE_EN = "FALSE";
+    private static final List<Integer> MIXED_QUESTION_TYPES = List.of(
+            QUESTION_TYPE_SINGLE_CHOICE,
+            QUESTION_TYPE_MULTI_CHOICE,
+            QUESTION_TYPE_TRUE_FALSE,
+            QUESTION_TYPE_FILL_BLANK,
+            QUESTION_TYPE_SHORT_ANSWER);
     private static final Pattern LATEX_COMMAND_PATTERN = Pattern.compile(
             "\\\\(?:sqrt|frac|dfrac|tfrac|ln|log|sin|cos|tan|cot|sec|csc|int|iint|iiint|sum|prod|lim|nabla"
                     + "|partial|mathrm|mathbf|mathbb|mathcal|text|ce|begin|end|cdot|times|div|pm|mp|leq|geq"
@@ -77,24 +103,24 @@ public class QuestionGenerationService {
     private static final Pattern LATIN_WORD_PATTERN = Pattern.compile("[A-Za-z]{2,}");
     private static final Pattern LATEX_ROW_SEPARATOR_PATTERN = Pattern.compile("(?<!\\\\)\\\\\\\\");
     private static final String QUESTION_OUTPUT_RULES = """
-                出题 JSON 输出硬性规则：
-                - 顶层只能是 {"questions":[...]}，不要返回 markdown、解释文本或代码块。
-                - questionTitle is UI preview only: use a short knowledge-point title, not the full stem, options, answer, or analysis.
-                - questionContent is the real exam stem: it is required, complete, standalone, and used for paper export.
-                - If there is only one question statement, put it in questionContent and derive a short questionTitle from the knowledge point.
-                - options 内只能使用 optionContent, optionLabel, isCorrect, score, imageUrls, explanation。
-                - answers 内只能使用 answerContent, explanation, score, sortOrder。
-                - isCorrect 使用 1/0 整数值：1 表示正确，0 表示错误，不要使用 true/false 或 A/B。
-                - 单选题、判断题的正确选项 score 必须等于本题 score，错误选项 score 必须为 0；多选题每个正确选项 score 必须大于 0 且所有正确选项 score 之和必须等于本题 score，错误选项 score 必须为 0。
-                - 单选题、多选题、判断题的解析优先写在对应选项 explanation 中；若只有正确项有解析，写在正确选项 explanation 中。
-                - optionContent 只写选项正文，禁止带 A.、B.、答案、正确答案或“（答案）”等标签。
-                - answerContent 只放最终答案；如果答案是公式结果或符号表达式，直接写成可渲染 LaTeX 的 `$...$` 形式，不要把解释性文字混进 answerContent，解释放到 explanation。
-                - questionContent、optionContent、answerContent、explanation 里只要出现数学表达式、公式结果或带根式/对数/分式的符号表达式，都要直接输出可渲染 LaTeX，并用 `$...$` 或 `$$...$$` 包裹；不要只写裸的 `\\sqrt{...}`、`\\ln(...)`、`\\frac{...}{...}`。
-                - 例如答案应写成 `$\\sqrt{2} + \\ln(1 + \\sqrt{2})$`，不要写成 `\\sqrt{2} + \\ln(1 + \\sqrt{2})`。
-                - 判断题固定两个选项：A=正确，B=错误，只通过 isCorrect 标记哪一个正确。
-                - 填空题 options 必须返回空数组，answers 必须非空；每个空对应一个非空 answerContent，sortOrder 从 1 开始。
-                - 选项里的公式只写公式本身，不要把答案标记拼进公式文本。
-                """;
+            出题 JSON 输出硬性规则：
+            - 顶层只能是 {"questions":[...]}，不要返回 markdown、解释文本或代码块。
+            - questionTitle is UI preview only: use a short knowledge-point title, not the full stem, options, answer, or analysis.
+            - questionContent is the real exam stem: it is required, complete, standalone, and used for paper export.
+            - If there is only one question statement, put it in questionContent and derive a short questionTitle from the knowledge point.
+            - options 内只能使用 optionContent, optionLabel, isCorrect, score, imageUrls, explanation。
+            - answers 内只能使用 answerContent, explanation, score, sortOrder。
+            - isCorrect 使用 1/0 整数值：1 表示正确，0 表示错误，不要使用 true/false 或 A/B。
+            - 单选题、判断题的正确选项 score 必须等于本题 score，错误选项 score 必须为 0；多选题每个正确选项 score 必须大于 0 且所有正确选项 score 之和必须等于本题 score，错误选项 score 必须为 0。
+            - 单选题、多选题、判断题的解析优先写在对应选项 explanation 中；若只有正确项有解析，写在正确选项 explanation 中。
+            - optionContent 只写选项正文，禁止带 A.、B.、答案、正确答案或“（答案）”等标签。
+            - answerContent 只放最终答案；如果答案是公式结果或符号表达式，直接写成可渲染 LaTeX 的 `$...$` 形式，不要把解释性文字混进 answerContent，解释放到 explanation。
+            - questionContent、optionContent、answerContent、explanation 里只要出现数学表达式、公式结果或带根式/对数/分式的符号表达式，都要直接输出可渲染 LaTeX，并用 `$...$` 或 `$$...$$` 包裹；不要只写裸的 `\\sqrt{...}`、`\\ln(...)`、`\\frac{...}{...}`。
+            - 例如答案应写成 `$\\sqrt{2} + \\ln(1 + \\sqrt{2})$`，不要写成 `\\sqrt{2} + \\ln(1 + \\sqrt{2})`。
+            - 判断题固定两个选项：A=正确，B=错误，只通过 isCorrect 标记哪一个正确。
+            - 填空题 options 必须返回空数组，answers 必须非空；每个空对应一个非空 answerContent，sortOrder 从 1 开始。
+            - 选项里的公式只写公式本身，不要把答案标记拼进公式文本。
+            """;
 
     private final ChatClient chatClient;
     private final AiRuntimeGuard aiRuntimeGuard;
@@ -176,101 +202,25 @@ public class QuestionGenerationService {
         List<AgentSearchEvent> agentSearchEvents = new ArrayList<>();
         boolean exposeRawAiOutput = Integer.valueOf(ADMIN_ROLE_CODE).equals(role);
 
-        emitStage(stageListener, traceEntries, requestId, mode, "RECEIVED", "processing",
-                paper ? "接收出卷请求" : "接收出题请求",
-                paper ? "已收到试卷生成参数，准备整理课程资料。" : "已收到题目生成参数，准备整理课程资料。",
-                requestPayload(normalized),
-                "request");
+        emitReceivedStage(stageListener, traceEntries, requestId, mode, normalized, paper);
 
         if (!aiRuntimeGuard.isConfigured()) {
-            String message = aiRuntimeGuard.missingKeyMessage();
-            emitStage(stageListener, traceEntries, requestId, mode, "FAILED", "error",
-                    "AI 服务未配置", message, Map.of("status", "AI_NOT_CONFIGURED"), "failure");
-            return new AiAgentResult(message, messageType, Map.of(
-                    "status", "AI_NOT_CONFIGURED",
-                    "message", message,
-                    "generationTrace", traceEntries,
-                    "generationDebugTrace", debugTraceEntries));
+            return missingAiConfigurationResult(messageType, traceEntries, debugTraceEntries, stageListener, requestId, mode);
         }
 
-        AgentSearchOutcome webSearchOutcome = searchGenerationWebSources(userMessage, normalized, paper);
-        List<AgentSearchItem> evidences = webSearchOutcome.items();
-        agentSearchEvents.add(AgentSearchEvent.outcome(null, webSearchOutcome));
-        if (agentSearchListener != null) {
-            agentSearchListener.accept(agentSearchEvents.getLast());
-        }
-        Map<String, Object> contextPayload = evidencePayload(evidences, agentSearchEvents);
-        emitStage(stageListener, traceEntries, requestId, mode, "CONTEXT_READY", "processing",
-                "联网搜索资料",
-                contextSummary(webSearchOutcome),
-                contextPayload,
-                "web_sources");
+        GenerationContext generationContext = prepareGenerationContext(
+                userMessage, normalized, context, paper, traceEntries, agentSearchEvents,
+                agentSearchListener, stageListener, requestId, mode);
 
-        PaperBlueprint blueprint = buildBlueprint(userMessage, normalized, context, evidences, paper, requestId);
-        Map<String, Object> blueprintPayload = blueprintPayload(blueprint);
-        emitStage(stageListener, traceEntries, requestId, mode, "PLANNED", "processing",
-                paper ? "试卷蓝图已生成" : "出题方案已生成",
-                blueprint.generationStrategy(),
-                blueprintPayload,
-                "blueprint");
-
-        Set<String> referenceSignatures = collectReferenceSignatures(evidences);
-        List<AgentSearchItem> promptEvidences = promptEvidences(evidences, normalized);
-        GenerationDraftResult draftResult = generateDrafts(
-                userMessage, normalized, context, promptEvidences, blueprint, paper, traceEntries, debugTraceEntries,
-                referenceSignatures, stageListener, requestId, mode, exposeRawAiOutput,
-                Math.max(0, evidences.size() - promptEvidences.size()));
-        List<CreateQuestionRequest> generatedQuestions = draftResult.questions();
-        List<GeneratedQuestionDraft> drafts = draftQuestions(generatedQuestions, draftResult.issues());
-        if (generatedQuestions.isEmpty()) {
-            emitStage(stageListener, traceEntries, requestId, mode, "GENERATED", "processing",
-                    "题目草稿生成中",
-                    "正在重新组织题目结构，暂不展示内部重试信息。",
-                    Map.of("generatedQuestionCount", 0, "totalQuestionCount", blueprint.totalQuestionCount()),
-                    "draft_progress");
-        } else {
-            emitStage(stageListener, traceEntries, requestId, mode, "GENERATED", "processing",
-                    "题目草稿已生成",
-                    "已按蓝图生成 " + generatedQuestions.size() + " 道题目草稿。",
-                    draftPayload(drafts),
-                    "drafts");
-        }
-
-        generatedQuestions = rebalanceQuestionScores(generatedQuestions, normalized);
-        generatedQuestions = rebalanceEstimatedTimes(generatedQuestions, normalized.totalEstimatedTime());
-        List<GenerationValidationIssue> issues = validateQuestions(
-                generatedQuestions,
-                normalized,
-                normalized.questionCount(),
-                normalized.totalScore(),
-                normalized.totalEstimatedTime(),
-                referenceSignatures);
-        QuestionGenerationQualityPolicy.QualityReview qualityReview = qualityReview(generatedQuestions, normalized, blueprint, paper);
-        issues = mergeIssues(issues, qualityReview.issues());
-        appendTraceEntry(debugTraceEntries, "VALIDATED", "qualityReview", "quality_review",
-                "出卷质量复核",
-                qualityReview.issues().isEmpty()
-                        ? "题型、分值、用时和知识点覆盖未发现明显质量问题。"
-                        : "发现 " + qualityReview.issues().size() + " 个出卷质量提示。",
-                qualityReview.payload());
-        Map<String, Object> validationPayload = validationPayload(generatedQuestions, issues);
-        if (generatedQuestions.isEmpty()) {
-            appendTraceEntry(debugTraceEntries, "VALIDATED", "orchestrator", "validation",
-                    "草稿校验结果",
-                    "草稿阶段暂未产生可用题目，已转入修复流程。",
-                    validationPayload);
-        } else {
-            emitStage(stageListener, traceEntries, requestId, mode, "VALIDATED", "processing",
-                    "题目质量校验完成",
-                    issues.isEmpty() ? "未发现结构性问题。" : "发现 " + issues.size() + " 个需要处理的问题。",
-                    validationPayload,
-                    "validation");
-        }
+        DraftReview draftReview = generateAndValidateDrafts(
+                userMessage, normalized, context, generationContext, paper, traceEntries,
+                debugTraceEntries, stageListener, requestId, mode, exposeRawAiOutput);
 
         ReviewResult reviewResult = repairQuestions(
-                generatedQuestions, normalized, context, blueprint, issues, referenceSignatures, debugTraceEntries,
+                draftReview.questions(), normalized, context, generationContext.blueprint(), draftReview.issues(),
+                generationContext.referenceSignatures(), debugTraceEntries,
                 stageListener, requestId, mode, exposeRawAiOutput, paper);
-        reviewResult = mergeGenerationWarnings(reviewResult, draftResult.issues());
+        reviewResult = mergeGenerationWarnings(reviewResult, draftReview.draftIssues());
         List<CreateQuestionRequest> finalQuestions = synchronizeFinalNestedScores(reviewResult.questions());
         List<GenerationValidationIssue> finalIssues = reviewResult.issues();
         emitStage(stageListener, traceEntries, requestId, mode, "REPAIRED", "processing",
@@ -282,9 +232,9 @@ public class QuestionGenerationService {
                 "repair_summary");
 
         Map<String, Object> modelPayload = new LinkedHashMap<>();
-        modelPayload.put("title", blueprint.title());
+        modelPayload.put("title", generationContext.blueprint().title());
         Map<String, Object> payload = finalPayload(
-                modelPayload, normalized, blueprint, finalQuestions, finalIssues,
+                modelPayload, normalized, generationContext.blueprint(), finalQuestions, finalIssues,
                 traceEntries, debugTraceEntries, agentSearchEvents, paper);
         emitStage(stageListener, traceEntries, requestId, mode, "ASSEMBLED", "processing",
                 paper ? "试卷已组装" : "题目集已组装",
@@ -304,6 +254,162 @@ public class QuestionGenerationService {
         return new AiAgentResult(content, messageType, payload);
     }
 
+    private void emitReceivedStage(Consumer<GenerationStageEvent> stageListener,
+                                   List<GenerationTraceEntry> traceEntries,
+                                   String requestId,
+                                   String mode,
+                                   GenerationRequest request,
+                                   boolean paper) {
+        emitStage(stageListener, traceEntries, requestId, mode, "RECEIVED", "processing",
+                paper ? "接收出卷请求" : "接收出题请求",
+                paper ? "已收到试卷生成参数，准备整理课程资料。" : "已收到题目生成参数，准备整理课程资料。",
+                requestPayload(request),
+                "request");
+    }
+
+    private AiAgentResult missingAiConfigurationResult(AiMessageType messageType,
+                                                       List<GenerationTraceEntry> traceEntries,
+                                                       List<GenerationTraceEntry> debugTraceEntries,
+                                                       Consumer<GenerationStageEvent> stageListener,
+                                                       String requestId,
+                                                       String mode) {
+        String message = aiRuntimeGuard.missingKeyMessage();
+        emitStage(stageListener, traceEntries, requestId, mode, "FAILED", "error",
+                "AI 服务未配置", message, Map.of("status", "AI_NOT_CONFIGURED"), "failure");
+        return new AiAgentResult(message, messageType, Map.of(
+                "status", "AI_NOT_CONFIGURED",
+                "message", message,
+                "generationTrace", traceEntries,
+                "generationDebugTrace", debugTraceEntries));
+    }
+
+    private GenerationContext prepareGenerationContext(String userMessage,
+                                                       GenerationRequest request,
+                                                       AiCourseContext context,
+                                                       boolean paper,
+                                                       List<GenerationTraceEntry> traceEntries,
+                                                       List<AgentSearchEvent> agentSearchEvents,
+                                                       Consumer<AgentSearchEvent> agentSearchListener,
+                                                       Consumer<GenerationStageEvent> stageListener,
+                                                       String requestId,
+                                                       String mode) {
+        AgentSearchOutcome webSearchOutcome = searchGenerationWebSources(userMessage, request, paper);
+        List<AgentSearchItem> evidences = webSearchOutcome.items();
+        agentSearchEvents.add(AgentSearchEvent.outcome(null, webSearchOutcome));
+        if (agentSearchListener != null) {
+            agentSearchListener.accept(agentSearchEvents.getLast());
+        }
+        emitStage(stageListener, traceEntries, requestId, mode, "CONTEXT_READY", "processing",
+                "联网搜索资料", contextSummary(webSearchOutcome), evidencePayload(evidences, agentSearchEvents),
+                "web_sources");
+
+        PaperBlueprint blueprint = buildBlueprint(userMessage, request, context, evidences, paper, requestId);
+        emitStage(stageListener, traceEntries, requestId, mode, "PLANNED", "processing",
+                paper ? "试卷蓝图已生成" : "出题方案已生成",
+                blueprint.generationStrategy(), blueprintPayload(blueprint), "blueprint");
+
+        Set<String> referenceSignatures = collectReferenceSignatures(evidences);
+        List<AgentSearchItem> promptEvidences = promptEvidences(evidences, request);
+        int discardedEvidenceCount = Math.max(0, evidences.size() - promptEvidences.size());
+        return new GenerationContext(blueprint, referenceSignatures, promptEvidences, discardedEvidenceCount);
+    }
+
+    private DraftReview generateAndValidateDrafts(String userMessage,
+                                                  GenerationRequest request,
+                                                  AiCourseContext context,
+                                                  GenerationContext generationContext,
+                                                  boolean paper,
+                                                  List<GenerationTraceEntry> traceEntries,
+                                                  List<GenerationTraceEntry> debugTraceEntries,
+                                                  Consumer<GenerationStageEvent> stageListener,
+                                                  String requestId,
+                                                  String mode,
+                                                  boolean exposeRawAiOutput) {
+        GenerationDraftResult draftResult = generateDrafts(
+                userMessage, request, context, generationContext.promptEvidences(), generationContext.blueprint(),
+                paper, traceEntries, debugTraceEntries, generationContext.referenceSignatures(), stageListener,
+                requestId, mode, exposeRawAiOutput, generationContext.discardedEvidenceCount());
+        emitDraftStage(draftResult.questions(), draftResult.issues(), generationContext.blueprint(),
+                stageListener, traceEntries, requestId, mode);
+        List<CreateQuestionRequest> generatedQuestions = rebalanceQuestionScores(draftResult.questions(), request);
+        generatedQuestions = rebalanceEstimatedTimes(generatedQuestions, request.totalEstimatedTime());
+        List<GenerationValidationIssue> issues = validateDrafts(
+                generatedQuestions, request, generationContext.blueprint(), paper,
+                generationContext.referenceSignatures(), debugTraceEntries);
+        emitValidationStage(generatedQuestions, issues, debugTraceEntries, stageListener, traceEntries, requestId, mode);
+        return new DraftReview(generatedQuestions, issues, draftResult.issues());
+    }
+
+    private void emitDraftStage(List<CreateQuestionRequest> generatedQuestions,
+                                List<GenerationValidationIssue> draftIssues,
+                                PaperBlueprint blueprint,
+                                Consumer<GenerationStageEvent> stageListener,
+                                List<GenerationTraceEntry> traceEntries,
+                                String requestId,
+                                String mode) {
+        if (generatedQuestions.isEmpty()) {
+            emitStage(stageListener, traceEntries, requestId, mode, "GENERATED", "processing",
+                    "题目草稿生成中",
+                    "正在重新组织题目结构，暂不展示内部重试信息。",
+                    Map.of("generatedQuestionCount", 0, "totalQuestionCount", blueprint.totalQuestionCount()),
+                    "draft_progress");
+            return;
+        }
+        List<GeneratedQuestionDraft> drafts = draftQuestions(generatedQuestions, draftIssues);
+        emitStage(stageListener, traceEntries, requestId, mode, "GENERATED", "processing",
+                "题目草稿已生成",
+                "已按蓝图生成 " + generatedQuestions.size() + " 道题目草稿。",
+                draftPayload(drafts),
+                "drafts");
+    }
+
+    private List<GenerationValidationIssue> validateDrafts(List<CreateQuestionRequest> generatedQuestions,
+                                                           GenerationRequest request,
+                                                           PaperBlueprint blueprint,
+                                                           boolean paper,
+                                                           Set<String> referenceSignatures,
+                                                           List<GenerationTraceEntry> debugTraceEntries) {
+        List<GenerationValidationIssue> issues = validateQuestions(
+                generatedQuestions, request, request.questionCount(), request.totalScore(),
+                request.totalEstimatedTime(), referenceSignatures);
+        QuestionGenerationQualityPolicy.QualityReview qualityReview = qualityReview(generatedQuestions, request, blueprint, paper);
+        issues = mergeIssues(issues, qualityReview.issues());
+        appendQualityReviewTrace(debugTraceEntries, qualityReview);
+        return issues;
+    }
+
+    private void appendQualityReviewTrace(List<GenerationTraceEntry> debugTraceEntries,
+                                          QuestionGenerationQualityPolicy.QualityReview qualityReview) {
+        appendTraceEntry(debugTraceEntries, "VALIDATED", "qualityReview", "quality_review",
+                "出卷质量复核",
+                qualityReview.issues().isEmpty()
+                        ? "题型、分值、用时和知识点覆盖未发现明显质量问题。"
+                        : "发现 " + qualityReview.issues().size() + " 个出卷质量提示。",
+                qualityReview.payload());
+    }
+
+    private void emitValidationStage(List<CreateQuestionRequest> generatedQuestions,
+                                     List<GenerationValidationIssue> issues,
+                                     List<GenerationTraceEntry> debugTraceEntries,
+                                     Consumer<GenerationStageEvent> stageListener,
+                                     List<GenerationTraceEntry> traceEntries,
+                                     String requestId,
+                                     String mode) {
+        Map<String, Object> validationPayload = validationPayload(generatedQuestions, issues);
+        if (generatedQuestions.isEmpty()) {
+            appendTraceEntry(debugTraceEntries, "VALIDATED", "orchestrator", "validation",
+                    "草稿校验结果",
+                    "草稿阶段暂未产生可用题目，已转入修复流程。",
+                    validationPayload);
+            return;
+        }
+        emitStage(stageListener, traceEntries, requestId, mode, "VALIDATED", "processing",
+                "题目质量校验完成",
+                issues.isEmpty() ? "未发现结构性问题。" : "发现 " + issues.size() + " 个需要处理的问题。",
+                validationPayload,
+                "validation");
+    }
+
     private GenerationRequest normalize(GenerationRequest request, boolean paper) {
         int fallbackCount = paper ? 20 : DEFAULT_QUESTION_COUNT;
         int maxCount = paper ? MAX_PAPER_COUNT : MAX_QUESTION_COUNT;
@@ -312,8 +418,9 @@ public class QuestionGenerationService {
         return new GenerationRequest(
                 request != null ? request.questionBankId() : null,
                 count,
-                request != null && request.questionType() != null ? request.questionType() : (paper ? 5 : 0),
-                request != null && request.difficulty() != null ? request.difficulty() : 2,
+                request != null && request.questionType() != null ? request.questionType()
+                        : (paper ? QUESTION_TYPE_MIXED : QUESTION_TYPE_SINGLE_CHOICE),
+                request != null && request.difficulty() != null ? request.difficulty() : DEFAULT_DIFFICULTY,
                 request != null ? request.scorePerQuestion() : null,
                 request != null ? request.totalScore() : null,
                 request != null ? request.totalEstimatedTime() : null,
@@ -324,6 +431,18 @@ public class QuestionGenerationService {
                 request != null ? request.knowledgePoints() : null,
                 request != null ? request.abilityGoals() : null
         );
+    }
+
+    private int normalizedQuestionCount(GenerationRequest request) {
+        return request.questionCount() == null ? DEFAULT_QUESTION_COUNT : request.questionCount();
+    }
+
+    private int normalizedQuestionType(GenerationRequest request) {
+        return request.questionType() == null ? QUESTION_TYPE_SHORT_ANSWER : request.questionType();
+    }
+
+    private int normalizedDifficulty(GenerationRequest request) {
+        return request.difficulty() == null ? DEFAULT_DIFFICULTY : request.difficulty();
     }
 
     private List<AgentSearchItem> promptEvidences(List<AgentSearchItem> evidences, GenerationRequest request) {
@@ -344,10 +463,12 @@ public class QuestionGenerationService {
             return false;
         }
         String sourceType = value(item.sourceType()).toUpperCase(Locale.ROOT);
-        if (sourceType.contains("CHAT_MEMORY") || sourceType.contains("LIVE_PRACTICE") || sourceType.contains("PRACTICE")) {
+        if (sourceType.contains(SOURCE_TYPE_CHAT_MEMORY)
+                || sourceType.contains(SOURCE_TYPE_LIVE_PRACTICE)
+                || sourceType.contains(SOURCE_TYPE_PRACTICE)) {
             return false;
         }
-        if ("QUESTION".equals(sourceType)) {
+        if (SOURCE_TYPE_QUESTION.equals(sourceType)) {
             return false;
         }
         return StringUtils.hasText(item.title()) || StringUtils.hasText(item.snippet());
@@ -494,8 +615,8 @@ public class QuestionGenerationService {
             BigDecimal scorePerQuestion = scoreAllocations.isEmpty()
                     ? null
                     : scoreAllocations.get(i)
-                            .divide(BigDecimal.valueOf(Math.max(1, seed.count())), 2, RoundingMode.HALF_UP)
-                            .stripTrailingZeros();
+                    .divide(BigDecimal.valueOf(Math.max(1, seed.count())), 2, RoundingMode.HALF_UP)
+                    .stripTrailingZeros();
             sections.add(new PaperSectionPlan(
                     sectionNo,
                     questionTypeName(seed.questionType()),
@@ -513,8 +634,8 @@ public class QuestionGenerationService {
     }
 
     private List<SectionSeed> sectionSeeds(GenerationRequest request, int totalCount, boolean paper) {
-        if (request.questionType() != null && request.questionType() != 5) {
-            return singleTypeSeeds(normalizeQuestionType(request.questionType(), 0), totalCount);
+        if (request.questionType() != null && request.questionType() != QUESTION_TYPE_MIXED) {
+            return singleTypeSeeds(normalizeQuestionType(request.questionType(), QUESTION_TYPE_SINGLE_CHOICE), totalCount);
         }
         if (paper) {
             return groupQuestionTypes(QuestionGenerationQualityPolicy.paperMixedQuestionTypes(totalCount));
@@ -606,7 +727,7 @@ public class QuestionGenerationService {
     }
 
     private int recommendedTotalEstimatedTime(GenerationRequest request, int totalCount, boolean paper) {
-        if (request.questionType() != null && request.questionType() != 5) {
+        if (request.questionType() != null && request.questionType() != QUESTION_TYPE_MIXED) {
             return totalCount * recommendEstimatedTime(request.questionType(), request.difficulty());
         }
         if (paper) {
@@ -629,12 +750,12 @@ public class QuestionGenerationService {
                                                  boolean paper,
                                                  List<GenerationTraceEntry> traceEntries,
                                                  List<GenerationTraceEntry> debugTraceEntries,
-                                                  Set<String> referenceSignatures,
-                                                  Consumer<GenerationStageEvent> stageListener,
-                                                  String requestId,
-                                                  String mode,
-                                                  boolean exposeRawAiOutput,
-                                                  int discardedEvidenceCount) {
+                                                 Set<String> referenceSignatures,
+                                                 Consumer<GenerationStageEvent> stageListener,
+                                                 String requestId,
+                                                 String mode,
+                                                 boolean exposeRawAiOutput,
+                                                 int discardedEvidenceCount) {
         List<CreateQuestionRequest> questions = new ArrayList<>();
         List<GenerationValidationIssue> allIssues = new ArrayList<>();
         Set<String> blockedSignatures = new LinkedHashSet<>(referenceSignatures);
@@ -661,25 +782,24 @@ public class QuestionGenerationService {
                 }
                 retryHints = summarizeIssues(attempt.issues());
             }
-            if (bestAttempt != null) {
-                bestAttempt = completeSectionAttempt(bestAttempt, section);
-                if (hasIssue(bestAttempt.issues(), "QUESTION_COUNT_NORMALIZED")) {
-                    appendTraceEntry(debugTraceEntries, "GENERATED", "questionGeneration", "deterministic_fallback",
-                            "本部分已自动补齐题目",
-                            "模型输出不足时，已用可保存的标准题目结构补齐当前部分。",
-                            Map.of(
-                                    "sectionNo", section.sectionNo(),
-                                    "questionCount", bestAttempt.questions().size(),
-                                    "targetCount", section.targetCount(),
-                                    "issues", bestAttempt.issues()));
-                }
-                int previousQuestionCount = questions.size();
-                questions.addAll(bestAttempt.questions());
-                allIssues.addAll(bestAttempt.issues());
-                blockedSignatures.addAll(questionSignatures(bestAttempt.questions()));
-                publishDraftProgressByQuestion(stageListener, traceEntries, requestId, mode, section,
-                        bestAttempt.questions(), bestAttempt.issues(), blueprint.totalQuestionCount(), previousQuestionCount);
+            SectionAttempt completedAttempt = completeSectionAttempt(bestAttempt, section);
+            bestAttempt = completedAttempt;
+            if (hasIssue(bestAttempt.issues(), "QUESTION_COUNT_NORMALIZED")) {
+                appendTraceEntry(debugTraceEntries, "GENERATED", "questionGeneration", "deterministic_fallback",
+                        "本部分已自动补齐题目",
+                        "模型输出不足时，已用可保存的标准题目结构补齐当前部分。",
+                        Map.of(
+                                "sectionNo", section.sectionNo(),
+                                "questionCount", bestAttempt.questions().size(),
+                                "targetCount", section.targetCount(),
+                                "issues", bestAttempt.issues()));
             }
+            int previousQuestionCount = questions.size();
+            questions.addAll(bestAttempt.questions());
+            allIssues.addAll(bestAttempt.issues());
+            blockedSignatures.addAll(questionSignatures(bestAttempt.questions()));
+            publishDraftProgressByQuestion(stageListener, traceEntries, requestId, mode, section,
+                    bestAttempt.questions(), bestAttempt.issues(), blueprint.totalQuestionCount(), previousQuestionCount);
         }
         return new GenerationDraftResult(questions, allIssues);
     }
@@ -690,15 +810,15 @@ public class QuestionGenerationService {
                                                   List<AgentSearchItem> evidences,
                                                   PaperBlueprint blueprint,
                                                   PaperSectionPlan section,
-                                                   boolean paper,
-                                                   Set<String> blockedSignatures,
-                                                   List<String> retryHints,
-                                                   int attemptNo,
-                                                   List<GenerationTraceEntry> debugTraceEntries,
-                                                   Consumer<GenerationStageEvent> stageListener,
-                                                   String requestId,
-                                                   String mode,
-                                                   boolean exposeRawAiOutput) {
+                                                  boolean paper,
+                                                  Set<String> blockedSignatures,
+                                                  List<String> retryHints,
+                                                  int attemptNo,
+                                                  List<GenerationTraceEntry> debugTraceEntries,
+                                                  Consumer<GenerationStageEvent> stageListener,
+                                                  String requestId,
+                                                  String mode,
+                                                  boolean exposeRawAiOutput) {
         try {
             QuestionGeneratePayload payload = callSectionModel(
                     userMessage, request, context, evidences, blueprint, section, paper, blockedSignatures,
@@ -726,27 +846,28 @@ public class QuestionGenerationService {
             return new SectionAttempt(List.of(), List.of(issue));
         }
     }
+
     private QuestionGeneratePayload callSectionModel(String userMessage,
                                                      GenerationRequest request,
                                                      AiCourseContext context,
                                                      List<AgentSearchItem> evidences,
                                                      PaperBlueprint blueprint,
                                                      PaperSectionPlan section,
-                                                      boolean paper,
-                                                      Set<String> blockedSignatures,
-                                                      List<String> retryHints,
-                                                      int attemptNo,
-                                                      List<GenerationTraceEntry> debugTraceEntries,
-                                                      Consumer<GenerationStageEvent> stageListener,
-                                                      String requestId,
-                                                      String mode,
-                                                      boolean exposeRawAiOutput) {
+                                                     boolean paper,
+                                                     Set<String> blockedSignatures,
+                                                     List<String> retryHints,
+                                                     int attemptNo,
+                                                     List<GenerationTraceEntry> debugTraceEntries,
+                                                     Consumer<GenerationStageEvent> stageListener,
+                                                     String requestId,
+                                                     String mode,
+                                                     boolean exposeRawAiOutput) {
         String prompt = """
                 你是教育测评出题助手。当前任务：只为试卷蓝图中的一个部分生成题目。
                 只返回合法 JSON，不要使用 markdown 代码块，不要输出解释。
                 顶层结构必须是：{"questions":[...]}。
                 questions 数组长度必须等于当前部分 targetCount。
-
+                
                 每道题只输出模型字段，后端会负责注入题库和业务字段：
                 - questionTitle, questionContent, questionType, difficulty, score, estimatedTime, tags, options, answers
                 - options 内只能使用 optionContent, optionLabel, isCorrect, score, imageUrls, explanation
@@ -762,7 +883,7 @@ public class QuestionGenerationService {
                 - 不要生成与 blockedSignatures 中题干过于相似的题
                 %s
                 %s
-
+                
                 生成模式：%s
                 第 %s 次尝试，共 %s 次。
                 用户要求：%s
@@ -798,6 +919,7 @@ public class QuestionGenerationService {
                 rawAiOutputPayload("section_generation", section.sectionNo(), attemptNo, rawOutput));
         return parseQuestionGeneratePayload(rawOutput);
     }
+
     private List<CreateQuestionRequest> createQuestionsFromRecords(List<QuestionGenerateRecord> records,
                                                                    GenerationRequest request) {
         return normalizeQuestionsFromRecords(records, request).questions();
@@ -826,8 +948,8 @@ public class QuestionGenerationService {
     }
 
     private List<GenerationValidationIssue> normalizationIssues(Map<String, Object> rawQuestion, int questionIndex) {
-        int type = intValue(rawQuestion.get("questionType"), 4);
-        if (type > 2) {
+        int type = intValue(rawQuestion.get(FIELD_QUESTION_TYPE), QUESTION_TYPE_SHORT_ANSWER);
+        if (type > QUESTION_TYPE_TRUE_FALSE) {
             return List.of();
         }
         Set<String> correctLabels = correctOptionLabels(rawQuestion);
@@ -855,17 +977,17 @@ public class QuestionGenerationService {
 
     private Set<String> objectiveAnswerLabels(Map<String, Object> rawQuestion) {
         Set<String> labels = new LinkedHashSet<>();
-        for (Map<String, Object> answer : mutableMapList(rawQuestion.get("answers"))) {
+        for (Map<String, Object> answer : mutableMapList(rawQuestion.get(FIELD_ANSWERS))) {
             String compact = value(answer.get("answerContent")).replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
-            if (compact.contains("正确") || compact.contains("TRUE")) {
+            if (compact.contains(TRUE_TEXT) || compact.contains(TRUE_EN)) {
                 labels.add("A");
             }
-            if (compact.contains("错误") || compact.contains("FALSE")) {
+            if (compact.contains(FALSE_TEXT) || compact.contains(FALSE_EN)) {
                 labels.add("B");
             }
             for (int i = 0; i < compact.length(); i++) {
                 char character = compact.charAt(i);
-                if (character >= 'A' && character <= 'F') {
+                if (character >= FIRST_OPTION_LABEL && character <= OBJECTIVE_OPTION_LABEL_MAX) {
                     labels.add(String.valueOf(character));
                 }
             }
@@ -878,15 +1000,16 @@ public class QuestionGenerationService {
         map.put("questionBankId", null);
         map.put("questionTitle", question.questionTitle());
         map.put("questionContent", question.questionContent());
-        map.put("questionType", question.questionType());
+        map.put(FIELD_QUESTION_TYPE, question.questionType());
         map.put("difficulty", question.difficulty());
         map.put("score", question.score());
         map.put("estimatedTime", question.estimatedTime());
         map.put("tags", question.tags());
         map.put("imageUrls", List.of());
-        map.put("allowPartialCredit", question.questionType() != null && question.questionType() == 1 ? 1 : 0);
+        map.put("allowPartialCredit",
+                question.questionType() != null && question.questionType() == QUESTION_TYPE_MULTI_CHOICE ? 1 : 0);
         map.put("options", question.options() == null ? List.of() : question.options().stream().map(this::questionGenerateOptionToMap).toList());
-        map.put("answers", question.answers() == null ? List.of() : question.answers().stream().map(this::questionGenerateAnswerToMap).toList());
+        map.put(FIELD_ANSWERS, question.answers() == null ? List.of() : question.answers().stream().map(this::questionGenerateAnswerToMap).toList());
         return map;
     }
 
@@ -909,23 +1032,29 @@ public class QuestionGenerationService {
         map.put("sortOrder", answer.sortOrder());
         return map;
     }
+
     private CreateQuestionRequest normalizeQuestion(Map<?, ?> source, GenerationRequest request, int index) {
         Map<String, Object> question = new LinkedHashMap<>();
-        int fallbackType = request.questionType() == null || request.questionType() == 5 ? 4 : request.questionType();
-        int questionType = normalizeQuestionType(intValue(source.get("questionType"), fallbackType), fallbackType);
+        int fallbackType = request.questionType() == null || request.questionType() == QUESTION_TYPE_MIXED
+                ? QUESTION_TYPE_SHORT_ANSWER
+                : request.questionType();
+        int questionType = normalizeQuestionType(intValue(source.get(FIELD_QUESTION_TYPE), fallbackType), fallbackType);
         BigDecimal score = decimalValue(source.get("score"), scorePerQuestion(request));
         question.put("questionBankId", questionBankIdValue(source, request));
         question.put("questionTitle", text(source, "questionTitle", ""));
         question.put("questionContent", text(source, "questionContent", ""));
-        question.put("questionType", questionType);
-        question.put("difficulty", normalizeDifficulty(intValue(source.get("difficulty"), request.difficulty() == null ? 2 : request.difficulty()), 2));
+        question.put(FIELD_QUESTION_TYPE, questionType);
+        question.put("difficulty", normalizeDifficulty(
+                intValue(source.get("difficulty"), request.difficulty() == null ? DEFAULT_DIFFICULTY : request.difficulty()),
+                DEFAULT_DIFFICULTY));
         question.put("score", score);
         question.put("estimatedTime", Math.max(1, intValue(source.get("estimatedTime"), recommendEstimatedTime(questionType, request.difficulty()))));
         question.put("tags", normalizeStringList(source.get("tags"), request.knowledgePoints()));
         question.put("imageUrls", normalizeStringList(source.get("imageUrls"), List.of()));
-        question.put("allowPartialCredit", normalizeFlag(intValue(source.get("allowPartialCredit"), questionType == 1 ? 1 : 0)));
+        question.put("allowPartialCredit", normalizeFlag(
+                intValue(source.get("allowPartialCredit"), questionType == QUESTION_TYPE_MULTI_CHOICE ? 1 : 0)));
         question.put("options", normalizeOptions(source.get("options")));
-        question.put("answers", normalizeAnswers(source.get("answers"), score));
+        question.put(FIELD_ANSWERS, normalizeAnswers(source.get(FIELD_ANSWERS), score));
         normalizeQuestionTextFields(question, request, index);
         normalizeQuestionStructure(question, request);
         return toCreateQuestionRequest(question);
@@ -937,8 +1066,7 @@ public class QuestionGenerationService {
         if (!StringUtils.hasText(content) && StringUtils.hasText(title)) {
             content = title;
             title = previewQuestionTitle(content, request, index);
-        } else if (StringUtils.hasText(content)
-                && (!StringUtils.hasText(title) || sameQuestionText(title, content) || looksLikeQuestionStemTitle(title))) {
+        } else if (shouldRegenerateTitle(title, content)) {
             title = previewQuestionTitle(content, request, index);
         } else if (!StringUtils.hasText(title)) {
             title = previewQuestionTitle(content, request, index);
@@ -948,6 +1076,14 @@ public class QuestionGenerationService {
         }
         question.put("questionTitle", title);
         question.put("questionContent", content);
+    }
+
+    private boolean shouldRegenerateTitle(String title, String content) {
+        boolean hasContent = StringUtils.hasText(content);
+        boolean titleMissing = !StringUtils.hasText(title);
+        boolean titleDuplicatesContent = sameQuestionText(title, content);
+        boolean titleLooksLikeStem = looksLikeQuestionStemTitle(title);
+        return hasContent && (titleMissing || titleDuplicatesContent || titleLooksLikeStem);
     }
 
     private String previewQuestionTitle(String source, GenerationRequest request, int index) {
@@ -991,27 +1127,27 @@ public class QuestionGenerationService {
     }
 
     private void normalizeQuestionStructure(Map<String, Object> question, GenerationRequest request) {
-        int type = intValue(question.get("questionType"), 4);
+        int type = intValue(question.get(FIELD_QUESTION_TYPE), QUESTION_TYPE_SHORT_ANSWER);
         BigDecimal score = decimalValue(question.get("score"), scorePerQuestion(request));
-        if (type <= 2) {
+        if (type <= QUESTION_TYPE_TRUE_FALSE) {
             List<Map<String, Object>> options = mutableMapList(question.get("options"));
-                        question.put("options", options);
-            if (type == 2) {
+            question.put("options", options);
+            if (type == QUESTION_TYPE_TRUE_FALSE) {
                 normalizeJudgeOptions(question);
             } else {
                 normalizeChoiceCorrectness(question);
             }
             synchronizeOptionScores(question);
-            question.put("answers", List.of());
+            question.put(FIELD_ANSWERS, List.of());
             return;
         }
         question.put("options", List.of());
-        if (!(question.get("answers") instanceof List<?> answers) || answers.isEmpty()) {
-            question.put("answers", List.of(Map.of(
+        if (!(question.get(FIELD_ANSWERS) instanceof List<?> answers) || answers.isEmpty()) {
+            question.put(FIELD_ANSWERS, List.of(Map.of(
                     "answerContent", "请教师根据题干补充参考答案。",
                     "explanation", "",
                     "score", score,
-                "sortOrder", 1)));
+                    "sortOrder", 1)));
         }
     }
 
@@ -1020,19 +1156,19 @@ public class QuestionGenerationService {
         if (options.isEmpty()) {
             return;
         }
-        int type = intValue(question.get("questionType"), 0);
+        int type = intValue(question.get(FIELD_QUESTION_TYPE), QUESTION_TYPE_SINGLE_CHOICE);
         int correctCount = 0;
         for (Map<String, Object> option : options) {
             if (intValue(option.get("isCorrect"), 0) == 1) {
                 correctCount++;
             }
         }
-        if (type == 1) {
-            if (correctCount >= 2) {
+        if (type == QUESTION_TYPE_MULTI_CHOICE) {
+            if (correctCount >= MIN_MULTI_CHOICE_CORRECT_COUNT) {
                 return;
             }
             for (int i = 0; i < options.size(); i++) {
-                options.get(i).put("isCorrect", i < Math.min(2, options.size()) ? 1 : 0);
+                options.get(i).put("isCorrect", i < Math.min(MIN_MULTI_CHOICE_CORRECT_COUNT, options.size()) ? 1 : 0);
             }
         } else {
             if (correctCount == 1) {
@@ -1055,7 +1191,8 @@ public class QuestionGenerationService {
             if (item instanceof Map<?, ?> map) {
                 Map<String, Object> option = new LinkedHashMap<>();
                 option.put("optionContent", stripOptionContentMarker(text(map, "optionContent", "")));
-                option.put("optionLabel", normalizeOptionLabel(text(map, "optionLabel", String.valueOf((char) ('A' + index))), index));
+                option.put("optionLabel", normalizeOptionLabel(
+                        text(map, "optionLabel", String.valueOf((char) (FIRST_OPTION_LABEL + index))), index));
                 option.put("isCorrect", normalizeCorrectFlag(map.get("isCorrect")));
                 option.put("score", decimalValue(map.get("score"), BigDecimal.ZERO));
                 option.put("imageUrls", normalizeStringList(map.get("imageUrls"), List.of()));
@@ -1098,7 +1235,7 @@ public class QuestionGenerationService {
                 uuidValue(question.get("questionBankId")),
                 value(question.get("questionTitle")),
                 value(question.get("questionContent")),
-                intValue(question.get("questionType"), 4),
+                intValue(question.get(FIELD_QUESTION_TYPE), QUESTION_TYPE_SHORT_ANSWER),
                 normalizeDifficulty(intValue(question.get("difficulty"), 2), 2),
                 decimalValue(question.get("score"), BigDecimal.ZERO),
                 intValue(question.get("estimatedTime"), 1),
@@ -1106,7 +1243,7 @@ public class QuestionGenerationService {
                 stringList(question.get("imageUrls")),
                 normalizeFlag(intValue(question.get("allowPartialCredit"), 0)),
                 optionRequests(question.get("options")),
-                answerRequests(question.get("answers")));
+                answerRequests(question.get(FIELD_ANSWERS)));
     }
 
     private List<CreateQuestionRequest> createQuestionRequests(List<Map<String, Object>> questions) {
@@ -1123,7 +1260,7 @@ public class QuestionGenerationService {
         map.put("questionBankId", question.questionBankId() == null ? null : question.questionBankId().toString());
         map.put("questionTitle", question.questionTitle());
         map.put("questionContent", question.questionContent());
-        map.put("questionType", question.questionType());
+        map.put(FIELD_QUESTION_TYPE, question.questionType());
         map.put("difficulty", question.difficulty());
         map.put("score", question.score());
         map.put("estimatedTime", question.estimatedTime());
@@ -1131,7 +1268,7 @@ public class QuestionGenerationService {
         map.put("imageUrls", safeList(question.imageUrls()));
         map.put("allowPartialCredit", question.allowPartialCredit());
         map.put("options", optionMaps(question.options()));
-        map.put("answers", answerMaps(question.answers()));
+        map.put(FIELD_ANSWERS, answerMaps(question.answers()));
         return map;
     }
 
@@ -1229,8 +1366,8 @@ public class QuestionGenerationService {
         boolean trueIsCorrect = inferJudgeAnswer(question, sourceOptions);
         String explanation = firstCorrectOptionExplanation(sourceOptions);
         question.put("options", List.of(
-                judgeOption("A", "正确", trueIsCorrect, trueIsCorrect ? explanation : ""),
-                judgeOption("B", "错误", !trueIsCorrect, trueIsCorrect ? "" : explanation)));
+                judgeOption(TRUE_OPTION_LABEL, TRUE_TEXT, trueIsCorrect, trueIsCorrect ? explanation : ""),
+                judgeOption(FALSE_OPTION_LABEL, FALSE_TEXT, !trueIsCorrect, trueIsCorrect ? "" : explanation)));
     }
 
     private Map<String, Object> judgeOption(String label, String content, boolean correct) {
@@ -1260,7 +1397,7 @@ public class QuestionGenerationService {
             }
             return i == 0;
         }
-        for (Map<String, Object> answer : mutableMapList(question.get("answers"))) {
+        for (Map<String, Object> answer : mutableMapList(question.get(FIELD_ANSWERS))) {
             Boolean truthValue = judgeTruthValue(value(answer.get("answerContent")));
             if (truthValue != null) {
                 return truthValue;
@@ -1275,27 +1412,31 @@ public class QuestionGenerationService {
         if (compact.isEmpty()) {
             return null;
         }
-        if (compact.contains("错误") || compact.contains("不正确") || "FALSE".equals(compact)
-                || compact.startsWith("B.") || compact.startsWith("B．") || compact.startsWith("B、")
-                || "B".equals(compact)) {
+        if (compact.contains(FALSE_TEXT) || compact.contains(FALSE_NEGATIVE_TEXT) || FALSE_EN.equals(compact)
+                || compact.startsWith(FALSE_OPTION_LABEL + OPTION_LABEL_DOT)
+                || compact.startsWith(FALSE_OPTION_LABEL + OPTION_LABEL_FULLWIDTH_DOT)
+                || compact.startsWith(FALSE_OPTION_LABEL + OPTION_LABEL_SEPARATOR)
+                || FALSE_OPTION_LABEL.equals(compact)) {
             return false;
         }
-        if (compact.contains("正确") || "TRUE".equals(compact)
-                || compact.startsWith("A.") || compact.startsWith("A．") || compact.startsWith("A、")
-                || "A".equals(compact)) {
+        if (compact.contains(TRUE_TEXT) || TRUE_EN.equals(compact)
+                || compact.startsWith(TRUE_OPTION_LABEL + OPTION_LABEL_DOT)
+                || compact.startsWith(TRUE_OPTION_LABEL + OPTION_LABEL_FULLWIDTH_DOT)
+                || compact.startsWith(TRUE_OPTION_LABEL + OPTION_LABEL_SEPARATOR)
+                || TRUE_OPTION_LABEL.equals(compact)) {
             return true;
         }
         return null;
     }
 
     private String normalizeOptionLabel(String label, int index) {
-        String fallback = String.valueOf((char) ('A' + index));
+        String fallback = String.valueOf((char) (FIRST_OPTION_LABEL + index));
         if (!StringUtils.hasText(label)) {
             return fallback;
         }
         String trimmed = label.strip();
         char first = Character.toUpperCase(trimmed.charAt(0));
-        if (first >= 'A' && first <= 'Z') {
+        if (first >= FIRST_OPTION_LABEL && first <= LAST_OPTION_LABEL) {
             return String.valueOf(first);
         }
         return trimmed;
@@ -1335,15 +1476,17 @@ public class QuestionGenerationService {
     }
 
     private void applySectionDefaultsMaps(List<Map<String, Object>> questions,
-                                           GenerationRequest request,
-                                           PaperSectionPlan section) {
+                                          GenerationRequest request,
+                                          PaperSectionPlan section) {
         for (int i = 0; i < questions.size(); i++) {
             Map<String, Object> question = questions.get(i);
-            question.put("questionType", normalizeQuestionType(
-                    intValue(question.get("questionType"), sectionQuestionType(section, i)),
+            question.put(FIELD_QUESTION_TYPE, normalizeQuestionType(
+                    intValue(question.get(FIELD_QUESTION_TYPE), sectionQuestionType(section, i)),
                     sectionQuestionType(section, i)));
-            question.put("difficulty", normalizeDifficulty(intValue(question.get("difficulty"), section.difficulty()), section.difficulty()));
-            question.put("estimatedTime", Math.max(1, intValue(question.get("estimatedTime"), section.estimatedTimePerQuestion())));
+            int sectionDifficulty = normalizeDifficulty(section.difficulty(), DEFAULT_DIFFICULTY);
+            int sectionEstimatedTime = section.estimatedTimePerQuestion() == null ? 1 : section.estimatedTimePerQuestion();
+            question.put("difficulty", normalizeDifficulty(intValue(question.get("difficulty"), sectionDifficulty), sectionDifficulty));
+            question.put("estimatedTime", Math.max(1, intValue(question.get("estimatedTime"), sectionEstimatedTime)));
             if (section.scorePerQuestion() != null) {
                 question.put("score", section.scorePerQuestion());
             }
@@ -1373,7 +1516,7 @@ public class QuestionGenerationService {
 
     private int sectionQuestionType(PaperSectionPlan section, int questionIndex) {
         Integer sectionType = section == null ? null : section.questionType();
-        if (sectionType != null && sectionType >= 0 && sectionType <= 4) {
+        if (sectionType != null && sectionType >= MIN_QUESTION_TYPE && sectionType <= MAX_QUESTION_TYPE) {
             return sectionType;
         }
         return MIXED_QUESTION_TYPES.get(Math.floorMod(questionIndex, MIXED_QUESTION_TYPES.size()));
@@ -1425,16 +1568,26 @@ public class QuestionGenerationService {
     }
 
     private List<GenerationValidationIssue> validateQuestionMaps(List<Map<String, Object>> questions,
-                                                              GenerationRequest request,
-                                                              Integer expectedCount,
-                                                              BigDecimal expectedTotalScore,
-                                                              Integer expectedTotalEstimatedTime,
-                                                              Set<String> blockedSignatures) {
+                                                                 GenerationRequest request,
+                                                                 Integer expectedCount,
+                                                                 BigDecimal expectedTotalScore,
+                                                                 Integer expectedTotalEstimatedTime,
+                                                                 Set<String> blockedSignatures) {
         List<GenerationValidationIssue> issues = new ArrayList<>();
         if (questions == null || questions.isEmpty()) {
             issues.add(issue("EMPTY_RESULT", "error", "未生成任何题目。", null, "请至少生成一道有效题目。"));
             return issues;
         }
+        validateExpectedTotals(questions, expectedCount, expectedTotalScore, expectedTotalEstimatedTime, issues);
+        validateQuestionItems(questions, blockedSignatures, issues);
+        return issues;
+    }
+
+    private void validateExpectedTotals(List<Map<String, Object>> questions,
+                                        Integer expectedCount,
+                                        BigDecimal expectedTotalScore,
+                                        Integer expectedTotalEstimatedTime,
+                                        List<GenerationValidationIssue> issues) {
         if (expectedCount != null && questions.size() != expectedCount) {
             issues.add(issue(
                     "QUESTION_COUNT_MISMATCH",
@@ -1445,7 +1598,7 @@ public class QuestionGenerationService {
         }
         if (expectedTotalScore != null) {
             BigDecimal scoreSum = questions.stream()
-                    .map(question -> decimalValue(question.get("score"), BigDecimal.ZERO))
+                    .map(question -> decimalValue(question.get(FIELD_SCORE), BigDecimal.ZERO))
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             if (scoreSum.compareTo(expectedTotalScore) != 0) {
                 issues.add(issue(
@@ -1458,7 +1611,7 @@ public class QuestionGenerationService {
         }
         if (expectedTotalEstimatedTime != null) {
             int totalTime = questions.stream()
-                    .mapToInt(question -> intValue(question.get("estimatedTime"), 0))
+                    .mapToInt(question -> intValue(question.get(FIELD_ESTIMATED_TIME), 0))
                     .sum();
             if (totalTime != expectedTotalEstimatedTime) {
                 issues.add(issue(
@@ -1469,65 +1622,89 @@ public class QuestionGenerationService {
                         "请调整各题预计用时，使总时长等于 " + expectedTotalEstimatedTime + " 分钟。"));
             }
         }
+    }
 
+    private void validateQuestionItems(List<Map<String, Object>> questions,
+                                       Set<String> blockedSignatures,
+                                       List<GenerationValidationIssue> issues) {
         Set<String> normalizedBlockedSignatures = blockedSignatures == null ? Set.of() : blockedSignatures;
-        Map<String, Integer> duplicateMap = new HashMap<>();
+        Map<String, Integer> duplicateMap = new HashMap<>(questions.size());
         for (int i = 0; i < questions.size(); i++) {
-            int index = i + 1;
-            Map<String, Object> question = questions.get(i);
-            String title = value(question.get("questionTitle"));
-            String content = value(question.get("questionContent"));
-            if (!StringUtils.hasText(title) && !StringUtils.hasText(content)) {
-                issues.add(issue("EMPTY_CONTENT", "error", "第 " + index + " 题题干为空。", index,
-                        "请至少提供题目标题或题目内容。"));
-            }
-            int type = intValue(question.get("questionType"), -1);
-            if (type < 0 || type > 4) {
-                issues.add(issue("INVALID_TYPE", "error", "第 " + index + " 题题型无效。", index,
-                        "请将题型设置为 0 到 4 之间的有效值。"));
-                continue;
-            }
-            int difficulty = intValue(question.get("difficulty"), -1);
-            if (difficulty < 1 || difficulty > 3) {
-                issues.add(issue("INVALID_DIFFICULTY", "error", "第 " + index + " 题难度无效。", index,
-                        "请将难度设置为 1 到 3 之间的有效值。"));
-            }
-            if (decimalValue(question.get("score"), BigDecimal.ZERO).compareTo(BigDecimal.ZERO) <= 0) {
-                issues.add(issue("INVALID_SCORE", "error", "第 " + index + " 题分值缺失或不为正数。", index,
-                        "请提供大于 0 的题目分值。"));
-            }
-            if (intValue(question.get("estimatedTime"), 0) <= 0) {
-                issues.add(issue("INVALID_TIME", "warning", "第 " + index + " 题预计用时缺失或无效。", index,
-                        "请提供大于 0 的预计用时。"));
-            }
-            String signature = buildSignature(question);
-            if (StringUtils.hasText(signature)) {
-                if (normalizedBlockedSignatures.contains(signature)) {
-                    issues.add(issue("REFERENCE_DUPLICATE", "warning",
-                            "第 " + index + " 题与现有题目或参考样例过于相似。",
-                            index,
-                            "请在保持命题要求一致的前提下重写题干，避免重复。"));
-                }
-                Integer firstIndex = duplicateMap.putIfAbsent(signature, index);
-                if (firstIndex != null) {
-                    issues.add(issue("DUPLICATE_QUESTION", "warning",
-                            "第 " + index + " 题与第 " + firstIndex + " 题内容重复或高度相似。",
-                            index,
-                            "请重写该题以避免重复。"));
-                }
-            }
-            validateQuestionStructure(question, index, issues);
+            validateQuestionItem(questions.get(i), i + 1, normalizedBlockedSignatures, duplicateMap, issues);
         }
-        return issues;
+    }
+
+    private void validateQuestionItem(Map<String, Object> question,
+                                      int index,
+                                      Set<String> blockedSignatures,
+                                      Map<String, Integer> duplicateMap,
+                                      List<GenerationValidationIssue> issues) {
+        String title = value(question.get("questionTitle"));
+        String content = value(question.get("questionContent"));
+        if (!StringUtils.hasText(title) && !StringUtils.hasText(content)) {
+            issues.add(issue("EMPTY_CONTENT", "error", "第 " + index + " 题题干为空。", index,
+                    "请至少提供题目标题或题目内容。"));
+        }
+        int type = intValue(question.get(FIELD_QUESTION_TYPE), -1);
+        if (type < MIN_QUESTION_TYPE || type > MAX_QUESTION_TYPE) {
+            issues.add(issue("INVALID_TYPE", "error", "第 " + index + " 题题型无效。", index,
+                    "请将题型设置为 0 到 4 之间的有效值。"));
+            return;
+        }
+        validateQuestionBasicFields(question, index, issues);
+        validateQuestionDuplicate(question, index, blockedSignatures, duplicateMap, issues);
+        validateQuestionStructure(question, index, issues);
+    }
+
+    private void validateQuestionBasicFields(Map<String, Object> question,
+                                             int index,
+                                             List<GenerationValidationIssue> issues) {
+        int difficulty = intValue(question.get("difficulty"), -1);
+        if (difficulty < MIN_DIFFICULTY || difficulty > MAX_DIFFICULTY) {
+            issues.add(issue("INVALID_DIFFICULTY", "error", "第 " + index + " 题难度无效。", index,
+                    "请将难度设置为 1 到 3 之间的有效值。"));
+        }
+        if (decimalValue(question.get(FIELD_SCORE), BigDecimal.ZERO).compareTo(BigDecimal.ZERO) <= 0) {
+            issues.add(issue("INVALID_SCORE", "error", "第 " + index + " 题分值缺失或不为正数。", index,
+                    "请提供大于 0 的题目分值。"));
+        }
+        if (intValue(question.get(FIELD_ESTIMATED_TIME), 0) <= 0) {
+            issues.add(issue("INVALID_TIME", "warning", "第 " + index + " 题预计用时缺失或无效。", index,
+                    "请提供大于 0 的预计用时。"));
+        }
+    }
+
+    private void validateQuestionDuplicate(Map<String, Object> question,
+                                           int index,
+                                           Set<String> blockedSignatures,
+                                           Map<String, Integer> duplicateMap,
+                                           List<GenerationValidationIssue> issues) {
+        String signature = buildSignature(question);
+        if (!StringUtils.hasText(signature)) {
+            return;
+        }
+        if (blockedSignatures.contains(signature)) {
+            issues.add(issue("REFERENCE_DUPLICATE", "warning",
+                    "第 " + index + " 题与现有题目或参考样例过于相似。",
+                    index,
+                    "请在保持命题要求一致的前提下重写题干，避免重复。"));
+        }
+        Integer firstIndex = duplicateMap.putIfAbsent(signature, index);
+        if (firstIndex != null) {
+            issues.add(issue("DUPLICATE_QUESTION", "warning",
+                    "第 " + index + " 题与第 " + firstIndex + " 题内容重复或高度相似。",
+                    index,
+                    "请重写该题以避免重复。"));
+        }
     }
 
     private void validateQuestionStructure(Map<String, Object> question,
                                            int index,
                                            List<GenerationValidationIssue> issues) {
-        int type = intValue(question.get("questionType"), 4);
+        int type = intValue(question.get(FIELD_QUESTION_TYPE), QUESTION_TYPE_SHORT_ANSWER);
         List<Map<String, Object>> options = mutableMapList(question.get("options"));
-        List<Map<String, Object>> answers = mutableMapList(question.get("answers"));
-        if (type <= 2) {
+        List<Map<String, Object>> answers = mutableMapList(question.get(FIELD_ANSWERS));
+        if (type <= QUESTION_TYPE_TRUE_FALSE) {
             if (options.isEmpty()) {
                 issues.add(issue("MISSING_OPTIONS", "error", "第 " + index + " 题缺少选项。", index,
                         "选择题需要提供有效选项。"));
@@ -1539,19 +1716,24 @@ public class QuestionGenerationService {
                     correctCount++;
                 }
             }
-            if ((type == 0 || type == 2) && correctCount != 1) {
+            boolean requiresSingleCorrectOption = type == QUESTION_TYPE_SINGLE_CHOICE || type == QUESTION_TYPE_TRUE_FALSE;
+            if (requiresSingleCorrectOption && correctCount != 1) {
                 issues.add(issue("INVALID_CORRECT_COUNT", "error",
                         "第 " + index + " 题必须且只能有一个正确选项。",
                         index,
                         "请只标记一个正确选项。"));
             }
-            if (type == 1 && correctCount < 2) {
+            boolean hasInsufficientMultiChoiceCorrectOptions = type == QUESTION_TYPE_MULTI_CHOICE
+                    && correctCount < MIN_MULTI_CHOICE_CORRECT_COUNT;
+            if (hasInsufficientMultiChoiceCorrectOptions) {
                 issues.add(issue("INVALID_MULTI_CORRECT_COUNT", "error",
                         "第 " + index + " 题为多选题时，至少需要两个正确选项。",
                         index,
                         "请至少标记两个正确选项。"));
             }
-            if (type == 2 && options.size() != 2) {
+            boolean hasInvalidTrueFalseOptionCount = type == QUESTION_TYPE_TRUE_FALSE
+                    && options.size() != TRUE_FALSE_OPTION_COUNT;
+            if (hasInvalidTrueFalseOptionCount) {
                 issues.add(issue("INVALID_JUDGE_OPTION_COUNT", "error",
                         "第 " + index + " 题为判断题时，必须只有两个选项。",
                         index,
@@ -1559,7 +1741,7 @@ public class QuestionGenerationService {
             }
             return;
         }
-        if (options != null && !options.isEmpty()) {
+        if (!options.isEmpty()) {
             issues.add(issue("UNEXPECTED_OPTIONS", "warning",
                     "第 " + index + " 题为开放题，不应包含 options 列表。",
                     index,
@@ -1577,12 +1759,12 @@ public class QuestionGenerationService {
                         "请为每个答案填写非空内容。"));
             }
             int sortOrder = intValue(answer.get("sortOrder"), 0);
-            if (type == 3 && sortOrder <= 0) {
+            if (type == QUESTION_TYPE_FILL_BLANK && sortOrder <= 0) {
                 issues.add(issue("INVALID_SORT_ORDER", "error",
                         "第 " + index + " 题填空答案的排序无效。",
                         index,
                         "请使用从 1 开始的正序排序值。"));
-            } else if (type == 3 && !sortOrders.add(sortOrder)) {
+            } else if (type == QUESTION_TYPE_FILL_BLANK && !sortOrders.add(sortOrder)) {
                 issues.add(issue("DUPLICATE_SORT_ORDER", "error",
                         "第 " + index + " 题填空答案的排序重复。",
                         index,
@@ -1594,7 +1776,7 @@ public class QuestionGenerationService {
     private void appendSectionTypeIssues(List<GenerationValidationIssue> issues,
                                          List<CreateQuestionRequest> questions,
                                          Integer expectedType) {
-        if (expectedType == null || expectedType < 0 || expectedType > 4 || questions == null) {
+        if (expectedType == null || expectedType < MIN_QUESTION_TYPE || expectedType > MAX_QUESTION_TYPE || questions == null) {
             return;
         }
         for (int i = 0; i < questions.size(); i++) {
@@ -1613,41 +1795,27 @@ public class QuestionGenerationService {
     private ReviewResult repairQuestions(List<CreateQuestionRequest> questions,
                                          GenerationRequest request,
                                          AiCourseContext context,
-                                          PaperBlueprint blueprint,
-                                          List<GenerationValidationIssue> issues,
-                                          Set<String> referenceSignatures,
-                                          List<GenerationTraceEntry> debugTraceEntries,
-                                          Consumer<GenerationStageEvent> stageListener,
-                                          String requestId,
-                                          String mode,
-                                          boolean exposeRawAiOutput,
-                                          boolean paper) {
-        List<CreateQuestionRequest> currentQuestions = deterministicRepair(questions, request);
-        currentQuestions = rebalanceQuestionScores(currentQuestions, request);
-        currentQuestions = rebalanceEstimatedTimes(currentQuestions, request.totalEstimatedTime());
-        List<GenerationValidationIssue> currentIssues = validateQuestions(
-                currentQuestions,
-                request,
-                request.questionCount(),
-                request.totalScore(),
-                request.totalEstimatedTime(),
-                referenceSignatures);
-        currentIssues = mergeIssues(currentIssues, issues);
-        QuestionGenerationQualityPolicy.QualityReview currentQualityReview = qualityReview(currentQuestions, request, blueprint, paper);
-        currentIssues = mergeIssues(currentIssues, currentQualityReview.issues());
-        if (currentQuestions.isEmpty()) {
-            appendTraceEntry(debugTraceEntries, "REPAIRED", "paperReview", "repair_summary",
-                    "repair skipped",
-                    "No usable draft questions were produced; returning EMPTY_RESULT without model repair.",
-                    finalQuestionsPayload(currentQuestions, currentIssues));
-            return new ReviewResult(currentQuestions, currentIssues);
+                                         PaperBlueprint blueprint,
+                                         List<GenerationValidationIssue> issues,
+                                         Set<String> referenceSignatures,
+                                         List<GenerationTraceEntry> debugTraceEntries,
+                                         Consumer<GenerationStageEvent> stageListener,
+                                         String requestId,
+                                         String mode,
+                                         boolean exposeRawAiOutput,
+                                         boolean paper) {
+        ReviewResult currentResult = initialRepairReview(questions, request, blueprint, issues, referenceSignatures, paper);
+        List<CreateQuestionRequest> currentQuestions = currentResult.questions();
+        List<GenerationValidationIssue> currentIssues = currentResult.issues();
+        if (appendSkippedRepairTrace(currentQuestions, currentIssues, debugTraceEntries)) {
+            return currentResult;
         }
         if (!shouldRepairWithModel(currentQuestions, currentIssues, request.questionCount())) {
             appendTraceEntry(debugTraceEntries, "REPAIRED", "paperReview", "repair_summary",
                     "修复前复核",
                     "草稿题目已通过校验，无需额外修复。",
                     finalQuestionsPayload(currentQuestions, currentIssues));
-            return new ReviewResult(currentQuestions, currentIssues);
+            return currentResult;
         }
 
         List<CreateQuestionRequest> bestQuestions = currentQuestions;
@@ -1656,35 +1824,16 @@ public class QuestionGenerationService {
              attemptNo <= MAX_REPAIR_ATTEMPTS && shouldRepairWithModel(currentQuestions, currentIssues, request.questionCount());
              attemptNo++) {
             try {
-                QuestionGeneratePayload repairedPayload = callRepairModel(
-                        request, context, blueprint, questionMaps(currentQuestions), currentIssues, attemptNo,
-                        debugTraceEntries, stageListener, requestId, mode, exposeRawAiOutput);
-                NormalizedQuestionBatch repairedBatch = normalizeQuestionsFromRecords(
-                        repairedPayload == null ? List.of() : repairedPayload.questionsOrEmpty(), request);
-                List<CreateQuestionRequest> repairedQuestions = repairedBatch.questions();
-                repairedQuestions = deterministicRepair(repairedQuestions, request);
-                repairedQuestions = rebalanceQuestionScores(repairedQuestions, request);
-                repairedQuestions = rebalanceEstimatedTimes(repairedQuestions, request.totalEstimatedTime());
-                List<GenerationValidationIssue> repairedIssues = validateQuestions(
-                        repairedQuestions,
-                        request,
-                        request.questionCount(),
-                        request.totalScore(),
-                        request.totalEstimatedTime(),
-                        referenceSignatures);
-                repairedIssues.addAll(repairedBatch.issues());
-                repairedIssues = mergeIssues(repairedIssues, qualityReview(repairedQuestions, request, blueprint, paper).issues());
-                appendTraceEntry(debugTraceEntries, "REPAIRED", "paperReview", "repair_attempt",
-                        "第 " + attemptNo + " 轮修复",
-                        "本轮产出 " + repairedQuestions.size() + " 道题目，仍有 "
-                                + repairedIssues.size() + " 个问题待处理。",
-                        repairAttemptPayload(attemptNo, repairedQuestions, repairedIssues));
-                if (isBetterCandidate(repairedQuestions, repairedIssues, bestQuestions, bestIssues, request.questionCount())) {
-                    bestQuestions = repairedQuestions;
-                    bestIssues = repairedIssues;
+                ReviewResult repairedResult = repairQuestionsOnce(
+                        request, context, blueprint, currentQuestions, currentIssues, referenceSignatures,
+                        debugTraceEntries, stageListener, requestId, mode, exposeRawAiOutput, paper, attemptNo);
+                if (isBetterCandidate(repairedResult.questions(), repairedResult.issues(),
+                        bestQuestions, bestIssues, normalizedQuestionCount(request))) {
+                    bestQuestions = repairedResult.questions();
+                    bestIssues = repairedResult.issues();
                 }
-                currentQuestions = repairedQuestions;
-                currentIssues = repairedIssues;
+                currentQuestions = repairedResult.questions();
+                currentIssues = repairedResult.issues();
             } catch (RuntimeException exception) {
                 appendTraceEntry(debugTraceEntries, "REPAIRED", "paperReview", "repair_attempt",
                         "第 " + attemptNo + " 轮修复",
@@ -1693,6 +1842,81 @@ public class QuestionGenerationService {
                 break;
             }
         }
+        appendRepairSummaryTrace(bestQuestions, bestIssues, request, blueprint, paper, debugTraceEntries);
+        return new ReviewResult(bestQuestions, bestIssues);
+    }
+
+    private ReviewResult initialRepairReview(List<CreateQuestionRequest> questions,
+                                             GenerationRequest request,
+                                             PaperBlueprint blueprint,
+                                             List<GenerationValidationIssue> issues,
+                                             Set<String> referenceSignatures,
+                                             boolean paper) {
+        List<CreateQuestionRequest> currentQuestions = deterministicRepair(questions, request);
+        currentQuestions = rebalanceQuestionScores(currentQuestions, request);
+        currentQuestions = rebalanceEstimatedTimes(currentQuestions, request.totalEstimatedTime());
+        List<GenerationValidationIssue> currentIssues = validateQuestions(
+                currentQuestions, request, request.questionCount(), request.totalScore(),
+                request.totalEstimatedTime(), referenceSignatures);
+        currentIssues = mergeIssues(currentIssues, issues);
+        QuestionGenerationQualityPolicy.QualityReview qualityReview = qualityReview(currentQuestions, request, blueprint, paper);
+        currentIssues = mergeIssues(currentIssues, qualityReview.issues());
+        return new ReviewResult(currentQuestions, currentIssues);
+    }
+
+    private boolean appendSkippedRepairTrace(List<CreateQuestionRequest> questions,
+                                             List<GenerationValidationIssue> issues,
+                                             List<GenerationTraceEntry> debugTraceEntries) {
+        if (!questions.isEmpty()) {
+            return false;
+        }
+        appendTraceEntry(debugTraceEntries, "REPAIRED", "paperReview", "repair_summary",
+                "repair skipped",
+                "No usable draft questions were produced; returning EMPTY_RESULT without model repair.",
+                finalQuestionsPayload(questions, issues));
+        return true;
+    }
+
+    private ReviewResult repairQuestionsOnce(GenerationRequest request,
+                                             AiCourseContext context,
+                                             PaperBlueprint blueprint,
+                                             List<CreateQuestionRequest> currentQuestions,
+                                             List<GenerationValidationIssue> currentIssues,
+                                             Set<String> referenceSignatures,
+                                             List<GenerationTraceEntry> debugTraceEntries,
+                                             Consumer<GenerationStageEvent> stageListener,
+                                             String requestId,
+                                             String mode,
+                                             boolean exposeRawAiOutput,
+                                             boolean paper,
+                                             int attemptNo) {
+        QuestionGeneratePayload repairedPayload = callRepairModel(
+                request, context, blueprint, questionMaps(currentQuestions), currentIssues, attemptNo,
+                debugTraceEntries, stageListener, requestId, mode, exposeRawAiOutput);
+        NormalizedQuestionBatch repairedBatch = normalizeQuestionsFromRecords(
+                repairedPayload == null ? List.of() : repairedPayload.questionsOrEmpty(), request);
+        List<CreateQuestionRequest> repairedQuestions = deterministicRepair(repairedBatch.questions(), request);
+        repairedQuestions = rebalanceQuestionScores(repairedQuestions, request);
+        repairedQuestions = rebalanceEstimatedTimes(repairedQuestions, request.totalEstimatedTime());
+        List<GenerationValidationIssue> repairedIssues = validateQuestions(
+                repairedQuestions, request, request.questionCount(), request.totalScore(),
+                request.totalEstimatedTime(), referenceSignatures);
+        repairedIssues.addAll(repairedBatch.issues());
+        repairedIssues = mergeIssues(repairedIssues, qualityReview(repairedQuestions, request, blueprint, paper).issues());
+        appendTraceEntry(debugTraceEntries, "REPAIRED", "paperReview", "repair_attempt",
+                "第 " + attemptNo + " 轮修复",
+                "本轮产出 " + repairedQuestions.size() + " 道题目，仍有 "
+                        + repairedIssues.size() + " 个问题待处理。",
+                repairAttemptPayload(attemptNo, repairedQuestions, repairedIssues));
+        return new ReviewResult(repairedQuestions, repairedIssues);
+    }
+
+    private void appendRepairSummaryTrace(List<CreateQuestionRequest> bestQuestions,
+                                          List<GenerationValidationIssue> bestIssues,
+                                          GenerationRequest request,
+                                          PaperBlueprint blueprint,
+                                          boolean paper,
+                                          List<GenerationTraceEntry> debugTraceEntries) {
         appendTraceEntry(debugTraceEntries, "REPAIRED", "paperReview", "repair_summary",
                 "修复完成",
                 "已选择当前最佳修复结果，共 " + bestQuestions.size() + " 道题目，剩余 "
@@ -1705,7 +1929,6 @@ public class QuestionGenerationService {
                         ? "修复后未发现明显质量问题。"
                         : "修复后仍有 " + finalQualityReview.issues().size() + " 个质量提示。",
                 finalQualityReview.payload());
-        return new ReviewResult(bestQuestions, bestIssues);
     }
 
     private boolean shouldRepairWithModel(List<CreateQuestionRequest> questions,
@@ -1758,15 +1981,15 @@ public class QuestionGenerationService {
 
     private QuestionGeneratePayload callRepairModel(GenerationRequest request,
                                                     AiCourseContext context,
-                                                     PaperBlueprint blueprint,
-                                                     List<Map<String, Object>> currentQuestions,
-                                                     List<GenerationValidationIssue> issues,
-                                                     int attemptNo,
-                                                     List<GenerationTraceEntry> debugTraceEntries,
-                                                     Consumer<GenerationStageEvent> stageListener,
-                                                     String requestId,
-                                                     String mode,
-                                                     boolean exposeRawAiOutput) {
+                                                    PaperBlueprint blueprint,
+                                                    List<Map<String, Object>> currentQuestions,
+                                                    List<GenerationValidationIssue> issues,
+                                                    int attemptNo,
+                                                    List<GenerationTraceEntry> debugTraceEntries,
+                                                    Consumer<GenerationStageEvent> stageListener,
+                                                    String requestId,
+                                                    String mode,
+                                                    boolean exposeRawAiOutput) {
         String prompt = """
                 你是教育测评题目修复助手。当前任务：修复已经生成的题目集合。
                 只返回合法 JSON，不要使用 markdown 代码块，不要输出解释。
@@ -1779,7 +2002,7 @@ public class QuestionGenerationService {
                 如果存在重复题、题数不符、选项/答案结构不合法、总分或总时长不匹配，请全部修复。
                 %s
                 %s
-
+                
                 修复尝试：%s / %s
                 原始生成参数 JSON：%s
                 蓝图 JSON：%s
@@ -1820,11 +2043,15 @@ public class QuestionGenerationService {
             if (request.questionBankId() != null) {
                 copy.put("questionBankId", request.questionBankId().toString());
             }
-            copy.put("questionType", normalizeQuestionType(intValue(copy.get("questionType"), request.questionType()), 4));
-            copy.put("difficulty", normalizeDifficulty(intValue(copy.get("difficulty"), request.difficulty()), 2));
+            copy.put(FIELD_QUESTION_TYPE, normalizeQuestionType(
+                    intValue(copy.get(FIELD_QUESTION_TYPE), normalizedQuestionType(request)), QUESTION_TYPE_SHORT_ANSWER));
+            copy.put("difficulty", normalizeDifficulty(
+                    intValue(copy.get("difficulty"), normalizedDifficulty(request)), DEFAULT_DIFFICULTY));
             copy.put("score", decimalValue(copy.get("score"), scorePerQuestion(request)));
             copy.put("estimatedTime", Math.max(1, intValue(copy.get("estimatedTime"),
-                    recommendEstimatedTime(intValue(copy.get("questionType"), 4), intValue(copy.get("difficulty"), 2)))));
+                    recommendEstimatedTime(
+                            intValue(copy.get(FIELD_QUESTION_TYPE), QUESTION_TYPE_SHORT_ANSWER),
+                            intValue(copy.get("difficulty"), DEFAULT_DIFFICULTY)))));
             normalizeQuestionTextFields(copy, request, i);
             normalizeQuestionStructure(copy, request);
             normalizeLatexTextFields(copy);
@@ -1841,12 +2068,12 @@ public class QuestionGenerationService {
             option.put("explanation", wrapStandaloneBareLatex(value(option.get("explanation"))));
         }
         question.put("options", options);
-        List<Map<String, Object>> answers = mutableMapList(question.get("answers"));
+        List<Map<String, Object>> answers = mutableMapList(question.get(FIELD_ANSWERS));
         for (Map<String, Object> answer : answers) {
             answer.put("answerContent", wrapStandaloneBareLatex(value(answer.get("answerContent"))));
             answer.put("explanation", wrapStandaloneBareLatex(value(answer.get("explanation"))));
         }
-        question.put("answers", answers);
+        question.put(FIELD_ANSWERS, answers);
     }
 
     private String wrapStandaloneBareLatex(String text) {
@@ -1907,8 +2134,8 @@ public class QuestionGenerationService {
                 .map(question -> {
                     BigDecimal score = normalizePositiveScore(decimalValue(question.get("score"), null));
                     return scorePerQuestionSpecifiedAsZero(request) && score != null ? toWeight(score) : QuestionGenerationQualityPolicy.scoreWeight(
-                            intValue(question.get("questionType"), 4),
-                            intValue(question.get("difficulty"), 2));
+                            intValue(question.get(FIELD_QUESTION_TYPE), QUESTION_TYPE_SHORT_ANSWER),
+                            intValue(question.get("difficulty"), DEFAULT_DIFFICULTY));
                 })
                 .toList();
         List<BigDecimal> scores = scorePerQuestionSpecifiedAsZero(request)
@@ -1933,8 +2160,8 @@ public class QuestionGenerationService {
         List<Integer> weights = new ArrayList<>(questions.size());
         for (Map<String, Object> question : questions) {
             int suggested = recommendEstimatedTime(
-                    intValue(question.get("questionType"), 4),
-                    intValue(question.get("difficulty"), 2));
+                    intValue(question.get(FIELD_QUESTION_TYPE), QUESTION_TYPE_SHORT_ANSWER),
+                    intValue(question.get("difficulty"), DEFAULT_DIFFICULTY));
             int current = intValue(question.get("estimatedTime"), suggested);
             question.put("estimatedTime", Math.max(1, current));
             weights.add(Math.max(1, targetTotalTime == null || targetTotalTime <= 0 ? current : suggested));
@@ -1950,8 +2177,8 @@ public class QuestionGenerationService {
     }
 
     private void synchronizeNestedScore(Map<String, Object> question) {
-        int type = intValue(question.get("questionType"), 4);
-        if (type <= 2) {
+        int type = intValue(question.get(FIELD_QUESTION_TYPE), QUESTION_TYPE_SHORT_ANSWER);
+        if (type <= QUESTION_TYPE_TRUE_FALSE) {
             synchronizeOptionScores(question);
             return;
         }
@@ -1976,7 +2203,9 @@ public class QuestionGenerationService {
         if (correctOptions.isEmpty()) {
             return;
         }
-        if (intValue(question.get("questionType"), 0) != 1 || correctOptions.size() == 1) {
+        boolean distributeSingleCorrectScore = intValue(question.get(FIELD_QUESTION_TYPE), QUESTION_TYPE_SINGLE_CHOICE)
+                != QUESTION_TYPE_MULTI_CHOICE || correctOptions.size() == 1;
+        if (distributeSingleCorrectScore) {
             for (Map<String, Object> option : options) {
                 option.put("score", intValue(option.get("isCorrect"), 0) == 1 ? questionScore : BigDecimal.ZERO);
             }
@@ -1999,7 +2228,7 @@ public class QuestionGenerationService {
     }
 
     private void synchronizeAnswerScores(Map<String, Object> question) {
-        List<Map<String, Object>> answers = mutableMapList(question.get("answers"));
+        List<Map<String, Object>> answers = mutableMapList(question.get(FIELD_ANSWERS));
         if (answers.isEmpty()) {
             return;
         }
@@ -2011,18 +2240,18 @@ public class QuestionGenerationService {
         for (int i = 0; i < answers.size(); i++) {
             answers.get(i).put("score", distributed.get(i));
         }
-        question.put("answers", answers);
+        question.put(FIELD_ANSWERS, answers);
     }
 
     private Map<String, Object> finalPayload(Map<String, Object> modelPayload,
-                                              GenerationRequest request,
-                                              PaperBlueprint blueprint,
-                                              List<CreateQuestionRequest> finalQuestions,
-                                              List<GenerationValidationIssue> issues,
-                                              List<GenerationTraceEntry> traceEntries,
-                                              List<GenerationTraceEntry> debugTraceEntries,
-                                              List<AgentSearchEvent> agentSearchEvents,
-                                              boolean paper) {
+                                             GenerationRequest request,
+                                             PaperBlueprint blueprint,
+                                             List<CreateQuestionRequest> finalQuestions,
+                                             List<GenerationValidationIssue> issues,
+                                             List<GenerationTraceEntry> traceEntries,
+                                             List<GenerationTraceEntry> debugTraceEntries,
+                                             List<AgentSearchEvent> agentSearchEvents,
+                                             boolean paper) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("title", text(modelPayload, "title", blueprint.title()));
         payload.put("type", paper ? "paper" : "question_set");
@@ -2034,8 +2263,8 @@ public class QuestionGenerationService {
         payload.put("generationTrace", traceEntries);
         payload.put("generationDebugTrace", debugTraceEntries);
         payload.put("agentSearch", agentSearchPayload(agentSearchEvents));
-        if (modelPayload.get("raw") != null) {
-            payload.put("raw", modelPayload.get("raw"));
+        if (modelPayload.get(FIELD_RAW) != null) {
+            payload.put(FIELD_RAW, modelPayload.get(FIELD_RAW));
         }
         return payload;
     }
@@ -2058,14 +2287,14 @@ public class QuestionGenerationService {
                             .append("\n");
                     appendIfPresent(builder, question, "questionContent", "   ");
                     appendList(builder, (List<Object>) question.get("options"), "   - ");
-                    appendList(builder, (List<Object>) question.get("answers"), "   答案: ");
+                    appendList(builder, (List<Object>) question.get(FIELD_ANSWERS), "   答案: ");
                     builder.append('\n');
                 }
             }
             return builder.toString();
         }
-        if (payload.get("raw") != null) {
-            return builder.append(payload.get("raw")).toString();
+        if (payload.get(FIELD_RAW) != null) {
+            return builder.append(payload.get(FIELD_RAW)).toString();
         }
         return builder.append("未生成可用题目。").toString();
     }
@@ -2210,7 +2439,7 @@ public class QuestionGenerationService {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("questionBankId", request.questionBankId());
         payload.put("questionCount", request.questionCount());
-        payload.put("questionType", request.questionType());
+        payload.put(FIELD_QUESTION_TYPE, request.questionType());
         payload.put("difficulty", request.difficulty());
         payload.put("scorePerQuestion", request.scorePerQuestion());
         payload.put("totalScore", request.totalScore());
@@ -2271,7 +2500,9 @@ public class QuestionGenerationService {
                                       List<CreateQuestionRequest> latestQuestions,
                                       List<GenerationValidationIssue> latestIssues,
                                       int totalQuestionCount) {
-        if ((latestQuestions == null || latestQuestions.isEmpty()) && !allQuestions.isEmpty()) {
+        boolean latestQuestionsEmpty = latestQuestions == null || latestQuestions.isEmpty();
+        boolean hasGeneratedQuestions = !allQuestions.isEmpty();
+        if (latestQuestionsEmpty && hasGeneratedQuestions) {
             return;
         }
         emitStage(listener, traceEntries, requestId, mode, "GENERATED", "processing",
@@ -2375,7 +2606,7 @@ public class QuestionGenerationService {
                 "issues", issues);
     }
 
-        private Map<String, Object> sectionAttemptPayload(PaperSectionPlan section,
+    private Map<String, Object> sectionAttemptPayload(PaperSectionPlan section,
                                                       int attemptNo,
                                                       List<CreateQuestionRequest> questions,
                                                       List<GenerationValidationIssue> issues,
@@ -2551,7 +2782,7 @@ public class QuestionGenerationService {
             item.put("questionBankId", question.get("questionBankId"));
             item.put("questionTitle", abbreviate(value(question.get("questionTitle")), 120));
             item.put("questionContent", abbreviate(value(question.get("questionContent")), 180));
-            item.put("questionType", question.get("questionType"));
+            item.put(FIELD_QUESTION_TYPE, question.get(FIELD_QUESTION_TYPE));
             item.put("difficulty", question.get("difficulty"));
             item.put("score", question.get("score"));
             item.put("estimatedTime", question.get("estimatedTime"));
@@ -2708,16 +2939,16 @@ public class QuestionGenerationService {
 
     private int normalizeQuestionType(Integer value, int fallback) {
         int normalized = value == null ? fallback : value;
-        if (normalized < 0 || normalized > 4) {
-            return fallback < 0 || fallback > 4 ? 4 : fallback;
+        if (normalized < MIN_QUESTION_TYPE || normalized > MAX_QUESTION_TYPE) {
+            return fallback < MIN_QUESTION_TYPE || fallback > MAX_QUESTION_TYPE ? QUESTION_TYPE_SHORT_ANSWER : fallback;
         }
         return normalized;
     }
 
     private int normalizeDifficulty(Integer value, int fallback) {
         int normalized = value == null ? fallback : value;
-        if (normalized < 1 || normalized > 3) {
-            return fallback < 1 || fallback > 3 ? 2 : fallback;
+        if (normalized < MIN_DIFFICULTY || normalized > MAX_DIFFICULTY) {
+            return fallback < MIN_DIFFICULTY || fallback > MAX_DIFFICULTY ? DEFAULT_DIFFICULTY : fallback;
         }
         return normalized;
     }
@@ -2845,7 +3076,7 @@ public class QuestionGenerationService {
             return List.of();
         }
         return issues.stream()
-                .filter(issue -> issue != null)
+                .filter(Objects::nonNull)
                 .limit(ISSUE_SUMMARY_LIMIT)
                 .map(issue -> {
                     StringBuilder summary = new StringBuilder();
@@ -2871,7 +3102,7 @@ public class QuestionGenerationService {
                 continue;
             }
             String sourceType = value(evidence.sourceType()).toUpperCase(Locale.ROOT);
-            if (!sourceType.contains("QUESTION")) {
+            if (!sourceType.contains(SOURCE_TYPE_QUESTION)) {
                 continue;
             }
             String signature = buildSignature(evidence.title(), evidence.snippet());
@@ -3150,7 +3381,19 @@ public class QuestionGenerationService {
                                            List<GenerationValidationIssue> issues) {
     }
 
-    private record GenerationDraftResult(List<CreateQuestionRequest> questions, List<GenerationValidationIssue> issues) {
+    private record GenerationContext(PaperBlueprint blueprint,
+                                     Set<String> referenceSignatures,
+                                     List<AgentSearchItem> promptEvidences,
+                                     int discardedEvidenceCount) {
+    }
+
+    private record GenerationDraftResult(List<CreateQuestionRequest> questions,
+                                         List<GenerationValidationIssue> issues) {
+    }
+
+    private record DraftReview(List<CreateQuestionRequest> questions,
+                               List<GenerationValidationIssue> issues,
+                               List<GenerationValidationIssue> draftIssues) {
     }
 
     private record ReviewResult(List<CreateQuestionRequest> questions, List<GenerationValidationIssue> issues) {

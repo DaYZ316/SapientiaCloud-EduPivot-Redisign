@@ -2,10 +2,10 @@ package com.dayz.sc.course.repository;
 
 import com.dayz.sc.course.model.entity.LivePracticeSubmission;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.time.Instant;
 
 /**
  * 随堂练习提交记录仓储
@@ -15,14 +15,20 @@ import java.time.Instant;
  */
 public interface LivePracticeSubmissionRepository {
 
+    /**
+     * 根据提交记录ID查询提交记录。
+     *
+     * @param id 提交记录ID
+     * @return 提交记录，可能为空
+     */
     Optional<LivePracticeSubmission> findById(UUID id);
 
     /**
      * 根据分组ID、题目快照ID和学生ID查询提交记录
      *
-     * @param groupId           分组ID
+     * @param groupId            分组ID
      * @param questionSnapshotId 题目快照ID
-     * @param studentId         学生ID
+     * @param studentId          学生ID
      * @return 提交记录，可能为空
      */
     Optional<LivePracticeSubmission> findByGroupIdAndQuestionSnapshotIdAndStudentId(UUID groupId, UUID questionSnapshotId, UUID studentId);
@@ -34,6 +40,11 @@ public interface LivePracticeSubmissionRepository {
      */
     void save(LivePracticeSubmission submission);
 
+    /**
+     * 更新提交记录。
+     *
+     * @param submission 提交记录实体
+     */
     void update(LivePracticeSubmission submission);
 
     /**
@@ -61,5 +72,12 @@ public interface LivePracticeSubmissionRepository {
      */
     List<LivePracticeSubmission> findByGroupIds(List<UUID> groupIds);
 
+    /**
+     * 查询指定提交时间之前仍等待AI批改的提交记录。
+     *
+     * @param submittedBefore 提交时间上限
+     * @param limit           返回记录上限
+     * @return 等待AI批改的提交记录列表
+     */
     List<LivePracticeSubmission> findPendingAiGradingSubmittedBefore(Instant submittedBefore, int limit);
 }

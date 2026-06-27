@@ -27,12 +27,8 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class DashboardServiceTest {
@@ -152,6 +148,31 @@ class DashboardServiceTest {
         assertThat(response.teacher().assistantCourses()).containsExactly(assistantCourse);
         verify(classSessionService, never()).listByCourse(eq(assistantCourse.id()), anyInt(), anyInt(), eq(teacherId), eq(2));
         verify(questionBankService, never()).listQuestionBanksByCourse(assistantCourse.id());
+    }
+
+    @Test
+    void getDashboard_shouldReturnTeacherSessionsWithLaterOnesFirst() {
+        UUID teacherId = UUID.randomUUID();
+        CourseVO primaryCourse = course(UUID.randomUUID(), teacherId, "Primary");
+        Instant startAt = Instant.now();
+        ClassSessionVO earlySession = session(primaryCourse.id(), "Early session", startAt.plusSeconds(60), ClassLiveStatus.NOT_STARTED.getCode());
+        ClassSessionVO lateSession = session(primaryCourse.id(), "Late session", startAt.plusSeconds(3600), ClassLiveStatus.NOT_STARTED.getCode());
+
+        when(notificationDashboardInternalClient.getSummary(teacherId, false))
+                .thenReturn(ApiResponse.ok(DashboardNotificationSummary.empty()));
+        when(courseService.listTeacherCourses(teacherId, "primary", 1, 8))
+                .thenReturn(PageResponse.of(List.of(primaryCourse), 1, 1, 8));
+        when(courseService.listTeacherCourses(teacherId, "assistant", 1, 6))
+                .thenReturn(PageResponse.empty(1, 6));
+        when(classSessionService.listByCourse(primaryCourse.id(), 1, 4, teacherId, 2))
+                .thenReturn(PageResponse.of(List.of(earlySession, lateSession), 2, 1, 4));
+        when(classSessionRepository.findOngoingByTeacherId(eq(teacherId), any(Instant.class), eq(1))).thenReturn(List.of());
+        when(questionBankService.listQuestionBanksByCourse(primaryCourse.id())).thenReturn(List.of());
+
+        DashboardResponseVO response = dashboardService.getDashboard(teacherId, 2);
+
+        assertThat(response.teacher()).isNotNull();
+        assertThat(response.teacher().sessions()).containsExactly(lateSession, earlySession);
     }
 
     @Test

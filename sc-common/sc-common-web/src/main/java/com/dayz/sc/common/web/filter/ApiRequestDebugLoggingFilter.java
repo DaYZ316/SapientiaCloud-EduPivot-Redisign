@@ -5,12 +5,18 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 import java.util.Locale;
 
+/**
+ * ApiRequestDebugLoggingFilter.
+ *
+ * @author DaYZ
+ */
 @Slf4j
 public class ApiRequestDebugLoggingFilter extends OncePerRequestFilter {
 
@@ -18,14 +24,14 @@ public class ApiRequestDebugLoggingFilter extends OncePerRequestFilter {
     private static final String HEADER_USER_ID = "X-User-Id";
 
     @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         return !log.isDebugEnabled() || !request.getRequestURI().startsWith(API_PATH_PREFIX);
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(@NonNull HttpServletRequest request,
+                                    @NonNull HttpServletResponse response,
+                                    @NonNull FilterChain filterChain) throws ServletException, IOException {
         long startedAt = System.nanoTime();
         try {
             filterChain.doFilter(request, response);

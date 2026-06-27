@@ -5,6 +5,11 @@ import com.dayz.sc.common.util.UuidV7Generator;
 
 import java.util.List;
 
+/**
+ * AgentSearchEvent.
+ *
+ * @author DaYZ
+ */
 public record AgentSearchEvent(
         String searchId,
         String phase,

@@ -1,8 +1,8 @@
 <template>
   <div
-    ref="contentRef"
-    class="rich-math-content"
-    v-html="renderedContent"
+      ref="contentRef"
+      class="rich-math-content"
+      v-html="renderedContent"
   />
 </template>
 

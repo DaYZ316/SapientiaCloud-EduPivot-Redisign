@@ -22,17 +22,13 @@ import com.dayz.sc.course.model.enums.CourseStatus;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
 import com.dayz.sc.course.model.vo.CourseDetailVO;
 import com.dayz.sc.course.model.vo.CourseVO;
-import com.dayz.sc.course.repository.ClassSessionRepository;
-import com.dayz.sc.course.repository.CourseRepository;
-import com.dayz.sc.course.repository.CourseTeacherRepository;
-import com.dayz.sc.course.repository.EnrollmentRepository;
+import com.dayz.sc.course.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import org.jspecify.annotations.NonNull;
 
 import java.util.List;
 import java.util.Map;
@@ -56,6 +52,7 @@ public class CourseService {
 
     private final CourseRepository courseRepository;
     private final CourseTeacherRepository courseTeacherRepository;
+    private final CourseContentDeletionRepository courseContentDeletionRepository;
     private final ClassSessionRepository classSessionRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final StorageInternalClient storageInternalClient;
@@ -63,7 +60,6 @@ public class CourseService {
     private final CourseEventPublisher courseEventPublisher;
 
     @Transactional(rollbackFor = Exception.class)
-    @CacheEvict(value = "courseDetail", allEntries = true)
     public UUID createCourse(CreateCourseRequest request, UUID teacherId) {
         CourseLevel.fromCode(request.level());
         if (request.assistantIds() != null) {
@@ -102,7 +98,7 @@ public class CourseService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    @CacheEvict(value = "courseDetail", allEntries = true)
+    @CacheEvict(value = "courseDetail", key = "#courseId")
     public void updateCourse(UUID courseId, UpdateCourseRequest request, UUID userId, Integer role) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
@@ -175,7 +171,7 @@ public class CourseService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    @CacheEvict(value = "courseDetail", allEntries = true)
+    @CacheEvict(value = "courseDetail", key = "#courseId")
     public void deleteCourse(UUID courseId, UUID userId, Integer role) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND));
@@ -185,6 +181,7 @@ public class CourseService {
             throw new BusinessException(ErrorCodes.FORBIDDEN, "只有主讲教师才能删除课程");
         }
 
+        courseContentDeletionRepository.deleteCourseContent(courseId);
         courseRepository.deleteById(courseId);
         courseTeacherRepository.deleteByCourseId(courseId);
 

@@ -8,6 +8,11 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * BatchCreateQuestionsRequest.
+ *
+ * @author DaYZ
+ */
 public record BatchCreateQuestionsRequest(
         @NotNull UUID questionBankId,
         @NotEmpty @Size(max = 50) List<@Valid QuestionImportRequest> questions

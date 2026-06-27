@@ -1,10 +1,10 @@
 package com.dayz.sc.course.service;
 
+import com.dayz.sc.common.error.BusinessException;
+import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.feign.client.StorageInternalClient;
 import com.dayz.sc.common.feign.dto.StorageObjectInfo;
 import com.dayz.sc.common.response.ApiResponse;
-import com.dayz.sc.common.error.BusinessException;
-import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.course.model.dto.ChapterAttachmentRequest;
 import com.dayz.sc.course.model.dto.CreateChapterRequest;
 import com.dayz.sc.course.model.dto.UpdateChapterRequest;
@@ -31,9 +31,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 /**
  * ChapterServiceTest 相关定义

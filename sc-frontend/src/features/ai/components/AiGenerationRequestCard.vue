@@ -1,20 +1,20 @@
 <template>
   <section
-    v-if="display"
-    class="generation-request-card"
+      v-if="display"
+      class="generation-request-card"
   >
     <header>
       <h3>{{ requestTitle }}</h3>
     </header>
 
     <div
-      v-if="display.fields.length"
-      class="request-field-grid"
+        v-if="display.fields.length"
+        class="request-field-grid"
     >
       <div
-        v-for="field in display.fields"
-        :key="field.key"
-        class="request-field"
+          v-for="field in display.fields"
+          :key="field.key"
+          class="request-field"
       >
         <span class="request-field-label">{{ fieldLabel(field.key) }}</span>
         <span class="request-field-value">{{ fieldValue(field) }}</span>
@@ -22,15 +22,15 @@
     </div>
 
     <div
-      v-if="requirementLines.length"
-      class="request-requirement"
+        v-if="requirementLines.length"
+        class="request-requirement"
     >
       <span class="request-section-label">{{ t('common.ai.studio.requirement') }}</span>
       <div class="request-lines">
         <p
-          v-for="(line, index) in requirementLines"
-          :key="index"
-          class="request-requirement-line"
+            v-for="(line, index) in requirementLines"
+            :key="index"
+            class="request-requirement-line"
         >
           {{ line }}
         </p>
@@ -60,13 +60,13 @@ const requestTitle = computed(() => {
   if (!display.value) return ''
 
   return display.value.mode === 'PAPER'
-    ? t('common.ai.studio.paperRequestTitle')
-    : t('common.ai.studio.questionRequestTitle')
+      ? t('common.ai.studio.paperRequestTitle')
+      : t('common.ai.studio.questionRequestTitle')
 })
 const requirementLines = computed(() => display.value?.requirement
-  .split(/\r?\n/)
-  .map(line => line.trim())
-  .filter(Boolean) ?? [])
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean) ?? [])
 
 const fieldLabels: Record<GenerationRequestFieldKey, string> = {
   questionCount: 'common.ai.studio.questionCount',

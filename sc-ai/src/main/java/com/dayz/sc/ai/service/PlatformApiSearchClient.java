@@ -10,24 +10,24 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
 import java.time.Duration;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * PlatformApiSearchClient.
+ *
+ * @author DaYZ
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -35,6 +35,10 @@ public class PlatformApiSearchClient {
 
     private static final Pattern PATH_VARIABLE_PATTERN = Pattern.compile("\\{([^}/]+)}");
     private static final Set<String> BLOCKED_PATH_PARTS = Set.of("/internal/", "/openapi/", "/scalar", "/swagger-ui");
+    private static final int HTTP_UNAUTHORIZED = 401;
+    private static final int HTTP_FORBIDDEN = 403;
+    private static final String HTTP_METHOD_GET = "get";
+    private static final String PATH_SEPARATOR = "/";
 
     private final AiProperties aiProperties;
     private final ObjectMapper objectMapper;
@@ -107,10 +111,10 @@ public class PlatformApiSearchClient {
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .onStatus(HttpStatusCode::is4xxClientError, (request, responseBody) -> {
-                    if (responseBody.getStatusCode().value() == 401) {
+                    if (responseBody.getStatusCode().value() == HTTP_UNAUTHORIZED) {
                         throw new PlatformApiAccessException("登录凭证已失效，无法读取该资料。");
                     }
-                    if (responseBody.getStatusCode().value() == 403) {
+                    if (responseBody.getStatusCode().value() == HTTP_FORBIDDEN) {
                         throw new PlatformApiAccessException("你没有权限查看该资料。");
                     }
                     throw new PlatformApiAccessException("该平台资料无法读取。");
@@ -188,10 +192,10 @@ public class PlatformApiSearchClient {
                 return Map.of();
             }
             Map<String, OpenApiOperation> operations = new LinkedHashMap<>();
-            paths.fields().forEachRemaining(entry -> {
+            paths.properties().forEach(entry -> {
                 String path = normalizePath(entry.getKey());
-                if (!isBlockedPath(path) && entry.getValue().has("get")) {
-                    JsonNode getOperation = entry.getValue().path("get");
+                if (!isBlockedPath(path) && entry.getValue().has(HTTP_METHOD_GET)) {
+                    JsonNode getOperation = entry.getValue().path(HTTP_METHOD_GET);
                     operations.put(path, new OpenApiOperation(path, operationTitle(path, getOperation)));
                 }
             });
@@ -225,8 +229,8 @@ public class PlatformApiSearchClient {
             return "";
         }
         String normalized = path.strip();
-        if (!normalized.startsWith("/")) {
-            normalized = "/" + normalized;
+        if (!normalized.startsWith(PATH_SEPARATOR)) {
+            normalized = PATH_SEPARATOR + normalized;
         }
         return removePathQuery(normalized);
     }

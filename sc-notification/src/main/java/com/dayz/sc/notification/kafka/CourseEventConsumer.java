@@ -40,48 +40,39 @@ public class CourseEventConsumer {
 
     @KafkaListener(topics = "#{T(com.dayz.sc.common.events.config.KafkaTopicConstants).COURSE_EVENTS}", groupId = "sc-notification")
     public void onCourseEvent(Object event, Acknowledgment ack) {
+        UUID eventId = eventId(event);
+        if (eventId != null && !idempotencyGuard.tryAcquire(GROUP_ID, eventId)) {
+            log.info("Duplicate course event skipped: {}", eventId);
+            ack.acknowledge();
+            return;
+        }
         try {
             switch (event) {
-                case CourseCreatedEvent e -> {
-                    if (!idempotencyGuard.tryAcquire(GROUP_ID, e.eventId())) {
-                        log.info("Duplicate CourseCreatedEvent skipped: {}", e.eventId());
-                        return;
-                    }
-                    handleCourseCreated(e);
-                }
-                case CourseDeletedEvent e -> {
-                    if (!idempotencyGuard.tryAcquire(GROUP_ID, e.eventId())) {
-                        log.info("Duplicate CourseDeletedEvent skipped: {}", e.eventId());
-                        return;
-                    }
-                    handleCourseDeleted(e);
-                }
-                case CourseStatusChangedEvent e -> {
-                    if (!idempotencyGuard.tryAcquire(GROUP_ID, e.eventId())) {
-                        log.info("Duplicate CourseStatusChangedEvent skipped: {}", e.eventId());
-                        return;
-                    }
-                    handleCourseStatusChanged(e);
-                }
-                case EnrollmentChangedEvent e -> {
-                    if (!idempotencyGuard.tryAcquire(GROUP_ID, e.eventId())) {
-                        log.info("Duplicate EnrollmentChangedEvent skipped: {}", e.eventId());
-                        return;
-                    }
-                    handleEnrollmentChanged(e);
-                }
-                case InvitationChangedEvent e -> {
-                    if (!idempotencyGuard.tryAcquire(GROUP_ID, e.eventId())) {
-                        log.info("Duplicate InvitationChangedEvent skipped: {}", e.eventId());
-                        return;
-                    }
-                    handleInvitationChanged(e);
-                }
+                case CourseCreatedEvent e -> handleCourseCreated(e);
+                case CourseDeletedEvent e -> handleCourseDeleted(e);
+                case CourseStatusChangedEvent e -> handleCourseStatusChanged(e);
+                case EnrollmentChangedEvent e -> handleEnrollmentChanged(e);
+                case InvitationChangedEvent e -> handleInvitationChanged(e);
                 default -> log.warn("Unknown course event type: {}", event.getClass().getSimpleName());
             }
-        } finally {
             ack.acknowledge();
+        } catch (RuntimeException exception) {
+            if (eventId != null) {
+                idempotencyGuard.release(GROUP_ID, eventId);
+            }
+            throw exception;
         }
+    }
+
+    private UUID eventId(Object event) {
+        return switch (event) {
+            case CourseCreatedEvent e -> e.eventId();
+            case CourseDeletedEvent e -> e.eventId();
+            case CourseStatusChangedEvent e -> e.eventId();
+            case EnrollmentChangedEvent e -> e.eventId();
+            case InvitationChangedEvent e -> e.eventId();
+            default -> null;
+        };
     }
 
     private void handleCourseCreated(CourseCreatedEvent event) {

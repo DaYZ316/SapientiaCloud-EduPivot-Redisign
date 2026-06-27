@@ -1,12 +1,7 @@
 package com.dayz.sc.ai.service;
 
 import com.dayz.sc.ai.model.dto.GenerationRequest;
-import com.dayz.sc.ai.model.vo.AiAgentResult;
-import com.dayz.sc.ai.model.vo.GenerationStageEvent;
-import com.dayz.sc.ai.model.vo.GenerationTraceEntry;
-import com.dayz.sc.ai.model.vo.GenerationValidationIssue;
-import com.dayz.sc.ai.model.vo.PaperBlueprint;
-import com.dayz.sc.ai.model.vo.PaperSectionPlan;
+import com.dayz.sc.ai.model.vo.*;
 import com.dayz.sc.common.feign.dto.AgentSearchItem;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -14,23 +9,10 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.ArrayDeque;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.UUID;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.RETURNS_SELF;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class QuestionGenerationServiceTest {
 

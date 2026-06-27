@@ -1,10 +1,11 @@
 package com.dayz.sc.auth.repository.impl;
 
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.dayz.sc.auth.mapper.UserIdentityMapper;
 import com.dayz.sc.auth.mapper.UserMapper;
+import com.dayz.sc.auth.model.entity.User;
 import com.dayz.sc.auth.model.entity.UserIdentity;
 import com.dayz.sc.auth.model.enums.OauthProvider;
-import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.apache.ibatis.session.Configuration;
 import org.junit.jupiter.api.BeforeAll;
@@ -24,9 +25,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class MybatisUserAccountRepositoryTest {
@@ -53,6 +52,24 @@ class MybatisUserAccountRepositoryTest {
         Configuration configuration = new Configuration();
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(configuration, "");
         TableInfoHelper.initTableInfo(assistant, UserIdentity.class);
+    }
+
+    private static UserIdentity identity(UUID userId, OauthProvider provider) {
+        UserIdentity identity = new UserIdentity();
+        identity.setUserId(userId);
+        identity.setProvider(provider);
+        return identity;
+    }
+
+    private static String providersKey(UUID userId) {
+        return "auth:user:" + userId + ":providers";
+    }
+
+    private static User user(UUID userId, String email) {
+        User user = new User();
+        user.setId(userId);
+        user.setEmail(email);
+        return user;
     }
 
     @BeforeEach
@@ -108,14 +125,18 @@ class MybatisUserAccountRepositoryTest {
         verify(stringValueOperations).set(eq(cacheKey), eq("LOCAL"), any(Duration.class));
     }
 
-    private static UserIdentity identity(UUID userId, OauthProvider provider) {
-        UserIdentity identity = new UserIdentity();
-        identity.setUserId(userId);
-        identity.setProvider(provider);
-        return identity;
-    }
+    @Test
+    void saveUser_shouldEvictPreviousAndCurrentEmailCache() {
+        UUID userId = UUID.randomUUID();
+        User user = user(userId, "new@example.com");
+        when(userMapper.selectById(userId)).thenReturn(user(userId, "old@example.com"));
+        when(userMapper.updateById(user)).thenReturn(1);
 
-    private static String providersKey(UUID userId) {
-        return "auth:user:" + userId + ":providers";
+        repository.saveUser(user);
+
+        verify(redisTemplate).delete("auth:user:" + userId);
+        verify(redisTemplate).delete("auth:user:" + userId + ":providers");
+        verify(redisTemplate).delete("auth:user:email:old@example.com");
+        verify(redisTemplate).delete("auth:user:email:new@example.com");
     }
 }

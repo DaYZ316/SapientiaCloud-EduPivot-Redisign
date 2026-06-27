@@ -1,10 +1,10 @@
 <template>
   <div v-if="items.length" class="timeline-rows">
     <div
-      v-for="(item, index) in items"
-      :key="`${item.title}-${index}`"
-      class="timeline-row"
-      :class="normalizeDashboardLevel(item.level)"
+        v-for="(item, index) in items"
+        :key="`${item.title}-${index}`"
+        :class="normalizeDashboardLevel(item.level)"
+        class="timeline-row"
     >
       <span class="timeline-marker"></span>
       <div>
@@ -14,7 +14,7 @@
       <time>{{ item.time }}</time>
     </div>
   </div>
-  <DashboardEmptyState v-else :text="emptyText" />
+  <DashboardEmptyState v-else :text="emptyText"/>
 </template>
 
 <script lang="ts" setup>
@@ -22,13 +22,13 @@ import DashboardEmptyState from '@/features/dashboard/components/DashboardEmptyS
 import {normalizeDashboardLevel} from '@/features/dashboard/utils/dashboardFormatters'
 
 defineProps<{
-    items: Array<{
-        title: string
-        detail: string
-        time: string
-        level?: string | null
-    }>
-    emptyText: string
+  items: Array<{
+    title: string
+    detail: string
+    time: string
+    level?: string | null
+  }>
+  emptyText: string
 }>()
 </script>
 

@@ -3,6 +3,11 @@ package com.dayz.sc.common.feign.dto;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * AiCourseContext.
+ *
+ * @author DaYZ
+ */
 public record AiCourseContext(
         List<CourseSummary> courses,
         List<ChapterSummary> chapters,

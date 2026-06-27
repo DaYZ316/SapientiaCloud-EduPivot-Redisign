@@ -1,35 +1,17 @@
 package com.dayz.sc.course.service;
 
-import com.dayz.sc.common.events.ai.LivePracticeAiGradingRequestedEvent;
 import com.dayz.sc.common.error.BusinessException;
+import com.dayz.sc.common.events.ai.LivePracticeAiGradingRequestedEvent;
 import com.dayz.sc.common.feign.client.AuthInternalClient;
 import com.dayz.sc.course.event.LivePracticeAiGradingEventPublisher;
 import com.dayz.sc.course.model.dto.CreateLivePracticeRequest;
 import com.dayz.sc.course.model.dto.SubmitLivePracticeAnswerRequest;
-import com.dayz.sc.course.model.entity.ClassParticipant;
-import com.dayz.sc.course.model.entity.ClassSession;
-import com.dayz.sc.course.model.entity.Course;
-import com.dayz.sc.course.model.entity.CourseTeacher;
-import com.dayz.sc.course.model.entity.Enrollment;
-import com.dayz.sc.course.model.entity.LivePracticeQuestion;
-import com.dayz.sc.course.model.entity.LivePracticeSubmission;
-import com.dayz.sc.course.model.entity.Question;
+import com.dayz.sc.course.model.entity.*;
 import com.dayz.sc.course.model.enums.ClassParticipantRole;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
 import com.dayz.sc.course.model.enums.LivePracticeAiGradingStatus;
 import com.dayz.sc.course.model.value.LivePracticeAnswerSnapshot;
-import com.dayz.sc.course.repository.ClassParticipantRepository;
-import com.dayz.sc.course.repository.ClassSessionRepository;
-import com.dayz.sc.course.repository.CourseRepository;
-import com.dayz.sc.course.repository.CourseTeacherRepository;
-import com.dayz.sc.course.repository.EnrollmentRepository;
-import com.dayz.sc.course.repository.LivePracticeGroupRepository;
-import com.dayz.sc.course.repository.LivePracticeQuestionRepository;
-import com.dayz.sc.course.repository.LivePracticeSubmissionRepository;
-import com.dayz.sc.course.repository.QuestionAnswerRepository;
-import com.dayz.sc.course.repository.QuestionBankRepository;
-import com.dayz.sc.course.repository.QuestionOptionRepository;
-import com.dayz.sc.course.repository.QuestionRepository;
+import com.dayz.sc.course.repository.*;
 import com.dayz.sc.course.sse.LivePracticeSseEmitter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,7 +26,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -52,11 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class LivePracticeServiceTest {

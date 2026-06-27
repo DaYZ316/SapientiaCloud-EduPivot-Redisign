@@ -5,6 +5,11 @@ import com.dayz.sc.common.error.ErrorCodes;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+/**
+ * AiRuntimeGuard.
+ *
+ * @author DaYZ
+ */
 @Component
 public class AiRuntimeGuard {
 

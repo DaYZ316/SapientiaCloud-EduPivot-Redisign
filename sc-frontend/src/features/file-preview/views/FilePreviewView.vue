@@ -190,16 +190,7 @@
 import {computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
-import {
-  AlertCircle,
-  ArrowLeft,
-  Download,
-  FileQuestion,
-  Maximize2,
-  MonitorPlay,
-  Music2,
-  X,
-} from 'lucide-vue-next'
+import {AlertCircle, ArrowLeft, Download, FileQuestion, Maximize2, MonitorPlay, Music2, X,} from 'lucide-vue-next'
 import {convertFile, getDownloadUrl} from '@/features/storage/api/storage'
 
 const VuePdf = defineAsyncComponent(() => import('@vue-office/pdf/lib/v3/vue-office-pdf.mjs'))

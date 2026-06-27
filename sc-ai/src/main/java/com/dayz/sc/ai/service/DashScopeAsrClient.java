@@ -21,11 +21,20 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * DashScopeAsrClient.
+ *
+ * @author DaYZ
+ */
 @Component
 @Slf4j
 public class DashScopeAsrClient {
 
     private static final String MISSING_ASR_MESSAGE = "AI summary is temporarily unavailable.";
+    private static final String EVENT_TASK_STARTED = "task-started";
+    private static final String EVENT_TASK_FINISHED = "task-finished";
+    private static final String EVENT_TASK_FAILED = "task-failed";
+    private static final String EVENT_RESULT_GENERATED = "result-generated";
 
     private final AiProperties aiProperties;
     private final ObjectMapper objectMapper;
@@ -114,9 +123,23 @@ public class DashScopeAsrClient {
         }
     }
 
+    /**
+     * ASR 转录结果监听器
+     */
     public interface AsrListener {
+
+        /**
+         * 收到转录结果
+         *
+         * @param transcript 转录结果
+         */
         void onTranscript(AsrTranscript transcript);
 
+        /**
+         * 发生错误
+         *
+         * @param error 异常信息
+         */
         void onError(Throwable error);
     }
 
@@ -128,8 +151,8 @@ public class DashScopeAsrClient {
         private final CompletableFuture<WebSocket> socketFuture;
         private final CompletableFuture<WebSocket> taskStartedFuture;
         private final CompletableFuture<WebSocket> taskFinishedFuture;
-        private CompletableFuture<WebSocket> sendChain;
         private final String finishTaskMessage;
+        private CompletableFuture<WebSocket> sendChain;
 
         private LiveSummaryAsrStream(CompletableFuture<WebSocket> socketFuture,
                                      CompletableFuture<WebSocket> taskStartedFuture,
@@ -216,15 +239,15 @@ public class DashScopeAsrClient {
 
         private void handleMessage(WebSocket webSocket, String message) {
             String event = resultParser.extractEvent(message);
-            if ("task-started".equals(event)) {
+            if (EVENT_TASK_STARTED.equals(event)) {
                 taskStartedFuture.complete(webSocket);
                 return;
             }
-            if ("task-finished".equals(event)) {
+            if (EVENT_TASK_FINISHED.equals(event)) {
                 taskFinishedFuture.complete(webSocket);
                 return;
             }
-            if ("task-failed".equals(event)) {
+            if (EVENT_TASK_FAILED.equals(event)) {
                 String errorMessage = resultParser.extractErrorMessage(message);
                 RuntimeException failure = new IllegalStateException(
                         StringUtils.hasText(errorMessage) ? errorMessage : "DashScope ASR task failed");
@@ -234,7 +257,7 @@ public class DashScopeAsrClient {
                 webSocket.abort();
                 return;
             }
-            if (!"result-generated".equals(event)) {
+            if (!EVENT_RESULT_GENERATED.equals(event)) {
                 return;
             }
             resultParser.parse(message).forEach(listener::onTranscript);

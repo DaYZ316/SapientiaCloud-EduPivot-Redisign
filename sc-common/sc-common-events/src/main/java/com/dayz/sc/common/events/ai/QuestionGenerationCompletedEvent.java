@@ -6,6 +6,11 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * QuestionGenerationCompletedEvent.
+ *
+ * @author DaYZ
+ */
 public record QuestionGenerationCompletedEvent(
         UUID eventId,
         String requestId,
@@ -17,9 +22,9 @@ public record QuestionGenerationCompletedEvent(
         Instant timestamp
 ) {
     public static QuestionGenerationCompletedEvent completed(String requestId,
-                                                            String content,
-                                                            String messageType,
-                                                            Map<String, Object> payload) {
+                                                             String content,
+                                                             String messageType,
+                                                             Map<String, Object> payload) {
         return new QuestionGenerationCompletedEvent(
                 UuidV7Generator.generate(),
                 requestId,

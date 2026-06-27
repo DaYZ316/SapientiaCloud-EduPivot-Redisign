@@ -56,7 +56,9 @@
             >
               <FileText :size="16" stroke-width="1.8"/>
               <span class="attachment-editor-name">{{ attachment.displayName || attachment.fileName }}</span>
-              <span v-if="attachment.sizeBytes" class="attachment-editor-size">{{ formatFileSize(attachment.sizeBytes) }}</span>
+              <span v-if="attachment.sizeBytes" class="attachment-editor-size">{{
+                  formatFileSize(attachment.sizeBytes)
+                }}</span>
               <button :title="t('chapter.removeAttachment')" type="button" @click="removeAttachment(attachment)">
                 <Trash2 :size="14" stroke-width="1.8"/>
               </button>
@@ -95,7 +97,12 @@ import BaseNumberStepper from '@/shared/components/BaseNumberStepper.vue'
 import BaseSelect from '@/shared/components/BaseSelect.vue'
 import BaseTextEditor from '@/shared/components/BaseTextEditor.vue'
 import BaseFileUploader from '@/shared/components/BaseFileUploader.vue'
-import type {Chapter, ChapterAttachment, CreateChapterRequest, UpdateChapterRequest} from '@/features/course/types/chapter'
+import type {
+  Chapter,
+  ChapterAttachment,
+  CreateChapterRequest,
+  UpdateChapterRequest
+} from '@/features/course/types/chapter'
 import type {FileAsset} from '@/features/storage/types/storage'
 import {getStorageFile} from '@/features/storage/api/storage'
 import {notify} from '@/shared/composables/useGlobalNotification'

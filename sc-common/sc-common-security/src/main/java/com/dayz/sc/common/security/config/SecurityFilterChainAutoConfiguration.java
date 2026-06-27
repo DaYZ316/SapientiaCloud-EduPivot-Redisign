@@ -1,6 +1,7 @@
 package com.dayz.sc.common.security.config;
 
 import com.dayz.sc.common.security.filter.GatewayHeaderAuthenticationFilter;
+import jakarta.servlet.DispatcherType;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -14,7 +15,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import jakarta.servlet.DispatcherType;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Set;

@@ -1,19 +1,18 @@
 package com.dayz.sc.ai.config;
 
-import com.dayz.sc.ai.service.KnowledgeBaseService;
 import com.dayz.sc.ai.service.ChatVectorMemoryService;
+import com.dayz.sc.ai.service.KnowledgeBaseService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.redis.RedisVectorStore;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
-
 import redis.clients.jedis.RedisClient;
 
 /**

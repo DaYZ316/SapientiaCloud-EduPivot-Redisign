@@ -1,9 +1,9 @@
 package com.dayz.sc.course.service;
 
+import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.feign.client.AuthInternalClient;
 import com.dayz.sc.common.feign.client.StorageInternalClient;
 import com.dayz.sc.common.feign.dto.UserBasicInfo;
-import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.course.event.CourseEventPublisher;
 import com.dayz.sc.course.model.dto.InviteAssistantRequest;
@@ -28,9 +28,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class InvitationServiceTest {
@@ -85,7 +83,7 @@ class InvitationServiceTest {
                     List<?> userIds = invocation.getArgument(0);
                     return ApiResponse.ok(userIds.stream()
                             .map(UUID.class::cast)
-                                .map(id -> new UserBasicInfo(id, "Teacher " + id, null, 2))
+                            .map(id -> new UserBasicInfo(id, "Teacher " + id, null, 2))
                             .toList());
                 });
 

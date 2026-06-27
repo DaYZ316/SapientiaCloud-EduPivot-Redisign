@@ -1,10 +1,6 @@
 package com.dayz.sc.course.service;
 
-import com.dayz.sc.common.dashboard.DashboardChartPoint;
-import com.dayz.sc.common.dashboard.DashboardNotificationItem;
-import com.dayz.sc.common.dashboard.DashboardNotificationSummary;
-import com.dayz.sc.common.dashboard.DashboardUserActivity;
-import com.dayz.sc.common.dashboard.DashboardUserSummary;
+import com.dayz.sc.common.dashboard.*;
 import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.feign.client.AuthDashboardInternalClient;
@@ -13,28 +9,16 @@ import com.dayz.sc.common.model.UserRole;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.response.PageResponse;
 import com.dayz.sc.course.model.dto.CoursePageRequest;
+import com.dayz.sc.course.model.entity.ClassSession;
 import com.dayz.sc.course.model.enums.ClassLiveStatus;
 import com.dayz.sc.course.model.enums.ClassSessionStatus;
 import com.dayz.sc.course.model.enums.CourseStatus;
 import com.dayz.sc.course.model.enums.EnrollmentStatus;
-import com.dayz.sc.course.model.entity.ClassSession;
-import com.dayz.sc.course.model.vo.ClassSessionVO;
-import com.dayz.sc.course.model.vo.CourseVO;
-import com.dayz.sc.course.model.vo.EnrollmentVO;
-import com.dayz.sc.course.model.vo.PracticeSessionVO;
-import com.dayz.sc.course.model.vo.QuestionBankVO;
-import com.dayz.sc.course.model.vo.dashboard.DashboardActionVO;
-import com.dayz.sc.course.model.vo.dashboard.DashboardAdminVO;
-import com.dayz.sc.course.model.vo.dashboard.DashboardCapacityItemVO;
-import com.dayz.sc.course.model.vo.dashboard.DashboardQuestionCoverageVO;
-import com.dayz.sc.course.model.vo.dashboard.DashboardResponseVO;
-import com.dayz.sc.course.model.vo.dashboard.DashboardRiskItemVO;
-import com.dayz.sc.course.model.vo.dashboard.DashboardStudentVO;
-import com.dayz.sc.course.model.vo.dashboard.DashboardSummaryItemVO;
-import com.dayz.sc.course.model.vo.dashboard.DashboardTeacherVO;
-import com.dayz.sc.course.model.vo.dashboard.DashboardTimelineItemVO;
+import com.dayz.sc.course.model.vo.*;
+import com.dayz.sc.course.model.vo.dashboard.*;
 import com.dayz.sc.course.repository.ClassSessionRepository;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -45,6 +29,11 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * DashboardService.
+ *
+ * @author DaYZ
+ */
 @Service
 @RequiredArgsConstructor
 public class DashboardService {
@@ -82,7 +71,7 @@ public class DashboardService {
     private DashboardAdminVO buildAdminDashboard(UUID userId) {
         DashboardUserSummary users = loadUserSummary();
         DashboardNotificationSummary notifications = loadNotificationSummary(userId, true);
-        PageResponse<CourseVO> coursesPage = listCourses(null, null, SUMMARY_SIZE);
+        PageResponse<@NonNull CourseVO> coursesPage = listCourses(null, null, SUMMARY_SIZE);
         List<CourseVO> courses = coursesPage.records();
         long draftCourses = countCourses(CourseStatus.DRAFT.getCode(), null);
         long publishedCourses = countCourses(CourseStatus.PUBLISHED.getCode(), null);
@@ -118,6 +107,7 @@ public class DashboardService {
         List<CourseVO> assistantCourses = courseService.listTeacherCourses(teacherId, "assistant", 1, 6).records();
         List<ClassSessionVO> sessions = loadSessions(primaryCourses.stream().map(CourseVO::id).limit(4).toList(), teacherId, ROLE_TEACHER, 4)
                 .stream()
+                .sorted(Comparator.comparing(ClassSessionVO::scheduledStartAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .limit(SESSION_DISPLAY_SIZE)
                 .toList();
 
@@ -180,14 +170,14 @@ public class DashboardService {
         }
     }
 
-    private <T> T unwrap(ApiResponse<T> response, T fallback) {
+    private <T> T unwrap(ApiResponse<@NonNull T> response, T fallback) {
         if (response == null || response.code() != ErrorCodes.SUCCESS.code() || response.data() == null) {
             return fallback;
         }
         return response.data();
     }
 
-    private PageResponse<CourseVO> listCourses(Integer status, Integer isPublic, int size) {
+    private PageResponse<@NonNull CourseVO> listCourses(Integer status, Integer isPublic, int size) {
         return courseService.listCourses(new CoursePageRequest(
                 1L,
                 (long) size,

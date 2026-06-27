@@ -39,7 +39,7 @@ public class CourseInternalController {
 
     @GetMapping("/{courseId}/access")
     public ApiResponse<@NonNull CourseAccessVO> access(@PathVariable UUID courseId,
-                                              @AuthenticationPrincipal Jwt jwt) {
+                                                       @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         Integer role = JwtPrincipalResolver.role(jwt);
         Course course = courseRepository.findById(courseId)

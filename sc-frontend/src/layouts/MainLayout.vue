@@ -199,15 +199,15 @@
     </aside>
 
     <button
-      v-if="!isFullscreenPage && isAiPage && uiPreferences.sidebarCollapsed"
-      :aria-label="t('common.layout.expandSidebar')"
-      class="ai-sidebar-pull-tab"
-      type="button"
-      @click="uiPreferences.setSidebarCollapsed(false)"
+        v-if="!isFullscreenPage && isAiPage && uiPreferences.sidebarCollapsed"
+        :aria-label="t('common.layout.expandSidebar')"
+        class="ai-sidebar-pull-tab"
+        type="button"
+        @click="uiPreferences.setSidebarCollapsed(false)"
     >
       <PanelLeftOpen
-        :size="22"
-        stroke-width="1.9"
+          :size="22"
+          stroke-width="1.9"
       />
     </button>
 
@@ -218,16 +218,16 @@
       </div>
     </main>
     <GlobalAiDrawer
-      v-if="!isFullscreenPage && !isAiPage"
-      ref="globalAiDrawerRef"
+        v-if="!isFullscreenPage && !isAiPage"
+        ref="globalAiDrawerRef"
     />
     <AiTrailLauncher
-      v-if="aiReturnLauncherVisible"
-      ref="aiReturnLauncherRef"
-      :interactive="false"
-      aria-hidden="true"
-      start-at-center
-      tabindex="-1"
+        v-if="aiReturnLauncherVisible"
+        ref="aiReturnLauncherRef"
+        :interactive="false"
+        aria-hidden="true"
+        start-at-center
+        tabindex="-1"
     />
     <AiModeTransitionOverlay ref="aiModeTransitionOverlayRef"/>
   </div>
@@ -236,7 +236,7 @@
 <script lang="ts" setup>
 import {computed, nextTick, onMounted, onUnmounted, provide, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {useRouter, type RouteLocationRaw} from 'vue-router'
+import {type RouteLocationRaw, useRouter} from 'vue-router'
 import {
   Bell,
   BookOpen,
@@ -302,8 +302,8 @@ const brandLogoSrc = computed(() =>
         : '/assets/project-logo-light.png',
 )
 const isAiPage = computed(() => {
-    const routeName = router.currentRoute.value.name
-    return routeName === 'ai-workspace' || routeName === 'ai-history' || routeName === 'ai-favorites'
+  const routeName = router.currentRoute.value.name
+  return routeName === 'ai-workspace' || routeName === 'ai-history' || routeName === 'ai-favorites'
 })
 const isSidebarShell = computed(() => uiPreferences.isSidebarLayout || isAiPage.value)
 const isCollapsibleSidebar = computed(() => isSidebarShell.value)

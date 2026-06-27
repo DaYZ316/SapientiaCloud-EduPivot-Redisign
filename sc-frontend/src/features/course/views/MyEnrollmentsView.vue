@@ -22,7 +22,8 @@
           <span>{{ t('myEnrollments.filter') }}</span>
         </button>
         <div class="student-chip">
-          <img v-if="authStore.user?.avatarUrl" :src="authStore.user.avatarUrl" :alt="t('myEnrollments.student.avatarAlt')"/>
+          <img v-if="authStore.user?.avatarUrl" :alt="t('myEnrollments.student.avatarAlt')"
+               :src="authStore.user.avatarUrl"/>
           <span v-else class="student-chip__avatar">{{ studentInitials }}</span>
           <span>{{ authStore.user?.displayName || t('myEnrollments.student.defaultName') }}</span>
         </div>
@@ -62,9 +63,9 @@
           <article v-for="course in filteredCourses" :key="course.id" class="course-row">
             <div class="course-mark">
               <img
-                :alt="t('myEnrollments.courseCoverAlt', {title: course.title})"
-                :src="getCourseCoverUrl(course.coverUrl)"
-                @error="handleCourseCoverError"
+                  :alt="t('myEnrollments.courseCoverAlt', {title: course.title})"
+                  :src="getCourseCoverUrl(course.coverUrl)"
+                  @error="handleCourseCoverError"
               />
             </div>
 
@@ -78,7 +79,8 @@
                 <span>{{ course.nextSession }}</span>
                 <span>{{ course.recentActivity }}</span>
               </div>
-              <div :aria-label="t('myEnrollments.progressAria', {title: course.title, progress: course.progress})" class="progress-track">
+              <div :aria-label="t('myEnrollments.progressAria', {title: course.title, progress: course.progress})"
+                   class="progress-track">
                 <span :style="{width: `${course.progress}%`}"></span>
               </div>
             </div>
@@ -95,8 +97,8 @@
               <button
                   v-if="course.canDrop"
                   :aria-label="t('myEnrollments.student.dropCourse')"
-                  class="drop-button"
                   :title="t('myEnrollments.student.dropCourse')"
+                  class="drop-button"
                   type="button"
                   @click="confirmDrop(course.source)"
               >
@@ -216,16 +218,7 @@
 import {computed, onMounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
-import {
-  Activity,
-  AlertTriangle,
-  CalendarDays,
-  Filter,
-  GraduationCap,
-  Search,
-  Timer,
-  X,
-} from 'lucide-vue-next'
+import {Activity, AlertTriangle, CalendarDays, Filter, GraduationCap, Search, Timer, X,} from 'lucide-vue-next'
 
 import BaseConfirmDialog from '@/shared/components/BaseConfirmDialog.vue'
 import {dropCourse, getMyEnrollments} from '@/features/course/api/course'

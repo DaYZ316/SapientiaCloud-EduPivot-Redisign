@@ -1,144 +1,144 @@
 <template>
   <aside
-    :aria-busy="Boolean(exportingFormat)"
-    :class="{'is-exporting': Boolean(exportingFormat)}"
-    class="ai-studio-panel"
+      :aria-busy="Boolean(exportingFormat)"
+      :class="{'is-exporting': Boolean(exportingFormat)}"
+      class="ai-studio-panel"
   >
     <header
-      :class="{'has-artifact-tabs': artifact && !mode}"
-      class="studio-header"
+        :class="{'has-artifact-tabs': artifact && !mode}"
+        class="studio-header"
     >
       <div
-        v-if="artifact && !mode"
-        :class="{
+          v-if="artifact && !mode"
+          :class="{
           'has-answer-toggle': activeArtifactTab !== 'trace',
           'has-question-stepper': activeArtifactTab === 'single' && questions.length > 0,
           'has-export-actions': showExportActions,
         }"
-        class="artifact-toolbar"
+          class="artifact-toolbar"
       >
         <nav
-          :aria-label="t('common.ai.studio.artifactTabsAria')"
-          class="artifact-tabs"
+            :aria-label="t('common.ai.studio.artifactTabsAria')"
+            class="artifact-tabs"
         >
           <button
-            :class="{active: activeArtifactTab === 'single'}"
-            type="button"
-            @click="activeArtifactTab = 'single'"
+              :class="{active: activeArtifactTab === 'single'}"
+              type="button"
+              @click="activeArtifactTab = 'single'"
           >
             {{ t('common.ai.studio.singlePreview') }}
           </button>
           <button
-            :class="{active: activeArtifactTab === 'overall'}"
-            type="button"
-            @click="activeArtifactTab = 'overall'"
+              :class="{active: activeArtifactTab === 'overall'}"
+              type="button"
+              @click="activeArtifactTab = 'overall'"
           >
             {{ t('common.ai.studio.overallPreview') }}
           </button>
           <button
-            :class="{active: activeArtifactTab === 'trace'}"
-            type="button"
-            @click="activeArtifactTab = 'trace'"
+              :class="{active: activeArtifactTab === 'trace'}"
+              type="button"
+              @click="activeArtifactTab = 'trace'"
           >
             {{ t('common.ai.studio.generationTrace') }}
           </button>
         </nav>
         <div
-          v-if="activeArtifactTab !== 'trace'"
-          :aria-label="t('questionBank.showAnswer')"
-          class="answer-toggle"
-          role="group"
+            v-if="activeArtifactTab !== 'trace'"
+            :aria-label="t('questionBank.showAnswer')"
+            class="answer-toggle"
+            role="group"
         >
           <button
-            :aria-pressed="!showQuestionAnswer"
-            :class="{active: !showQuestionAnswer}"
-            type="button"
-            @click="showQuestionAnswer = false"
+              :aria-pressed="!showQuestionAnswer"
+              :class="{active: !showQuestionAnswer}"
+              type="button"
+              @click="showQuestionAnswer = false"
           >
             {{ t('common.ai.studio.answerOff') }}
           </button>
           <button
-            :aria-pressed="showQuestionAnswer"
-            :class="{active: showQuestionAnswer}"
-            type="button"
-            @click="showQuestionAnswer = true"
+              :aria-pressed="showQuestionAnswer"
+              :class="{active: showQuestionAnswer}"
+              type="button"
+              @click="showQuestionAnswer = true"
           >
             {{ t('common.ai.studio.answerOn') }}
           </button>
         </div>
         <div
-          v-if="activeArtifactTab === 'single' && questions.length > 0"
-          :aria-label="t('questionBank.questionPreview')"
-          class="question-stepper"
-          role="group"
+            v-if="activeArtifactTab === 'single' && questions.length > 0"
+            :aria-label="t('questionBank.questionPreview')"
+            class="question-stepper"
+            role="group"
         >
           <button
-            :aria-label="t('questionBank.prevQuestion')"
-            :disabled="activeQuestionIndex === 0"
-            type="button"
-            @click="activeQuestionIndex -= 1"
+              :aria-label="t('questionBank.prevQuestion')"
+              :disabled="activeQuestionIndex === 0"
+              type="button"
+              @click="activeQuestionIndex -= 1"
           >
             <ChevronLeft
-              :size="16"
-              stroke-width="1.9"
+                :size="16"
+                stroke-width="1.9"
             />
           </button>
           <span>{{ activeQuestionIndex + 1 }} / {{ questions.length }}</span>
           <button
-            :aria-label="t('questionBank.nextQuestion')"
-            :disabled="activeQuestionIndex >= questions.length - 1"
-            type="button"
-            @click="activeQuestionIndex += 1"
+              :aria-label="t('questionBank.nextQuestion')"
+              :disabled="activeQuestionIndex >= questions.length - 1"
+              type="button"
+              @click="activeQuestionIndex += 1"
           >
             <ChevronRight
-              :size="16"
-              stroke-width="1.9"
+                :size="16"
+                stroke-width="1.9"
             />
           </button>
         </div>
         <div
-          v-if="showExportActions"
-          :aria-label="t('common.ai.studio.exportAria')"
-          class="export-actions"
-          role="group"
+            v-if="showExportActions"
+            :aria-label="t('common.ai.studio.exportAria')"
+            class="export-actions"
+            role="group"
         >
           <button
-            :aria-busy="exportingFormat === 'pdf'"
-            :disabled="!canExportArtifact || Boolean(exportingFormat)"
-            :title="t('common.ai.studio.exportPdf')"
-            type="button"
-            @click="exportArtifact('pdf')"
+              :aria-busy="exportingFormat === 'pdf'"
+              :disabled="!canExportArtifact || Boolean(exportingFormat)"
+              :title="t('common.ai.studio.exportPdf')"
+              type="button"
+              @click="exportArtifact('pdf')"
           >
             <FileDown
-              :size="15"
-              stroke-width="1.9"
+                :size="15"
+                stroke-width="1.9"
             />
             <span>PDF</span>
           </button>
           <button
-            :aria-busy="exportingFormat === 'docx'"
-            :disabled="!canExportArtifact || Boolean(exportingFormat)"
-            :title="t('common.ai.studio.exportWord')"
-            type="button"
-            @click="exportArtifact('docx')"
+              :aria-busy="exportingFormat === 'docx'"
+              :disabled="!canExportArtifact || Boolean(exportingFormat)"
+              :title="t('common.ai.studio.exportWord')"
+              type="button"
+              @click="exportArtifact('docx')"
           >
             <FileText
-              :size="15"
-              stroke-width="1.9"
+                :size="15"
+                stroke-width="1.9"
             />
             <span>Word</span>
           </button>
           <button
-            v-if="showImportAction"
-            :disabled="!canImportArtifact || importingQuestions"
-            :title="t('common.ai.studio.importToBank')"
-            class="import-to-bank-button"
-            type="button"
-            @click="openImportDialog"
+              v-if="showImportAction"
+              :disabled="!canImportArtifact || importingQuestions"
+              :title="t('common.ai.studio.importToBank')"
+              class="import-to-bank-button"
+              type="button"
+              @click="openImportDialog"
           >
             <BookPlus
-              :size="15"
-              stroke-width="1.9"
+                :size="15"
+                stroke-width="1.9"
             />
             <span>{{ t('common.ai.studio.importToBankShort') }}</span>
           </button>
@@ -148,62 +148,62 @@
         <h2>{{ panelTitle }}</h2>
       </div>
       <button
-        :title="t('common.ai.studio.close')"
-        class="btn-close"
-        type="button"
-        @click="$emit('close')"
+          :title="t('common.ai.studio.close')"
+          class="btn-close"
+          type="button"
+          @click="$emit('close')"
       >
         <X
-          :size="16"
-          stroke-width="1.8"
+            :size="16"
+            stroke-width="1.8"
         />
       </button>
     </header>
 
     <section
-      v-if="mode"
-      class="generation-form"
+        v-if="mode"
+        class="generation-form"
     >
       <p>{{ formHint }}</p>
 
       <div
-        v-if="mode === 'PAPER'"
-        class="form-grid"
+          v-if="mode === 'PAPER'"
+          class="form-grid"
       >
         <label class="form-field">
           <span>{{ t('common.ai.studio.paperName') }}</span>
           <input
-            v-model.trim="generationModel.paperName"
-            :placeholder="t('common.ai.studio.paperNamePlaceholder')"
-            class="form-input"
-            maxlength="100"
-            type="text"
+              v-model.trim="generationModel.paperName"
+              :placeholder="t('common.ai.studio.paperNamePlaceholder')"
+              class="form-input"
+              maxlength="100"
+              type="text"
           >
         </label>
         <label class="form-field">
           <span>{{ t('common.ai.studio.paperType') }}</span>
           <input
-            v-model.trim="generationModel.paperType"
-            :placeholder="t('common.ai.studio.paperTypePlaceholder')"
-            class="form-input"
-            maxlength="50"
-            type="text"
+              v-model.trim="generationModel.paperType"
+              :placeholder="t('common.ai.studio.paperTypePlaceholder')"
+              class="form-input"
+              maxlength="50"
+              type="text"
           >
         </label>
         <label class="form-field">
           <span>{{ t('common.ai.studio.totalScore') }}</span>
           <BaseNumberStepper
-            v-model="totalScoreValue"
-            :max="1000"
-            :min="1"
+              v-model="totalScoreValue"
+              :max="1000"
+              :min="1"
           />
         </label>
         <label class="form-field">
           <span>{{ t('common.ai.studio.estimatedTime') }}</span>
           <BaseNumberStepper
-            v-model="totalEstimatedTimeValue"
-            :max="300"
-            :min="1"
+              v-model="totalEstimatedTimeValue"
+              :max="300"
+              :min="1"
           />
         </label>
       </div>
@@ -212,86 +212,86 @@
         <label class="form-field">
           <span>{{ t('common.ai.studio.questionCount') }}</span>
           <BaseNumberStepper
-            v-model="questionCountValue"
-            :max="mode === 'PAPER' ? 50 : 10"
-            :min="1"
+              v-model="questionCountValue"
+              :max="mode === 'PAPER' ? 50 : 10"
+              :min="1"
           />
         </label>
         <label class="form-field">
           <span>{{ t('common.ai.studio.questionType') }}</span>
           <BaseSelect
-            v-model="questionTypeValue"
-            :options="questionTypeOptions"
-            class="form-select-control"
-            min-width="100%"
+              v-model="questionTypeValue"
+              :options="questionTypeOptions"
+              class="form-select-control"
+              min-width="100%"
           />
         </label>
         <label class="form-field">
           <span>{{ t('common.ai.studio.difficulty') }}</span>
           <BaseSelect
-            v-model="difficultyValue"
-            :options="difficultyOptions"
-            class="form-select-control"
-            min-width="100%"
+              v-model="difficultyValue"
+              :options="difficultyOptions"
+              class="form-select-control"
+              min-width="100%"
           />
         </label>
         <label class="form-field">
           <span>{{ t('common.ai.studio.scorePerQuestion') }}</span>
           <BaseNumberStepper
-            v-model="scorePerQuestionValue"
-            :max="100"
-            :min="0"
+              v-model="scorePerQuestionValue"
+              :max="100"
+              :min="0"
           />
         </label>
       </div>
 
       <label
-        v-if="mode === 'PAPER'"
-        class="wide-field"
+          v-if="mode === 'PAPER'"
+          class="wide-field"
       >
         <span>{{ t('common.ai.studio.knowledgePoints') }}</span>
         <textarea
-          v-model="knowledgePointsText"
-          :placeholder="t('common.ai.studio.knowledgePointsPlaceholder')"
-          class="form-textarea"
-          rows="2"
+            v-model="knowledgePointsText"
+            :placeholder="t('common.ai.studio.knowledgePointsPlaceholder')"
+            class="form-textarea"
+            rows="2"
         />
       </label>
       <label
-        v-if="mode === 'PAPER'"
-        class="wide-field"
+          v-if="mode === 'PAPER'"
+          class="wide-field"
       >
         <span>{{ t('common.ai.studio.abilityGoals') }}</span>
         <textarea
-          v-model="abilityGoalsText"
-          :placeholder="t('common.ai.studio.abilityGoalsPlaceholder')"
-          class="form-textarea"
-          rows="2"
+            v-model="abilityGoalsText"
+            :placeholder="t('common.ai.studio.abilityGoalsPlaceholder')"
+            class="form-textarea"
+            rows="2"
         />
       </label>
       <label class="wide-field">
         <span>{{ t('common.ai.studio.requirement') }}</span>
         <textarea
-          v-model="generationModel.requirement"
-          :placeholder="requirementPlaceholder"
-          class="form-textarea"
-          maxlength="1000"
-          rows="4"
+            v-model="generationModel.requirement"
+            :placeholder="requirementPlaceholder"
+            class="form-textarea"
+            maxlength="1000"
+            rows="4"
         />
       </label>
 
       <div class="panel-footer">
         <button
-          class="btn-secondary"
-          type="button"
-          @click="$emit('close')"
+            class="btn-secondary"
+            type="button"
+            @click="$emit('close')"
         >
           {{ t('common.confirmDialog.cancel') }}
         </button>
         <button
-          class="btn-primary"
-          type="button"
-          @click="$emit('generate')"
+            class="btn-primary"
+            type="button"
+            @click="$emit('generate')"
         >
           {{ generateButtonText }}
         </button>
@@ -299,14 +299,14 @@
     </section>
 
     <section
-      v-else-if="artifact"
-      :class="{'is-single-preview': activeArtifactTab === 'single'}"
-      class="artifact-body"
+        v-else-if="artifact"
+        :class="{'is-single-preview': activeArtifactTab === 'single'}"
+        class="artifact-body"
     >
       <template v-if="activeArtifactTab === 'single'">
         <section
-          v-if="activeQuestion"
-          class="generated-question-preview"
+            v-if="activeQuestion"
+            class="generated-question-preview"
         >
           <div class="preview-header">
             <div>
@@ -319,39 +319,41 @@
             <span>{{ questionTypeName(activeQuestion) }}</span>
             <span>{{ difficultyName(activeQuestion) }}</span>
             <span v-if="scoreText(activeQuestion)">{{ scoreText(activeQuestion) }} {{ t('questionBank.score') }}</span>
-            <span v-if="estimatedTimeText(activeQuestion)">{{ t('questionBank.estimatedMinutes', {n: estimatedTimeText(activeQuestion)}) }}</span>
+            <span v-if="estimatedTimeText(activeQuestion)">{{
+                t('questionBank.estimatedMinutes', {n: estimatedTimeText(activeQuestion)})
+              }}</span>
           </div>
 
           <section class="preview-section">
             <h3>{{ t('questionBank.questionStem') }}</h3>
             <AiMarkdownMessage
-              :content="questionContent(activeQuestion)"
-              class="preview-markdown"
+                :content="questionContent(activeQuestion)"
+                class="preview-markdown"
             />
           </section>
 
           <section
-            v-if="activeQuestionOptions.length"
-            class="preview-section"
+              v-if="activeQuestionOptions.length"
+              class="preview-section"
           >
             <h3>{{ t('questionBank.options') }}</h3>
             <div class="preview-option-list">
               <div
-                v-for="(option, optionIndex) in activeQuestionOptions"
-                :key="optionKey(option, optionIndex)"
-                :class="{correct: showQuestionAnswer && isCorrectOption(option)}"
-                class="preview-option-row"
+                  v-for="(option, optionIndex) in activeQuestionOptions"
+                  :key="optionKey(option, optionIndex)"
+                  :class="{correct: showQuestionAnswer && isCorrectOption(option)}"
+                  class="preview-option-row"
               >
                 <span class="option-label">{{ optionLabelText(option, optionIndex) }}</span>
                 <div class="option-body">
                   <AiMarkdownMessage
-                    :content="optionContentText(option) || t('common.ai.studio.optionFallback')"
-                    class="preview-markdown option-content-markdown"
+                      :content="optionContentText(option) || t('common.ai.studio.optionFallback')"
+                      class="preview-markdown option-content-markdown"
                   />
                 </div>
                 <span
-                  v-if="showQuestionAnswer && activeQuestionIsObjective"
-                  class="option-score"
+                    v-if="showQuestionAnswer && activeQuestionIsObjective"
+                    class="option-score"
                 >
                   {{ optionScoreText(option) || '0' }} {{ t('questionBank.score') }}
                 </span>
@@ -360,49 +362,49 @@
           </section>
 
           <section
-            v-if="showQuestionAnswer"
-            class="preview-section"
+              v-if="showQuestionAnswer"
+              class="preview-section"
           >
             <h3>{{ t('questionBank.correctAnswer') }}</h3>
             <div
-              v-if="activeAnswerItems.length"
-              class="answer-list"
+                v-if="activeAnswerItems.length"
+                class="answer-list"
             >
               <AiMarkdownMessage
-                v-for="(answer, answerIndex) in activeAnswerItems"
-                :key="answerIndex"
-                :content="answer"
-                class="answer-row"
+                  v-for="(answer, answerIndex) in activeAnswerItems"
+                  :key="answerIndex"
+                  :content="answer"
+                  class="answer-row"
               />
             </div>
             <p
-              v-else
-              class="muted-text"
+                v-else
+                class="muted-text"
             >
               {{ t('questionBank.noAnswer') }}
             </p>
           </section>
 
           <section
-            v-if="showQuestionAnswer"
-            class="preview-section"
+              v-if="showQuestionAnswer"
+              class="preview-section"
           >
             <h3>{{ t('questionBank.explanation') }}</h3>
             <AiMarkdownMessage
-              :content="activeExplanationText || t('questionBank.noExplanation')"
-              class="preview-markdown"
+                :content="activeExplanationText || t('questionBank.noExplanation')"
+                class="preview-markdown"
             />
           </section>
 
           <section
-            v-if="questionTags(activeQuestion).length"
-            class="preview-section"
+              v-if="questionTags(activeQuestion).length"
+              class="preview-section"
           >
             <h3>{{ t('questionBank.tags') }}</h3>
             <div class="tag-list">
               <span
-                v-for="tag in questionTags(activeQuestion)"
-                :key="tag"
+                  v-for="tag in questionTags(activeQuestion)"
+                  :key="tag"
               >
                 {{ tag }}
               </span>
@@ -411,9 +413,9 @@
         </section>
 
         <AiMarkdownMessage
-          v-else
-          :content="artifact.content"
-          class="artifact-text"
+            v-else
+            :content="artifact.content"
+            class="artifact-text"
         />
       </template>
 
@@ -421,116 +423,116 @@
         <article class="artifact-report">
           <div class="report-kicker">
             <span>{{ artifact.messageType }}</span>
-            <i />
+            <i/>
           </div>
           <h1>{{ t('common.ai.studio.overviewTitle') }}</h1>
           <p>{{ artifactSummary }}</p>
 
           <div
-            v-if="questions.length > 0"
-            class="question-list"
+              v-if="questions.length > 0"
+              class="question-list"
           >
             <article
-              v-for="(question, index) in questions"
-              :key="index"
-              class="question-card"
+                v-for="(question, index) in questions"
+                :key="index"
+                class="question-card"
             >
               <span>Q{{ index + 1 }}</span>
               <AiMarkdownMessage
-                :content="questionTitle(question)"
-                class="question-title-markdown"
+                  :content="questionTitle(question)"
+                  class="question-title-markdown"
               />
               <AiMarkdownMessage
-                v-if="questionContent(question)"
-                :content="questionContent(question)"
-                class="question-content-markdown"
+                  v-if="questionContent(question)"
+                  :content="questionContent(question)"
+                  class="question-content-markdown"
               />
               <div
-                v-if="questionOptions(question).length > 0"
-                class="option-list"
+                  v-if="questionOptions(question).length > 0"
+                  class="option-list"
               >
                 <AiMarkdownMessage
-                  v-for="(option, optionIndex) in questionOptions(question)"
-                  :key="optionKey(option, optionIndex)"
-                  :content="optionLabel(option, optionIndex)"
-                  class="option-markdown"
+                    v-for="(option, optionIndex) in questionOptions(question)"
+                    :key="optionKey(option, optionIndex)"
+                    :content="optionLabel(option, optionIndex)"
+                    class="option-markdown"
                 />
               </div>
 
               <div
-                v-if="showQuestionAnswer"
-                class="question-answer-preview"
+                  v-if="showQuestionAnswer"
+                  class="question-answer-preview"
               >
                 <p>{{ t('questionBank.correctAnswer') }}</p>
                 <div
-                  v-if="answerItems(question).length"
-                  class="question-answer-list"
+                    v-if="answerItems(question).length"
+                    class="question-answer-list"
                 >
                   <AiMarkdownMessage
-                    v-for="(answer, answerIndex) in answerItems(question)"
-                    :key="answerIndex"
-                    :content="answer"
-                    class="answer-markdown"
+                      v-for="(answer, answerIndex) in answerItems(question)"
+                      :key="answerIndex"
+                      :content="answer"
+                      class="answer-markdown"
                   />
                 </div>
                 <p
-                  v-else
-                  class="muted-text"
+                    v-else
+                    class="muted-text"
                 >
                   {{ t('questionBank.noAnswer') }}
                 </p>
               </div>
 
               <div
-                v-if="showQuestionAnswer && explanationText(question)"
-                class="question-answer-preview"
+                  v-if="showQuestionAnswer && explanationText(question)"
+                  class="question-answer-preview"
               >
                 <p>{{ t('questionBank.explanation') }}</p>
                 <AiMarkdownMessage
-                  :content="explanationText(question)"
-                  class="answer-markdown"
+                    :content="explanationText(question)"
+                    class="answer-markdown"
                 />
               </div>
             </article>
           </div>
 
           <AiMarkdownMessage
-            v-else
-            :content="artifact.content"
-            class="artifact-text"
+              v-else
+              :content="artifact.content"
+              class="artifact-text"
           />
         </article>
       </template>
 
       <AiGenerationTracePanel
-        v-else
-        :message="traceMessage"
-        embedded
+          v-else
+          :message="traceMessage"
+          embedded
       />
     </section>
 
     <section
-      v-else
-      class="empty-studio"
+        v-else
+        class="empty-studio"
     >
       <PanelRight
-        :size="30"
-        stroke-width="1.5"
+          :size="30"
+          stroke-width="1.5"
       />
       <h3>{{ t('common.ai.studio.emptyTitle') }}</h3>
       <p>{{ t('common.ai.studio.emptyDescription') }}</p>
     </section>
 
     <div
-      v-if="exportingFormat"
-      aria-live="polite"
-      class="export-lock-overlay"
-      role="status"
+        v-if="exportingFormat"
+        aria-live="polite"
+        class="export-lock-overlay"
+        role="status"
     >
       <div class="export-lock-panel">
         <FileDown
-          :size="22"
-          stroke-width="1.8"
+            :size="22"
+            stroke-width="1.8"
         />
         <strong>{{ exportOverlayText }}</strong>
         <p>{{ t('common.ai.studio.exportLockedHint') }}</p>
@@ -540,14 +542,14 @@
 
   <Teleport to="body">
     <div
-      v-if="showImportDialog"
-      class="question-import-overlay"
-      @click.self="closeImportDialog"
+        v-if="showImportDialog"
+        class="question-import-overlay"
+        @click.self="closeImportDialog"
     >
       <section
-        aria-modal="true"
-        class="question-import-dialog"
-        role="dialog"
+          aria-modal="true"
+          class="question-import-dialog"
+          role="dialog"
       >
         <header class="question-import-header">
           <div>
@@ -555,14 +557,14 @@
             <h2>{{ t('common.ai.studio.importDialogTitle') }}</h2>
           </div>
           <button
-            :title="t('common.ai.studio.close')"
-            class="btn-close"
-            type="button"
-            @click="closeImportDialog"
+              :title="t('common.ai.studio.close')"
+              class="btn-close"
+              type="button"
+              @click="closeImportDialog"
           >
             <X
-              :size="16"
-              stroke-width="1.8"
+                :size="16"
+                stroke-width="1.8"
             />
           </button>
         </header>
@@ -572,37 +574,37 @@
             <label class="import-field">
               <span>{{ t('common.ai.studio.importCourse') }}</span>
               <BaseSelect
-                v-model="selectedImportCourseId"
-                :disabled="importCoursesLoading"
-                :options="importCourseOptions"
-                :placeholder="t('common.ai.studio.importCoursePlaceholder')"
-                class="import-select"
-                min-width="100%"
-                @change="handleImportCourseChanged"
+                  v-model="selectedImportCourseId"
+                  :disabled="importCoursesLoading"
+                  :options="importCourseOptions"
+                  :placeholder="t('common.ai.studio.importCoursePlaceholder')"
+                  class="import-select"
+                  min-width="100%"
+                  @change="handleImportCourseChanged"
               />
             </label>
             <label class="import-field">
               <span>{{ t('common.ai.studio.importBank') }}</span>
               <BaseSelect
-                v-model="selectedImportBankId"
-                :disabled="importBanksLoading || importQuestionBanks.length === 0"
-                :options="importBankOptions"
-                :placeholder="t('common.ai.studio.importBankPlaceholder')"
-                class="import-select"
-                min-width="100%"
+                  v-model="selectedImportBankId"
+                  :disabled="importBanksLoading || importQuestionBanks.length === 0"
+                  :options="importBankOptions"
+                  :placeholder="t('common.ai.studio.importBankPlaceholder')"
+                  class="import-select"
+                  min-width="100%"
               />
             </label>
           </div>
 
           <p
-            v-if="importCoursesLoading || importBanksLoading"
-            class="import-status-text"
+              v-if="importCoursesLoading || importBanksLoading"
+              class="import-status-text"
           >
             {{ t('common.ai.studio.importLoadingTargets') }}
           </p>
           <p
-            v-else-if="selectedImportCourseId && importQuestionBanks.length === 0"
-            class="import-status-text"
+              v-else-if="selectedImportCourseId && importQuestionBanks.length === 0"
+              class="import-status-text"
           >
             {{ t('common.ai.studio.importNoBanks') }}
           </p>
@@ -610,26 +612,31 @@
           <div class="import-selection-bar">
             <label class="import-check-all">
               <input
-                :checked="allImportQuestionsSelected"
-                :disabled="importableQuestionItems.length === 0"
-                type="checkbox"
-                @change="handleToggleAllImportQuestions"
+                  :checked="allImportQuestionsSelected"
+                  :disabled="importableQuestionItems.length === 0"
+                  type="checkbox"
+                  @change="handleToggleAllImportQuestions"
               >
               <span>{{ t('common.ai.studio.importSelectAll') }}</span>
             </label>
-            <span>{{ t('common.ai.studio.importSelectedCount', {selected: selectedImportQuestionCount, total: importableQuestionItems.length}) }}</span>
+            <span>{{
+                t('common.ai.studio.importSelectedCount', {
+                  selected: selectedImportQuestionCount,
+                  total: importableQuestionItems.length
+                })
+              }}</span>
           </div>
 
           <div class="import-question-list">
             <label
-              v-for="item in importableQuestionItems"
-              :key="item.key"
-              class="import-question-row"
+                v-for="item in importableQuestionItems"
+                :key="item.key"
+                class="import-question-row"
             >
               <input
-                v-model="selectedImportQuestionKeys"
-                :value="item.key"
-                type="checkbox"
+                  v-model="selectedImportQuestionKeys"
+                  :value="item.key"
+                  type="checkbox"
               >
               <span>Q{{ item.index + 1 }}</span>
               <strong>{{ questionTitle(item.question) }}</strong>
@@ -640,17 +647,17 @@
 
         <footer class="question-import-footer">
           <button
-            class="btn-secondary"
-            type="button"
-            @click="closeImportDialog"
+              class="btn-secondary"
+              type="button"
+              @click="closeImportDialog"
           >
             {{ t('common.confirmDialog.cancel') }}
           </button>
           <button
-            :disabled="!canSubmitImport"
-            class="btn-primary"
-            type="button"
-            @click="handleImportQuestions"
+              :disabled="!canSubmitImport"
+              class="btn-primary"
+              type="button"
+              @click="handleImportQuestions"
           >
             {{ importingQuestions ? t('common.ai.studio.importing') : t('common.ai.studio.importSelected') }}
           </button>
@@ -764,19 +771,19 @@ const questionTypeValue = selectField('questionType')
 const difficultyValue = selectField('difficulty')
 
 const panelTitle = computed(() => props.mode === 'PAPER'
-  ? t('common.ai.studio.paperTitle')
-  : props.mode === 'QUESTION' ? t('common.ai.studio.questionTitle') : t('common.ai.studio.artifactTitle'))
+    ? t('common.ai.studio.paperTitle')
+    : props.mode === 'QUESTION' ? t('common.ai.studio.questionTitle') : t('common.ai.studio.artifactTitle'))
 const generateButtonText = computed(() => {
   if (props.mode === 'QUESTION') return t('common.ai.studio.startQuestion')
   if (props.mode === 'PAPER') return t('common.ai.studio.startPaper')
   return panelTitle.value
 })
 const formHint = computed(() => props.mode === 'PAPER'
-  ? t('common.ai.studio.paperHint')
-  : t('common.ai.studio.questionHint'))
+    ? t('common.ai.studio.paperHint')
+    : t('common.ai.studio.questionHint'))
 const requirementPlaceholder = computed(() => props.mode === 'PAPER'
-  ? t('common.ai.studio.paperRequirementPlaceholder')
-  : t('common.ai.studio.questionRequirementPlaceholder'))
+    ? t('common.ai.studio.paperRequirementPlaceholder')
+    : t('common.ai.studio.questionRequirementPlaceholder'))
 const artifactSummary = computed(() => {
   if (questionCount.value > 0) return t('common.ai.studio.artifactSummary', {count: questionCount.value})
   return t('common.ai.studio.artifactSummaryFallback')
@@ -791,33 +798,33 @@ const activeQuestionIsObjective = computed(() => {
   return type !== null && type >= 0 && type <= 2
 })
 const showExportActions = computed(() => Boolean(
-  artifact.value
-  && isExportableMessage(artifact.value),
+    artifact.value
+    && isExportableMessage(artifact.value),
 ))
 const canExportArtifact = computed(() => Boolean(
-  showExportActions.value
-  && artifact.value
-  && !artifact.value.pending
-  && !artifact.value.failed
-  && !artifact.value.terminated
-  && questionCount.value > 0
-  && aiStore.activeConversationId,
+    showExportActions.value
+    && artifact.value
+    && !artifact.value.pending
+    && !artifact.value.failed
+    && !artifact.value.terminated
+    && questionCount.value > 0
+    && aiStore.activeConversationId,
 ))
 const showImportAction = computed(() => Boolean(
-  showExportActions.value
-  && artifact.value,
+    showExportActions.value
+    && artifact.value,
 ))
 const canImportArtifact = computed(() => Boolean(
-  showExportActions.value
-  && artifact.value
-  && !artifact.value.pending
-  && !artifact.value.failed
-  && !artifact.value.terminated
-  && questionCount.value > 0,
+    showExportActions.value
+    && artifact.value
+    && !artifact.value.pending
+    && !artifact.value.failed
+    && !artifact.value.terminated
+    && questionCount.value > 0,
 ))
 const exportOverlayText = computed(() => exportingFormat.value === 'docx'
-  ? t('common.ai.studio.exportingWord')
-  : t('common.ai.studio.exportingPdf'))
+    ? t('common.ai.studio.exportingWord')
+    : t('common.ai.studio.exportingPdf'))
 const importableQuestionItems = computed(() => questions.value.map((question, index) => ({
   key: importQuestionKey(question, index),
   question,
@@ -825,21 +832,21 @@ const importableQuestionItems = computed(() => questions.value.map((question, in
 })))
 const selectedImportQuestionCount = computed(() => selectedImportQuestionKeys.value.length)
 const allImportQuestionsSelected = computed(() =>
-  importableQuestionItems.value.length > 0
-  && selectedImportQuestionKeys.value.length === importableQuestionItems.value.length,
+    importableQuestionItems.value.length > 0
+    && selectedImportQuestionKeys.value.length === importableQuestionItems.value.length,
 )
 const importCourseOptions = computed<SelectOption[]>(() =>
-  importCourses.value.map(course => ({label: course.title, value: course.id})),
+    importCourses.value.map(course => ({label: course.title, value: course.id})),
 )
 const importBankOptions = computed<SelectOption[]>(() =>
-  importQuestionBanks.value.map(bank => ({label: bank.bankName, value: bank.id})),
+    importQuestionBanks.value.map(bank => ({label: bank.bankName, value: bank.id})),
 )
 const canSubmitImport = computed(() => Boolean(
-  selectedString(selectedImportBankId.value)
-  && selectedImportQuestionKeys.value.length > 0
-  && !importingQuestions.value
-  && !importCoursesLoading.value
-  && !importBanksLoading.value,
+    selectedString(selectedImportBankId.value)
+    && selectedImportQuestionKeys.value.length > 0
+    && !importingQuestions.value
+    && !importCoursesLoading.value
+    && !importBanksLoading.value,
 ))
 
 watch(() => artifact.value?.id, () => {
@@ -929,8 +936,8 @@ function questionTypeName(question: PayloadRecord) {
     5: t('common.ai.studio.questionTypes.mixed'),
   }
   return type === null
-    ? textValue(question.questionTypeName) || textValue(question.typeName) || t('questionBank.unknown')
-    : labels[type] || t('questionBank.unknown')
+      ? textValue(question.questionTypeName) || textValue(question.typeName) || t('questionBank.unknown')
+      : labels[type] || t('questionBank.unknown')
 }
 
 function difficultyName(question: PayloadRecord) {
@@ -942,8 +949,8 @@ function difficultyName(question: PayloadRecord) {
     3: t('questionBank.difficultyHard'),
   }
   return difficulty === null
-    ? textValue(question.difficultyName) || t('questionBank.unknown')
-    : labels[difficulty] || t('questionBank.unknown')
+      ? textValue(question.difficultyName) || t('questionBank.unknown')
+      : labels[difficulty] || t('questionBank.unknown')
 }
 
 function scoreText(question: PayloadRecord) {
@@ -976,11 +983,11 @@ function isCorrectOption(option: PayloadRecord) {
 
 function answerItems(question: PayloadRecord) {
   const textAnswers = questionAnswers(question)
-    .map(answer => textValue(answer.answerContent) || textValue(answer.content))
-    .filter(Boolean)
+      .map(answer => textValue(answer.answerContent) || textValue(answer.content))
+      .filter(Boolean)
   const optionAnswers = questionOptions(question)
-    .map((option, index) => isCorrectOption(option) ? `${optionLabelText(option, index)}. ${optionContentText(option)}` : '')
-    .filter(Boolean)
+      .map((option, index) => isCorrectOption(option) ? `${optionLabelText(option, index)}. ${optionContentText(option)}` : '')
+      .filter(Boolean)
 
   return textAnswers.length ? textAnswers : optionAnswers
 }
@@ -988,17 +995,17 @@ function answerItems(question: PayloadRecord) {
 function explanationText(question: PayloadRecord) {
   const questionExplanation = textValue(question.explanation) || textValue(question.answerExplanation)
   const optionExplanations = questionOptions(question)
-    .map((option, index) => {
-      const explanation = optionExplanationText(option)
-      return explanation ? `${optionLabelText(option, index)}. ${explanation}` : ''
-    })
-    .filter(Boolean)
+      .map((option, index) => {
+        const explanation = optionExplanationText(option)
+        return explanation ? `${optionLabelText(option, index)}. ${explanation}` : ''
+      })
+      .filter(Boolean)
   const answerExplanation = questionAnswers(question)
-    .find(answer => textValue(answer.explanation))?.explanation
+      .find(answer => textValue(answer.explanation))?.explanation
 
   return [questionExplanation, ...optionExplanations, textValue(answerExplanation)]
-    .filter(Boolean)
-    .join('\n\n')
+      .filter(Boolean)
+      .join('\n\n')
 }
 
 function displayValue(value: unknown) {
@@ -1078,12 +1085,13 @@ function selectField(key: keyof GenerationRequest) {
 
 function normalizeListInput(value: string) {
   const items = value
-    .split(/[\n,，]/)
-    .map(item => item.trim())
-    .filter(Boolean)
+      .split(/[\n,，]/)
+      .map(item => item.trim())
+      .filter(Boolean)
 
   return items.length ? items : null
 }
+
 function resetImportState() {
   showImportDialog.value = false
   importCourses.value = []
@@ -1122,8 +1130,8 @@ async function loadImportTargets() {
     importCourses.value = response.records || []
 
     const courseId = importCourses.value.some(course => course.id === preferredCourseId)
-      ? preferredCourseId
-      : importCourses.value[0]?.id || ''
+        ? preferredCourseId
+        : importCourses.value[0]?.id || ''
     selectedImportCourseId.value = courseId || undefined
 
     if (courseId) {
@@ -1159,8 +1167,8 @@ async function loadImportQuestionBanks(courseId: string, preferredBankId = '') {
     const banks = await getCourseQuestionBanks(courseId)
     importQuestionBanks.value = banks
     const bankId = banks.some(bank => bank.id === preferredBankId)
-      ? preferredBankId
-      : banks[0]?.id || ''
+        ? preferredBankId
+        : banks[0]?.id || ''
     selectedImportBankId.value = bankId || undefined
   } catch {
     notify.error(t('common.ai.studio.importLoadFailed'))
@@ -1179,8 +1187,8 @@ async function handleImportQuestions() {
   if (!questionBankId || !canSubmitImport.value) return
 
   const questionsToImport = importableQuestionItems.value
-    .filter(item => selectedImportQuestionKeys.value.includes(item.key))
-    .map(item => toImportQuestionRequest(item.question))
+      .filter(item => selectedImportQuestionKeys.value.includes(item.key))
+      .map(item => toImportQuestionRequest(item.question))
 
   if (questionsToImport.length === 0) return
 
@@ -1231,39 +1239,39 @@ function toImportQuestionRequest(question: PayloadRecord): QuestionImportRequest
 
 function importOptions(question: PayloadRecord) {
   return questionOptions(question)
-    .map((option, index) => ({
-      optionLabel: optionLabelText(option, index),
-      optionContent: optionContentText(option),
-      isCorrect: isCorrectOption(option) ? 1 : 0,
-      score: decimalValue(option.score, 0),
-      imageUrls: stringListValue(option.imageUrls),
-      explanation: textValue(option.explanation) || undefined,
-    }))
-    .filter(option => option.optionContent)
+      .map((option, index) => ({
+        optionLabel: optionLabelText(option, index),
+        optionContent: optionContentText(option),
+        isCorrect: isCorrectOption(option) ? 1 : 0,
+        score: decimalValue(option.score, 0),
+        imageUrls: stringListValue(option.imageUrls),
+        explanation: textValue(option.explanation) || undefined,
+      }))
+      .filter(option => option.optionContent)
 }
 
 function importAnswers(question: PayloadRecord, score: number) {
   const explicitAnswers = questionAnswers(question)
-    .map((answer, index) => ({
-      answerContent: textValue(answer.answerContent) || textValue(answer.content),
-      explanation: textValue(answer.explanation) || undefined,
-      score: decimalValue(answer.score, score),
-      sortOrder: Math.max(1, integerValue(answer.sortOrder, index + 1)),
-    }))
-    .filter(answer => answer.answerContent)
+      .map((answer, index) => ({
+        answerContent: textValue(answer.answerContent) || textValue(answer.content),
+        explanation: textValue(answer.explanation) || undefined,
+        score: decimalValue(answer.score, score),
+        sortOrder: Math.max(1, integerValue(answer.sortOrder, index + 1)),
+      }))
+      .filter(answer => answer.answerContent)
 
   if (explicitAnswers.length > 0) return explicitAnswers
 
   return questionOptions(question)
-    .map((option, index) => isCorrectOption(option)
-      ? {
-          answerContent: `${optionLabelText(option, index)}. ${optionContentText(option)}`,
-          explanation: textValue(option.explanation) || undefined,
-          score,
-          sortOrder: 1,
-        }
-      : null)
-    .filter((answer): answer is NonNullable<typeof answer> => answer != null && Boolean(answer.answerContent))
+      .map((option, index) => isCorrectOption(option)
+          ? {
+            answerContent: `${optionLabelText(option, index)}. ${optionContentText(option)}`,
+            explanation: textValue(option.explanation) || undefined,
+            score,
+            sortOrder: 1,
+          }
+          : null)
+      .filter((answer): answer is NonNullable<typeof answer> => answer != null && Boolean(answer.answerContent))
 }
 
 function isExportableMessage(message: ChatMessage) {

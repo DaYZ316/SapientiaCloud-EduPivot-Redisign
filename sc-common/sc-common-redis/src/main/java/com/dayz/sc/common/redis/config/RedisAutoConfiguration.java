@@ -5,8 +5,10 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
+import org.springframework.data.redis.cache.BatchStrategies;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.cache.RedisCacheWriter;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -54,8 +56,11 @@ public class RedisAutoConfiguration {
 
     private static PolymorphicTypeValidator redisTypeValidator() {
         return BasicPolymorphicTypeValidator.builder()
-                .allowIfBaseType(Object.class)
-                .allowIfSubType((context, subType) -> true)
+                .allowIfSubType("com.dayz.sc.")
+                .allowIfSubType("java.")
+                .allowIfSubType("javax.")
+                .allowIfSubType("jakarta.")
+                .allowIfSubType("org.springframework.data.domain.")
                 .build();
     }
 
@@ -75,9 +80,13 @@ public class RedisAutoConfiguration {
                 "userBasicInfo", defaultConfig.entryTtl(Duration.ofMinutes(5))
         );
 
-        return RedisCacheManager.builder(connectionFactory)
+        RedisCacheWriter cacheWriter = RedisCacheWriter.nonLockingRedisCacheWriter(
+                connectionFactory, BatchStrategies.scan(1_000));
+
+        return RedisCacheManager.builder(cacheWriter)
                 .cacheDefaults(defaultConfig)
                 .withInitialCacheConfigurations(cacheConfigs)
+                .enableStatistics()
                 .transactionAware()
                 .build();
     }

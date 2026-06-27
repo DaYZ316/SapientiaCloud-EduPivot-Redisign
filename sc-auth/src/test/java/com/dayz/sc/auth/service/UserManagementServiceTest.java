@@ -9,11 +9,11 @@ import com.dayz.sc.auth.model.entity.User;
 import com.dayz.sc.auth.model.entity.UserIdentity;
 import com.dayz.sc.auth.model.enums.OauthProvider;
 import com.dayz.sc.auth.model.enums.UserStatus;
-import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.auth.model.vo.LoginResponseVO;
 import com.dayz.sc.auth.repository.StudentRepository;
 import com.dayz.sc.auth.repository.TeacherRepository;
 import com.dayz.sc.auth.repository.UserAccountRepository;
+import com.dayz.sc.common.error.BusinessException;
 import com.dayz.sc.common.model.UserRole;
 import com.dayz.sc.common.security.service.JwtTokenService;
 import com.dayz.sc.common.security.token.RefreshTokenService;
@@ -37,10 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UserManagementServiceTest {

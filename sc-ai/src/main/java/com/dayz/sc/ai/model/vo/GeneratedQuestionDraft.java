@@ -4,6 +4,11 @@ import com.dayz.sc.common.question.CreateQuestionRequest;
 
 import java.util.List;
 
+/**
+ * GeneratedQuestionDraft.
+ *
+ * @author DaYZ
+ */
 public record GeneratedQuestionDraft(
         String draftId,
         int order,

@@ -85,7 +85,10 @@
         </div>
 
         <div v-else class="action-grid">
-          <button class="primary-command" disabled type="button">{{ t('courseDetail.overview.lockedUntilEnrolled') }}</button>
+          <button class="primary-command" disabled type="button">{{
+              t('courseDetail.overview.lockedUntilEnrolled')
+            }}
+          </button>
         </div>
       </div>
 
@@ -173,8 +176,8 @@
 </template>
 
 <script lang="ts" setup>
-import {computed} from 'vue'
 import type {Component} from 'vue'
+import {computed} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import {
@@ -189,7 +192,7 @@ import {
   Users,
 } from 'lucide-vue-next'
 import type {Chapter} from '@/features/course/types/chapter'
-import {ClassSessionStatus, type ClassSession} from '@/features/course/types/classSession'
+import {type ClassSession, ClassSessionStatus} from '@/features/course/types/classSession'
 import type {CourseDetail, CourseFile, Enrollment} from '@/features/course/types/course'
 import type {QuestionBank} from '@/features/question-bank/types/questionBank'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
@@ -284,7 +287,7 @@ const bankCount = computed(() => props.banksLoaded ? props.banksTotal : props.ba
 const fileCount = computed(() => props.filesLoaded ? props.filesTotal : props.files.length)
 const studentCount = computed(() => props.studentsLoaded ? props.studentsTotal : props.course.currentStudents)
 const hasCourseProgressStats = computed(() =>
-  props.course.publishedClassSessionCount !== undefined && props.course.publishedClassSessionCount !== null,
+    props.course.publishedClassSessionCount !== undefined && props.course.publishedClassSessionCount !== null,
 )
 const countedClassSessionCount = computed(() => {
   if (hasCourseProgressStats.value) return props.course.publishedClassSessionCount
@@ -340,8 +343,8 @@ const overviewFacts = computed(() => [
   {
     label: t('courseDetail.overview.completedClassHours'),
     value: hasCourseProgressStats.value || (props.classSessionsLoaded && !props.classSessionsLoading)
-      ? `${countedClassSessionCount.value} ${t('courseDetail.classHoursUnit')}`
-      : t('courseDetail.overview.calculating'),
+        ? `${countedClassSessionCount.value} ${t('courseDetail.classHoursUnit')}`
+        : t('courseDetail.overview.calculating'),
   },
 ])
 
@@ -363,14 +366,14 @@ const roleSummaries = computed(() => [
   {
     label: t('courseDetail.overview.studentStatus'),
     value: props.course.enrolled
-      ? t('courseDetail.overview.studentEnrolled')
-      : props.isStudent ? t('courseDetail.overview.studentNotEnrolled') : t('courseDetail.overview.nonStudentAccount'),
+        ? t('courseDetail.overview.studentEnrolled')
+        : props.isStudent ? t('courseDetail.overview.studentNotEnrolled') : t('courseDetail.overview.nonStudentAccount'),
   },
   {
     label: t('courseDetail.overview.teachingPermission'),
     value: props.canManageCourse
-      ? props.isAdmin ? t('courseDetail.overview.adminCanManage') : t('courseDetail.overview.teachingTeamCanManage')
-      : t('courseDetail.overview.cannotManage'),
+        ? props.isAdmin ? t('courseDetail.overview.adminCanManage') : t('courseDetail.overview.teachingTeamCanManage')
+        : t('courseDetail.overview.cannotManage'),
   },
   {
     label: t('courseDetail.overview.contentAccess'),
@@ -413,12 +416,12 @@ const navigationEntries = computed<NavigationEntry[]>(() => {
       description: t('courseDetail.overview.chaptersEntryDescription'),
       summary: chapterSummary.value,
       actionLabel: flatChapters.value.length === 0 && props.canManageCourse
-        ? t('courseDetail.overview.createChapter')
-        : t('courseDetail.overview.enterChapters'),
+          ? t('courseDetail.overview.createChapter')
+          : t('courseDetail.overview.enterChapters'),
       available: props.canManageCourse || (props.canAccessCourseContent && publishedChapters.value.length > 0),
       reason: flatChapters.value.length === 0
-        ? props.canManageCourse ? t('courseDetail.overview.canCreate') : t('courseDetail.overview.waitingPublish')
-        : props.canAccessCourseContent || props.canManageCourse ? t('courseDetail.overview.available') : t('courseDetail.overview.availableAfterEnrollment'),
+          ? props.canManageCourse ? t('courseDetail.overview.canCreate') : t('courseDetail.overview.waitingPublish')
+          : props.canAccessCourseContent || props.canManageCourse ? t('courseDetail.overview.available') : t('courseDetail.overview.availableAfterEnrollment'),
       icon: BookOpen,
       action: flatChapters.value.length === 0 && props.canManageCourse ? 'createChapter' : 'route',
       routeName: 'course-chapters',
@@ -428,11 +431,11 @@ const navigationEntries = computed<NavigationEntry[]>(() => {
       title: t('courseDetail.overview.classSessionsEntryTitle'),
       description: t('courseDetail.overview.classSessionsEntryDescription'),
       summary: countedClassSessionCount.value > 0
-        ? t('courseDetail.overview.completedHoursSummary', {
-          count: countedClassSessionCount.value,
-          unit: t('courseDetail.classHoursUnit'),
-        })
-        : props.canManageCourse ? t('courseDetail.overview.noClassesCreate') : t('courseDetail.overview.waitingClasses'),
+          ? t('courseDetail.overview.completedHoursSummary', {
+            count: countedClassSessionCount.value,
+            unit: t('courseDetail.classHoursUnit'),
+          })
+          : props.canManageCourse ? t('courseDetail.overview.noClassesCreate') : t('courseDetail.overview.waitingClasses'),
       actionLabel: t('courseDetail.overview.enterClassroom'),
       available: props.canEnterClassSessions,
       reason: props.canEnterClassSessions ? t('courseDetail.overview.available') : t('courseDetail.overview.availableAfterEnrollment'),
@@ -462,8 +465,8 @@ const navigationEntries = computed<NavigationEntry[]>(() => {
     actionLabel: props.canManageCourse ? t('courseDetail.overview.manageBanks') : t('courseDetail.overview.viewBanks'),
     available: props.canManageCourse || (props.canAccessCourseContent && (!props.banksLoaded || bankCount.value > 0)),
     reason: props.canManageCourse
-      ? t('courseDetail.overview.canManage')
-      : props.canAccessCourseContent && (!props.banksLoaded || bankCount.value > 0) ? t('courseDetail.overview.canView') : t('courseDetail.overview.waitingPublish'),
+        ? t('courseDetail.overview.canManage')
+        : props.canAccessCourseContent && (!props.banksLoaded || bankCount.value > 0) ? t('courseDetail.overview.canView') : t('courseDetail.overview.waitingPublish'),
     icon: Database,
     action: 'route',
     routeName: 'course-banks',
@@ -492,8 +495,8 @@ const navigationEntries = computed<NavigationEntry[]>(() => {
     actionLabel: props.canManageCourse ? t('courseDetail.overview.uploadFiles') : t('courseDetail.overview.viewFiles'),
     available: props.canManageCourse || (props.canAccessCourseContent && (!props.filesLoaded || fileCount.value > 0)),
     reason: props.canManageCourse
-      ? t('courseDetail.overview.canManage')
-      : props.canAccessCourseContent && (!props.filesLoaded || fileCount.value > 0) ? t('courseDetail.overview.available') : t('courseDetail.overview.waitingUpload'),
+        ? t('courseDetail.overview.canManage')
+        : props.canAccessCourseContent && (!props.filesLoaded || fileCount.value > 0) ? t('courseDetail.overview.available') : t('courseDetail.overview.waitingUpload'),
     icon: FileDown,
     action: 'route',
     routeName: 'course-files',

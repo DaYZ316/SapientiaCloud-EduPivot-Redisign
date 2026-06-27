@@ -1,7 +1,7 @@
 <template>
-  <div v-if="events.length > 0" class="live-practice-popups" aria-live="polite">
+  <div v-if="events.length > 0" aria-live="polite" class="live-practice-popups">
     <article v-for="event in events" :key="event.groupId" class="live-practice-popup">
-      <button class="popup-close" type="button" aria-label="关闭" @click="dismiss(event.groupId)">
+      <button aria-label="关闭" class="popup-close" type="button" @click="dismiss(event.groupId)">
         <X :size="16" stroke-width="1.8"/>
       </button>
       <div class="popup-kicker">随堂练习</div>

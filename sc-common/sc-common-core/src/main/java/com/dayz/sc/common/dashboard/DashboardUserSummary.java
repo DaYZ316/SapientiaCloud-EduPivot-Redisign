@@ -2,6 +2,11 @@ package com.dayz.sc.common.dashboard;
 
 import java.util.List;
 
+/**
+ * DashboardUserSummary.
+ *
+ * @author DaYZ
+ */
 public record DashboardUserSummary(
         long totalUsers,
         long students,

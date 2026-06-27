@@ -1,7 +1,7 @@
 <template>
   <RichMathContent
-    class="ai-markdown-message"
-    :content="content"
+      :content="content"
+      class="ai-markdown-message"
   />
 </template>
 

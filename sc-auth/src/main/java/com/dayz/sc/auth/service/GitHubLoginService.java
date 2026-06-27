@@ -46,6 +46,7 @@ public class GitHubLoginService {
     private static final int FIRST_PAGE = 1;
     private static final int HTTP_FORBIDDEN = 403;
     private static final int HTTP_NOT_FOUND = 404;
+    private static final int UPSTREAM_ERROR_PREVIEW_MAX_LENGTH = 180;
 
     private final GitHubOauthClient gitHubOauthClient;
     private final GitHubUserClient gitHubUserClient;
@@ -242,8 +243,8 @@ public class GitHubLoginService {
             return "";
         }
         String normalizedMessage = message.replaceAll("\\s+", " ").trim();
-        if (normalizedMessage.length() > 180) {
-            normalizedMessage = normalizedMessage.substring(0, 180) + "...";
+        if (normalizedMessage.length() > UPSTREAM_ERROR_PREVIEW_MAX_LENGTH) {
+            normalizedMessage = normalizedMessage.substring(0, UPSTREAM_ERROR_PREVIEW_MAX_LENGTH) + "...";
         }
         return ": " + normalizedMessage;
     }
@@ -265,8 +266,8 @@ public class GitHubLoginService {
             return ": HTTP " + exception.status();
         }
         String normalizedBody = body.replaceAll("\\s+", " ").trim();
-        if (normalizedBody.length() > 180) {
-            normalizedBody = normalizedBody.substring(0, 180) + "...";
+        if (normalizedBody.length() > UPSTREAM_ERROR_PREVIEW_MAX_LENGTH) {
+            normalizedBody = normalizedBody.substring(0, UPSTREAM_ERROR_PREVIEW_MAX_LENGTH) + "...";
         }
         return ": HTTP " + exception.status() + " " + normalizedBody;
     }

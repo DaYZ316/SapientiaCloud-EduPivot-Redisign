@@ -10,13 +10,14 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.UUID;
 
+/**
+ * ChatVectorMemoryService.
+ *
+ * @author DaYZ
+ */
 @Slf4j
 @Service
 public class ChatVectorMemoryService {
@@ -64,7 +65,7 @@ public class ChatVectorMemoryService {
             return;
         }
 
-        Map<String, Object> metadata = new HashMap<>();
+        Map<String, Object> metadata = new HashMap<>(8);
         metadata.put(KnowledgeBaseService.META_SOURCE_TYPE, META_SOURCE_TYPE_CHAT_TURN);
         metadata.put(KnowledgeBaseService.META_USER_ID, userId.toString());
         metadata.put(META_CONVERSATION_ID, conversationId.toString());
@@ -117,7 +118,7 @@ public class ChatVectorMemoryService {
     }
 
     private boolean isDeletedMemoryDocument(UUID userId, Document document) {
-        if (document == null || document.getMetadata() == null) {
+        if (document == null) {
             return false;
         }
         Object deleted = document.getMetadata().get(META_DELETED);

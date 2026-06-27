@@ -7,8 +7,8 @@ import com.dayz.sc.ai.model.vo.ChatMessageVO;
 import com.dayz.sc.ai.model.vo.ConversationVO;
 import com.dayz.sc.ai.repository.ConversationRepository;
 import com.dayz.sc.ai.repository.MessageRepository;
-import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.error.BusinessException;
+import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.util.UuidV7Generator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -97,9 +97,9 @@ public class ConversationService {
     @Transactional(rollbackFor = Exception.class)
     public void deleteConversation(UUID conversationId, UUID userId) {
         requireOwnedConversation(conversationId, userId);
-        chatVectorMemoryService.deleteConversationMemory(conversationId, userId);
         messageRepository.deleteByConversationId(conversationId);
         conversationRepository.deleteByIdAndUserId(conversationId, userId);
+        chatVectorMemoryService.deleteConversationMemory(conversationId, userId);
     }
 
     /**

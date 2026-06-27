@@ -131,8 +131,8 @@
             <section class="preview-section">
               <h3>{{ t('questionBank.questionStem') }}</h3>
               <RichMathContent
-                :content="selectedQuestion.questionContent || selectedQuestion.questionTitle"
-                class="question-content rich-content"
+                  :content="selectedQuestion.questionContent || selectedQuestion.questionTitle"
+                  class="question-content rich-content"
               />
             </section>
 
@@ -148,8 +148,8 @@
                 >
                   <span class="option-label">{{ option.optionLabel }}</span>
                   <RichMathContent
-                    :content="option.optionContent"
-                    class="option-content rich-content"
+                      :content="option.optionContent"
+                      class="option-content rich-content"
                   />
                 </div>
               </div>
@@ -161,10 +161,10 @@
               <p v-if="selectedQuestionLoading" class="muted-text">{{ t('questionBank.loadingDetail') }}</p>
               <div v-else-if="answerItems.length" class="answer-list">
                 <RichMathContent
-                  v-for="answer in answerItems"
-                  :key="answer"
-                  :content="answer"
-                  class="answer-row rich-content"
+                    v-for="answer in answerItems"
+                    :key="answer"
+                    :content="answer"
+                    class="answer-row rich-content"
                 />
               </div>
               <p v-else class="muted-text">{{ t('questionBank.noAnswer') }}</p>
@@ -173,8 +173,8 @@
             <section v-if="showAnswer" class="preview-section">
               <h3>{{ t('questionBank.explanation') }}</h3>
               <RichMathContent
-                :content="explanationText"
-                class="explanation-content rich-content"
+                  :content="explanationText"
+                  class="explanation-content rich-content"
               />
             </section>
 

@@ -7,11 +7,7 @@ import com.dayz.sc.course.model.entity.Question;
 import com.dayz.sc.course.model.entity.QuestionBank;
 import com.dayz.sc.course.model.enums.QuestionStatus;
 import com.dayz.sc.course.model.vo.BatchCreateQuestionsResponse;
-import com.dayz.sc.course.repository.CourseTeacherRepository;
-import com.dayz.sc.course.repository.QuestionAnswerRepository;
-import com.dayz.sc.course.repository.QuestionBankRepository;
-import com.dayz.sc.course.repository.QuestionOptionRepository;
-import com.dayz.sc.course.repository.QuestionRepository;
+import com.dayz.sc.course.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,12 +22,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class QuestionBankServiceTest {
@@ -51,6 +43,9 @@ class QuestionBankServiceTest {
     @Mock
     private CourseTeacherRepository courseTeacherRepository;
 
+    @Mock
+    private CourseContentDeletionRepository courseContentDeletionRepository;
+
     private QuestionBankService questionBankService;
 
     @BeforeEach
@@ -61,7 +56,8 @@ class QuestionBankServiceTest {
                 questionOptionRepository,
                 questionAnswerRepository,
                 courseTeacherRepository,
-                mock(CourseContentAccessService.class)
+                mock(CourseContentAccessService.class),
+                courseContentDeletionRepository
         );
     }
 
@@ -151,6 +147,21 @@ class QuestionBankServiceTest {
         assertThat(response.importedCount()).isEqualTo(1);
         verify(courseTeacherRepository, never()).existsByCourseIdAndTeacherId(courseId, adminId);
         verify(questionRepository).save(any());
+    }
+
+    @Test
+    void deleteQuestionBank_shouldDeleteBankContentBeforeBank() {
+        UUID bankId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+        QuestionBank bank = bank(bankId, courseId);
+        UUID ownerId = bank.getSysUserId();
+        when(questionBankRepository.findById(bankId)).thenReturn(Optional.of(bank));
+
+        questionBankService.deleteQuestionBank(bankId, ownerId, 2);
+
+        var inOrder = inOrder(courseContentDeletionRepository, questionBankRepository);
+        inOrder.verify(courseContentDeletionRepository).deleteQuestionBankContent(bankId);
+        inOrder.verify(questionBankRepository).deleteById(bankId);
     }
 
     private BatchCreateQuestionsRequest request(UUID bankId, QuestionImportRequest... questions) {

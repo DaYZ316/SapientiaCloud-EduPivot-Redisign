@@ -14,15 +14,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
 import java.util.UUID;
 
+/**
+ * LiveSummaryController.
+ *
+ * @author DaYZ
+ */
 @RestController
 @RequestMapping("/api/ai/live-summaries/class-sessions/{sessionId}")
 @RequiredArgsConstructor
@@ -65,7 +66,7 @@ public class LiveSummaryController {
     }
 
     @GetMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public ResponseEntity<Flux<@NonNull ServerSentEvent<String>>> stream(
+    public ResponseEntity<@NonNull Flux<@NonNull ServerSentEvent<@NonNull String>>> stream(
             @PathVariable UUID sessionId,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);

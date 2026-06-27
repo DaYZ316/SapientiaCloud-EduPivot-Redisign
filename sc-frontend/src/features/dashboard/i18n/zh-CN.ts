@@ -82,7 +82,7 @@ export default {
             courseCapacity: '课程容量 Top',
             notificationCenter: '系统通知中心',
             recentActivity: '最近平台活动',
-            todayTeaching: '今日教学安排',
+            todayTeaching: '教学安排',
             courseOps: '课程运营卡片',
             teachingActions: '教学动作',
             learningOps: '学情与课程运营',

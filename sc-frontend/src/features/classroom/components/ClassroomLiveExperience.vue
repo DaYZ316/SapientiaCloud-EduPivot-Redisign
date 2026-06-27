@@ -1,14 +1,14 @@
 ﻿<template>
-  <aside class="classroom-live-experience" :class="modeClass">
+  <aside :class="modeClass" class="classroom-live-experience">
     <header class="live-header">
       <button
-        v-if="isFullscreenLayout"
-        class="header-icon-button back-button"
-        type="button"
-        :title="t('courseDetail.live.backToWindow')"
-        @click="handleBack"
+          v-if="isFullscreenLayout"
+          :title="t('courseDetail.live.backToWindow')"
+          class="header-icon-button back-button"
+          type="button"
+          @click="handleBack"
       >
-        <ArrowLeft :size="24" stroke-width="2" />
+        <ArrowLeft :size="24" stroke-width="2"/>
         <span class="header-back-label">{{ t('courseDetail.live.back') }}</span>
       </button>
 
@@ -20,94 +20,95 @@
           </span>
         </h2>
         <div class="live-meta-row">
-          <span class="live-status" :class="{active: isLive}">
-            <span />
+          <span :class="{active: isLive}" class="live-status">
+            <span/>
             {{ liveStatusLabel }}
           </span>
-          <span class="meta-divider" />
+          <span class="meta-divider"/>
           <span class="live-stat">
-            <Eye v-if="!isFullscreenLayout" :size="15" stroke-width="2" />
+            <Eye v-if="!isFullscreenLayout" :size="15" stroke-width="2"/>
             {{ audienceLabel }}
           </span>
-          <span class="meta-divider" />
+          <span class="meta-divider"/>
           <span>{{ latencyLabel }}</span>
         </div>
       </div>
 
       <div v-if="!isFullscreenLayout" class="header-actions">
         <button
-          v-if="showTeacherControls"
-          class="header-icon-button controls-header-toggle"
-          type="button"
-          :aria-expanded="!controlsCollapsed"
-          :title="controlsPanelToggleTitle"
-          @click="toggleControlsPanel"
+            v-if="showTeacherControls"
+            :aria-expanded="!controlsCollapsed"
+            :title="controlsPanelToggleTitle"
+            class="header-icon-button controls-header-toggle"
+            type="button"
+            @click="toggleControlsPanel"
         >
-          <ChevronUp v-if="controlsCollapsed" :size="20" stroke-width="2" />
-          <ChevronDown v-else :size="20" stroke-width="2" />
+          <ChevronUp v-if="controlsCollapsed" :size="20" stroke-width="2"/>
+          <ChevronDown v-else :size="20" stroke-width="2"/>
         </button>
         <button
-          class="header-icon-button"
-          type="button"
-          :title="t('courseDetail.live.expandLive')"
-          @click="expandInPage"
+            :title="t('courseDetail.live.expandLive')"
+            class="header-icon-button"
+            type="button"
+            @click="expandInPage"
         >
-          <Maximize2 :size="22" stroke-width="2" />
+          <Maximize2 :size="22" stroke-width="2"/>
         </button>
         <button
-          class="header-icon-button"
-          type="button"
-          :title="t('courseDetail.live.closeWindow')"
-          @click="$emit('close')"
+            :title="t('courseDetail.live.closeWindow')"
+            class="header-icon-button"
+            type="button"
+            @click="$emit('close')"
         >
-          <X :size="22" stroke-width="2" />
+          <X :size="22" stroke-width="2"/>
         </button>
       </div>
     </header>
 
     <div class="live-layout">
       <main class="live-main-column">
-        <section ref="stageElement" class="live-stage" :class="{paused: isPaused, 'screen-share-active': screenShareActive, loading: showStageLoading}">
+        <section ref="stageElement" :class="{paused: isPaused, 'screen-share-active': screenShareActive, loading: showStageLoading}"
+                 class="live-stage">
           <video
-            v-if="isTeacher"
-            :ref="setLocalVideo"
-            autoplay
-            class="live-video"
-            muted
-            playsinline
+              v-if="isTeacher"
+              :ref="setLocalVideo"
+              autoplay
+              class="live-video"
+              muted
+              playsinline
           />
           <video
-            v-else
-            :ref="setRemoteVideo"
-            autoplay
-            class="live-video"
-            playsinline
+              v-else
+              :ref="setRemoteVideo"
+              autoplay
+              class="live-video"
+              playsinline
           />
           <video
-            v-if="showLocalCameraOverlay"
-            :ref="setLocalCameraVideo"
-            autoplay
-            class="camera-overlay"
-            :class="cameraOverlayClass"
-            muted
-            playsinline
+              v-if="showLocalCameraOverlay"
+              :ref="setLocalCameraVideo"
+              :class="cameraOverlayClass"
+              autoplay
+              class="camera-overlay"
+              muted
+              playsinline
           />
           <video
-            v-if="showRemoteCameraOverlay"
-            :ref="setRemoteCameraVideo"
-            autoplay
-            class="camera-overlay"
-            :class="cameraOverlayClass"
-            playsinline
+              v-if="showRemoteCameraOverlay"
+              :ref="setRemoteCameraVideo"
+              :class="cameraOverlayClass"
+              autoplay
+              class="camera-overlay"
+              playsinline
           />
-          <audio v-if="!isTeacher" :ref="setRemoteAudio" autoplay />
+          <audio v-if="!isTeacher" :ref="setRemoteAudio" autoplay/>
 
           <div v-if="stageMessage" class="stage-overlay">
-            <PlayCircle :size="isFullscreenLayout ? 54 : 44" stroke-width="1.7" />
+            <PlayCircle :size="isFullscreenLayout ? 54 : 44" stroke-width="1.7"/>
             <span>{{ stageMessage }}</span>
           </div>
 
-          <div v-if="showStageLoading" class="live-stage-loading" aria-hidden="true">
+          <div v-if="showStageLoading" aria-hidden="true" class="live-stage-loading">
             <div class="stage-loading-frame">
               <span class="live-skeleton stage-loading-title"></span>
               <span class="live-skeleton stage-loading-line wide"></span>
@@ -118,15 +119,15 @@
             </div>
           </div>
 
-          <div class="danmaku-layer" aria-live="polite">
+          <div aria-live="polite" class="danmaku-layer">
             <span
-              v-for="item in danmakuItems"
-              :key="item.id"
-              class="danmaku-item"
-              :style="{
+                v-for="item in danmakuItems"
+                :key="item.id"
+                :style="{
                 '--danmaku-lane': item.lane,
                 '--danmaku-duration': `${item.duration}s`,
               }"
+                class="danmaku-item"
             >
               {{ item.text }}
             </span>
@@ -135,41 +136,42 @@
           <div class="stage-hover-layer">
             <span>{{ t('courseDetail.live.renderView') }}</span>
             <button
-              class="stage-expand-button"
-              type="button"
-              :title="isPlayerFullscreen ? t('courseDetail.live.exitPlayerFullscreen') : t('courseDetail.live.enterPlayerFullscreen')"
-              :aria-label="isPlayerFullscreen ? t('courseDetail.live.exitPlayerFullscreen') : t('courseDetail.live.enterPlayerFullscreen')"
-              @click.stop="togglePlayerFullscreen"
+                :aria-label="isPlayerFullscreen ? t('courseDetail.live.exitPlayerFullscreen') : t('courseDetail.live.enterPlayerFullscreen')"
+                :title="isPlayerFullscreen ? t('courseDetail.live.exitPlayerFullscreen') : t('courseDetail.live.enterPlayerFullscreen')"
+                class="stage-expand-button"
+                type="button"
+                @click.stop="togglePlayerFullscreen"
             >
-              <Minimize2 v-if="isPlayerFullscreen" :size="18" stroke-width="2" />
-              <Maximize2 v-else :size="18" stroke-width="2" />
+              <Minimize2 v-if="isPlayerFullscreen" :size="18" stroke-width="2"/>
+              <Maximize2 v-else :size="18" stroke-width="2"/>
             </button>
           </div>
 
           <form class="player-danmaku-form" @submit.prevent="submitMessage">
             <input
-              v-model.trim="draft"
-              :disabled="!canChat || sending"
-              maxlength="300"
-              :placeholder="t('courseDetail.live.fullscreenMessagePlaceholder')"
+                v-model.trim="draft"
+                :disabled="!canChat || sending"
+                :placeholder="t('courseDetail.live.fullscreenMessagePlaceholder')"
+                maxlength="300"
             >
-            <button type="submit" :disabled="!canChat || sending || !draft" :aria-label="t('courseDetail.live.sendMessage')">
-              <Send :size="18" stroke-width="2" />
+            <button :aria-label="t('courseDetail.live.sendMessage')" :disabled="!canChat || sending || !draft"
+                    type="submit">
+              <Send :size="18" stroke-width="2"/>
             </button>
           </form>
         </section>
 
         <section v-if="showCameraPositionControls" class="overlay-position-controls">
           <span class="overlay-position-label">{{ t('courseDetail.live.cameraPosition') }}</span>
-          <div class="position-options" role="group" :aria-label="t('courseDetail.live.cameraPositionGroup')">
+          <div :aria-label="t('courseDetail.live.cameraPositionGroup')" class="position-options" role="group">
             <button
-              v-for="option in overlayPositionOptions"
-              :key="option.value"
-              class="position-option"
-              :class="{active: live.cameraOverlayPosition.value === option.value}"
-              type="button"
-              :disabled="!live.connected.value"
-              @click="chooseCameraOverlayPosition(option.value)"
+                v-for="option in overlayPositionOptions"
+                :key="option.value"
+                :class="{active: live.cameraOverlayPosition.value === option.value}"
+                :disabled="!live.connected.value"
+                class="position-option"
+                type="button"
+                @click="chooseCameraOverlayPosition(option.value)"
             >
               {{ t(option.labelKey) }}
             </button>
@@ -183,8 +185,9 @@
         <section v-if="!isFullscreenLayout" class="chat-panel">
           <h3>{{ t('courseDetail.live.discussion') }}</h3>
           <div class="chat-list">
-            <div v-if="messagesLoading && messages.length === 0" class="chat-loading-list" :aria-label="t('courseDetail.live.loadingDiscussion')" aria-live="polite">
-              <article v-for="item in 4" :key="item" class="chat-loading-row" aria-hidden="true">
+            <div v-if="messagesLoading && messages.length === 0" :aria-label="t('courseDetail.live.loadingDiscussion')"
+                 aria-live="polite" class="chat-loading-list">
+              <article v-for="item in 4" :key="item" aria-hidden="true" class="chat-loading-row">
                 <span class="live-skeleton chat-loading-avatar"></span>
                 <span class="chat-loading-copy">
                   <span class="live-skeleton chat-loading-name"></span>
@@ -195,13 +198,13 @@
             <p v-else-if="messages.length === 0" class="empty">{{ t('courseDetail.live.noMessages') }}</p>
             <article v-for="message in messages" :key="message.id" class="chat-message">
               <UserAvatarLink
-                :avatar-url="message.senderAvatarUrl"
-                :display-name="senderName(message)"
-                :linkable="false"
-                :show-name="false"
-                :user-id="message.senderId"
-                class="chat-avatar-link"
-                size="small"
+                  :avatar-url="message.senderAvatarUrl"
+                  :display-name="senderName(message)"
+                  :linkable="false"
+                  :show-name="false"
+                  :user-id="message.senderId"
+                  class="chat-avatar-link"
+                  size="small"
               />
               <div class="chat-body">
                 <div class="chat-meta">
@@ -217,13 +220,14 @@
           </div>
           <form class="chat-form" @submit.prevent="submitMessage">
             <input
-              v-model.trim="draft"
-              :disabled="!canChat || sending"
-              maxlength="300"
-              :placeholder="t('courseDetail.live.messagePlaceholder')"
+                v-model.trim="draft"
+                :disabled="!canChat || sending"
+                :placeholder="t('courseDetail.live.messagePlaceholder')"
+                maxlength="300"
             >
-            <button type="submit" :disabled="!canChat || sending || !draft" :aria-label="t('courseDetail.live.sendMessage')">
-              <Send :size="18" stroke-width="2" />
+            <button :aria-label="t('courseDetail.live.sendMessage')" :disabled="!canChat || sending || !draft"
+                    type="submit">
+              <Send :size="18" stroke-width="2"/>
             </button>
           </form>
         </section>
@@ -232,26 +236,26 @@
       <aside v-if="isFullscreenLayout" class="live-side-panel">
         <div class="side-tabs">
           <button
-            class="side-tab"
-            :class="{active: activeSideTab === 'chat'}"
-            type="button"
-            @click="activeSideTab = 'chat'"
+              :class="{active: activeSideTab === 'chat'}"
+              class="side-tab"
+              type="button"
+              @click="activeSideTab = 'chat'"
           >
             {{ t('courseDetail.live.chatTab') }}
           </button>
           <button
-            class="side-tab"
-            :class="{active: activeSideTab === 'notes'}"
-            type="button"
-            @click="activeSideTab = 'notes'"
+              :class="{active: activeSideTab === 'notes'}"
+              class="side-tab"
+              type="button"
+              @click="activeSideTab = 'notes'"
           >
             {{ t('courseDetail.live.notesTab') }}
           </button>
           <button
-            class="side-tab"
-            :class="{active: activeSideTab === 'online'}"
-            type="button"
-            @click="activeSideTab = 'online'"
+              :class="{active: activeSideTab === 'online'}"
+              class="side-tab"
+              type="button"
+              @click="activeSideTab = 'online'"
           >
             {{ t('courseDetail.live.onlineTab') }}
           </button>
@@ -260,15 +264,16 @@
         <template v-if="activeSideTab === 'chat'">
           <section class="ai-summary-card sidebar-summary">
             <header>
-              <Sparkles :size="22" stroke-width="1.8" />
+              <Sparkles :size="22" stroke-width="1.8"/>
               <h3>{{ t('courseDetail.live.aiSummaryTitle') }}</h3>
             </header>
             <p>{{ summaryText }}</p>
           </section>
 
           <div class="chat-list sidebar-chat-list">
-            <div v-if="messagesLoading && messages.length === 0" class="chat-loading-list" :aria-label="t('courseDetail.live.loadingDiscussion')" aria-live="polite">
-              <article v-for="item in 5" :key="item" class="chat-loading-row sidebar-loading-row" aria-hidden="true">
+            <div v-if="messagesLoading && messages.length === 0" :aria-label="t('courseDetail.live.loadingDiscussion')"
+                 aria-live="polite" class="chat-loading-list">
+              <article v-for="item in 5" :key="item" aria-hidden="true" class="chat-loading-row sidebar-loading-row">
                 <span class="live-skeleton chat-loading-avatar"></span>
                 <span class="chat-loading-copy">
                   <span class="live-skeleton chat-loading-name"></span>
@@ -279,13 +284,13 @@
             <p v-else-if="messages.length === 0" class="empty">{{ t('courseDetail.live.noMessages') }}</p>
             <article v-for="message in messages" :key="message.id" class="chat-message sidebar-message">
               <UserAvatarLink
-                :avatar-url="message.senderAvatarUrl"
-                :display-name="senderName(message)"
-                :linkable="false"
-                :show-name="false"
-                :user-id="message.senderId"
-                class="chat-avatar-link"
-                size="small"
+                  :avatar-url="message.senderAvatarUrl"
+                  :display-name="senderName(message)"
+                  :linkable="false"
+                  :show-name="false"
+                  :user-id="message.senderId"
+                  class="chat-avatar-link"
+                  size="small"
               />
               <div class="chat-body">
                 <div class="chat-meta">
@@ -302,13 +307,14 @@
 
           <form class="chat-form sidebar-chat-form" @submit.prevent="submitMessage">
             <input
-              v-model.trim="draft"
-              :disabled="!canChat || sending"
-              maxlength="300"
-              :placeholder="t('courseDetail.live.fullscreenMessagePlaceholder')"
+                v-model.trim="draft"
+                :disabled="!canChat || sending"
+                :placeholder="t('courseDetail.live.fullscreenMessagePlaceholder')"
+                maxlength="300"
             >
-            <button type="submit" :disabled="!canChat || sending || !draft" :aria-label="t('courseDetail.live.sendMessage')">
-              <Send :size="18" stroke-width="2" />
+            <button :aria-label="t('courseDetail.live.sendMessage')" :disabled="!canChat || sending || !draft"
+                    type="submit">
+              <Send :size="18" stroke-width="2"/>
             </button>
           </form>
         </template>
@@ -338,8 +344,9 @@
             <span>{{ live.onlineCount.value }}</span>
           </header>
           <div class="online-list">
-            <div v-if="participantsLoading && live.onlineParticipants.value.length === 0" class="online-loading-list" :aria-label="t('courseDetail.live.loadingOnline')" aria-live="polite">
-              <article v-for="item in 4" :key="item" class="online-loading-row" aria-hidden="true">
+            <div v-if="participantsLoading && live.onlineParticipants.value.length === 0" :aria-label="t('courseDetail.live.loadingOnline')"
+                 aria-live="polite" class="online-loading-list">
+              <article v-for="item in 4" :key="item" aria-hidden="true" class="online-loading-row">
                 <span class="live-skeleton chat-loading-avatar"></span>
                 <span class="chat-loading-copy">
                   <span class="live-skeleton chat-loading-name"></span>
@@ -348,26 +355,28 @@
                 <span class="live-skeleton online-loading-chip"></span>
               </article>
             </div>
-            <p v-else-if="live.onlineParticipants.value.length === 0" class="empty">{{ t('courseDetail.live.noOnline') }}</p>
+            <p v-else-if="live.onlineParticipants.value.length === 0" class="empty">{{
+                t('courseDetail.live.noOnline')
+              }}</p>
             <article
-              v-for="participant in live.onlineParticipants.value"
-              :key="participant.identity"
-              class="online-row"
+                v-for="participant in live.onlineParticipants.value"
+                :key="participant.identity"
+                class="online-row"
             >
               <UserAvatarLink
-                :avatar-url="participant.avatarUrl"
-                :display-name="participant.displayName"
-                :linkable="false"
-                :show-name="false"
-                :user-id="participant.userId"
-                class="online-avatar-link"
-                size="small"
+                  :avatar-url="participant.avatarUrl"
+                  :display-name="participant.displayName"
+                  :linkable="false"
+                  :show-name="false"
+                  :user-id="participant.userId"
+                  class="online-avatar-link"
+                  size="small"
               />
               <div class="online-body">
                 <strong>{{ participant.displayName }}</strong>
                 <span>{{ onlineParticipantMeta(participant) }}</span>
               </div>
-              <span class="quality-chip" :class="qualityClass(participant.connectionQuality)">
+              <span :class="qualityClass(participant.connectionQuality)" class="quality-chip">
                 {{ qualityLabel(participant.connectionQuality) }}
               </span>
             </article>
@@ -377,168 +386,168 @@
     </div>
 
     <button
-      v-if="showTeacherControls && isFullscreenLayout"
-      class="dock-collapse-button"
-      :class="{collapsed: controlsCollapsed}"
-      type="button"
-      :aria-expanded="!controlsCollapsed"
-      :title="controlsPanelToggleTitle"
-      @click="toggleControlsPanel"
+        v-if="showTeacherControls && isFullscreenLayout"
+        :aria-expanded="!controlsCollapsed"
+        :class="{collapsed: controlsCollapsed}"
+        :title="controlsPanelToggleTitle"
+        class="dock-collapse-button"
+        type="button"
+        @click="toggleControlsPanel"
     >
-      <ChevronUp v-if="controlsCollapsed" :size="18" stroke-width="2" />
-      <ChevronDown v-else :size="18" stroke-width="2" />
+      <ChevronUp v-if="controlsCollapsed" :size="18" stroke-width="2"/>
+      <ChevronDown v-else :size="18" stroke-width="2"/>
     </button>
 
     <nav
-      v-if="showTeacherControls"
-      class="live-bottom-dock"
-      :class="{collapsed: controlsCollapsed}"
-      :aria-hidden="controlsCollapsed"
-      :inert="controlsCollapsed"
-      :aria-label="t('courseDetail.live.controls')"
+        v-if="showTeacherControls"
+        :aria-hidden="controlsCollapsed"
+        :aria-label="t('courseDetail.live.controls')"
+        :class="{collapsed: controlsCollapsed}"
+        :inert="controlsCollapsed"
+        class="live-bottom-dock"
     >
       <button
-        class="dock-button"
-        :class="{active: live.microphoneEnabled.value}"
-        type="button"
-        :disabled="mediaControlsDisabled || isLoadingAction('microphone')"
-        :title="live.microphoneEnabled.value ? t('courseDetail.live.muteMic') : t('courseDetail.live.enableMic')"
-        @click="toggleMicrophone"
+          :class="{active: live.microphoneEnabled.value}"
+          :disabled="mediaControlsDisabled || isLoadingAction('microphone')"
+          :title="live.microphoneEnabled.value ? t('courseDetail.live.muteMic') : t('courseDetail.live.enableMic')"
+          class="dock-button"
+          type="button"
+          @click="toggleMicrophone"
       >
-        <span v-if="isLoadingAction('microphone')" class="button-spinner" aria-hidden="true" />
-        <Mic v-else-if="live.microphoneEnabled.value" :size="22" stroke-width="2" />
-        <MicOff v-else :size="22" stroke-width="2" />
+        <span v-if="isLoadingAction('microphone')" aria-hidden="true" class="button-spinner"/>
+        <Mic v-else-if="live.microphoneEnabled.value" :size="22" stroke-width="2"/>
+        <MicOff v-else :size="22" stroke-width="2"/>
       </button>
 
       <button
-        class="dock-button"
-        :class="{active: live.cameraEnabled.value}"
-        type="button"
-        :disabled="mediaControlsDisabled || isLoadingAction('camera')"
-        :title="live.cameraEnabled.value ? t('courseDetail.live.turnOffCamera') : t('courseDetail.live.turnOnCamera')"
-        @click="toggleCamera"
+          :class="{active: live.cameraEnabled.value}"
+          :disabled="mediaControlsDisabled || isLoadingAction('camera')"
+          :title="live.cameraEnabled.value ? t('courseDetail.live.turnOffCamera') : t('courseDetail.live.turnOnCamera')"
+          class="dock-button"
+          type="button"
+          @click="toggleCamera"
       >
-        <span v-if="isLoadingAction('camera')" class="button-spinner" aria-hidden="true" />
-        <Video v-else-if="live.cameraEnabled.value" :size="22" stroke-width="2" />
-        <VideoOff v-else :size="22" stroke-width="2" />
+        <span v-if="isLoadingAction('camera')" aria-hidden="true" class="button-spinner"/>
+        <Video v-else-if="live.cameraEnabled.value" :size="22" stroke-width="2"/>
+        <VideoOff v-else :size="22" stroke-width="2"/>
       </button>
 
-      <span class="dock-divider" />
+      <span class="dock-divider"/>
 
       <button
-        class="dock-button"
-        :class="{active: live.screenShareEnabled.value}"
-        type="button"
-        :disabled="mediaControlsDisabled || isLoadingAction('screenShare')"
-        :title="live.screenShareEnabled.value ? t('courseDetail.live.stopSharing') : t('courseDetail.live.shareScreen')"
-        @click="toggleScreenShare"
+          :class="{active: live.screenShareEnabled.value}"
+          :disabled="mediaControlsDisabled || isLoadingAction('screenShare')"
+          :title="live.screenShareEnabled.value ? t('courseDetail.live.stopSharing') : t('courseDetail.live.shareScreen')"
+          class="dock-button"
+          type="button"
+          @click="toggleScreenShare"
       >
-        <span v-if="isLoadingAction('screenShare')" class="button-spinner" aria-hidden="true" />
-        <ScreenShare v-else :size="22" stroke-width="2" />
+        <span v-if="isLoadingAction('screenShare')" aria-hidden="true" class="button-spinner"/>
+        <ScreenShare v-else :size="22" stroke-width="2"/>
       </button>
 
       <button
-        v-if="isTeacher && canStart"
-        class="dock-button call-button"
-        type="button"
-        :disabled="busy || isLoadingAction('start')"
-        :title="startButtonText"
-        @click="startLive"
+          v-if="isTeacher && canStart"
+          :disabled="busy || isLoadingAction('start')"
+          :title="startButtonText"
+          class="dock-button call-button"
+          type="button"
+          @click="startLive"
       >
-        <span v-if="isLoadingAction('start')" class="button-spinner" aria-hidden="true" />
-        <Phone v-else :size="22" stroke-width="2" />
+        <span v-if="isLoadingAction('start')" aria-hidden="true" class="button-spinner"/>
+        <Phone v-else :size="22" stroke-width="2"/>
       </button>
       <button
-        v-else-if="isTeacher && isLive"
-        class="dock-button"
-        type="button"
-        :disabled="busy || isLoadingAction('pause')"
-        :title="t('courseDetail.live.pauseLive')"
-        @click="pauseLive"
+          v-else-if="isTeacher && isLive"
+          :disabled="busy || isLoadingAction('pause')"
+          :title="t('courseDetail.live.pauseLive')"
+          class="dock-button"
+          type="button"
+          @click="pauseLive"
       >
-        <span v-if="isLoadingAction('pause')" class="button-spinner" aria-hidden="true" />
-        <Pause v-else :size="22" stroke-width="2" />
+        <span v-if="isLoadingAction('pause')" aria-hidden="true" class="button-spinner"/>
+        <Pause v-else :size="22" stroke-width="2"/>
       </button>
       <button
-        v-else-if="isTeacher && isPaused"
-        class="dock-button"
-        type="button"
-        :disabled="busy || isLoadingAction('resume')"
-        :title="t('courseDetail.live.resumeLive')"
-        @click="resumeLive"
+          v-else-if="isTeacher && isPaused"
+          :disabled="busy || isLoadingAction('resume')"
+          :title="t('courseDetail.live.resumeLive')"
+          class="dock-button"
+          type="button"
+          @click="resumeLive"
       >
-        <span v-if="isLoadingAction('resume')" class="button-spinner" aria-hidden="true" />
-        <Play v-else :size="22" stroke-width="2" />
+        <span v-if="isLoadingAction('resume')" aria-hidden="true" class="button-spinner"/>
+        <Play v-else :size="22" stroke-width="2"/>
       </button>
-      <button v-else class="dock-button" type="button" disabled :title="t('courseDetail.live.raiseHand')">
-        <Hand :size="22" stroke-width="2" />
+      <button v-else :title="t('courseDetail.live.raiseHand')" class="dock-button" disabled type="button">
+        <Hand :size="22" stroke-width="2"/>
       </button>
 
-      <span class="dock-divider" />
+      <span class="dock-divider"/>
 
       <button
-        class="dock-button stop-live-button"
-        :class="{danger: canStop}"
-        type="button"
-        :disabled="busy || !canStop || isLoadingAction('stop')"
-        :title="stopButtonTitle"
-        @click="endLive"
+          :class="{danger: canStop}"
+          :disabled="busy || !canStop || isLoadingAction('stop')"
+          :title="stopButtonTitle"
+          class="dock-button stop-live-button"
+          type="button"
+          @click="endLive"
       >
-        <span v-if="isLoadingAction('stop')" class="button-spinner" aria-hidden="true" />
-        <PhoneOff v-else :size="22" stroke-width="2" />
+        <span v-if="isLoadingAction('stop')" aria-hidden="true" class="button-spinner"/>
+        <PhoneOff v-else :size="22" stroke-width="2"/>
         <span v-if="isFullscreenLayout">{{ t('courseDetail.live.end') }}</span>
       </button>
     </nav>
   </aside>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import {computed, onMounted, onUnmounted, ref, toRef, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {
-    ArrowLeft,
-    ChevronDown,
-    ChevronUp,
-    Eye,
-    Hand,
-    Maximize2,
-    Minimize2,
-    Mic,
-    MicOff,
-    Pause,
-    Phone,
-    PhoneOff,
-    Play,
-    PlayCircle,
-    ScreenShare,
-    Send,
-    Sparkles,
-    Video,
-    VideoOff,
-    X,
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  Hand,
+  Maximize2,
+  Mic,
+  MicOff,
+  Minimize2,
+  Pause,
+  Phone,
+  PhoneOff,
+  Play,
+  PlayCircle,
+  ScreenShare,
+  Send,
+  Sparkles,
+  Video,
+  VideoOff,
+  X,
 } from 'lucide-vue-next'
 
 import {
-    listClassBarrages,
-    listClassSessionParticipants,
-    pauseClassLive,
-    resumeClassLive,
-    sendClassBarrage,
-    startClassLive,
-    stopClassLive,
-    subscribeClassBarrages,
+  listClassBarrages,
+  listClassSessionParticipants,
+  pauseClassLive,
+  resumeClassLive,
+  sendClassBarrage,
+  startClassLive,
+  stopClassLive,
+  subscribeClassBarrages,
 } from '@/features/course/api/classSession'
 import {
-    ClassLiveStatus,
-    ClassSessionStatus,
-    type ClassBarrage,
-    type ClassParticipant,
-    type ClassSession,
+  type ClassBarrage,
+  ClassLiveStatus,
+  type ClassParticipant,
+  type ClassSession,
+  ClassSessionStatus,
 } from '@/features/course/types/classSession'
 import {type CameraOverlayPosition, useClassroomLive} from '@/features/classroom/composables/useClassroomLive'
 import {
-    TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT,
-    useTeacherLiveSessionGuard,
+  TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT,
+  useTeacherLiveSessionGuard,
 } from '@/features/classroom/composables/useTeacherLiveSessionGuard'
 import type {LiveOnlineParticipant} from '@/features/classroom/composables/livePresence'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
@@ -549,24 +558,24 @@ const DANMAKU_LANE_COUNT = 6
 const MAX_DANMAKU_ITEMS = 14
 
 const props = withDefaults(defineProps<{
-    session: ClassSession
-    isTeacher: boolean
-    canParticipate: boolean
-    mode?: 'popup' | 'fullscreen'
+  session: ClassSession
+  isTeacher: boolean
+  canParticipate: boolean
+  mode?: 'popup' | 'fullscreen'
 }>(), {
-    mode: 'popup',
+  mode: 'popup',
 })
 
 const emit = defineEmits<{
-    close: []
-    'session-change': [session: ClassSession]
+  close: []
+  'session-change': [session: ClassSession]
 }>()
 
 const {t, locale} = useI18n()
 const live = useClassroomLive(toRef(props, 'session'), toRef(props, 'isTeacher'))
 useTeacherLiveSessionGuard({
-    session: toRef(props, 'session'),
-    isTeacher: toRef(props, 'isTeacher'),
+  session: toRef(props, 'session'),
+  isTeacher: toRef(props, 'isTeacher'),
 })
 const activeSideTab = ref<'chat' | 'notes' | 'online'>('chat')
 const messages = ref<ClassBarrage[]>([])
@@ -582,26 +591,26 @@ const loadingAction = ref<LiveControlAction | null>(null)
 const messagesLoading = ref(false)
 const participantsLoading = ref(false)
 const isPlayerFullscreen = ref(false)
-const overlayPositionOptions: {labelKey: string; value: CameraOverlayPosition}[] = [
-    {labelKey: 'courseDetail.live.overlayTopLeft', value: 'top-left'},
-    {labelKey: 'courseDetail.live.overlayTopRight', value: 'top-right'},
-    {labelKey: 'courseDetail.live.overlayBottomLeft', value: 'bottom-left'},
-    {labelKey: 'courseDetail.live.overlayBottomRight', value: 'bottom-right'},
+const overlayPositionOptions: { labelKey: string; value: CameraOverlayPosition }[] = [
+  {labelKey: 'courseDetail.live.overlayTopLeft', value: 'top-left'},
+  {labelKey: 'courseDetail.live.overlayTopRight', value: 'top-right'},
+  {labelKey: 'courseDetail.live.overlayBottomLeft', value: 'bottom-left'},
+  {labelKey: 'courseDetail.live.overlayBottomRight', value: 'bottom-right'},
 ]
-let chatSubscription: {close: () => void} | null = null
+let chatSubscription: { close: () => void } | null = null
 type LiveControlAction = 'microphone' | 'camera' | 'screenShare' | 'start' | 'pause' | 'resume' | 'stop'
 type DanmakuItem = {
-    id: string
-    text: string
-    lane: number
-    duration: number
+  id: string
+  text: string
+  lane: number
+  duration: number
 }
 
 const isFullscreenLayout = computed(() => props.mode === 'fullscreen' || expanded.value)
 const modeClass = computed(() => [
-    isFullscreenLayout.value ? 'mode-fullscreen' : 'mode-popup',
-    expanded.value ? 'mode-expanded-inline' : '',
-    props.isTeacher ? '' : 'controls-hidden',
+  isFullscreenLayout.value ? 'mode-fullscreen' : 'mode-popup',
+  expanded.value ? 'mode-expanded-inline' : '',
+  props.isTeacher ? '' : 'controls-hidden',
 ])
 const isNotStarted = computed(() => props.session.liveStatus === ClassLiveStatus.NOT_STARTED)
 const isLive = computed(() => props.session.liveStatus === ClassLiveStatus.LIVE)
@@ -623,16 +632,16 @@ const startButtonText = computed(() => isEnded.value ? t('courseDetail.live.rest
 const stopButtonTitle = computed(() => canStop.value ? t('courseDetail.live.endLiveStream') : t('courseDetail.live.streamNotRunning'))
 const controlsPanelToggleTitle = computed(() => controlsCollapsed.value ? t('courseDetail.live.showControls') : t('courseDetail.live.hideControls'))
 const liveStatusLabel = computed(() => {
-    if (isFullscreenLayout.value) {
-        if (isLive.value) return t('courseDetail.live.statusLiveShort')
-        if (isPaused.value) return t('courseDetail.live.statusPausedShort')
-        if (isEnded.value) return t('courseDetail.live.statusEndedShort')
-        return t('courseDetail.live.statusReadyShort')
-    }
-    if (isLive.value) return t('courseDetail.live.statusLive')
-    if (isPaused.value) return t('courseDetail.live.statusPaused')
-    if (isEnded.value) return t('courseDetail.live.statusEnded')
-    return t('courseDetail.live.statusReady')
+  if (isFullscreenLayout.value) {
+    if (isLive.value) return t('courseDetail.live.statusLiveShort')
+    if (isPaused.value) return t('courseDetail.live.statusPausedShort')
+    if (isEnded.value) return t('courseDetail.live.statusEndedShort')
+    return t('courseDetail.live.statusReadyShort')
+  }
+  if (isLive.value) return t('courseDetail.live.statusLive')
+  if (isPaused.value) return t('courseDetail.live.statusPaused')
+  if (isEnded.value) return t('courseDetail.live.statusEnded')
+  return t('courseDetail.live.statusReady')
 })
 const audienceLabel = computed(() => isFullscreenLayout.value
     ? t('courseDetail.live.onlineCount', {count: live.onlineCount.value})
@@ -641,382 +650,383 @@ const latencyLabel = computed(() => formatLiveLatencyLabel())
 const showStageLoading = computed(() => Boolean(props.canParticipate && live.connecting.value))
 const danmakuItems = computed<DanmakuItem[]>(() =>
     liveDanmakuMessages.value.map((message, index) => ({
-        id: message.id,
-        text: `${senderName(message)}: ${message.content}`,
-        lane: index % DANMAKU_LANE_COUNT,
-        duration: 11 + (index % 4),
+      id: message.id,
+      text: `${senderName(message)}: ${message.content}`,
+      lane: index % DANMAKU_LANE_COUNT,
+      duration: 11 + (index % 4),
     })),
 )
 const summaryText = computed(() => {
-    if (props.session.description) {
-        return props.session.description
-    }
-    if (isFullscreenLayout.value) {
-        return t('courseDetail.live.summaryFallbackFullscreen')
-    }
-    return t('courseDetail.live.summaryFallback')
+  if (props.session.description) {
+    return props.session.description
+  }
+  if (isFullscreenLayout.value) {
+    return t('courseDetail.live.summaryFallbackFullscreen')
+  }
+  return t('courseDetail.live.summaryFallback')
 })
 const stageMessage = computed(() => {
-    if (!props.canParticipate) return props.isTeacher ? '' : t('courseDetail.live.takeSeatWatch')
-    if (isPaused.value) return t('courseDetail.live.streamPaused')
-    if (isEnded.value && props.isTeacher && isClassOngoing.value) return t('courseDetail.live.streamEndedRestart')
-    if (isEnded.value) return t('courseDetail.live.streamEnded')
-    if (isNotStarted.value) return props.isTeacher ? t('courseDetail.live.pressPlayStart') : t('courseDetail.live.waitingTeacher')
-    if (live.connecting.value) return t('courseDetail.live.connecting')
-    if (live.errorMessage.value) return live.errorMessage.value
-    if (isLive.value && !live.hasVideoTrack.value) return t('courseDetail.live.waitingForVideo')
-    return ''
+  if (!props.canParticipate) return props.isTeacher ? '' : t('courseDetail.live.takeSeatWatch')
+  if (isPaused.value) return t('courseDetail.live.streamPaused')
+  if (isEnded.value && props.isTeacher && isClassOngoing.value) return t('courseDetail.live.streamEndedRestart')
+  if (isEnded.value) return t('courseDetail.live.streamEnded')
+  if (isNotStarted.value) return props.isTeacher ? t('courseDetail.live.pressPlayStart') : t('courseDetail.live.waitingTeacher')
+  if (live.connecting.value) return t('courseDetail.live.connecting')
+  if (live.errorMessage.value) return live.errorMessage.value
+  if (isLive.value && !live.hasVideoTrack.value) return t('courseDetail.live.waitingForVideo')
+  return ''
 })
 
 watch(() => props.session.liveStatus, handleLiveStatus, {immediate: true})
 watch(() => props.canParticipate, (canParticipate) => {
-    if (!canParticipate) {
-        void live.disconnect()
-        return
-    }
-    void loadParticipants()
-    handleLiveStatus(props.session.liveStatus)
+  if (!canParticipate) {
+    void live.disconnect()
+    return
+  }
+  void loadParticipants()
+  handleLiveStatus(props.session.liveStatus)
 })
 watch(() => props.session.id, () => {
-    participantDirectory.value = []
-    liveDanmakuMessages.value = []
-    live.setSessionParticipants([])
-    void loadParticipants()
+  participantDirectory.value = []
+  liveDanmakuMessages.value = []
+  live.setSessionParticipants([])
+  void loadParticipants()
 })
 watch(canChat, (enabled) => {
-    if (enabled) {
-        connectChat()
-        return
-    }
-    disconnectChat()
+  if (enabled) {
+    connectChat()
+    return
+  }
+  disconnectChat()
 }, {immediate: true})
 watch(controlsCollapsed, writeControlsCollapsedPreference)
 
 onMounted(async () => {
-    if (typeof document !== 'undefined') {
-        updatePlayerFullscreenState()
-        document.addEventListener('fullscreenchange', updatePlayerFullscreenState)
-        window.addEventListener(TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT, handleUnexpectedPaused)
-    }
-    await loadMessages()
-    await loadParticipants()
+  if (typeof document !== 'undefined') {
+    updatePlayerFullscreenState()
+    document.addEventListener('fullscreenchange', updatePlayerFullscreenState)
+    window.addEventListener(TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT, handleUnexpectedPaused)
+  }
+  await loadMessages()
+  await loadParticipants()
 })
 
 onUnmounted(() => {
-    disconnectChat()
-    if (typeof document !== 'undefined') {
-        document.removeEventListener('fullscreenchange', updatePlayerFullscreenState)
-        window.removeEventListener(TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT, handleUnexpectedPaused)
-    }
+  disconnectChat()
+  if (typeof document !== 'undefined') {
+    document.removeEventListener('fullscreenchange', updatePlayerFullscreenState)
+    window.removeEventListener(TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT, handleUnexpectedPaused)
+  }
 })
 
 function setLocalVideo(element: unknown) {
-    live.localVideoEl.value = element instanceof HTMLVideoElement ? element : null
-    live.attachLocalTracks()
+  live.localVideoEl.value = element instanceof HTMLVideoElement ? element : null
+  live.attachLocalTracks()
 }
 
 function setLocalCameraVideo(element: unknown) {
-    live.localCameraVideoEl.value = element instanceof HTMLVideoElement ? element : null
-    live.attachLocalTracks()
+  live.localCameraVideoEl.value = element instanceof HTMLVideoElement ? element : null
+  live.attachLocalTracks()
 }
 
 function setRemoteVideo(element: unknown) {
-    live.remoteVideoEl.value = element instanceof HTMLVideoElement ? element : null
-    live.attachRemoteTracks()
+  live.remoteVideoEl.value = element instanceof HTMLVideoElement ? element : null
+  live.attachRemoteTracks()
 }
 
 function setRemoteCameraVideo(element: unknown) {
-    live.remoteCameraVideoEl.value = element instanceof HTMLVideoElement ? element : null
-    live.attachRemoteTracks()
+  live.remoteCameraVideoEl.value = element instanceof HTMLVideoElement ? element : null
+  live.attachRemoteTracks()
 }
 
 function setRemoteAudio(element: unknown) {
-    live.remoteAudioEl.value = element instanceof HTMLAudioElement ? element : null
-    live.attachRemoteAudioTracks()
+  live.remoteAudioEl.value = element instanceof HTMLAudioElement ? element : null
+  live.attachRemoteAudioTracks()
 }
 
 function handleUnexpectedPaused(event: Event) {
-    const session = (event as CustomEvent<{session?: ClassSession}>).detail?.session
-    if (!session || session.id !== props.session.id) {
-        return
-    }
-    emit('session-change', session)
+  const session = (event as CustomEvent<{ session?: ClassSession }>).detail?.session
+  if (!session || session.id !== props.session.id) {
+    return
+  }
+  emit('session-change', session)
 }
 
 async function startLive() {
-    await runControlAction('start', async () => {
-        await updateLiveStatus(() => startClassLive(props.session.id))
-        await live.connect()
-        await live.publishDefaults()
-    })
+  await runControlAction('start', async () => {
+    await updateLiveStatus(() => startClassLive(props.session.id))
+    await live.connect()
+    await live.publishDefaults()
+  })
 }
 
 async function pauseLive() {
-    await runControlAction('pause', async () => {
-        await live.pausePublishing()
-        await updateLiveStatus(() => pauseClassLive(props.session.id))
-    })
+  await runControlAction('pause', async () => {
+    await live.pausePublishing()
+    await updateLiveStatus(() => pauseClassLive(props.session.id))
+  })
 }
 
 async function resumeLive() {
-    await runControlAction('resume', async () => {
-        await updateLiveStatus(() => resumeClassLive(props.session.id))
-        await live.connect()
-        await live.publishDefaults()
-    })
+  await runControlAction('resume', async () => {
+    await updateLiveStatus(() => resumeClassLive(props.session.id))
+    await live.connect()
+    await live.publishDefaults()
+  })
 }
 
 async function stopLive() {
-    await live.disconnect()
-    await updateLiveStatus(() => stopClassLive(props.session.id))
+  await live.disconnect()
+  await updateLiveStatus(() => stopClassLive(props.session.id))
 }
 
 async function endLive() {
-    if (!canStop.value) {
-        return
-    }
-    await runControlAction('stop', stopLive)
+  if (!canStop.value) {
+    return
+  }
+  await runControlAction('stop', stopLive)
 }
 
 function handleBack() {
-    if (expanded.value) {
-        expanded.value = false
-        return
-    }
-    emit('close')
+  if (expanded.value) {
+    expanded.value = false
+    return
+  }
+  emit('close')
 }
 
 function expandInPage() {
-    if (isFullscreenLayout.value) {
-        return
-    }
-    expanded.value = true
+  if (isFullscreenLayout.value) {
+    return
+  }
+  expanded.value = true
 }
 
 async function togglePlayerFullscreen() {
-    if (typeof document === 'undefined') {
-        return
+  if (typeof document === 'undefined') {
+    return
+  }
+  try {
+    if (isPlayerFullscreen.value) {
+      await document.exitFullscreen?.()
+      return
     }
-    try {
-        if (isPlayerFullscreen.value) {
-            await document.exitFullscreen?.()
-            return
-        }
-        await stageElement.value?.requestFullscreen?.()
-    } catch {
-        notify.error(t('courseDetail.live.controlActionFailed'))
-    }
+    await stageElement.value?.requestFullscreen?.()
+  } catch {
+    notify.error(t('courseDetail.live.controlActionFailed'))
+  }
 }
 
 function updatePlayerFullscreenState() {
-    if (typeof document === 'undefined') {
-        isPlayerFullscreen.value = false
-        return
-    }
-    isPlayerFullscreen.value = document.fullscreenElement === stageElement.value
+  if (typeof document === 'undefined') {
+    isPlayerFullscreen.value = false
+    return
+  }
+  isPlayerFullscreen.value = document.fullscreenElement === stageElement.value
 }
 
 function toggleControlsPanel() {
-    controlsCollapsed.value = !controlsCollapsed.value
+  controlsCollapsed.value = !controlsCollapsed.value
 }
 
 function readControlsCollapsedPreference() {
-    if (typeof window === 'undefined') return false
-    try {
-        return window.localStorage.getItem(LIVE_CONTROLS_COLLAPSED_STORAGE_KEY) === 'true'
-    } catch {
-        return false
-    }
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(LIVE_CONTROLS_COLLAPSED_STORAGE_KEY) === 'true'
+  } catch {
+    return false
+  }
 }
 
 function writeControlsCollapsedPreference(collapsed: boolean) {
-    if (typeof window === 'undefined') return
-    try {
-        window.localStorage.setItem(LIVE_CONTROLS_COLLAPSED_STORAGE_KEY, String(collapsed))
-    } catch {
-        // Ignore storage failures so private mode or quota issues do not affect live controls.
-    }
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(LIVE_CONTROLS_COLLAPSED_STORAGE_KEY, String(collapsed))
+  } catch {
+    // Ignore storage failures so private mode or quota issues do not affect live controls.
+  }
 }
 
 async function toggleMicrophone() {
-    await runControlAction('microphone', live.toggleMicrophone)
+  await runControlAction('microphone', live.toggleMicrophone)
 }
 
 async function toggleCamera() {
-    await runControlAction('camera', live.toggleCamera)
+  await runControlAction('camera', live.toggleCamera)
 }
 
 async function toggleScreenShare() {
-    await runControlAction('screenShare', live.toggleScreenShare)
+  await runControlAction('screenShare', live.toggleScreenShare)
 }
 
 function isLoadingAction(action: LiveControlAction) {
-    return loadingAction.value === action
+  return loadingAction.value === action
 }
 
 async function runControlAction(action: LiveControlAction, task: () => Promise<void>) {
-    if (loadingAction.value) {
-        return
-    }
-    loadingAction.value = action
-    try {
-        await task()
-    } catch {
-        notify.error(t('courseDetail.live.controlActionFailed'))
-    } finally {
-        loadingAction.value = null
-    }
+  if (loadingAction.value) {
+    return
+  }
+  loadingAction.value = action
+  try {
+    await task()
+  } catch {
+    notify.error(t('courseDetail.live.controlActionFailed'))
+  } finally {
+    loadingAction.value = null
+  }
 }
 
 async function chooseCameraOverlayPosition(position: CameraOverlayPosition) {
-    try {
-        await live.setCameraOverlayPosition(position)
-    } catch {
-        notify.error(t('courseDetail.live.cameraPositionSyncFailed'))
-    }
+  try {
+    await live.setCameraOverlayPosition(position)
+  } catch {
+    notify.error(t('courseDetail.live.cameraPositionSyncFailed'))
+  }
 }
 
 async function updateLiveStatus(action: () => Promise<ClassSession>) {
-    busy.value = true
-    try {
-        emit('session-change', await action())
-    } catch {
-        notify.error(t('courseDetail.live.statusUpdateFailed'))
-    } finally {
-        busy.value = false
-    }
+  busy.value = true
+  try {
+    emit('session-change', await action())
+  } catch {
+    notify.error(t('courseDetail.live.statusUpdateFailed'))
+  } finally {
+    busy.value = false
+  }
 }
 
 function handleLiveStatus(status: number) {
-    if (!props.canParticipate) {
-        return
-    }
-    if (status === ClassLiveStatus.LIVE || status === ClassLiveStatus.PAUSED) {
-        void (async () => {
-            await live.connect()
-        })()
-        return
-    }
-    void live.disconnect()
+  if (!props.canParticipate) {
+    return
+  }
+  if (status === ClassLiveStatus.LIVE || status === ClassLiveStatus.PAUSED) {
+    void (async () => {
+      await live.connect()
+    })()
+    return
+  }
+  void live.disconnect()
 }
 
 async function loadMessages() {
-    if (!canChat.value) {
-        return
-    }
-    messagesLoading.value = true
-    try {
-        const page = await listClassBarrages(props.session.id, 1, 30)
-        messages.value = [...page.records].reverse()
-    } catch {
-        messages.value = []
-    } finally {
-        messagesLoading.value = false
-    }
+  if (!canChat.value) {
+    return
+  }
+  messagesLoading.value = true
+  try {
+    const page = await listClassBarrages(props.session.id, 1, 30)
+    messages.value = [...page.records].reverse()
+  } catch {
+    messages.value = []
+  } finally {
+    messagesLoading.value = false
+  }
 }
 
 async function loadParticipants() {
-    if (!props.canParticipate) {
-        live.setSessionParticipants([])
-        return
-    }
-    participantsLoading.value = true
-    try {
-        participantDirectory.value = await listClassSessionParticipants(props.session.id)
-        live.setSessionParticipants(participantDirectory.value)
-    } catch {
-        participantDirectory.value = []
-        live.setSessionParticipants([])
-    } finally {
-        participantsLoading.value = false
-    }
+  if (!props.canParticipate) {
+    live.setSessionParticipants([])
+    return
+  }
+  participantsLoading.value = true
+  try {
+    participantDirectory.value = await listClassSessionParticipants(props.session.id)
+    live.setSessionParticipants(participantDirectory.value)
+  } catch {
+    participantDirectory.value = []
+    live.setSessionParticipants([])
+  } finally {
+    participantsLoading.value = false
+  }
 }
 
 function connectChat() {
-    if (chatSubscription) {
-        return
-    }
-    liveDanmakuMessages.value = []
-    void loadMessages()
-    chatSubscription = subscribeClassBarrages(props.session.id, (message) => {
-        messages.value = [...messages.value, message].slice(-80)
-        liveDanmakuMessages.value = [...liveDanmakuMessages.value, message].slice(-MAX_DANMAKU_ITEMS)
-    }, loadMessages)
+  if (chatSubscription) {
+    return
+  }
+  liveDanmakuMessages.value = []
+  void loadMessages()
+  chatSubscription = subscribeClassBarrages(props.session.id, (message) => {
+    messages.value = [...messages.value, message].slice(-80)
+    liveDanmakuMessages.value = [...liveDanmakuMessages.value, message].slice(-MAX_DANMAKU_ITEMS)
+  }, loadMessages)
 }
 
 function disconnectChat() {
-    chatSubscription?.close()
-    chatSubscription = null
-    liveDanmakuMessages.value = []
+  chatSubscription?.close()
+  chatSubscription = null
+  liveDanmakuMessages.value = []
 }
 
 async function submitMessage() {
-    if (!canChat.value || !draft.value) {
-        return
-    }
-    sending.value = true
-    try {
-        await sendClassBarrage(props.session.id, draft.value)
-        draft.value = ''
-    } catch {
-        notify.error(t('courseDetail.live.messageSendFailed'))
-    } finally {
-        sending.value = false
-    }
+  if (!canChat.value || !draft.value) {
+    return
+  }
+  sending.value = true
+  try {
+    await sendClassBarrage(props.session.id, draft.value)
+    draft.value = ''
+  } catch {
+    notify.error(t('courseDetail.live.messageSendFailed'))
+  } finally {
+    sending.value = false
+  }
 }
 
 function formatTime(value: string) {
-    return new Intl.DateTimeFormat(String(locale.value), {
-        hour: '2-digit',
-        minute: '2-digit',
-    }).format(new Date(value))
+  return new Intl.DateTimeFormat(String(locale.value), {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
 }
 
 function formatSessionTime(value: string) {
-    return new Intl.DateTimeFormat(String(locale.value), {
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-    }).format(new Date(value))
+  return new Intl.DateTimeFormat(String(locale.value), {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
 }
 
 function senderName(message: ClassBarrage) {
-    return message.senderDisplayName || t('courseDetail.live.unknownUser')
+  return message.senderDisplayName || t('courseDetail.live.unknownUser')
 }
 
 function senderRoleLabel(message: ClassBarrage) {
-    if (message.senderRoleLabel) {
-        return message.senderRoleLabel
-    }
-    return message.senderId === props.session.teacherId ? t('courseDetail.live.teacherRole') : t('courseDetail.live.studentRole')
+  if (message.senderRoleLabel) {
+    return message.senderRoleLabel
+  }
+  return message.senderId === props.session.teacherId ? t('courseDetail.live.teacherRole') : t('courseDetail.live.studentRole')
 }
+
 function onlineParticipantMeta(participant: LiveOnlineParticipant) {
-    const role = participant.role === 0 ? t('courseDetail.live.teacherRole') : t('courseDetail.live.studentRole')
-    return participant.isLocal ? t('courseDetail.live.youRole', {role}) : role
+  const role = participant.role === 0 ? t('courseDetail.live.teacherRole') : t('courseDetail.live.studentRole')
+  return participant.isLocal ? t('courseDetail.live.youRole', {role}) : role
 }
 
 function qualityLabel(quality: string) {
-    const normalized = quality.toLowerCase()
-    if (normalized === 'excellent') return t('courseDetail.live.qualityExcellent')
-    if (normalized === 'good') return t('courseDetail.live.qualityGood')
-    if (normalized === 'poor') return t('courseDetail.live.qualityPoor')
-    if (normalized === 'lost') return t('courseDetail.live.qualityLost')
-    return t('courseDetail.live.qualityUnknown')
+  const normalized = quality.toLowerCase()
+  if (normalized === 'excellent') return t('courseDetail.live.qualityExcellent')
+  if (normalized === 'good') return t('courseDetail.live.qualityGood')
+  if (normalized === 'poor') return t('courseDetail.live.qualityPoor')
+  if (normalized === 'lost') return t('courseDetail.live.qualityLost')
+  return t('courseDetail.live.qualityUnknown')
 }
 
 function qualityClass(quality: string) {
-    return `quality-${quality.toLowerCase()}`
+  return `quality-${quality.toLowerCase()}`
 }
 
 function formatLiveLatencyLabel() {
-    const rtt = live.networkStats.value.rttMs
-    if (rtt != null) {
-        return isFullscreenLayout.value
-            ? t('courseDetail.live.rttLabel', {value: rtt})
-            : t('courseDetail.live.rttCompact', {value: rtt})
-    }
-    return isFullscreenLayout.value ? t('courseDetail.live.latencyUnknown') : t('courseDetail.live.latencyUnknownCompact')
+  const rtt = live.networkStats.value.rttMs
+  if (rtt != null) {
+    return isFullscreenLayout.value
+        ? t('courseDetail.live.rttLabel', {value: rtt})
+        : t('courseDetail.live.rttCompact', {value: rtt})
+  }
+  return isFullscreenLayout.value ? t('courseDetail.live.latencyUnknown') : t('courseDetail.live.latencyUnknownCompact')
 }
 </script>
 
@@ -1308,9 +1318,8 @@ function formatLiveLatencyLabel() {
 .live-stage {
   position: relative;
   overflow: hidden;
-  background:
-    linear-gradient(var(--live-overlay), var(--live-overlay)),
-    url('https://lh3.googleusercontent.com/aida-public/AB6AXuA09kapa7PNhQw7Goup7SnoRmuOMBmbPCLfAQXaSPmUcExJfHBYHZvGmKO_b8AFGn_kvAzKExBVte7IkrSkGzxnVfaiI_5tt_5-8-7ZdC3nk9dBfuVuAclh2wxU3joswa5wgMRMrWji5aGeGmlZ40-lUA_k6wQj6IOeb-bgKHSn9K2l1-kZT_GCJyACpF2OdRZD16QNOu_eEUnrDHXyBJrltVs2Gpt2s51Gs0bZpoxpFEa4Eow45v6T_S29kJT7fD5rSPWg9qtk5JRf') center / cover;
+  background: linear-gradient(var(--live-overlay), var(--live-overlay)),
+  url('https://lh3.googleusercontent.com/aida-public/AB6AXuA09kapa7PNhQw7Goup7SnoRmuOMBmbPCLfAQXaSPmUcExJfHBYHZvGmKO_b8AFGn_kvAzKExBVte7IkrSkGzxnVfaiI_5tt_5-8-7ZdC3nk9dBfuVuAclh2wxU3joswa5wgMRMrWji5aGeGmlZ40-lUA_k6wQj6IOeb-bgKHSn9K2l1-kZT_GCJyACpF2OdRZD16QNOu_eEUnrDHXyBJrltVs2Gpt2s51Gs0bZpoxpFEa4Eow45v6T_S29kJT7fD5rSPWg9qtk5JRf') center / cover;
 }
 
 .mode-fullscreen .live-stage {
@@ -1388,9 +1397,8 @@ function formatLiveLatencyLabel() {
   flex-direction: column;
   justify-content: space-between;
   padding: var(--space-lg);
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--live-bg) 88%, transparent), transparent 58%),
-    color-mix(in srgb, var(--live-raised) 72%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--live-bg) 88%, transparent), transparent 58%),
+  color-mix(in srgb, var(--live-raised) 72%, transparent);
   pointer-events: none;
 }
 

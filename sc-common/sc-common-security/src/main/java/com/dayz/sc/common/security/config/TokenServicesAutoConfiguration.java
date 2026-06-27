@@ -5,12 +5,16 @@ import com.dayz.sc.common.security.ratelimit.RateLimitWebMvcConfigurer;
 import com.dayz.sc.common.security.ratelimit.RateLimiterService;
 import com.dayz.sc.common.security.token.RefreshTokenService;
 import com.dayz.sc.common.security.token.TokenBlacklistService;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.jspecify.annotations.NonNull;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 /**
  * Token 管理服务自动配置
@@ -27,8 +31,12 @@ public class TokenServicesAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public RefreshTokenService refreshTokenService(RedisTemplate<String, Object> redisTemplate, JwtProperties jwtProperties) {
-        return new RefreshTokenService(redisTemplate, jwtProperties);
+    public RefreshTokenService refreshTokenService(RedisTemplate<String, Object> redisTemplate,
+                                                   StringRedisTemplate stringRedisTemplate,
+                                                   JwtProperties jwtProperties,
+                                                   ObjectProvider<@NonNull MeterRegistry> meterRegistryProvider) {
+        return new RefreshTokenService(redisTemplate, stringRedisTemplate,
+                jwtProperties, meterRegistryProvider.getIfAvailable());
     }
 
     @Bean

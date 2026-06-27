@@ -25,7 +25,9 @@ public class GatewayHttpClientConfiguration {
     private static final int MAX_CONNECTIONS_PER_ROUTE = 100;
     private static final Timeout CONNECTION_REQUEST_TIMEOUT = Timeout.ofSeconds(2);
     private static final Timeout CONNECT_TIMEOUT = Timeout.ofSeconds(3);
-    // SSE and AI streaming endpoints can wait indefinitely between chunks.
+    /**
+     * SSE and AI streaming endpoints can wait indefinitely between chunks.
+     */
     private static final Timeout RESPONSE_TIMEOUT = Timeout.DISABLED;
     private static final TimeValue IDLE_CONNECTION_TTL = TimeValue.ofSeconds(30);
 
