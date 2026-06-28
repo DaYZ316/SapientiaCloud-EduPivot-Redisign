@@ -309,6 +309,8 @@ export default {
         toolPublishPractice: '发布练习',
         toolLivePractice: '随堂练习',
         toolLive: '课堂直播',
+        toolActionsExpand: '展开工具',
+        toolActionsCollapse: '收起工具',
         loadingSteps: {
             resolvingSession: '正在获取课堂信息',
             checkingAccess: '正在校验课程访问权限',

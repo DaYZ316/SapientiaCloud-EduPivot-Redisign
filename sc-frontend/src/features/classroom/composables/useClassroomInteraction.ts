@@ -5,8 +5,8 @@ import {
     getDeskPosition,
     getDeskYaw,
     largeDeskSeatToSeatIndex,
-    smallDeskIndexToSeatIndex,
     type RoomPlanDimensions,
+    smallDeskIndexToSeatIndex,
 } from '@/features/classroom/composables/useSeatLayout'
 
 const LARGE_SEATS_PER_DESK = 4

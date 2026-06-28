@@ -10,10 +10,11 @@ import com.dayz.sc.auth.repository.UserAccountRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.script.RedisScript;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
@@ -82,29 +83,37 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
     private static final String RESULT_TIMEOUT = "timeout";
     private static final String RESULT_SUCCESS = "success";
 
-    private static final RedisScript<Long> RELEASE_LOCK_SCRIPT = RedisScript.of("""
+    private static final String RELEASE_LOCK_SCRIPT_TEXT = """
             if redis.call('get', KEYS[1]) == ARGV[1] then
                 return redis.call('del', KEYS[1])
             end
             return 0
-            """, Long.class);
+            """;
+    private static final DefaultRedisScript<@NonNull Long> RELEASE_LOCK_SCRIPT = releaseLockScript();
 
     private final UserMapper userMapper;
     private final UserIdentityMapper userIdentityMapper;
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final RedisTemplate<@NonNull String, @NonNull Object> redisTemplate;
     private final StringRedisTemplate stringRedisTemplate;
-    private final ObjectProvider<MeterRegistry> meterRegistryProvider;
+    private final ObjectProvider<@NonNull MeterRegistry> meterRegistryProvider;
 
     public MybatisUserAccountRepository(UserMapper userMapper,
                                         UserIdentityMapper userIdentityMapper,
-                                        RedisTemplate<String, Object> redisTemplate,
+                                        RedisTemplate<@NonNull String, @NonNull Object> redisTemplate,
                                         StringRedisTemplate stringRedisTemplate,
-                                        ObjectProvider<MeterRegistry> meterRegistryProvider) {
+                                        ObjectProvider<@NonNull MeterRegistry> meterRegistryProvider) {
         this.userMapper = userMapper;
         this.userIdentityMapper = userIdentityMapper;
         this.redisTemplate = redisTemplate;
         this.stringRedisTemplate = stringRedisTemplate;
         this.meterRegistryProvider = meterRegistryProvider;
+    }
+
+    private static DefaultRedisScript<@NonNull Long> releaseLockScript() {
+        DefaultRedisScript<@NonNull Long> script = new DefaultRedisScript<>();
+        script.setScriptText(RELEASE_LOCK_SCRIPT_TEXT);
+        script.setResultType(Long.class);
+        return script;
     }
 
     @Override
@@ -380,7 +389,7 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
         try {
             // 只释放当前请求持有的锁，避免误删其他请求新拿到的锁。
             Long released = stringRedisTemplate.execute(RELEASE_LOCK_SCRIPT, List.of(lockKey), lockValue);
-            if (released != null && released > 0) {
+            if (released > 0) {
                 incrementMetric(METRIC_LOCK, cacheName, RESULT_RELEASED);
             }
         } catch (RuntimeException e) {
@@ -456,14 +465,32 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
     }
 
     private enum CacheStatus {
+        /**
+         * Cached value was found.
+         */
         HIT,
+        /**
+         * Cached value was not found.
+         */
         MISS,
+        /**
+         * Cache lookup failed.
+         */
         ERROR
     }
 
     private enum LockAttempt {
+        /**
+         * Cache rebuild lock was acquired.
+         */
         ACQUIRED,
+        /**
+         * Cache rebuild lock is held by another caller.
+         */
         BUSY,
+        /**
+         * Cache rebuild lock attempt failed.
+         */
         ERROR
     }
 

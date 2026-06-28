@@ -14,14 +14,10 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
-import java.nio.charset.StandardCharsets;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.Base64;
-import java.util.LinkedHashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
@@ -47,6 +43,7 @@ public class DashScopeAsrClient {
     private static final String EVENT_QWEN_TRANSCRIPTION_FAILED = "conversation.item.input_audio_transcription.failed";
     private static final String QWEN_ASR_FLASH_MODEL = "qwen3-asr-flash";
     private static final String QWEN_ASR_FLASH_REALTIME_MODEL = "qwen3-asr-flash-realtime";
+    private static final String MODEL_QUERY_PATTERN = ".*[?&]model=.*";
 
     private final AiProperties aiProperties;
     private final ObjectMapper objectMapper;
@@ -144,7 +141,7 @@ public class DashScopeAsrClient {
 
     private String qwenRealtimeUrl(String websocketUrl, String model) {
         String url = websocketUrl.replace("/api-ws/v1/inference", "/api-ws/v1/realtime");
-        if (url.matches(".*[?&]model=.*")) {
+        if (url.matches(MODEL_QUERY_PATTERN)) {
             return url;
         }
         String separator = url.contains("?") ? "&" : "?";
@@ -226,7 +223,13 @@ public class DashScopeAsrClient {
     }
 
     private enum AsrProtocol {
+        /**
+         * Paraformer duplex streaming ASR protocol.
+         */
         PARAFORMER,
+        /**
+         * Qwen realtime ASR protocol.
+         */
         QWEN_REALTIME
     }
 

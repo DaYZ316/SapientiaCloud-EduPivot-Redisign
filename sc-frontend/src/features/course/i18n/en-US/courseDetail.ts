@@ -309,6 +309,8 @@ export default {
         toolPublishPractice: 'Publish practice',
         toolLivePractice: 'Live practice',
         toolLive: 'Class live',
+        toolActionsExpand: 'Expand tools',
+        toolActionsCollapse: 'Collapse tools',
         loadingSteps: {
             resolvingSession: 'Loading classroom details',
             checkingAccess: 'Checking course access',

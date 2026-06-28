@@ -9,7 +9,33 @@
       </button>
     </header>
 
-    <div v-if="loading" class="panel-state">{{ t('courseDetail.classSession.chapterLoading') }}</div>
+    <section
+        v-if="loading"
+        :aria-label="t('courseDetail.classSession.chapterLoading')"
+        class="chapter-preview-body chapter-preview-loading"
+        role="status"
+    >
+      <div aria-hidden="true" class="chapter-list loading-chapter-list">
+        <div v-for="index in 4" :key="index" class="chapter-row loading-chapter-row">
+          <span class="loading-block loading-index"></span>
+          <span class="loading-copy">
+            <span class="loading-block loading-title"></span>
+            <span class="loading-block loading-line"></span>
+          </span>
+        </div>
+      </div>
+
+      <article aria-hidden="true" class="chapter-detail loading-detail">
+        <span class="loading-block loading-kicker"></span>
+        <span class="loading-block loading-heading"></span>
+        <span class="loading-block loading-line wide"></span>
+        <span class="loading-block loading-line"></span>
+        <span class="loading-block loading-paragraph"></span>
+        <span class="loading-block loading-paragraph short"></span>
+        <span class="loading-block loading-attachment"></span>
+        <span class="loading-block loading-meta"></span>
+      </article>
+    </section>
     <div v-else-if="loadFailed" class="panel-state">
       <p>{{ t('courseDetail.classSession.chapterLoadFailed') }}</p>
       <button class="text-button" type="button" @click="loadChapters">{{
@@ -36,9 +62,19 @@
         </div>
 
         <article class="chapter-detail">
-          <div v-if="detailLoading" class="panel-state compact">{{
-              t('courseDetail.classSession.chapterDetailLoading')
-            }}
+          <div
+              v-if="detailLoading"
+              :aria-label="t('courseDetail.classSession.chapterDetailLoading')"
+              class="detail-loading-layout"
+              role="status"
+          >
+            <span class="loading-block loading-kicker"></span>
+            <span class="loading-block loading-heading"></span>
+            <span class="loading-block loading-line wide"></span>
+            <span class="loading-block loading-line"></span>
+            <span class="loading-block loading-paragraph"></span>
+            <span class="loading-block loading-paragraph short"></span>
+            <span class="loading-block loading-attachment"></span>
           </div>
           <template v-else-if="selectedChapter">
             <span class="detail-kicker">{{ t('courseDetail.classSession.currentChapter') }}</span>
@@ -288,6 +324,10 @@ function formatFileSize(sizeBytes: number) {
   overflow: hidden;
 }
 
+.chapter-preview-loading {
+  flex: 1;
+}
+
 .chapter-list {
   display: grid;
   max-height: 220px;
@@ -344,6 +384,86 @@ function formatFileSize(sizeBytes: number) {
   line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.loading-chapter-row {
+  cursor: default;
+}
+
+.loading-copy,
+.detail-loading-layout,
+.loading-detail {
+  display: grid;
+  gap: 10px;
+}
+
+.loading-copy {
+  min-width: 0;
+}
+
+.loading-block {
+  display: block;
+  overflow: hidden;
+  background: linear-gradient(
+      110deg,
+      var(--color-surface-container-high) 8%,
+      var(--color-surface-canvas) 18%,
+      var(--color-surface-container-high) 33%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm);
+  animation: chapter-preview-shimmer 1.4s ease-in-out infinite;
+}
+
+.loading-index {
+  width: 28px;
+  height: 22px;
+}
+
+.loading-title {
+  width: min(240px, 72%);
+  height: 16px;
+}
+
+.loading-line {
+  width: min(300px, 64%);
+  height: 12px;
+}
+
+.loading-line.wide {
+  width: 86%;
+}
+
+.loading-kicker {
+  width: 96px;
+  height: 10px;
+}
+
+.loading-heading {
+  width: min(340px, 78%);
+  height: 28px;
+}
+
+.loading-paragraph {
+  width: 100%;
+  height: 88px;
+}
+
+.loading-paragraph.short {
+  width: 72%;
+  height: 52px;
+}
+
+.loading-attachment {
+  width: min(280px, 70%);
+  height: 36px;
+  margin-top: 4px;
+}
+
+.loading-meta {
+  width: min(220px, 52%);
+  height: 18px;
+  margin-top: 4px;
 }
 
 .chapter-detail {
@@ -461,6 +581,21 @@ function formatFileSize(sizeBytes: number) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+@keyframes chapter-preview-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-block {
+    animation: none;
+  }
 }
 
 @media (max-width: 640px) {

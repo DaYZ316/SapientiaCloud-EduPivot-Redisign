@@ -177,10 +177,7 @@ import {SVGRenderer} from 'echarts/renderers'
 import {GitFork, HelpCircle, ListTree, Sparkles} from 'lucide-vue-next'
 
 import {useLiveSummaryLibraryStore} from '@/features/ai/stores/liveSummaryLibrary'
-import type {
-  LiveSummaryMindMapNode,
-  LiveSummaryTimelineItem,
-} from '@/features/ai/types/ai'
+import type {LiveSummaryMindMapNode, LiveSummaryTimelineItem,} from '@/features/ai/types/ai'
 import DashboardTimelineRows from '@/features/dashboard/components/DashboardTimelineRows.vue'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
@@ -309,7 +306,7 @@ function mindMapOption(data: LiveSummaryMindMapNode): EChartsCoreOption {
         lineHeight: 18,
       },
       extraCssText: 'max-width: 320px; white-space: normal; word-break: break-word;',
-      formatter: (params: {data?: {name?: string; value?: string}}) =>
+      formatter: (params: { data?: { name?: string; value?: string } }) =>
           escapeHtml(params.data?.value || params.data?.name || ''),
     },
     series: [{
@@ -818,10 +815,9 @@ function stringList(value: unknown) {
   min-height: 520px;
   overflow: hidden;
   border-radius: var(--radius-sm);
-  background:
-      linear-gradient(90deg, color-mix(in srgb, var(--color-outline-light) 42%, transparent) 1px, transparent 1px),
-      linear-gradient(color-mix(in srgb, var(--color-outline-light) 42%, transparent) 1px, transparent 1px),
-      var(--color-surface-canvas);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-outline-light) 42%, transparent) 1px, transparent 1px),
+  linear-gradient(color-mix(in srgb, var(--color-outline-light) 42%, transparent) 1px, transparent 1px),
+  var(--color-surface-canvas);
   background-size: 48px 48px;
 }
 

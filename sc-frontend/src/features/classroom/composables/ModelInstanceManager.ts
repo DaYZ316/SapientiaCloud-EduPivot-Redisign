@@ -108,21 +108,6 @@ export class ModelInstanceManager {
         }
     }
 
-    private resolveMaterial(material: THREE.Material | THREE.Material[], texture: THREE.Texture | null) {
-        if (texture) {
-            texture.colorSpace = THREE.SRGBColorSpace
-            texture.flipY = false
-            return new THREE.MeshBasicMaterial({
-                map: texture,
-                side: THREE.DoubleSide,
-            })
-        }
-        if (Array.isArray(material)) {
-            return material.map((item) => item.clone())
-        }
-        return material.clone()
-    }
-
     /** LARGE教室专用：创建混合实例化网格（第一排和其余排使用不同模型） */
     createMixedInstancedMeshes(
         root: THREE.Object3D,
@@ -141,7 +126,7 @@ export class ModelInstanceManager {
         const firstRowMeshes = firstRowObject ? this.createInstancedMeshes(firstRowObject, firstRowCount, null) : []
         const otherRowsMeshes = otherRowsObject ? this.createInstancedMeshes(otherRowsObject, otherRowsCount, null) : []
 
-        return { firstRowMeshes, otherRowsMeshes }
+        return {firstRowMeshes, otherRowsMeshes}
     }
 
     /** LARGE教室专用：设置混合实例化网格的矩阵 */
@@ -203,5 +188,20 @@ export class ModelInstanceManager {
         for (const instancedMesh of otherRowsMeshes) {
             instancedMesh.instanceMatrix.needsUpdate = true
         }
+    }
+
+    private resolveMaterial(material: THREE.Material | THREE.Material[], texture: THREE.Texture | null) {
+        if (texture) {
+            texture.colorSpace = THREE.SRGBColorSpace
+            texture.flipY = false
+            return new THREE.MeshBasicMaterial({
+                map: texture,
+                side: THREE.DoubleSide,
+            })
+        }
+        if (Array.isArray(material)) {
+            return material.map((item) => item.clone())
+        }
+        return material.clone()
     }
 }

@@ -19,8 +19,8 @@
     >
       <slot/>
       <button
-          v-if="resizable"
           v-for="handle in resizeHandles"
+          v-if="resizable"
           :key="handle"
           :aria-label="`Resize window ${handle}`"
           :class="`resize-handle resize-${handle}`"

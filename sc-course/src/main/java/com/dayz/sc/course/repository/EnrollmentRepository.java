@@ -57,6 +57,12 @@ public interface EnrollmentRepository {
      */
     Page<Enrollment> findByStudentId(UUID studentId, int page, int size);
 
+    /**
+     * Query active or completed course IDs enrolled by the student.
+     *
+     * @param studentId student ID
+     * @return course ID list
+     */
     List<UUID> findActiveOrCompletedCourseIdsByStudentId(UUID studentId);
 
     /**

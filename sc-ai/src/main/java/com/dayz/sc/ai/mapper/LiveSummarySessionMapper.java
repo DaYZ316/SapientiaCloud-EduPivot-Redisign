@@ -17,6 +17,14 @@ import java.util.UUID;
 @Mapper
 public interface LiveSummarySessionMapper extends BaseMapper<LiveSummarySession> {
 
+    /**
+     * Query live summary sessions that have active snapshots within the given courses.
+     *
+     * @param courseIds visible course IDs; empty or null means all courses
+     * @param limit     page size
+     * @param offset    row offset
+     * @return live summary sessions ordered by latest snapshot time
+     */
     @Select("""
             <script>
             SELECT summary_session.*
@@ -42,6 +50,12 @@ public interface LiveSummarySessionMapper extends BaseMapper<LiveSummarySession>
                                                           @Param("limit") int limit,
                                                           @Param("offset") int offset);
 
+    /**
+     * Count live summary sessions that have active snapshots within the given courses.
+     *
+     * @param courseIds visible course IDs; empty or null means all courses
+     * @return matching session count
+     */
     @Select("""
             <script>
             SELECT COUNT(*)

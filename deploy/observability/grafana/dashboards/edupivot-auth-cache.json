@@ -124,7 +124,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(rate(redis_auth_cache_read_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=~\"hit|negative_hit\"}[5m])) / clamp_min(sum(rate(redis_auth_cache_read_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=~\"hit|negative_hit|miss\"}[5m])), 1)",
+          "expr": "(sum(rate(redis_auth_cache_read_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=~\"hit|negative_hit\"}[5m])) or vector(0)) / clamp_min((sum(rate(redis_auth_cache_read_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=~\"hit|negative_hit|miss\"}[5m])) or vector(0)), 1)",
           "instant": false,
           "legendFormat": "hit ratio",
           "range": true,
@@ -198,7 +198,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(rate(redis_auth_cache_lock_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=\"timeout\"}[5m]))",
+          "expr": "sum(rate(redis_auth_cache_lock_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=\"timeout\"}[5m])) or vector(0)",
           "instant": false,
           "legendFormat": "timeout/s",
           "range": true,
@@ -272,7 +272,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(rate(redis_auth_cache_read_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=\"error\"}[5m])) + sum(rate(redis_auth_cache_rebuild_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=\"error\"}[5m])) + sum(rate(redis_auth_cache_evict_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=\"error\"}[5m])) + sum(rate(redis_auth_cache_lock_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=~\"error|release_error\"}[5m]))",
+          "expr": "(sum(rate(redis_auth_cache_read_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=\"error\"}[5m])) or vector(0)) + (sum(rate(redis_auth_cache_rebuild_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=\"error\"}[5m])) or vector(0)) + (sum(rate(redis_auth_cache_evict_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=\"error\"}[5m])) or vector(0)) + (sum(rate(redis_auth_cache_lock_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=~\"error|release_error\"}[5m])) or vector(0))",
           "instant": false,
           "legendFormat": "errors/s",
           "range": true,
@@ -346,7 +346,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(rate(redis_auth_cache_rebuild_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=~\"db_hit|db_miss\"}[5m]))",
+          "expr": "sum(rate(redis_auth_cache_rebuild_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=~\"db_hit|db_miss\"}[5m])) or vector(0)",
           "instant": false,
           "legendFormat": "db rebuild/s",
           "range": true,
@@ -442,7 +442,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum by (cache,result) (rate(redis_auth_cache_read_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\"}[5m]))",
+          "expr": "sum by (cache,result) (rate(redis_auth_cache_read_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\"}[5m])) or vector(0)",
           "instant": false,
           "legendFormat": "{{cache}} {{result}}",
           "range": true,
@@ -538,7 +538,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum by (cache,result) (rate(redis_auth_cache_rebuild_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\"}[5m]))",
+          "expr": "sum by (cache,result) (rate(redis_auth_cache_rebuild_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\"}[5m])) or vector(0)",
           "instant": false,
           "legendFormat": "{{cache}} {{result}}",
           "range": true,
@@ -634,7 +634,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum by (cache,result) (rate(redis_auth_cache_lock_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\"}[5m]))",
+          "expr": "sum by (cache,result) (rate(redis_auth_cache_lock_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\"}[5m])) or vector(0)",
           "instant": false,
           "legendFormat": "{{cache}} {{result}}",
           "range": true,
@@ -730,7 +730,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum by (cache,result) (rate(redis_auth_cache_evict_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\"}[5m]))",
+          "expr": "sum by (cache,result) (rate(redis_auth_cache_evict_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\"}[5m])) or vector(0)",
           "instant": false,
           "legendFormat": "{{cache}} {{result}}",
           "range": true,

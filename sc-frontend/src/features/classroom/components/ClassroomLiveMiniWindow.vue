@@ -166,8 +166,8 @@
               @click.stop="toggleScreenShare"
           >
             <ScreenShare
-              :size="17"
-              stroke-width="2"
+                :size="17"
+                stroke-width="2"
             />
           </button>
 
@@ -260,7 +260,8 @@
           </button>
         </div>
 
-        <p v-if="liveSummaryStartMode === 'new' && liveSummaryHistoryRecordLimitReached" class="mini-summary-start-hint">
+        <p v-if="liveSummaryStartMode === 'new' && liveSummaryHistoryRecordLimitReached"
+           class="mini-summary-start-hint">
           {{ t('courseDetail.classSession.liveSummary.startDialog.newLimitReached') }}
         </p>
 

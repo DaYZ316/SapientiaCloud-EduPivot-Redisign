@@ -95,6 +95,13 @@ public interface CourseAiContextClient {
             @RequestHeader(value = HEADER_USER_ID, required = false) String userId,
             @RequestHeader(value = HEADER_USER_ROLE, required = false) String userRole);
 
+    /**
+     * Query course IDs visible to the current user for AI summary access filtering.
+     *
+     * @param userId   user ID
+     * @param userRole user role
+     * @return visible course ID list
+     */
     @GetMapping("/visible-course-ids")
     ApiResponse<@NonNull List<@NonNull UUID>> visibleCourseIds(
             @RequestHeader(value = HEADER_USER_ID, required = false) String userId,

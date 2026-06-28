@@ -28,6 +28,11 @@ public interface LiveSummarySessionRepository {
      */
     void update(LiveSummarySession session);
 
+    /**
+     * Resume a previously stopped live summary session.
+     *
+     * @param session session entity to resume
+     */
     void resume(LiveSummarySession session);
 
     /**
@@ -54,12 +59,37 @@ public interface LiveSummarySessionRepository {
      */
     Optional<LiveSummarySession> findRunningByClassSessionId(UUID classSessionId);
 
+    /**
+     * Query live summary sessions that have snapshots in visible courses.
+     *
+     * @param courseIds visible course IDs; empty means all courses
+     * @param page      page number
+     * @param size      page size
+     * @return live summary session list
+     */
     List<LiveSummarySession> findWithSnapshotsByCourseIds(List<UUID> courseIds, int page, int size);
 
+    /**
+     * Count live summary sessions that have snapshots in visible courses.
+     *
+     * @param courseIds visible course IDs; empty means all courses
+     * @return matching session count
+     */
     long countWithSnapshotsByCourseIds(List<UUID> courseIds);
 
+    /**
+     * Count live summary sessions under a class session.
+     *
+     * @param classSessionId class session ID
+     * @return matching session count
+     */
     int countByClassSessionId(UUID classSessionId);
 
+    /**
+     * Delete a live summary session by ID.
+     *
+     * @param id session ID
+     */
     void deleteById(UUID id);
 
     /**

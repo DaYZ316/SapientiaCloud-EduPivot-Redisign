@@ -31,30 +31,52 @@
         @participants-change="handleParticipantsChange"
     />
 
-    <div v-if="session?.publishedAt" class="classroom-tool-actions">
-      <button class="floating-action secondary" type="button" @click="openChapterPreviewPanel">
-        <BookOpen :size="18" stroke-width="1.8"/>
-        {{ t('courseDetail.classSession.toolChapters') }}
+    <div
+        v-if="session?.publishedAt"
+        :class="{'is-collapsed': toolActionsCollapsed}"
+        class="classroom-tool-actions"
+    >
+      <button
+          :aria-expanded="!toolActionsCollapsed"
+          :aria-label="toolActionsToggleLabel"
+          :data-tooltip="toolActionsToggleLabel"
+          class="tool-actions-toggle"
+          data-tooltip-placement="top-end"
+          type="button"
+          @click="toggleToolActions"
+      >
+        <ChevronLeft v-if="toolActionsCollapsed" :size="18" stroke-width="1.8"/>
+        <ChevronRight v-else :size="18" stroke-width="1.8"/>
       </button>
-      <button class="floating-action secondary" type="button" @click="openSeatedStudentsPanel">
-        <Users :size="18" stroke-width="1.8"/>
-        {{ t('courseDetail.classSession.toolStudents') }}
-        <span class="action-count">{{ seatedStudentCount }}</span>
-      </button>
-      <button class="floating-action secondary" type="button" @click="openAiSummaryPanel">
-        <Sparkles :size="18" stroke-width="1.8"/>
-        {{ t('courseDetail.classSession.toolAiSummary') }}
-      </button>
-      <button v-if="canUseLivePracticePanel" class="floating-action" type="button" @click="openLivePracticePanel">
-        <ClipboardList :size="18" stroke-width="1.8"/>
-        {{
-          canManageSessionCourse ? t('courseDetail.classSession.toolPublishPractice') : t('courseDetail.classSession.toolLivePractice')
-        }}
-      </button>
-      <button class="floating-action" type="button" @click="openClassroomLivePanel">
-        <Video :size="18" stroke-width="1.8"/>
-        {{ t('courseDetail.classSession.toolLive') }}
-      </button>
+      <div
+          :aria-hidden="toolActionsCollapsed"
+          :inert="toolActionsCollapsed"
+          class="classroom-tool-list"
+      >
+        <button class="floating-action secondary" type="button" @click="openChapterPreviewPanel">
+          <BookOpen :size="18" stroke-width="1.8"/>
+          {{ t('courseDetail.classSession.toolChapters') }}
+        </button>
+        <button class="floating-action secondary" type="button" @click="openSeatedStudentsPanel">
+          <Users :size="18" stroke-width="1.8"/>
+          {{ t('courseDetail.classSession.toolStudents') }}
+          <span class="action-count">{{ seatedStudentCount }}</span>
+        </button>
+        <button class="floating-action secondary" type="button" @click="openAiSummaryPanel">
+          <Sparkles :size="18" stroke-width="1.8"/>
+          {{ t('courseDetail.classSession.toolAiSummary') }}
+        </button>
+        <button v-if="canUseLivePracticePanel" class="floating-action" type="button" @click="openLivePracticePanel">
+          <ClipboardList :size="18" stroke-width="1.8"/>
+          {{
+            canManageSessionCourse ? t('courseDetail.classSession.toolPublishPractice') : t('courseDetail.classSession.toolLivePractice')
+          }}
+        </button>
+        <button class="floating-action" type="button" @click="openClassroomLivePanel">
+          <Video :size="18" stroke-width="1.8"/>
+          {{ t('courseDetail.classSession.toolLive') }}
+        </button>
+      </div>
     </div>
 
     <FloatingWindow
@@ -190,7 +212,7 @@
 import {computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {onBeforeRouteLeave, useRoute, useRouter} from 'vue-router'
-import {BookOpen, CircleAlert, ClipboardList, Sparkles, Users, Video} from 'lucide-vue-next'
+import {BookOpen, ChevronLeft, ChevronRight, CircleAlert, ClipboardList, Sparkles, Users, Video} from 'lucide-vue-next'
 
 import {getClassSession} from '@/features/course/api/classSession'
 import {getCourse} from '@/features/course/api/course'
@@ -247,6 +269,7 @@ const showClassroomLivePanel = ref(false)
 const classroomLivePanelCompact = ref(false)
 const classroomViewportWidth = ref(window.innerWidth)
 const hasClassroomCoarsePointer = ref(hasCoarsePrimaryPointer())
+const toolActionsCollapsed = ref(shouldCollapseClassroomToolActions())
 const lastOpenedSidePanel = ref<ClassroomSidePanelKey | null>(null)
 const initialPracticeGroupId = ref<string | null>(null)
 const seatedParticipants = ref<ClassParticipant[]>([])
@@ -282,6 +305,9 @@ const canUseClassroomLive = computed(() => canManageSessionCourse.value || curre
 const canUseClassroomFloatingWindows = computed(() =>
     classroomViewportWidth.value > CLASSROOM_WINDOW_MOBILE_BREAKPOINT && !hasClassroomCoarsePointer.value,
 )
+const toolActionsToggleLabel = computed(() =>
+    t(toolActionsCollapsed.value ? 'courseDetail.classSession.toolActionsExpand' : 'courseDetail.classSession.toolActionsCollapse'),
+)
 
 onMounted(() => {
   window.addEventListener('resize', syncClassroomViewport)
@@ -315,6 +341,7 @@ watch(() => route.query.summaryPanel, (summaryPanel) => {
 
 watch(canUseClassroomFloatingWindows, (canUseFloatingWindows) => {
   if (!canUseFloatingWindows) {
+    toolActionsCollapsed.value = true
     closeExtraSidePanelsForSingleWindowMode()
   }
 })
@@ -399,6 +426,10 @@ function closeLivePracticePanel() {
   showLivePracticePanel.value = false
   initialPracticeGroupId.value = null
   clearLastOpenedSidePanel('livePractice')
+}
+
+function toggleToolActions() {
+  toolActionsCollapsed.value = !toolActionsCollapsed.value
 }
 
 function openChapterPreviewPanel() {
@@ -602,6 +633,10 @@ function hasCoarsePrimaryPointer() {
   return window.matchMedia('(pointer: coarse)').matches
 }
 
+function shouldCollapseClassroomToolActions() {
+  return window.innerWidth <= CLASSROOM_WINDOW_MOBILE_BREAKPOINT || hasCoarsePrimaryPointer()
+}
+
 function handleParticipantsChange(participants: ClassParticipant[]) {
   seatedParticipants.value = participants
 }
@@ -698,16 +733,37 @@ function backToCourse() {
 
 .classroom-tool-actions {
   position: fixed;
-  right: 24px;
+  right: 0;
   bottom: 24px;
   z-index: 1800;
   display: flex;
+  max-width: min(720px, calc(100vw - 48px));
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+  transition: transform 180ms ease;
+}
+
+.classroom-tool-actions.is-collapsed {
+  transform: translateX(calc(100% - 42px));
+}
+
+.classroom-tool-list {
+  display: flex;
+  min-width: 0;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
+  pointer-events: auto;
+  padding-right: 24px;
 }
 
-.floating-action {
+.classroom-tool-actions.is-collapsed .classroom-tool-list {
+  pointer-events: none;
+}
+
+.floating-action,
+.tool-actions-toggle {
   display: inline-flex;
   min-height: 42px;
   align-items: center;
@@ -717,16 +773,29 @@ function backToCourse() {
   background: var(--color-primary);
   border: 1px solid var(--color-primary);
   border-radius: var(--radius-sm);
-  color: var(--color-on-primary);
   cursor: pointer;
   font-family: var(--font-label);
   font-size: 14px;
   box-shadow: var(--shadow-card);
+  pointer-events: auto;
+  white-space: nowrap;
+}
+
+.floating-action {
+  color: var(--color-on-primary);
 }
 
 .floating-action.secondary {
   background: color-mix(in srgb, var(--color-surface-card) 86%, transparent);
   border-color: var(--color-outline-light);
+  color: var(--color-on-surface);
+}
+
+.tool-actions-toggle {
+  width: 42px;
+  padding: 0;
+  background: color-mix(in srgb, var(--color-surface-card) 90%, transparent);
+  border: 1px solid var(--color-outline-light);
   color: var(--color-on-surface);
 }
 
@@ -793,12 +862,41 @@ function backToCourse() {
 @media (max-width: 640px) {
   .classroom-tool-actions {
     right: 12px;
-    bottom: 12px;
+    bottom: 0;
     left: 12px;
+    max-width: none;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .classroom-tool-actions.is-collapsed {
+    transform: translateY(calc(100% - 42px));
+  }
+
+  .classroom-tool-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding-right: 0;
   }
 
   .floating-action {
-    flex: 1 1 120px;
+    min-width: 0;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+
+  .floating-action svg,
+  .tool-actions-toggle svg {
+    flex: 0 0 auto;
+  }
+
+  .tool-actions-toggle {
+    width: 100%;
+  }
+
+  .tool-actions-toggle svg {
+    transform: rotate(90deg);
   }
 }
 </style>

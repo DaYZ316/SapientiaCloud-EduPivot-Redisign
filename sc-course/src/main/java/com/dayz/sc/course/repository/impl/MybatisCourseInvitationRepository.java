@@ -49,6 +49,14 @@ public class MybatisCourseInvitationRepository implements CourseInvitationReposi
     }
 
     @Override
+    public Optional<CourseInvitation> findByCourseIdAndInviteeId(UUID courseId, UUID inviteeId) {
+        LambdaQueryWrapper<CourseInvitation> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(CourseInvitation::getCourseId, courseId)
+                .eq(CourseInvitation::getInviteeId, inviteeId);
+        return Optional.ofNullable(courseInvitationMapper.selectOne(wrapper));
+    }
+
+    @Override
     public boolean existsPendingByCourseIdAndInviteeId(UUID courseId, UUID inviteeId) {
         LambdaQueryWrapper<CourseInvitation> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(CourseInvitation::getCourseId, courseId)
@@ -80,18 +88,24 @@ public class MybatisCourseInvitationRepository implements CourseInvitationReposi
     }
 
     @Override
-    public List<CourseInvitation> findByInviterId(UUID inviterId, int page, int size) {
+    public List<CourseInvitation> findByInviterId(UUID inviterId, Integer status, int page, int size) {
         LambdaQueryWrapper<CourseInvitation> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(CourseInvitation::getInviterId, inviterId);
+        if (status != null) {
+            wrapper.eq(CourseInvitation::getStatus, status);
+        }
         wrapper.orderByDesc(CourseInvitation::getCreatedAt);
         wrapper.last("LIMIT " + size + " OFFSET " + (page - 1) * size);
         return courseInvitationMapper.selectList(wrapper);
     }
 
     @Override
-    public long countByInviterId(UUID inviterId) {
+    public long countByInviterId(UUID inviterId, Integer status) {
         LambdaQueryWrapper<CourseInvitation> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(CourseInvitation::getInviterId, inviterId);
+        if (status != null) {
+            wrapper.eq(CourseInvitation::getStatus, status);
+        }
         return courseInvitationMapper.selectCount(wrapper);
     }
 }

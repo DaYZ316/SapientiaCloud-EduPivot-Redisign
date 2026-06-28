@@ -22,6 +22,7 @@ export function getSentInvitations(query: InvitationPageQuery = {}) {
     const params = new URLSearchParams()
     if (query.page) params.append('page', query.page.toString())
     if (query.size) params.append('size', query.size.toString())
+    if (query.status != null) params.append('status', query.status.toString())
 
     return request<PageResponse<CourseInvitation>>({method: 'GET', url: `/api/invitations/sent?${params.toString()}`})
 }

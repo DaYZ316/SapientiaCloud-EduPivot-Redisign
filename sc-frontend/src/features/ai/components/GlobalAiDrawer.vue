@@ -5,7 +5,7 @@
         ref="launcherRef"
         :initial-center="launcherSpawnCenter"
         :interactive="!launcherLocked"
-        aria-label="打开 AI 教学助手"
+        aria-label="天枢助手"
         snap-initial-center
         @click="openDrawer"
     />

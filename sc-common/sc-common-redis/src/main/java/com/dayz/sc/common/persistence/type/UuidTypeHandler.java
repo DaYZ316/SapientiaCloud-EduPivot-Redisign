@@ -3,7 +3,6 @@ package com.dayz.sc.common.persistence.type;
 import org.apache.ibatis.type.BaseTypeHandler;
 import org.apache.ibatis.type.JdbcType;
 
-import java.sql.*;
 import java.util.UUID;
 
 /**

@@ -2,12 +2,7 @@ package com.dayz.sc.ai.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.dayz.sc.ai.model.entity.LiveSummarySnapshot;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Result;
-import org.apache.ibatis.annotations.Results;
-import org.apache.ibatis.annotations.Select;
-import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.annotations.*;
 
 import java.util.List;
 import java.util.UUID;
@@ -20,6 +15,12 @@ import java.util.UUID;
 @Mapper
 public interface LiveSummarySnapshotMapper extends BaseMapper<LiveSummarySnapshot> {
 
+    /**
+     * Query the highest snapshot sequence number, including deleted snapshots.
+     *
+     * @param summarySessionId summary session ID
+     * @return maximum sequence number, or zero when no snapshot exists
+     */
     @Select("""
             SELECT COALESCE(MAX(sequence_no), 0)
             FROM ai_live_summary_snapshot
@@ -27,6 +28,13 @@ public interface LiveSummarySnapshotMapper extends BaseMapper<LiveSummarySnapsho
             """)
     int maxSequenceNoIncludingDeleted(@Param("summarySessionId") UUID summarySessionId);
 
+    /**
+     * Query recent active snapshots under a course.
+     *
+     * @param courseId course ID
+     * @param limit    result size limit
+     * @return recent active snapshots
+     */
     @Select("""
             SELECT snapshot.*
             FROM ai_live_summary_snapshot snapshot
@@ -53,6 +61,12 @@ public interface LiveSummarySnapshotMapper extends BaseMapper<LiveSummarySnapsho
     List<LiveSummarySnapshot> findRecentActiveByCourseId(@Param("courseId") UUID courseId,
                                                          @Param("limit") int limit);
 
+    /**
+     * Soft delete an active snapshot by ID.
+     *
+     * @param id snapshot ID
+     * @return affected row count
+     */
     @Update("""
             UPDATE ai_live_summary_snapshot
             SET deleted = CAST(1 AS SMALLINT)

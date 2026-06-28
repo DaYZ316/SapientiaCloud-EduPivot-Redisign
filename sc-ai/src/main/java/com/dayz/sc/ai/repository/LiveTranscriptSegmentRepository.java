@@ -46,6 +46,11 @@ public interface LiveTranscriptSegmentRepository {
      */
     List<LiveTranscriptSegment> findAfterSequence(UUID summarySessionId, int sequenceNo);
 
+    /**
+     * Delete all transcript segments under a summary session.
+     *
+     * @param summarySessionId summary session ID
+     */
     void deleteBySummarySessionId(UUID summarySessionId);
 
     /**

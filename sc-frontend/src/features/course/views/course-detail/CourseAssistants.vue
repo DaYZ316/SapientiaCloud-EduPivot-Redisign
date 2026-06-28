@@ -157,7 +157,7 @@ async function loadPendingInvitations() {
   pendingLoading.value = true
   try {
     const resp = await getSentInvitations({status: 0, size: 100})
-    pendingInvitations.value = (resp.records || []).filter(inv => inv.courseId === props.courseId)
+    pendingInvitations.value = (resp.records || []).filter(inv => inv.courseId === props.courseId && inv.status === 0)
   } catch {
     pendingInvitations.value = []
   } finally {

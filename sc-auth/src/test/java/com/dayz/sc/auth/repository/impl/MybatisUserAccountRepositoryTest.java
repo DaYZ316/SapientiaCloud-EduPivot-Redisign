@@ -27,14 +27,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class MybatisUserAccountRepositoryTest {
@@ -74,6 +68,36 @@ class MybatisUserAccountRepositoryTest {
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(configuration, "");
         TableInfoHelper.initTableInfo(assistant, User.class);
         TableInfoHelper.initTableInfo(assistant, UserIdentity.class);
+    }
+
+    private static UserIdentity identity(UUID userId, OauthProvider provider) {
+        UserIdentity identity = new UserIdentity();
+        identity.setUserId(userId);
+        identity.setProvider(provider);
+        return identity;
+    }
+
+    private static User user(UUID userId, String email) {
+        User user = new User();
+        user.setId(userId);
+        user.setEmail(email);
+        return user;
+    }
+
+    private static String userKey(UUID userId) {
+        return "auth:user:" + userId;
+    }
+
+    private static String providersKey(UUID userId) {
+        return userKey(userId) + ":providers";
+    }
+
+    private static String emailKey(String email) {
+        return "auth:user:email:" + email;
+    }
+
+    private static String lockKey(String cacheKey) {
+        return "lock:" + cacheKey;
     }
 
     @BeforeEach
@@ -281,36 +305,6 @@ class MybatisUserAccountRepositoryTest {
         verify(redisTemplate).delete("auth:user:" + userId + ":providers");
         verify(redisTemplate).delete("auth:user:email:old@example.com");
         verify(redisTemplate).delete("auth:user:email:new@example.com");
-    }
-
-    private static UserIdentity identity(UUID userId, OauthProvider provider) {
-        UserIdentity identity = new UserIdentity();
-        identity.setUserId(userId);
-        identity.setProvider(provider);
-        return identity;
-    }
-
-    private static User user(UUID userId, String email) {
-        User user = new User();
-        user.setId(userId);
-        user.setEmail(email);
-        return user;
-    }
-
-    private static String userKey(UUID userId) {
-        return "auth:user:" + userId;
-    }
-
-    private static String providersKey(UUID userId) {
-        return userKey(userId) + ":providers";
-    }
-
-    private static String emailKey(String email) {
-        return "auth:user:email:" + email;
-    }
-
-    private static String lockKey(String cacheKey) {
-        return "lock:" + cacheKey;
     }
 
     private void assertMetric(String name, String cache, String result, double expected) {

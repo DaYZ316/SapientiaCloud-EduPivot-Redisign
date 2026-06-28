@@ -39,7 +39,7 @@ const props = withDefaults(defineProps<{
   snapInitialCenter?: boolean
   startAtCenter?: boolean
 }>(), {
-  ariaLabel: '打开 AI 教学助手',
+  ariaLabel: '天枢助手',
   initialCenter: null,
   interactive: true,
   snapInitialCenter: false,

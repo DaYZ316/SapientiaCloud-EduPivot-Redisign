@@ -37,16 +37,53 @@ public interface LiveSummarySnapshotRepository {
      */
     Optional<LiveSummarySnapshot> findLatestBySummarySessionId(UUID summarySessionId);
 
+    /**
+     * Query a live summary snapshot by ID.
+     *
+     * @param id snapshot ID
+     * @return snapshot entity, possibly empty
+     */
     Optional<LiveSummarySnapshot> findById(UUID id);
 
+    /**
+     * Query recent live summary snapshots under a summary session.
+     *
+     * @param summarySessionId summary session ID
+     * @param limit            result size limit
+     * @return recent snapshot list
+     */
     List<LiveSummarySnapshot> findRecentBySummarySessionId(UUID summarySessionId, int limit);
 
+    /**
+     * Query recent live summary snapshots under a class session.
+     *
+     * @param classSessionId class session ID
+     * @param limit          result size limit
+     * @return recent snapshot list
+     */
     List<LiveSummarySnapshot> findRecentByClassSessionId(UUID classSessionId, int limit);
 
+    /**
+     * Query recent live summary snapshots under a course.
+     *
+     * @param courseId course ID
+     * @param limit    result size limit
+     * @return recent snapshot list
+     */
     List<LiveSummarySnapshot> findRecentByCourseId(UUID courseId, int limit);
 
+    /**
+     * Delete a live summary snapshot by ID.
+     *
+     * @param id snapshot ID
+     */
     void deleteById(UUID id);
 
+    /**
+     * Delete all live summary snapshots under a summary session.
+     *
+     * @param summarySessionId summary session ID
+     */
     void deleteBySummarySessionId(UUID summarySessionId);
 
     /**

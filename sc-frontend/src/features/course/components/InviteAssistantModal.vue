@@ -185,7 +185,7 @@ async function loadPendingInvitations() {
   if (props.isAdmin) return
   try {
     const resp = await getSentInvitations({status: 0, size: 100})
-    pendingInvitations.value = (resp.records || []).filter(inv => inv.courseId === props.courseId)
+    pendingInvitations.value = (resp.records || []).filter(inv => inv.courseId === props.courseId && inv.status === 0)
   } catch {
     pendingInvitations.value = []
   }

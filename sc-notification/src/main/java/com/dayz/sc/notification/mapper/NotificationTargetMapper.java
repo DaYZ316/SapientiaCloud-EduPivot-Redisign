@@ -19,6 +19,13 @@ import java.util.UUID;
 @Mapper
 public interface NotificationTargetMapper extends BaseMapper<NotificationTarget> {
 
+    /**
+     * Mark one notification as deleted for the user.
+     *
+     * @param notificationId notification ID
+     * @param userId         user ID
+     * @return affected row count
+     */
     @Insert("""
             INSERT INTO ntf_notification_target (id, notification_id, user_id, deleted)
             VALUES (gen_random_uuid(), #{notificationId}, #{userId}, 1)
@@ -50,6 +57,13 @@ public interface NotificationTargetMapper extends BaseMapper<NotificationTarget>
             """)
     int markAllDeleted(@Param("userId") UUID userId, @Param("type") Integer type);
 
+    /**
+     * Mark all broadcast notifications as deleted for the user.
+     *
+     * @param userId user ID
+     * @param type   notification type; null matches all types
+     * @return affected row count
+     */
     @Insert("""
             <script>
             INSERT INTO ntf_notification_target (id, notification_id, user_id, deleted)

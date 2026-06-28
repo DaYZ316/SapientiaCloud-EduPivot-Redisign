@@ -99,8 +99,9 @@
                   <span>{{ course.schedule }}</span>
                   <span>{{ course.recentActivity }}</span>
                 </div>
-                <div :aria-label="t('myEnrollments.classHourProgressAria', { title: course.title, progress: course.progress })"
-                     class="progress-track">
+                <div
+                    :aria-label="t('myEnrollments.classHourProgressAria', { title: course.title, progress: course.progress })"
+                    class="progress-track">
                   <span :style="{ width: `${course.progress}%` }"></span>
                 </div>
               </div>

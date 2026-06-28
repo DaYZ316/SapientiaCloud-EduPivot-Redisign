@@ -28,7 +28,11 @@ import {type ClassParticipant, ClassRoomSize, type ClassSession} from '@/feature
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import {getClassroomModelRoute} from '@/features/classroom/composables/useModelRouter'
-import {getAllSeatPositions, getDeskPosition, seatIndexToPositionIndex} from '@/features/classroom/composables/useSeatLayout'
+import {
+  getAllSeatPositions,
+  getDeskPosition,
+  seatIndexToPositionIndex
+} from '@/features/classroom/composables/useSeatLayout'
 import {
   type ClassroomDimensions,
   computeCameraPositionsBySize,
@@ -720,6 +724,9 @@ function drawCourseInfoOnBlackboard(
 
   if (index === 1) {
     drawCenteredBlackboardText(context, props.session.title, canvas.width, 64, textWidth, 34)
+    if (props.session.description) {
+      drawCenteredBlackboardText(context, props.session.description, canvas.width, 150, textWidth, 24)
+    }
   } else {
     context.font = `400 30px ${BLACKBOARD_FONT_FAMILY}`
     drawBlackboardText(context, `\u5f00\u8bfe\u6559\u5e08\uff1a${teacherName}`, paddingX, 72, textWidth)
@@ -1044,13 +1051,22 @@ function findDoorAnchors(_classroom: THREE.Object3D, bounds: THREE.Box3, roomSiz
   switch (roomSize) {
     case ClassRoomSize.SMALL:
       return [
-        {position: new THREE.Vector3(-3.4, 1, 3.2), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI)},
+        {
+          position: new THREE.Vector3(-3.4, 1, 3.2),
+          quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI)
+        },
       ]
 
     case ClassRoomSize.MEDIUM:
       return [
-        {position: new THREE.Vector3(-7.3, y, 7.2), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)},
-        {position: new THREE.Vector3(-7.3, y, -7.3), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)},
+        {
+          position: new THREE.Vector3(-7.3, y, 7.2),
+          quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)
+        },
+        {
+          position: new THREE.Vector3(-7.3, y, -7.3),
+          quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)
+        },
       ]
 
     case ClassRoomSize.LARGE:
@@ -1067,8 +1083,14 @@ function findDoorAnchors(_classroom: THREE.Object3D, bounds: THREE.Box3, roomSiz
 
     case ClassRoomSize.XLARGE:
       return [
-        {position: new THREE.Vector3(-9.3, 1, 8), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)},
-        {position: new THREE.Vector3(9.3, 1, 8), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2)},
+        {
+          position: new THREE.Vector3(-9.3, 1, 8),
+          quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)
+        },
+        {
+          position: new THREE.Vector3(9.3, 1, 8),
+          quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2)
+        },
       ]
 
     default:

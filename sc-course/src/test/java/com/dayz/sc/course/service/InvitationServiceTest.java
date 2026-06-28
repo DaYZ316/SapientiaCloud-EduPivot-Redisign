@@ -21,6 +21,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -78,6 +79,7 @@ class InvitationServiceTest {
         when(courseRepository.findById(courseId)).thenReturn(Optional.of(course));
         when(courseTeacherRepository.existsByCourseIdAndTeacherId(courseId, inviteeId)).thenReturn(false);
         when(invitationRepository.existsPendingByCourseIdAndInviteeId(courseId, inviteeId)).thenReturn(false);
+        when(invitationRepository.findByCourseIdAndInviteeId(courseId, inviteeId)).thenReturn(Optional.empty());
         when(authInternalClient.getUsersBasicInfo(any()))
                 .thenAnswer(invocation -> {
                     List<?> userIds = invocation.getArgument(0);
@@ -95,6 +97,45 @@ class InvitationServiceTest {
         assertThat(savedInvitation.getInviterId()).isEqualTo(primaryTeacherId);
         assertThat(savedInvitation.getInviteeId()).isEqualTo(inviteeId);
         assertThat(savedInvitation.getStatus()).isEqualTo(InvitationStatus.PENDING.getCode());
+    }
+
+    @Test
+    void invite_shouldReuseWithdrawnInvitationWhenInvitingAgain() {
+        UUID courseId = UUID.randomUUID();
+        UUID primaryTeacherId = UUID.randomUUID();
+        UUID inviteeId = UUID.randomUUID();
+        Course course = course(courseId, primaryTeacherId);
+        CourseInvitation withdrawnInvitation = new CourseInvitation();
+        withdrawnInvitation.setId(UUID.randomUUID());
+        withdrawnInvitation.setCourseId(courseId);
+        withdrawnInvitation.setInviterId(primaryTeacherId);
+        withdrawnInvitation.setInviteeId(inviteeId);
+        withdrawnInvitation.setStatus(InvitationStatus.WITHDRAWN.getCode());
+        withdrawnInvitation.setMessage("old message");
+        withdrawnInvitation.setCreatedAt(Instant.parse("2026-06-01T00:00:00Z"));
+
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(course));
+        when(courseTeacherRepository.existsByCourseIdAndTeacherId(courseId, inviteeId)).thenReturn(false);
+        when(invitationRepository.existsPendingByCourseIdAndInviteeId(courseId, inviteeId)).thenReturn(false);
+        when(invitationRepository.findByCourseIdAndInviteeId(courseId, inviteeId)).thenReturn(Optional.of(withdrawnInvitation));
+        when(authInternalClient.getUsersBasicInfo(any()))
+                .thenAnswer(invocation -> {
+                    List<?> userIds = invocation.getArgument(0);
+                    return ApiResponse.ok(userIds.stream()
+                            .map(UUID.class::cast)
+                            .map(id -> new UserBasicInfo(id, "Teacher " + id, null, 2))
+                            .toList());
+                });
+
+        invitationService.invite(new InviteAssistantRequest(courseId, inviteeId, "new message"), primaryTeacherId, 2);
+
+        verify(invitationRepository, never()).save(any());
+        verify(invitationRepository).update(invitationCaptor.capture());
+        CourseInvitation updatedInvitation = invitationCaptor.getValue();
+        assertThat(updatedInvitation.getId()).isEqualTo(withdrawnInvitation.getId());
+        assertThat(updatedInvitation.getStatus()).isEqualTo(InvitationStatus.PENDING.getCode());
+        assertThat(updatedInvitation.getMessage()).isEqualTo("new message");
+        assertThat(updatedInvitation.getCreatedAt()).isAfter(Instant.parse("2026-06-01T00:00:00Z"));
     }
 
     @Test

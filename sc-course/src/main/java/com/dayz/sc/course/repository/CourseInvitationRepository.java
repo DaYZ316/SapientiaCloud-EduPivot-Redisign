@@ -46,6 +46,15 @@ public interface CourseInvitationRepository {
     Optional<CourseInvitation> findPendingByCourseIdAndInviteeId(UUID courseId, UUID inviteeId);
 
     /**
+     * 根据课程ID和被邀请人ID查询未删除的邀请
+     *
+     * @param courseId  课程ID
+     * @param inviteeId 被邀请人ID
+     * @return 邀请实体，可能为空
+     */
+    Optional<CourseInvitation> findByCourseIdAndInviteeId(UUID courseId, UUID inviteeId);
+
+    /**
      * 检查是否存在待处理的邀请
      *
      * @param courseId  课程ID
@@ -78,17 +87,19 @@ public interface CourseInvitationRepository {
      * 根据邀请人ID分页查询邀请
      *
      * @param inviterId 邀请人ID
+     * @param status    邀请状态
      * @param page      页码
      * @param size      每页大小
      * @return 邀请列表
      */
-    List<CourseInvitation> findByInviterId(UUID inviterId, int page, int size);
+    List<CourseInvitation> findByInviterId(UUID inviterId, Integer status, int page, int size);
 
     /**
      * 统计邀请人的邀请数量
      *
      * @param inviterId 邀请人ID
+     * @param status    邀请状态
      * @return 邀请数量
      */
-    long countByInviterId(UUID inviterId);
+    long countByInviterId(UUID inviterId, Integer status);
 }

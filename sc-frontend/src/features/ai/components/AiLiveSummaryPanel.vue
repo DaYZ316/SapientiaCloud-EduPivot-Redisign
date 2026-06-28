@@ -1,17 +1,17 @@
 <template>
   <aside
-    :aria-label="t('courseDetail.classSession.liveSummary.ariaLabel')"
-    :aria-busy="isInitialLoading"
-    class="ai-live-summary-panel"
-    role="dialog"
+      :aria-busy="isInitialLoading"
+      :aria-label="t('courseDetail.classSession.liveSummary.ariaLabel')"
+      class="ai-live-summary-panel"
+      role="dialog"
   >
     <header class="panel-header">
       <div class="panel-title">
         <h2>{{ t('courseDetail.classSession.liveSummary.title') }}</h2>
         <span
-          v-if="isInitialLoading"
-          aria-hidden="true"
-          class="summary-skeleton panel-title-loader"
+            v-if="isInitialLoading"
+            aria-hidden="true"
+            class="summary-skeleton panel-title-loader"
         />
         <p v-else>
           {{ currentSummaryInfo }}
@@ -19,15 +19,15 @@
       </div>
       <div class="panel-actions">
         <button
-          :aria-label="t('courseDetail.classSession.liveSummary.close')"
-          :title="t('courseDetail.classSession.liveSummary.close')"
-          class="icon-button"
-          type="button"
-          @click="$emit('close')"
+            :aria-label="t('courseDetail.classSession.liveSummary.close')"
+            :title="t('courseDetail.classSession.liveSummary.close')"
+            class="icon-button"
+            type="button"
+            @click="$emit('close')"
         >
           <X
-            :size="18"
-            stroke-width="1.8"
+              :size="18"
+              stroke-width="1.8"
           />
         </button>
       </div>
@@ -35,76 +35,76 @@
 
     <template v-if="isInitialLoading">
       <section
-        aria-hidden="true"
-        class="status-strip layout-loading-strip"
+          aria-hidden="true"
+          class="status-strip layout-loading-strip"
       >
         <div class="status-copy">
-          <span class="summary-skeleton status-dot status-dot-loader" />
+          <span class="summary-skeleton status-dot status-dot-loader"/>
           <div class="loading-copy-lines">
-            <span class="summary-skeleton loading-line loading-line-short" />
-            <span class="summary-skeleton loading-line loading-line-long" />
+            <span class="summary-skeleton loading-line loading-line-short"/>
+            <span class="summary-skeleton loading-line loading-line-long"/>
           </div>
         </div>
         <div class="status-meta loading-meta">
           <span>
-            <span class="summary-skeleton loading-metric-number" />
-            <span class="summary-skeleton loading-metric-label" />
+            <span class="summary-skeleton loading-metric-number"/>
+            <span class="summary-skeleton loading-metric-label"/>
           </span>
           <span>
-            <span class="summary-skeleton loading-metric-number" />
-            <span class="summary-skeleton loading-metric-label" />
+            <span class="summary-skeleton loading-metric-number"/>
+            <span class="summary-skeleton loading-metric-label"/>
           </span>
         </div>
       </section>
 
       <nav
-        aria-hidden="true"
-        class="summary-tabs layout-loading-tabs"
+          aria-hidden="true"
+          class="summary-tabs layout-loading-tabs"
       >
         <span
-          v-for="index in tabs.length"
-          :key="`tab-loader-${index}`"
-          class="summary-skeleton tab-loader"
+            v-for="index in tabs.length"
+            :key="`tab-loader-${index}`"
+            class="summary-skeleton tab-loader"
         />
       </nav>
 
       <main class="panel-body">
         <section
-          aria-hidden="true"
-          class="summary-layout-loader"
+            aria-hidden="true"
+            class="summary-layout-loader"
         >
           <article class="overview-block loading-overview">
-            <span class="summary-skeleton loading-heading" />
+            <span class="summary-skeleton loading-heading"/>
             <div class="loading-paragraph">
-              <span class="summary-skeleton loading-line" />
-              <span class="summary-skeleton loading-line loading-line-wide" />
-              <span class="summary-skeleton loading-line loading-line-medium" />
+              <span class="summary-skeleton loading-line"/>
+              <span class="summary-skeleton loading-line loading-line-wide"/>
+              <span class="summary-skeleton loading-line loading-line-medium"/>
             </div>
           </article>
           <div class="loading-summary-grid">
             <section class="keypoint-section loading-keypoints">
               <div class="section-heading">
-                <span class="summary-skeleton loading-heading" />
-                <span class="summary-skeleton loading-count" />
+                <span class="summary-skeleton loading-heading"/>
+                <span class="summary-skeleton loading-count"/>
               </div>
               <div class="loading-keypoint-list">
                 <article
-                  v-for="index in 4"
-                  :key="`keypoint-loader-${index}`"
-                  class="loading-keypoint-row"
+                    v-for="index in 4"
+                    :key="`keypoint-loader-${index}`"
+                    class="loading-keypoint-row"
                 >
-                  <span class="summary-skeleton loading-index" />
-                  <span class="summary-skeleton loading-line" />
+                  <span class="summary-skeleton loading-index"/>
+                  <span class="summary-skeleton loading-line"/>
                 </article>
               </div>
             </section>
             <section class="question-block loading-questions">
-              <span class="summary-skeleton loading-heading" />
+              <span class="summary-skeleton loading-heading"/>
               <div class="loading-question-list">
                 <span
-                  v-for="index in 3"
-                  :key="`question-loader-${index}`"
-                  class="summary-skeleton loading-line"
+                    v-for="index in 3"
+                    :key="`question-loader-${index}`"
+                    class="summary-skeleton loading-line"
                 />
               </div>
             </section>
@@ -115,13 +115,13 @@
 
     <template v-else>
       <section
-        :class="statusClass"
-        class="status-strip"
+          :class="statusClass"
+          class="status-strip"
       >
         <div class="status-copy">
           <span
-            aria-hidden="true"
-            class="status-dot"
+              aria-hidden="true"
+              class="status-dot"
           />
           <div>
             <strong>{{ statusLabel }}</strong>
@@ -141,21 +141,21 @@
       </section>
 
       <nav
-        :aria-label="t('courseDetail.classSession.liveSummary.navAria')"
-        class="summary-tabs"
+          :aria-label="t('courseDetail.classSession.liveSummary.navAria')"
+          class="summary-tabs"
       >
         <button
-          v-for="tab in tabs"
-          :key="tab.key"
-          :aria-current="activeTab === tab.key ? 'page' : undefined"
-          :class="{active: activeTab === tab.key}"
-          type="button"
-          @click="activeTab = tab.key"
+            v-for="tab in tabs"
+            :key="tab.key"
+            :aria-current="activeTab === tab.key ? 'page' : undefined"
+            :class="{active: activeTab === tab.key}"
+            type="button"
+            @click="activeTab = tab.key"
         >
           <component
-            :is="tab.icon"
-            :size="15"
-            stroke-width="1.8"
+              :is="tab.icon"
+              :size="15"
+              stroke-width="1.8"
           />
           {{ tab.label }}
         </button>
@@ -163,53 +163,55 @@
 
       <main class="panel-body">
         <section
-          v-if="activeTab === 'transcript'"
-          aria-live="polite"
-          class="transcript-view"
+            v-if="activeTab === 'transcript'"
+            aria-live="polite"
+            class="transcript-view"
         >
           <article
-            v-if="partialTranscript"
-            class="transcript-row partial"
+              v-if="partialTranscript"
+              class="transcript-row partial"
           >
             <span>{{ t('courseDetail.classSession.liveSummary.transcript.partial') }}</span>
             <p>{{ partialTranscript.text }}</p>
           </article>
           <article
-            v-for="segment in transcripts"
-            :key="segmentKey(segment)"
-            class="transcript-row"
+              v-for="segment in transcripts"
+              :key="segmentKey(segment)"
+              class="transcript-row"
           >
             <span>{{ transcriptTime(segment) }}</span>
             <p>{{ segment.text }}</p>
           </article>
           <p
-            v-if="!partialTranscript && transcripts.length === 0"
-            class="empty-state"
+              v-if="!partialTranscript && transcripts.length === 0"
+              class="empty-state"
           >
             {{
               canManage
-                ? t('courseDetail.classSession.liveSummary.transcript.emptyTeacher')
-                : t('courseDetail.classSession.liveSummary.transcript.emptyStudent')
+                  ? t('courseDetail.classSession.liveSummary.transcript.emptyTeacher')
+                  : t('courseDetail.classSession.liveSummary.transcript.emptyStudent')
             }}
           </p>
         </section>
 
         <section
-          v-else-if="activeTab === 'summary'"
-          :class="{'has-questions': questions.length}"
-          class="summary-view"
+            v-else-if="activeTab === 'summary'"
+            :class="{'has-questions': questions.length}"
+            class="summary-view"
         >
           <button
-            v-if="selectedHistoryRecord"
-            class="latest-summary-button"
-            type="button"
-            @click="selectedHistoryRecordId = null"
+              v-if="selectedHistoryRecord"
+              class="latest-summary-button"
+              type="button"
+              @click="selectedHistoryRecordId = null"
           >
             {{ t('courseDetail.classSession.liveSummary.history.viewLatest') }}
           </button>
           <article class="overview-block">
             <span class="section-label">{{ t('courseDetail.classSession.liveSummary.summary.overview') }}</span>
-            <p>{{ displaySnapshot?.overview || t('courseDetail.classSession.liveSummary.summary.overviewFallback') }}</p>
+            <p>{{
+                displaySnapshot?.overview || t('courseDetail.classSession.liveSummary.summary.overviewFallback')
+              }}</p>
           </article>
           <section class="keypoint-section">
             <div class="section-heading">
@@ -217,33 +219,33 @@
               <strong>{{ keyPoints.length }}</strong>
             </div>
             <div
-              v-if="keyPoints.length"
-              class="keypoint-list"
+                v-if="keyPoints.length"
+                class="keypoint-list"
             >
               <article
-                v-for="(point, index) in keyPoints"
-                :key="point"
+                  v-for="(point, index) in keyPoints"
+                  :key="point"
               >
                 <span class="keypoint-index">{{ String(index + 1).padStart(2, '0') }}</span>
                 <span>{{ point }}</span>
               </article>
             </div>
             <p
-              v-else
-              class="inline-empty"
+                v-else
+                class="inline-empty"
             >
               {{ t('courseDetail.classSession.liveSummary.summary.keyPointEmpty') }}
             </p>
           </section>
           <section
-            v-if="questions.length"
-            class="question-block"
+              v-if="questions.length"
+              class="question-block"
           >
             <span class="section-label">{{ t('courseDetail.classSession.liveSummary.summary.questions') }}</span>
             <ol>
               <li
-                v-for="question in questions"
-                :key="question"
+                  v-for="question in questions"
+                  :key="question"
               >
                 {{ question }}
               </li>
@@ -252,78 +254,82 @@
         </section>
 
         <section
-          v-else-if="activeTab === 'timeline'"
-          class="timeline-view"
+            v-else-if="activeTab === 'timeline'"
+            class="timeline-view"
         >
           <DashboardTimelineRows
-            :empty-text="t('courseDetail.classSession.liveSummary.timeline.empty')"
-            :items="timelineRows"
+              :empty-text="t('courseDetail.classSession.liveSummary.timeline.empty')"
+              :items="timelineRows"
           />
         </section>
 
         <section
-          v-else-if="activeTab === 'history'"
-          class="history-view"
+            v-else-if="activeTab === 'history'"
+            class="history-view"
         >
           <article
-            v-for="record in historyRecords"
-            :key="record.summarySessionId"
-            :class="{active: selectedHistoryRecord?.summarySessionId === record.summarySessionId}"
-            class="history-row"
+              v-for="record in historyRecords"
+              :key="record.summarySessionId"
+              :class="{active: selectedHistoryRecord?.summarySessionId === record.summarySessionId}"
+              class="history-row"
           >
             <button
-              :class="{'history-select-button--with-delete': canDeleteHistory}"
-              class="history-select-button"
-              type="button"
-              @click="selectHistoryRecord(record.summarySessionId)"
+                :class="{'history-select-button--with-delete': canDeleteHistory}"
+                class="history-select-button"
+                type="button"
+                @click="selectHistoryRecord(record.summarySessionId)"
             >
               <span>{{ historyRecordLabel(record) }}</span>
-              <strong>{{ record.latestSnapshot.overview || t('courseDetail.classSession.liveSummary.history.untitled') }}</strong>
+              <strong>{{
+                  record.latestSnapshot.overview || t('courseDetail.classSession.liveSummary.history.untitled')
+                }}</strong>
               <span class="history-meta-row">
                 <small>
                   {{ t('courseDetail.classSession.liveSummary.history.updates', {count: record.snapshots.length}) }}
                 </small>
                 <small>
-                  {{ t('courseDetail.classSession.liveSummary.history.transcriptUntil', {sequence: record.latestSnapshot.transcriptUntilSequenceNo}) }}
+                  {{
+                    t('courseDetail.classSession.liveSummary.history.transcriptUntil', {sequence: record.latestSnapshot.transcriptUntilSequenceNo})
+                  }}
                 </small>
               </span>
             </button>
             <button
-              v-if="canDeleteHistory"
-              :disabled="deletingHistoryRecordId === record.summarySessionId"
-              class="history-delete-button"
-              type="button"
-              @click.stop="deleteHistoryRecord(record)"
+                v-if="canDeleteHistory"
+                :disabled="deletingHistoryRecordId === record.summarySessionId"
+                class="history-delete-button"
+                type="button"
+                @click.stop="deleteHistoryRecord(record)"
             >
               <Trash2
-                :size="13"
-                stroke-width="1.8"
+                  :size="13"
+                  stroke-width="1.8"
               />
               {{ t('courseDetail.classSession.liveSummary.history.delete') }}
             </button>
           </article>
           <p
-            v-if="historyRecords.length === 0"
-            class="empty-state"
+              v-if="historyRecords.length === 0"
+              class="empty-state"
           >
             {{ t('courseDetail.classSession.liveSummary.history.empty') }}
           </p>
         </section>
 
         <section
-          v-else
-          class="mindmap-view"
+            v-else
+            class="mindmap-view"
         >
           <div
-            v-if="mindMap"
-            ref="chartEl"
-            :aria-label="t('courseDetail.classSession.liveSummary.mindmap.aria')"
-            class="mindmap-chart"
-            role="img"
+              v-if="mindMap"
+              ref="chartEl"
+              :aria-label="t('courseDetail.classSession.liveSummary.mindmap.aria')"
+              class="mindmap-chart"
+              role="img"
           />
           <p
-            v-else
-            class="empty-state"
+              v-else
+              class="empty-state"
           >
             {{ t('courseDetail.classSession.liveSummary.mindmap.empty') }}
           </p>
@@ -430,7 +436,11 @@ const isRunning = computed(() => summary.value?.status === 'RUNNING')
 const showTranscript = computed(() => isRunning.value)
 const tabs = computed(() => [
   ...(showTranscript.value
-      ? [{key: 'transcript' as const, label: t('courseDetail.classSession.liveSummary.tabs.transcript'), icon: ScrollText}]
+      ? [{
+        key: 'transcript' as const,
+        label: t('courseDetail.classSession.liveSummary.tabs.transcript'),
+        icon: ScrollText
+      }]
       : []),
   {key: 'summary' as const, label: t('courseDetail.classSession.liveSummary.tabs.summary'), icon: Sparkles},
   {key: 'timeline' as const, label: t('courseDetail.classSession.liveSummary.tabs.timeline'), icon: ListTree},
@@ -840,11 +850,10 @@ function stringList(value: unknown) {
   border-radius: var(--radius-sm);
   color: var(--color-on-surface);
   flex: 0 0 auto;
-  transition:
-    background 0.2s,
-    border-color 0.2s,
-    color 0.2s,
-    transform 0.2s;
+  transition: background 0.2s,
+  border-color 0.2s,
+  color 0.2s,
+  transform 0.2s;
 }
 
 .icon-button:hover {
@@ -997,10 +1006,9 @@ function stringList(value: unknown) {
   color: var(--color-muted);
   font-size: 12px;
   font-weight: 500;
-  transition:
-    background 0.2s,
-    color 0.2s,
-    transform 0.2s;
+  transition: background 0.2s,
+  color 0.2s,
+  transform 0.2s;
 }
 
 .summary-tabs button:first-child {
@@ -1302,9 +1310,8 @@ function stringList(value: unknown) {
   text-decoration: underline;
   text-decoration-color: transparent;
   text-underline-offset: 3px;
-  transition:
-    color 0.18s,
-    text-decoration-color 0.18s;
+  transition: color 0.18s,
+  text-decoration-color 0.18s;
 }
 
 .latest-summary-button:hover,
@@ -1320,9 +1327,8 @@ function stringList(value: unknown) {
   border: 1px solid var(--color-outline-light);
   border-radius: 0;
   background: color-mix(in srgb, var(--color-surface-container) 88%, transparent);
-  transition:
-    background 0.18s,
-    border-color 0.18s;
+  transition: background 0.18s,
+  border-color 0.18s;
 }
 
 .history-row.active {
@@ -1381,9 +1387,8 @@ function stringList(value: unknown) {
   font-weight: 600;
   opacity: 0;
   pointer-events: none;
-  transition:
-    color 0.18s,
-    opacity 0.18s;
+  transition: color 0.18s,
+  opacity 0.18s;
 }
 
 .history-row:hover .history-delete-button,
@@ -1563,14 +1568,13 @@ button:disabled {
 
 .summary-skeleton {
   overflow: hidden;
-  background:
-      linear-gradient(
-          90deg,
-          transparent,
-          color-mix(in srgb, var(--color-primary) 10%, transparent),
-          transparent
-      ),
-      color-mix(in srgb, var(--color-surface-container-highest) 74%, transparent);
+  background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--color-primary) 10%, transparent),
+      transparent
+  ),
+  color-mix(in srgb, var(--color-surface-container-highest) 74%, transparent);
   background-size: 220% 100%, 100% 100%;
   border-radius: 0;
   animation: summary-skeleton-scan 1.4s ease-in-out infinite;

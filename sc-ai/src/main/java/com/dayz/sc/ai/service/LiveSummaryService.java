@@ -5,11 +5,7 @@ import com.dayz.sc.ai.model.entity.LiveSummarySession;
 import com.dayz.sc.ai.model.entity.LiveSummarySnapshot;
 import com.dayz.sc.ai.model.entity.LiveTranscriptSegment;
 import com.dayz.sc.ai.model.enums.LiveSummaryStatus;
-import com.dayz.sc.ai.model.vo.LiveSummaryAudioTokenVO;
-import com.dayz.sc.ai.model.vo.LiveSummaryRecordVO;
-import com.dayz.sc.ai.model.vo.LiveSummarySessionVO;
-import com.dayz.sc.ai.model.vo.LiveSummarySnapshotVO;
-import com.dayz.sc.ai.model.vo.LiveTranscriptSegmentVO;
+import com.dayz.sc.ai.model.vo.*;
 import com.dayz.sc.ai.repository.LiveSummarySessionRepository;
 import com.dayz.sc.ai.repository.LiveSummarySnapshotRepository;
 import com.dayz.sc.ai.repository.LiveTranscriptSegmentRepository;
@@ -186,7 +182,7 @@ public class LiveSummaryService {
         return snapshotsForCourse(access.courseId());
     }
 
-    public PageResponse<LiveSummaryRecordVO> listVisibleSummaries(UUID userId, Integer role, int page, int size) {
+    public PageResponse<@NonNull LiveSummaryRecordVO> listVisibleSummaries(UUID userId, Integer role, int page, int size) {
         int currentPage = Math.max(1, page);
         int pageSize = Math.min(Math.max(1, size), 50);
         boolean admin = SecurityUtils.isAdmin(role);

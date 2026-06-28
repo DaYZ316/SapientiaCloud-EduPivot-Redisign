@@ -80,8 +80,19 @@ public interface CourseRepository {
      */
     List<Course> findByIds(List<UUID> ids);
 
+    /**
+     * Query all course IDs.
+     *
+     * @return course ID list
+     */
     List<UUID> findAllIds();
 
+    /**
+     * Query course IDs owned by the teacher.
+     *
+     * @param teacherId teacher ID
+     * @return course ID list
+     */
     List<UUID> findTeacherCourseIds(UUID teacherId);
 
     /**

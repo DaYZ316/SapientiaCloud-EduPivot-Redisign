@@ -25,6 +25,7 @@ import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -83,26 +84,7 @@ public class InvitationService {
             throw new BusinessException(ErrorCodes.INVITATION_ALREADY_INVITED, "已存在待处理的邀请");
         }
 
-        CourseInvitation invitation = new CourseInvitation();
-        invitation.setId(UuidV7Generator.generate());
-        invitation.setCourseId(request.courseId());
-        invitation.setInviterId(inviterId);
-        invitation.setInviteeId(request.inviteeId());
-
-        // 管理员邀请直接接受，教师邀请需要对方确认
-        if (admin) {
-            invitation.setStatus(InvitationStatus.ACCEPTED.getCode());
-        } else {
-            invitation.setStatus(InvitationStatus.PENDING.getCode());
-        }
-        invitation.setMessage(request.message());
-
-        invitationRepository.save(invitation);
-
-        // 管理员邀请直接加入课程教师关联表
-        if (admin) {
-            courseTeacherRepository.batchSave(request.courseId(), List.of(request.inviteeId()));
-        }
+        CourseInvitation invitation = saveInvitation(request, inviterId, admin);
 
         // 获取邀请人信息用于通知
         UserBasicInfo inviterInfo = getBasicUserInfo(inviterId);
@@ -122,6 +104,34 @@ public class InvitationService {
             log.info("Teacher {} invited {} as assistant for course {}", inviterId, request.inviteeId(), request.courseId());
         }
         return invitation.getId();
+    }
+
+    private CourseInvitation saveInvitation(InviteAssistantRequest request, UUID inviterId, boolean admin) {
+        CourseInvitation invitation = invitationRepository.findByCourseIdAndInviteeId(request.courseId(), request.inviteeId())
+                .orElseGet(() -> {
+                    CourseInvitation created = new CourseInvitation();
+                    created.setId(UuidV7Generator.generate());
+                    created.setCourseId(request.courseId());
+                    created.setInviteeId(request.inviteeId());
+                    return created;
+                });
+        boolean created = invitation.getInviterId() == null;
+        invitation.setInviterId(inviterId);
+        invitation.setStatus(admin ? InvitationStatus.ACCEPTED.getCode() : InvitationStatus.PENDING.getCode());
+        invitation.setMessage(request.message());
+        if (!created) {
+            invitation.setCreatedAt(Instant.now());
+        }
+
+        if (created) {
+            invitationRepository.save(invitation);
+        } else {
+            invitationRepository.update(invitation);
+        }
+        if (admin) {
+            courseTeacherRepository.batchSave(request.courseId(), List.of(request.inviteeId()));
+        }
+        return invitation;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -230,8 +240,8 @@ public class InvitationService {
         int page = PageUtils.normalizePage(request.page());
         int size = PageUtils.normalizeSize(request.size());
 
-        List<CourseInvitation> invitations = invitationRepository.findByInviterId(inviterId, page, size);
-        long total = invitationRepository.countByInviterId(inviterId);
+        List<CourseInvitation> invitations = invitationRepository.findByInviterId(inviterId, request.status(), page, size);
+        long total = invitationRepository.countByInviterId(inviterId, request.status());
 
         List<CourseInvitationVO> voList = toInvitationVos(invitations);
 

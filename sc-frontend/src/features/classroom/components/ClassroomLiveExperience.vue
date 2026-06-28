@@ -252,6 +252,14 @@
             {{ t('courseDetail.live.notesTab') }}
           </button>
           <button
+              :class="{active: activeSideTab === 'mindmap'}"
+              class="side-tab"
+              type="button"
+              @click="activeSideTab = 'mindmap'"
+          >
+            {{ t('courseDetail.classSession.liveSummary.tabs.mindmap') }}
+          </button>
+          <button
               :class="{active: activeSideTab === 'online'}"
               class="side-tab"
               type="button"
@@ -370,6 +378,20 @@
               <dd>{{ formatSessionTime(session.scheduledEndAt) }}</dd>
             </div>
           </dl>
+        </section>
+
+        <section v-else-if="activeSideTab === 'mindmap'" class="mindmap-view">
+          <div
+              v-if="liveSummaryMindMap"
+              ref="mindMapChartElement"
+              :aria-label="t('courseDetail.classSession.liveSummary.mindmap.aria')"
+              :style="{minHeight: liveSummaryMindMapHeight}"
+              class="mindmap-chart"
+              role="img"
+          />
+          <p v-else class="empty-state">
+            {{ t('courseDetail.classSession.liveSummary.mindmap.empty') }}
+          </p>
         </section>
 
         <section v-else class="online-panel">
@@ -655,8 +677,13 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, onUnmounted, ref, toRef, watch} from 'vue'
+import {computed, nextTick, onMounted, onUnmounted, ref, toRef, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
+import {TreeChart} from 'echarts/charts'
+import {TooltipComponent} from 'echarts/components'
+import type {EChartsCoreOption, EChartsType} from 'echarts/core'
+import * as echarts from 'echarts/core'
+import {SVGRenderer} from 'echarts/renderers'
 import {
   ArrowLeft,
   ChevronDown,
@@ -689,7 +716,12 @@ import {
   stopLiveSummary,
   subscribeLiveSummary,
 } from '@/features/ai/api/ai'
-import type {LiveSummarySession, LiveSummarySnapshot, LiveTranscriptSegment} from '@/features/ai/types/ai'
+import type {
+  LiveSummaryMindMapNode,
+  LiveSummarySession,
+  LiveSummarySnapshot,
+  LiveTranscriptSegment,
+} from '@/features/ai/types/ai'
 import {useLiveSummaryStore} from '@/features/ai/stores/liveSummary'
 import {
   listClassBarrages,
@@ -724,6 +756,8 @@ import BaseSelect from '@/shared/components/BaseSelect.vue'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
+echarts.use([SVGRenderer, TooltipComponent, TreeChart])
+
 const LIVE_CONTROLS_COLLAPSED_STORAGE_KEY = 'edupivot.classroom-live.controls-collapsed'
 const DANMAKU_LANE_COUNT = 6
 const MAX_DANMAKU_ITEMS = 14
@@ -749,11 +783,12 @@ useTeacherLiveSessionGuard({
   session: toRef(props, 'session'),
   isTeacher: toRef(props, 'isTeacher'),
 })
-const activeSideTab = ref<'chat' | 'notes' | 'online'>('chat')
+const activeSideTab = ref<'chat' | 'notes' | 'mindmap' | 'online'>('chat')
 const messages = ref<ClassBarrage[]>([])
 const liveDanmakuMessages = ref<ClassBarrage[]>([])
 const participantDirectory = ref<ClassParticipant[]>([])
 const stageElement = ref<HTMLElement | null>(null)
+const mindMapChartElement = ref<HTMLDivElement | null>(null)
 const draft = ref('')
 const busy = ref(false)
 const sending = ref(false)
@@ -776,11 +811,22 @@ const overlayPositionOptions: { labelKey: string; value: CameraOverlayPosition }
 ]
 let chatSubscription: { close: () => void } | null = null
 let liveSummarySubscription: SseSubscription | null = null
+let mindMapChart: EChartsType | null = null
+let mindMapChartHost: HTMLDivElement | null = null
+let mindMapResizeObserver: ResizeObserver | null = null
 type LiveControlAction = 'microphone' | 'camera' | 'screenShare' | 'summary' | 'start' | 'pause' | 'resume' | 'stop'
 type LiveSummaryStartMode = 'new' | 'resume'
 type LiveSummaryResumeOption = {
   summarySessionId: string
   label: string
+}
+type StyledMindMapNode = Omit<LiveSummaryMindMapNode, 'children'> & {
+  value?: string
+  symbolSize?: number
+  itemStyle?: Record<string, unknown>
+  lineStyle?: Record<string, unknown>
+  label?: Record<string, unknown>
+  children?: StyledMindMapNode[]
 }
 type DanmakuItem = {
   id: string
@@ -892,6 +938,11 @@ const liveSummaryStatusClass = computed(() => ({
   failed: liveSummary.value?.status === 'FAILED',
 }))
 const liveSummaryKeyPoints = computed(() => stringList(liveSummarySnapshot.value?.payload?.keyPoints))
+const liveSummaryMindMap = computed(() => liveSummarySnapshot.value?.payload?.mindMap || null)
+const liveSummaryMindMapHeight = computed(() => {
+  const nodeCount = liveSummaryMindMap.value ? countMindMapNodes(liveSummaryMindMap.value) : 0
+  return `${Math.min(Math.max(520, nodeCount * 38), 820)}px`
+})
 const liveSummaryNotesFallback = computed(() =>
     isLiveSummaryRunning.value
         ? t('courseDetail.classSession.liveSummary.summary.overviewFallback')
@@ -957,6 +1008,14 @@ watch(canChat, (enabled) => {
   disconnectChat()
 }, {immediate: true})
 watch(controlsCollapsed, writeControlsCollapsedPreference)
+watch(liveSummaryMindMap, () => renderMindMap(), {deep: true})
+watch(activeSideTab, (tab) => {
+  if (tab === 'mindmap') {
+    void renderMindMap()
+    return
+  }
+  disposeMindMapChart()
+})
 
 onMounted(async () => {
   if (typeof document !== 'undefined') {
@@ -974,6 +1033,7 @@ onMounted(async () => {
 onUnmounted(() => {
   disconnectChat()
   liveSummarySubscription?.close()
+  disposeMindMapChart()
   if (typeof document !== 'undefined') {
     document.removeEventListener('fullscreenchange', updatePlayerFullscreenState)
     window.removeEventListener(TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT, handleUnexpectedPaused)
@@ -1305,6 +1365,242 @@ function applyLiveSummarySnapshot(snapshot: LiveSummarySnapshot) {
 
 function applyLiveSummaryTranscript(segment: LiveTranscriptSegment) {
   liveSummaryStore.applyTranscript(segment, {transcriptLimit: 80})
+}
+
+async function renderMindMap() {
+  await nextTick()
+  const element = mindMapChartElement.value
+  if (activeSideTab.value !== 'mindmap' || !element || !liveSummaryMindMap.value) {
+    disposeMindMapChart()
+    return
+  }
+  if (!mindMapChart || mindMapChartHost !== element) {
+    disposeMindMapChart()
+    mindMapChart = echarts.init(element, undefined, {renderer: 'svg'})
+    mindMapChartHost = element
+    mindMapResizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(() => mindMapChart?.resize())
+    })
+    mindMapResizeObserver.observe(element)
+  }
+  mindMapChart.setOption(mindMapOption(liveSummaryMindMap.value), true)
+  requestAnimationFrame(() => mindMapChart?.resize())
+}
+
+function disposeMindMapChart() {
+  mindMapResizeObserver?.disconnect()
+  mindMapResizeObserver = null
+  mindMapChart?.dispose()
+  mindMapChart = null
+  mindMapChartHost = null
+}
+
+function mindMapOption(data: LiveSummaryMindMapNode): EChartsCoreOption {
+  const palette = readPalette()
+  const treeData = decorateMindMapNode(data, 0, 0, palette)
+  return {
+    color: palette.branchColors,
+    tooltip: {
+      trigger: 'item',
+      triggerOn: 'mousemove',
+      confine: true,
+      backgroundColor: palette.tooltipBackground,
+      borderColor: palette.outline,
+      textStyle: {
+        color: palette.text,
+        fontSize: 12,
+        lineHeight: 18,
+      },
+      extraCssText: 'max-width: 320px; white-space: normal; word-break: break-word;',
+      formatter: (params: { data?: { name?: string; value?: string } }) =>
+          escapeHtml(params.data?.value || params.data?.name || ''),
+    },
+    series: [{
+      type: 'tree',
+      data: [treeData],
+      top: 36,
+      left: 36,
+      bottom: 36,
+      right: 176,
+      symbol: 'circle',
+      orient: 'LR',
+      roam: true,
+      scaleLimit: {
+        min: 0.55,
+        max: 2.4,
+      },
+      edgeShape: 'polyline',
+      edgeForkPosition: '52%',
+      label: {
+        position: 'left',
+        verticalAlign: 'middle',
+        align: 'right',
+        color: palette.text,
+        fontSize: 11,
+        fontWeight: 600,
+        lineHeight: 16,
+        width: 132,
+        overflow: 'truncate',
+        ellipsis: '...',
+        backgroundColor: palette.nodeBackground,
+        borderColor: palette.nodeBorder,
+        borderWidth: 1,
+        borderRadius: 6,
+        padding: [4, 7],
+      },
+      leaves: {
+        label: {
+          position: 'right',
+          align: 'left',
+          width: 172,
+          overflow: 'truncate',
+          ellipsis: '...',
+          backgroundColor: palette.leafBackground,
+          borderColor: palette.nodeBorder,
+          borderWidth: 1,
+          borderRadius: 6,
+          padding: [4, 7],
+        },
+      },
+      lineStyle: {
+        color: palette.outline,
+        width: 1.4,
+        opacity: 0.72,
+      },
+      itemStyle: {
+        color: palette.primary,
+        borderColor: palette.surface,
+        borderWidth: 2,
+      },
+      emphasis: {
+        focus: 'descendant',
+        label: {color: palette.text},
+        lineStyle: {width: 2.4, opacity: 1},
+      },
+      blur: {
+        itemStyle: {opacity: 0.28},
+        label: {opacity: 0.36},
+        lineStyle: {opacity: 0.18},
+      },
+      expandAndCollapse: true,
+      animationDuration: 360,
+      animationDurationUpdate: 520,
+    }],
+  }
+}
+
+function readPalette() {
+  const styles = getComputedStyle(document.documentElement)
+  const text = styles.getPropertyValue('--color-on-surface').trim() || styles.color
+  const surface = styles.getPropertyValue('--color-surface-card').trim() || '#141414'
+  const surfaceContainer = styles.getPropertyValue('--color-surface-container').trim() || surface
+  const surfaceHigh = styles.getPropertyValue('--color-surface-container-high').trim() || surfaceContainer
+  const outline = styles.getPropertyValue('--color-outline-light').trim() || text
+  return {
+    text,
+    primary: styles.getPropertyValue('--color-primary').trim() || text,
+    primaryContrast: styles.getPropertyValue('--color-surface').trim() || surface,
+    surface,
+    outline,
+    nodeBackground: surfaceHigh,
+    leafBackground: surfaceContainer,
+    nodeBorder: styles.getPropertyValue('--color-outline-variant').trim() || outline,
+    tooltipBackground: styles.getPropertyValue('--color-surface-container-highest').trim() || surfaceHigh,
+    branchColors: ['#8dd3c7', '#80b1d3', '#fdb462', '#bebada', '#fb8072', '#b3de69'],
+  }
+}
+
+function decorateMindMapNode(
+    node: LiveSummaryMindMapNode,
+    depth: number,
+    branchIndex: number,
+    palette: ReturnType<typeof readPalette>,
+): StyledMindMapNode {
+  const branchColor = depth === 0 ? palette.primary : palette.branchColors[branchIndex % palette.branchColors.length]
+  return {
+    name: node.name,
+    value: node.name,
+    symbolSize: depth === 0 ? 12 : depth === 1 ? 8 : 6,
+    itemStyle: {
+      color: branchColor,
+      borderColor: depth === 0 ? palette.primaryContrast : palette.surface,
+      borderWidth: depth === 0 ? 2.5 : 2,
+    },
+    lineStyle: {
+      color: branchColor,
+      width: depth <= 1 ? 1.8 : 1.2,
+      opacity: depth <= 1 ? 0.86 : 0.58,
+    },
+    label: mindMapNodeLabel(depth, branchColor, palette),
+    children: node.children?.map((child, index) =>
+        decorateMindMapNode(child, depth + 1, depth === 0 ? index : branchIndex, palette)),
+  }
+}
+
+function mindMapNodeLabel(depth: number, branchColor: string, palette: ReturnType<typeof readPalette>) {
+  if (depth === 0) {
+    return {
+      position: 'right',
+      align: 'left',
+      color: palette.primaryContrast,
+      backgroundColor: palette.text,
+      borderColor: palette.text,
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: [6, 10],
+      width: 156,
+      overflow: 'truncate',
+      ellipsis: '...',
+      fontSize: 12,
+      fontWeight: 800,
+      lineHeight: 18,
+    }
+  }
+
+  if (depth === 1) {
+    return {
+      color: palette.text,
+      backgroundColor: palette.nodeBackground,
+      borderColor: branchColor,
+      borderWidth: 1,
+      borderRadius: 6,
+      padding: [4, 7],
+      width: 138,
+      overflow: 'truncate',
+      ellipsis: '...',
+      fontSize: 11,
+      fontWeight: 700,
+      lineHeight: 16,
+    }
+  }
+
+  return {
+    color: palette.text,
+    backgroundColor: palette.leafBackground,
+    borderColor: palette.nodeBorder,
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: [4, 7],
+    width: 172,
+    overflow: 'truncate',
+    ellipsis: '...',
+    fontSize: 11,
+    fontWeight: 600,
+    lineHeight: 16,
+  }
+}
+
+function countMindMapNodes(node: LiveSummaryMindMapNode): number {
+  return 1 + (node.children?.reduce((total, child) => total + countMindMapNodes(child), 0) ?? 0)
+}
+
+function escapeHtml(value: string) {
+  return value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;')
 }
 
 async function resumeLiveSummaryAudioUploadIfNeeded() {
@@ -2299,7 +2595,7 @@ function stringList(value: unknown) {
   display: grid;
   height: 58px;
   flex: 0 0 auto;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   border-bottom: 1px solid var(--live-border);
 }
 
@@ -2551,6 +2847,34 @@ function stringList(value: unknown) {
 .notes-meta dd {
   margin: 0;
   text-align: right;
+}
+
+.mindmap-view {
+  flex: 1 1 auto;
+  overflow-x: auto;
+  padding: 18px;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-card);
+}
+
+.mindmap-chart {
+  width: max(100%, 760px);
+  min-height: 520px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-outline-light) 42%, transparent) 1px, transparent 1px),
+  linear-gradient(color-mix(in srgb, var(--color-outline-light) 42%, transparent) 1px, transparent 1px),
+  var(--color-surface-canvas);
+  background-size: 48px 48px;
+}
+
+.empty-state {
+  margin: 0;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .online-panel {
