@@ -1,465 +1,244 @@
 # Redis 缓存策略设计文档
 
-## 一、现状分析
+## 一、当前状态
 
-### 1.1 当前实现
+`MybatisUserAccountRepository` 采用 Cache-Aside 模式：
 
-`MybatisUserAccountRepository` 采用 **Cache-Aside（旁路缓存）** 模式：
-
-```
-读: 先查 Redis → 命中返回 → 未命中查 DB → 写入 Redis → 返回
-写: 先写 DB → 再写 Redis
+```text
+读：先查 Redis -> 命中返回 -> 未命中查 DB -> 写入 Redis -> 返回
+写：先写 DB -> 删除相关 Redis key -> 下次读取自动重建
 ```
 
-**缓存 Key 设计：**
+### 1.1 用户缓存 Key
 
-| Key 格式                                      | 数据                    | TTL   |
-|---------------------------------------------|-----------------------|-------|
-| `auth:user:{userId}`                        | User 对象               | 30min |
-| `auth:identity:{provider}:{providerUserId}` | UserIdentity 对象       | 30min |
-| `auth:user:{userId}:providers`              | List\<OauthProvider\> | 30min |
-| `auth:user:email:{email}`                   | User 对象               | 30min |
+| Key 格式 | 数据 | TTL |
+| --- | --- | --- |
+| `auth:user:{userId}` | User 对象 | 30~35min |
+| `auth:identity:{provider}:{providerUserId}` | UserIdentity 对象 | 30~35min |
+| `auth:user:{userId}:providers` | OAuth provider 列表 | 30~35min |
+| `auth:user:email:{email}` | User 对象 | 30~35min |
+| `lock:{cacheKey}` | 缓存重建互斥锁 | 3s |
 
-**安全措施：**
+### 1.2 已完成能力
 
-- Redis 异常静默吞没，降级到数据库
-- 写操作后主动更新缓存
+| 问题 | 状态 | 说明 |
+| --- | --- | --- |
+| 缓存穿透 | 已完成 | DB 无数据时写入 `__NULL__`，TTL 为 2 分钟。 |
+| 缓存击穿 | 已完成 | 缓存未命中时使用 Redis 互斥锁重建热点 key。 |
+| 缓存雪崩 | 已完成 | 正常数据 TTL 为 30 分钟基础值 + 0~5 分钟随机偏移。 |
+| 写后缓存不一致 | 已完成 | 写 DB 后只删除缓存，不主动更新缓存。 |
+| email 缓存不一致 | 已完成 | `saveUser()` 同时删除旧 email 与新 email 缓存。 |
+| 手写缓存指标 | 已完成 | 使用 Micrometer counter 暴露 read/rebuild/lock/evict 指标。 |
 
-### 1.2 存在问题
+### 1.3 暂未实施项
 
-| 问题        | 说明                                                                   | 风险等级 |
-|-----------|----------------------------------------------------------------------|------|
-| **缓存穿透**  | 查询不存在的数据（如错误 email），每次请求都打到 DB                                       | 🔴 高 |
-| **缓存击穿**  | 热点 key（如管理员账号）过期瞬间，并发请求全部打到 DB                                       | 🔴 高 |
-| **缓存雪崩**  | 所有 key TTL 相同（30min），同时过期时 DB 压力骤增                                   | 🟡 中 |
-| **缓存不一致** | `saveUser()` 后更新了 `auth:user:{id}`，但 `auth:user:email:{email}` 仍是旧数据 | 🟡 中 |
-| **无缓存预热** | 系统启动后首次请求全部打到 DB                                                     | 🟡 中 |
-| **无分布式锁** | 并发读同一 key 时，多个请求同时查 DB                                               | 🟡 中 |
-| **序列化开销** | `GenericJacksonJsonRedisSerializer` 带类型信息，存储体积大                      | 🟢 低 |
+| 项目 | 优先级 | 暂缓原因 |
+| --- | --- | --- |
+| 缓存预热 | P2 | 需要先确认真实热点用户与启动流量模式。 |
+| L1 Caffeine 本地缓存 | P2 | 多实例一致性复杂度更高，需性能数据证明收益。 |
+| Pipeline 批量操作 | P2 | 当前用户缓存路径不是批量 Redis 操作瓶颈。 |
+| 序列化优化 | P3 | 仍使用 `GenericJacksonJsonRedisSerializer`，待存储体积成为明确问题后再优化。 |
 
----
+## 二、核心策略
 
-## 二、缓存策略设计
+### 2.1 Cache-Aside
 
-### 2.1 核心原则
+读路径：
 
-```
-1. 缓存是 DB 的加速层，不是数据源 — DB 是唯一可信数据源
-2. 宁可少缓存，不可多缓存 — 缓存越多，一致性越难维护
-3. 读多写少的数据才值得缓存 — 高频写入的数据缓存收益低
-4. 缓存失效比缓存更新更安全 — 删除缓存让下次读取重建
-```
+1. 读取 Redis。
+2. 命中正常值时返回数据。
+3. 命中空值标记时返回空结果。
+4. 未命中时尝试获取 `lock:{cacheKey}`。
+5. 获取锁成功后双查 Redis，仍未命中才查 DB 并写回 Redis。
+6. 获取锁失败时等待 50ms 后重试，最多 3 次。
+7. 重试耗尽后降级查 DB，保证业务可用。
 
-### 2.2 Cache-Aside 模式（保持）
+写路径：
 
-这是最适合当前场景的模式，保持不变，但需要改进实现细节。
+1. 写 PostgreSQL。
+2. 删除用户 id、providers、旧 email、新 email、identity 等相关缓存。
+3. 不主动写新缓存，避免并发读写覆盖新数据。
 
-```
-读操作:
-  1. 读 Redis
-  2. 命中 → 返回
-  3. 未命中 → 查 DB
-  4. DB 有数据 → 写入 Redis（带 TTL）→ 返回
-  5. DB 无数据 → 写入空值（防穿透，短 TTL）→ 返回空
+### 2.2 空值缓存
 
-写操作:
-  1. 先写 DB
-  2. 删除缓存（不是更新缓存）
-  3. 下次读取时自动重建
-```
+空值缓存用于降低错误 email、错误 OAuth identity、未绑定 providers 等请求反复打到 DB 的风险。
 
-**关键变更：写操作从"更新缓存"改为"删除缓存"。**
+| 参数 | 值 | 说明 |
+| --- | --- | --- |
+| `NULL_MARKER` | `__NULL__` | 空值标记。 |
+| `NULL_CACHE_TTL` | 2min | 避免空值长期占用内存，也降低短时间穿透。 |
 
-原因：更新缓存在并发场景下可能导致数据不一致。删除缓存更安全，下次读取时自动重建。
+### 2.3 互斥锁
 
----
+互斥锁用于降低热点 key 过期瞬间的缓存击穿风险。
 
-## 三、三大问题解决方案
+| 参数 | 值 | 说明 |
+| --- | --- | --- |
+| 锁 key | `lock:{cacheKey}` | 与被重建的缓存 key 一一对应。 |
+| 锁 value | UUID 字符串 | 用于安全释放锁。 |
+| 锁 TTL | 3s | 防止进程异常导致死锁。 |
+| 等待间隔 | 50ms | 未拿到锁时短暂等待。 |
+| 最大重试 | 3 次 | 总等待约 150ms，避免请求长时间阻塞。 |
+| 释放方式 | Lua 比较 value 后删除 | 防止误删其他请求新获取的锁。 |
 
-### 3.1 缓存穿透（Cache Penetration）
+### 2.4 TTL 随机化
 
-**场景：** 查询不存在的数据（如 `findByEmail("not-exist@email.com")`），缓存永远未命中，每次请求都打到 DB。
+正常缓存 TTL 为 `30min + random(0~5min)`，用于分散 key 过期时间，降低同一时间大量请求回源 DB 的风险。
 
-**方案：缓存空值 + 布隆过滤器**
+## 三、监控与告警
 
-```java
-// 方案 A：缓存空值（简单有效）
-@Override
-public Optional<User> findByEmail(String email) {
-    String cacheKey = emailKey(email);
+### 3.1 指标清单
 
-    // 1. 查缓存
-    Object cached = redisTemplate.opsForValue().get(cacheKey);
-    if (cached != null) {
-        if (cached instanceof User user) {
-            return Optional.of(user);
-        }
-        // cached 是空值标记 → 直接返回空
-        return Optional.empty();
-    }
+Java 代码中的 Micrometer counter 会在 Prometheus 中转换为下划线格式并带 `_total` 后缀。
 
-    // 2. 查 DB
-    Optional<User> user = Optional.ofNullable(
-            userMapper.selectOne(new LambdaQueryWrapper<User>()
-                    .eq(User::getEmail, email)));
+| Micrometer 指标 | Prometheus 指标 | 标签 | 说明 |
+| --- | --- | --- | --- |
+| `redis.auth.cache.read` | `redis_auth_cache_read_total` | `cache`, `result` | 缓存读取结果。 |
+| `redis.auth.cache.rebuild` | `redis_auth_cache_rebuild_total` | `cache`, `result` | DB 回源与缓存重建结果。 |
+| `redis.auth.cache.lock` | `redis_auth_cache_lock_total` | `cache`, `result` | 互斥锁获取、等待、释放、超时结果。 |
+| `redis.auth.cache.evict` | `redis_auth_cache_evict_total` | `cache`, `result` | 写操作后的缓存删除结果。 |
 
-    // 3. 写缓存（存在 → 正常 TTL；不存在 → 短 TTL 空值标记）
-    if (user.isPresent()) {
-        redisTemplate.opsForValue().set(cacheKey, user.get(), CACHE_TTL);
-    } else {
-        redisTemplate.opsForValue().set(cacheKey, NULL_MARKER, NULL_CACHE_TTL);
-    }
+标签约束：
 
-    return user;
-}
-```
+- `cache` 只允许低基数字段：`user`、`email`、`identity`、`providers`。
+- `result` 只允许状态枚举：`hit`、`negative_hit`、`miss`、`error`、`db_hit`、`db_miss`、`acquired`、`busy`、`released`、`release_error`、`timeout`、`success`。
+- 禁止把真实 email、userId、providerUserId、Redis key 放入指标标签。
 
-**参数设计：**
+### 3.2 PromQL 示例
 
-| 参数               | 值                     | 说明                      |
-|------------------|-----------------------|-------------------------|
-| `CACHE_TTL`      | 30 min                | 正常数据 TTL                |
-| `NULL_CACHE_TTL` | 2 min                 | 空值标记 TTL（不宜太长，防止长期占用内存） |
-| `NULL_MARKER`    | `new Object()` 或特定字符串 | 空值标记，区别于正常 User 对象      |
+缓存命中率：
 
-**方案 B：布隆过滤器（适合数据量大的场景）**
-
-在 Redis 中维护一个布隆过滤器，预加载所有存在的 email 或 userId。查询前先过滤，拦截不存在的 key。
-
-当前场景数据量不大，方案 A 已足够。
-
----
-
-### 3.2 缓存击穿（Cache Breakdown）
-
-**场景：** 热点 key（如管理员账号、高频查询的课程信息）过期瞬间，大量并发请求同时打到 DB。
-
-**方案：分布式锁（Mutex Lock）**
-
-```java
-
-@Override
-public Optional<User> findUser(UUID userId) {
-    String cacheKey = userKey(userId);
-
-    // 1. 查缓存
-    Optional<User> cached = getCached(cacheKey, User.class);
-    if (cached.isPresent()) {
-        return cached;
-    }
-
-    // 2. 缓存未命中 → 尝试获取分布式锁
-    String lockKey = "lock:" + cacheKey;
-    boolean locked = tryLock(lockKey, LOCK_TIMEOUT);
-
-    if (locked) {
-        try {
-            // 双重检查：获取锁后再查一次缓存
-            cached = getCached(cacheKey, User.class);
-            if (cached.isPresent()) {
-                return cached;
-            }
-
-            // 3. 查 DB → 写缓存
-            User user = userMapper.selectById(userId);
-            putCached(cacheKey, user);
-            return Optional.ofNullable(user);
-        } finally {
-            releaseLock(lockKey);
-        }
-    } else {
-        // 4. 未获取到锁 → 短暂等待后重试
-        Thread.sleep(50);
-        return findUser(userId); // 递归重试
-    }
-}
+```promql
+sum(rate(redis_auth_cache_read_total{job="sc-edupivot-backend",instance=~"sc-auth:.*",result=~"hit|negative_hit"}[5m]))
+/
+clamp_min(sum(rate(redis_auth_cache_read_total{job="sc-edupivot-backend",instance=~"sc-auth:.*",result=~"hit|negative_hit|miss"}[5m])), 1)
 ```
 
-**分布式锁实现（Redis SETNX）：**
+锁异常：
 
-```java
-private boolean tryLock(String key, long timeoutMs) {
-    Boolean result = redisTemplate.opsForValue()
-            .setIfAbsent(key, "1", Duration.ofMillis(timeoutMs));
-    return Boolean.TRUE.equals(result);
-}
-
-private void releaseLock(String key) {
-    redisTemplate.delete(key);
-}
+```promql
+sum by (cache,result) (
+  rate(redis_auth_cache_lock_total{job="sc-edupivot-backend",instance=~"sc-auth:.*",result=~"timeout|error|release_error"}[5m])
+)
 ```
 
-**参数设计：**
+DB 回源：
 
-| 参数             | 值     | 说明         |
-|----------------|-------|------------|
-| `LOCK_TIMEOUT` | 3 s   | 锁超时时间，防止死锁 |
-| `RETRY_SLEEP`  | 50 ms | 重试等待时间     |
-| `MAX_RETRIES`  | 3     | 最大重试次数     |
-
-**优化：本地缓存（Caffeine）作为 L1 缓存**
-
-对于极高频读取的数据（如当前登录用户信息），可以增加本地缓存作为 L1 层：
-
-```
-请求 → L1 本地缓存 (Caffeine, 1min TTL) → L2 Redis (30min TTL) → DB
+```promql
+sum by (cache,result) (
+  rate(redis_auth_cache_rebuild_total{job="sc-edupivot-backend",instance=~"sc-auth:.*"}[5m])
+)
 ```
 
-本地缓存命中率高、零网络开销，但需要注意多实例间的一致性问题。适合读多写少、对一致性要求不高的数据。
+Redis 读写删除异常：
 
----
-
-### 3.3 缓存雪崩（Cache Avalanche）
-
-**场景：** 大量 key 同时过期，瞬间请求全部打到 DB。
-
-**方案：TTL 随机化**
-
-```java
-private void putCached(String key, Object value) {
-    if (value == null) {
-        return;
-    }
-    // TTL 加随机偏移，防止同时过期
-    Duration ttl = CACHE_TTL.plus(Duration.ofSeconds(
-            ThreadLocalRandom.current().nextLong(0, CACHE_JITTER.getSeconds())));
-    redisTemplate.opsForValue().set(key, value, ttl);
-}
+```promql
+sum(
+  rate(redis_auth_cache_read_total{job="sc-edupivot-backend",instance=~"sc-auth:.*",result="error"}[5m])
+  or rate(redis_auth_cache_rebuild_total{job="sc-edupivot-backend",instance=~"sc-auth:.*",result="error"}[5m])
+  or rate(redis_auth_cache_evict_total{job="sc-edupivot-backend",instance=~"sc-auth:.*",result="error"}[5m])
+  or rate(redis_auth_cache_lock_total{job="sc-edupivot-backend",instance=~"sc-auth:.*",result=~"error|release_error"}[5m])
+)
 ```
 
-**参数设计：**
+### 3.3 Grafana 面板
 
-| 参数             | 值         | 说明       |
-|----------------|-----------|----------|
-| `CACHE_TTL`    | 30 min    | 基础 TTL   |
-| `CACHE_JITTER` | 5 min     | 随机偏移范围   |
-| 实际 TTL         | 30~35 min | 均匀分散过期时间 |
+新增面板文件：
 
----
-
-## 四、缓存一致性策略
-
-### 4.1 问题场景
-
-```
-时间线:
-  T1: 线程 A 读取 user → 缓存未命中 → 查 DB 得到 v1
-  T2: 线程 B 更新 user → 写 DB 得到 v2 → 更新缓存 v2
-  T3: 线程 A 将 v1 写入缓存（覆盖了 v2）
-  结果: 缓存中是 v1，DB 中是 v2 → 数据不一致
+```text
+deploy/observability/grafana/dashboards/edupivot-auth-cache.json
 ```
 
-### 4.2 解决方案：延迟双删
+该面板由现有 `dashboards.yaml` 自动加载到 `EduPivot` 文件夹，使用现有 Prometheus datasource UID：`PBFA97CFB590B2093`。
 
-```
-写操作:
-  1. 先写 DB
-  2. 删除缓存
-  3. 延迟 500ms
-  4. 再次删除缓存（清除并发读可能写入的旧数据）
-```
+核心面板：
 
-```java
+- Auth Cache Hit Ratio
+- Auth Cache Read Rate
+- Auth Cache Rebuild Rate
+- Auth Cache Lock Rate
+- Auth Cache Lock Timeout/Error
+- Auth Cache Evict Rate
 
-@Override
-public User saveUser(User user) {
-    int updated = userMapper.updateById(user);
-    if (updated == 0) {
-        userMapper.insert(user);
-    }
+### 3.4 告警规则
 
-    // 延迟双删
-    deleteCached(userKey(user.getId()));
-    deleteCached(emailKey(user.getEmail()));
+告警配置文件：
 
-    // 异步延迟再删一次
-    scheduler.schedule(() -> {
-        deleteCached(userKey(user.getId()));
-        deleteCached(emailKey(user.getEmail()));
-    }, Duration.ofMillis(500));
-
-    return user;
-}
+```text
+deploy/observability/grafana/provisioning/alerting/edupivot-alerts.yaml
 ```
 
-### 4.3 更简单的方案：只删不更新
+新增告警：
 
-对于当前场景，最简单且最安全的方式：
+| 告警 | 级别 | 触发条件 | 处理建议 |
+| --- | --- | --- | --- |
+| Auth Cache Lock Timeout | warning | 5 分钟内持续出现 `result="timeout"` | 检查热点 key、DB 查询耗时、Redis 延迟。 |
+| Auth Cache Redis Error | warning | read/rebuild/lock/evict 持续出现 error | 检查 Redis 连接、序列化异常、网络波动。 |
+| Auth Cache Hit Ratio Low | warning | 10 分钟窗口命中率低于 80%，且读流量足够 | 检查 TTL、缓存删除频率、异常 miss。 |
 
-```java
+## 四、排障口径
 
-@Override
-public User saveUser(User user) {
-    int updated = userMapper.updateById(user);
-    if (updated == 0) {
-        userMapper.insert(user);
-    }
-    // 只删除缓存，不主动更新
-    // 下次读取时自动从 DB 加载最新数据
-    evictUserCache(user.getId(), user.getEmail());
-    return user;
-}
+### 4.1 `lock timeout` 增加
 
-private void evictUserCache(UUID userId, String email) {
-    deleteCached(userKey(userId));
-    deleteCached(emailKey(email));
-    // email 为空时不删（避免误删）
-}
+优先检查：
+
+1. 是否存在热点用户或管理员账号被高频访问。
+2. DB 查询是否变慢，导致持锁时间接近 3 秒。
+3. Redis 是否存在网络抖动或命令延迟。
+
+处理方向：
+
+- 确认 DB 索引与慢查询。
+- 必要时将热点账号纳入缓存预热候选。
+- 不建议直接增大锁等待次数，避免放大请求延迟。
+
+### 4.2 命中率下降
+
+优先检查：
+
+1. 是否有批量用户更新或频繁删除缓存。
+2. 是否有大量不存在 email/OAuth identity 查询。
+3. 是否有 Redis 异常导致读写失败。
+
+处理方向：
+
+- 对异常请求来源做限流或输入校验。
+- 确认 `negative_hit` 是否正常吸收穿透流量。
+- 如果确认为启动冷流量，再评估缓存预热。
+
+### 4.3 Redis error 增加
+
+优先检查：
+
+1. Redis 服务可用性与连接数。
+2. 应用到 Redis 的网络连通性。
+3. 是否存在无法反序列化的历史缓存数据。
+
+处理方向：
+
+- 先确认业务是否已按设计降级到 DB。
+- 对非法缓存 key 可删除后自动重建。
+- 持续错误需要检查 Redis 配置、密码、连接池和序列化兼容性。
+
+## 五、实施阶段
+
+| 阶段 | 状态 | 内容 |
+| --- | --- | --- |
+| Phase 1 基础加固 | 已完成 | 空值缓存、TTL 随机化、写后删缓存、email 一致性。 |
+| Phase 2 高可用 | 已完成 P1 | 互斥锁防击穿、手写缓存指标、Grafana 面板、告警。 |
+| Phase 2 后续 | 未开始 | 缓存预热。 |
+| Phase 3 性能优化 | 未开始 | L1 Caffeine、Pipeline、热点 key 探测、序列化优化。 |
+
+## 六、验证命令
+
+```bash
+mvn -pl sc-auth -Dtest=MybatisUserAccountRepositoryTest test
+mvn -pl sc-auth test
 ```
 
-**选择建议：当前场景用"只删不更新"足够简单可靠。**
+配置校验：
 
----
-
-## 五、缓存 Key 规范
-
-### 5.1 命名规范
-
+```bash
+python -m json.tool deploy/observability/grafana/dashboards/edupivot-auth-cache.json
+python -c "import yaml; yaml.safe_load(open('deploy/observability/grafana/provisioning/alerting/edupivot-alerts.yaml', encoding='utf-8'))"
 ```
-{业务}:{模块}:{维度}:{标识}
-
-示例:
-  auth:user:{userId}                    — 用户信息
-  auth:user:email:{email}               — 邮箱查询
-  auth:identity:{provider}:{providerId} — OAuth 身份
-  course:{courseId}                      — 课程信息
-  course:{courseId}:chapters             — 课程章节列表
-  notification:unread:{userId}          — 未读通知数
-  ratelimit:{endpoint}:{ip}             — 限流计数
-  auth:blacklist:{jti}                  — Token 黑名单
-  auth:refresh:{token}                  — Refresh Token
-  lock:{key}                            — 分布式锁
-```
-
-### 5.2 Key 长度控制
-
-Redis key 过长会浪费内存。建议：
-
-- 总长度不超过 128 字节
-- 使用缩写：`auth:` 而不是 `authentication:`
-- UUID 去掉短横线：`uuid.replace("-", "")` 可节省 4 字节
-
----
-
-## 六、缓存预热策略
-
-### 6.1 启动预热
-
-系统启动后，将热点数据提前加载到 Redis：
-
-```java
-
-@Component
-public class CacheWarmer implements ApplicationRunner {
-
-    @Override
-    public void run(ApplicationArguments args) {
-        // 预热管理员账号
-        warmAdminUsers();
-        // 预热门诊课程（如果有的话）
-        warmPopularCourses();
-    }
-
-    private void warmAdminUsers() {
-        List<User> admins = userMapper.selectList(
-                new LambdaQueryWrapper<User>().eq(User::getRole, 0));
-        for (User admin : admins) {
-            redisTemplate.opsForValue().set(
-                    userKey(admin.getId()), admin, CACHE_TTL);
-        }
-    }
-}
-```
-
-### 6.2 定时预热
-
-对于有规律的访问模式（如每天上课前），可以定时预热：
-
-```java
-
-@Scheduled(cron = "0 0 7 * * ?") // 每天早上 7 点
-public void warmCourseCache() {
-    // 预热当天有课的课程数据
-}
-```
-
----
-
-## 七、监控与告警
-
-### 7.1 关键指标
-
-| 指标          | 说明                        | 告警阈值   |
-|-------------|---------------------------|--------|
-| 缓存命中率       | `hits / (hits + misses)`  | < 80%  |
-| Redis 内存使用率 | `used_memory / maxmemory` | > 80%  |
-| Redis 连接数   | `connected_clients`       | > 100  |
-| 慢查询         | `slowlog get`             | > 10ms |
-| Key 过期数     | `expired_keys` 监控雪崩       | 突增     |
-
-### 7.2 日志记录
-
-```java
-private <T> Optional<T> getCached(String key, Class<T> type) {
-    try {
-        Object value = redisTemplate.opsForValue().get(key);
-        if (type.isInstance(value)) {
-            cacheMetrics.recordHit(key);
-            return Optional.of(type.cast(value));
-        }
-        cacheMetrics.recordMiss(key);
-    } catch (RuntimeException e) {
-        cacheMetrics.recordError(key);
-        log.warn("Redis 读取失败，降级到 DB: key={}", key, e);
-    }
-    return Optional.empty();
-}
-```
-
----
-
-## 八、实施计划
-
-### Phase 1: 基础加固（当前迭代）
-
-| 任务             | 优先级 | 工作量  |
-|----------------|-----|------|
-| 缓存空值防穿透        | P0  | 0.5d |
-| TTL 随机化防雪崩     | P0  | 0.5d |
-| 写操作改为"只删不更新"   | P0  | 0.5d |
-| 修复 email 缓存不一致 | P0  | 0.5d |
-
-### Phase 2: 高可用（下一迭代）
-
-| 任务      | 优先级 | 工作量  |
-|---------|-----|------|
-| 分布式锁防击穿 | P1  | 1d   |
-| 缓存命中率监控 | P1  | 1d   |
-| 缓存预热    | P2  | 0.5d |
-
-### Phase 3: 性能优化（后续）
-
-| 任务                | 优先级 | 工作量  |
-|-------------------|-----|------|
-| 本地缓存 L1（Caffeine） | P2  | 1d   |
-| Pipeline 批量操作     | P2  | 0.5d |
-| 热点 key 探测         | P3  | 1d   |
-
----
-
-## 九、缓存数据分级
-
-不同数据采用不同的缓存策略：
-
-| 数据类型      | TTL          | 策略                 | 示例                |
-|-----------|--------------|--------------------|-------------------|
-| 用户基础信息    | 30min        | Cache-Aside + 空值缓存 | User, UserProfile |
-| OAuth 身份  | 30min        | Cache-Aside        | UserIdentity      |
-| 课程信息      | 15min        | Cache-Aside        | Course, Chapter   |
-| 通知计数      | 5min         | Cache-Aside        | UnreadCount       |
-| 会话状态      | 7d           | 直接存储               | RefreshToken      |
-| 限流计数      | 滑动窗口         | 直接存储               | RateLimit         |
-| Token 黑名单 | Token 剩余 TTL | 直接存储               | Blacklist         |
-| 搜索结果      | 2min         | Cache-Aside（短 TTL） | CourseList        |
-
-**原则：变化越频繁的数据，TTL 越短。**

@@ -6,6 +6,7 @@ import com.dayz.sc.ai.model.entity.LiveSummarySnapshot;
 import com.dayz.sc.ai.model.entity.LiveTranscriptSegment;
 import com.dayz.sc.ai.model.enums.LiveSummaryStatus;
 import com.dayz.sc.ai.model.vo.LiveSummaryAudioTokenVO;
+import com.dayz.sc.ai.model.vo.LiveSummaryRecordVO;
 import com.dayz.sc.ai.model.vo.LiveSummarySessionVO;
 import com.dayz.sc.ai.model.vo.LiveSummarySnapshotVO;
 import com.dayz.sc.ai.model.vo.LiveTranscriptSegmentVO;
@@ -17,6 +18,8 @@ import com.dayz.sc.common.error.ErrorCodes;
 import com.dayz.sc.common.feign.client.CourseAiContextClient;
 import com.dayz.sc.common.feign.dto.ClassSessionAiAccess;
 import com.dayz.sc.common.response.ApiResponse;
+import com.dayz.sc.common.response.PageResponse;
+import com.dayz.sc.common.security.support.SecurityUtils;
 import com.dayz.sc.common.util.UuidV7Generator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -27,6 +30,7 @@ import org.jspecify.annotations.NonNull;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 
@@ -45,10 +49,11 @@ import java.util.concurrent.locks.ReentrantLock;
 @Slf4j
 public class LiveSummaryService {
 
-    private static final String UNAVAILABLE_MESSAGE = "AI summary is temporarily unavailable.";
+    private static final String UNAVAILABLE_MESSAGE = "Pivot minutes are temporarily unavailable.";
     private static final String MARKDOWN_CODE_FENCE = "```";
     private static final int SUCCESS_CODE = 0;
     private static final int SUMMARY_EXECUTOR_CORE_SIZE = 2;
+    private static final int HISTORY_RECORD_LIMIT_PER_COURSE = 5;
     private static final int SUMMARY_EXECUTOR_MAX_SIZE = 4;
     private static final int SUMMARY_EXECUTOR_QUEUE_SIZE = 128;
     private static final long SUMMARY_EXECUTOR_KEEP_ALIVE_SECONDS = 30L;
@@ -108,6 +113,7 @@ public class LiveSummaryService {
         if (running.isPresent()) {
             return toVO(running.get());
         }
+        requireHistoryRecordCapacity(classSessionId);
 
         Instant now = Instant.now();
         LiveSummarySession session = new LiveSummarySession();
@@ -121,6 +127,27 @@ public class LiveSummaryService {
         session.setLastSummarizedSequenceNo(0);
         session.setStartedAt(now);
         sessionRepository.save(session);
+        lastSummaryAtBySession.put(session.getId(), now);
+        LiveSummarySessionVO vo = toVO(session);
+        eventHub.emit(classSessionId, "status", vo);
+        return vo;
+    }
+
+    public LiveSummarySessionVO resume(UUID classSessionId, UUID summarySessionId, UUID userId, Integer role) {
+        ClassSessionAiAccess access = requireAccess(classSessionId, userId, role, true);
+        requireAvailable();
+        Optional<LiveSummarySession> running = sessionRepository.findRunningByClassSessionId(classSessionId);
+        if (running.isPresent()) {
+            return toVO(running.get());
+        }
+        LiveSummarySession session = sessionRepository.findById(summarySessionId)
+                .filter(candidate -> classSessionId.equals(candidate.getClassSessionId()))
+                .filter(candidate -> access.courseId().equals(candidate.getCourseId()))
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND, "Live summary session not found."));
+        Instant now = Instant.now();
+        session.setStatus(LiveSummaryStatus.RUNNING.name());
+        session.setStoppedAt(null);
+        sessionRepository.resume(session);
         lastSummaryAtBySession.put(session.getId(), now);
         LiveSummarySessionVO vo = toVO(session);
         eventHub.emit(classSessionId, "status", vo);
@@ -148,9 +175,85 @@ public class LiveSummaryService {
 
     public LiveSummarySessionVO get(UUID classSessionId, UUID userId, Integer role) {
         ClassSessionAiAccess access = requireAccess(classSessionId, userId, role, false);
-        return sessionRepository.findLatestByClassSessionId(classSessionId)
+        return sessionRepository.findRunningByClassSessionId(classSessionId)
+                .or(() -> sessionRepository.findLatestByClassSessionId(classSessionId))
                 .map(this::toVO)
                 .orElseGet(() -> emptyVO(access));
+    }
+
+    public List<LiveSummarySnapshotVO> listSnapshots(UUID classSessionId, UUID userId, Integer role) {
+        ClassSessionAiAccess access = requireAccess(classSessionId, userId, role, false);
+        return snapshotsForCourse(access.courseId());
+    }
+
+    public PageResponse<LiveSummaryRecordVO> listVisibleSummaries(UUID userId, Integer role, int page, int size) {
+        int currentPage = Math.max(1, page);
+        int pageSize = Math.min(Math.max(1, size), 50);
+        boolean admin = SecurityUtils.isAdmin(role);
+        List<UUID> courseIds = admin ? List.of() : visibleCourseIds(userId, role);
+        if (!admin && courseIds.isEmpty()) {
+            return PageResponse.empty(currentPage, pageSize);
+        }
+        List<LiveSummarySession> sessions = sessionRepository.findWithSnapshotsByCourseIds(
+                courseIds,
+                currentPage,
+                pageSize);
+        long total = sessionRepository.countWithSnapshotsByCourseIds(courseIds);
+        return PageResponse.of(sessions.stream().map(this::toRecordVO).toList(), total, currentPage, pageSize);
+    }
+
+    public List<LiveSummarySnapshotVO> deleteSnapshot(UUID classSessionId, UUID snapshotId, UUID userId, Integer role) {
+        ClassSessionAiAccess access = requireAccess(classSessionId, userId, role, false);
+        LiveSummarySnapshot snapshot = snapshotRepository.findById(snapshotId)
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND, "Live summary snapshot not found."));
+        LiveSummarySession snapshotSession = sessionRepository.findById(snapshot.getSummarySessionId())
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND, "Live summary snapshot not found."));
+        if (!access.courseId().equals(snapshotSession.getCourseId())) {
+            throw new BusinessException(ErrorCodes.NOT_FOUND, "Live summary snapshot not found.");
+        }
+        if (!SecurityUtils.isAdmin(role) && !Objects.equals(userId, snapshotSession.getTeacherId())) {
+            throw new BusinessException(ErrorCodes.FORBIDDEN);
+        }
+        snapshotRepository.deleteById(snapshotId);
+        return snapshotsForCourse(access.courseId());
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public List<LiveSummarySnapshotVO> deleteHistoryRecord(UUID classSessionId,
+                                                           UUID summarySessionId,
+                                                           UUID userId,
+                                                           Integer role) {
+        ClassSessionAiAccess access = requireAccess(classSessionId, userId, role, false);
+        LiveSummarySession session = sessionRepository.findById(summarySessionId)
+                .filter(candidate -> access.courseId().equals(candidate.getCourseId()))
+                .orElseThrow(() -> new BusinessException(ErrorCodes.NOT_FOUND, "Live summary session not found."));
+        if (!SecurityUtils.isAdmin(role) && !Objects.equals(userId, session.getTeacherId())) {
+            throw new BusinessException(ErrorCodes.FORBIDDEN);
+        }
+        if (LiveSummaryStatus.RUNNING.name().equals(session.getStatus())) {
+            lastSummaryAtBySession.remove(session.getId());
+        }
+        transcriptRepository.deleteBySummarySessionId(summarySessionId);
+        snapshotRepository.deleteBySummarySessionId(summarySessionId);
+        sessionRepository.deleteById(summarySessionId);
+        if (classSessionId.equals(session.getClassSessionId())) {
+            eventHub.emit(classSessionId, "status", get(classSessionId, userId, role));
+        }
+        return snapshotsForCourse(access.courseId());
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public LiveSummarySessionVO clear(UUID classSessionId, UUID userId, Integer role) {
+        ClassSessionAiAccess access = requireAccess(classSessionId, userId, role, true);
+        sessionRepository.findRunningByClassSessionId(classSessionId)
+                .map(LiveSummarySession::getId)
+                .ifPresent(lastSummaryAtBySession::remove);
+        transcriptRepository.deleteByClassSessionId(classSessionId);
+        snapshotRepository.deleteByClassSessionId(classSessionId);
+        sessionRepository.deleteByClassSessionId(classSessionId);
+        LiveSummarySessionVO vo = emptyVO(access);
+        eventHub.emit(classSessionId, "status", vo);
+        return vo;
     }
 
     public Flux<@NonNull ServerSentEvent<@NonNull String>> stream(UUID classSessionId, UUID userId, Integer role) {
@@ -198,6 +301,8 @@ public class LiveSummaryService {
 
             @Override
             public void onError(Throwable error) {
+                log.warn("Live summary speech recognition failed for classSessionId={} summarySessionId={}",
+                        classSessionId, session.getId(), error);
                 failSession(session.getId(), classSessionId, "Speech recognition failed.");
             }
         });
@@ -223,8 +328,16 @@ public class LiveSummaryService {
         segment.setSequenceNo(transcriptRepository.nextSequenceNo(summarySessionId));
         segment.setSpeakerId(speakerId);
         segment.setText(transcript.text().strip());
-        segment.setBeginTimeMs(transcript.beginTimeMs());
-        segment.setEndTimeMs(transcript.endTimeMs());
+        Integer beginTimeMs = transcript.beginTimeMs();
+        Integer endTimeMs = transcript.endTimeMs();
+        if (beginTimeMs == null) {
+            beginTimeMs = elapsedMs(session.getStartedAt());
+        }
+        if (endTimeMs == null) {
+            endTimeMs = beginTimeMs;
+        }
+        segment.setBeginTimeMs(beginTimeMs);
+        segment.setEndTimeMs(endTimeMs);
         transcriptRepository.save(segment);
         eventHub.emit(classSessionId, "transcript", transcriptPayload(toVO(segment), true));
         scheduleSummary(summarySessionId);
@@ -287,7 +400,6 @@ public class LiveSummaryService {
         if (!force && !shouldSummarize(session, newSegments)) {
             return;
         }
-
         LiveSummarySnapshot snapshot = createSnapshot(session, newSegments);
         snapshotRepository.save(snapshot);
         session.setCompressedState(compressedState(snapshot.getPayload()));
@@ -493,6 +605,14 @@ public class LiveSummaryService {
         return value.substring(0, Math.max(maxChars - 1, 0)) + "…";
     }
 
+    private Integer elapsedMs(Instant startedAt) {
+        if (startedAt == null) {
+            return 0;
+        }
+        long elapsed = Duration.between(startedAt, Instant.now()).toMillis();
+        return (int) Math.min(Math.max(elapsed, 0), Integer.MAX_VALUE);
+    }
+
     private String timeLabel(Integer timeMs) {
         if (timeMs == null || timeMs < 0) {
             return "00:00";
@@ -511,6 +631,16 @@ public class LiveSummaryService {
             }
         });
         eventHub.emitError(classSessionId, message);
+    }
+
+    private void requireHistoryRecordCapacity(UUID classSessionId) {
+        if (historyRecordLimitReached(classSessionId)) {
+            throw new BusinessException(ErrorCodes.BAD_REQUEST, "Pivot minutes history record limit reached.");
+        }
+    }
+
+    private boolean historyRecordLimitReached(UUID classSessionId) {
+        return sessionRepository.countByClassSessionId(classSessionId) >= HISTORY_RECORD_LIMIT_PER_COURSE;
     }
 
     private ClassSessionAiAccess requireAccess(UUID classSessionId, UUID userId, Integer role, boolean manage) {
@@ -534,6 +664,16 @@ public class LiveSummaryService {
         return response.data();
     }
 
+    private List<UUID> visibleCourseIds(UUID userId, Integer role) {
+        ApiResponse<@NonNull List<@NonNull UUID>> response = courseAiContextClient.visibleCourseIds(
+                userId == null ? null : userId.toString(),
+                role == null ? null : role.toString());
+        if (response == null || response.code() != SUCCESS_CODE || response.data() == null) {
+            throw new BusinessException(ErrorCodes.SERVICE_UNAVAILABLE);
+        }
+        return response.data();
+    }
+
     private void requireAvailable() {
         if (!aiRuntimeGuard.isConfigured() || !asrClient.isConfigured()) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, UNAVAILABLE_MESSAGE);
@@ -544,7 +684,34 @@ public class LiveSummaryService {
         return snapshotRepository.findLatestBySummarySessionId(summarySessionId);
     }
 
+    private List<LiveSummarySnapshotVO> snapshotsForSession(UUID summarySessionId) {
+        return snapshotRepository.findRecentBySummarySessionId(summarySessionId, 40)
+                .stream()
+                .map(this::toVO)
+                .toList();
+    }
+
+    private List<LiveSummarySnapshotVO> snapshotsForCourse(UUID courseId) {
+        return snapshotRepository.findRecentByCourseId(courseId, 40)
+                .stream()
+                .map(this::toVO)
+                .toList();
+    }
+
+    private LiveSummaryRecordVO toRecordVO(LiveSummarySession session) {
+        return new LiveSummaryRecordVO(
+                session.getId(),
+                session.getClassSessionId(),
+                session.getCourseId(),
+                session.getTeacherId(),
+                session.getStatus(),
+                session.getStartedAt(),
+                session.getStoppedAt(),
+                latestSnapshot(session.getId()).map(this::toVO).orElse(null));
+    }
+
     private LiveSummarySessionVO toVO(LiveSummarySession session) {
+        int historyRecordCount = sessionRepository.countByClassSessionId(session.getClassSessionId());
         return new LiveSummarySessionVO(
                 session.getId(),
                 session.getClassSessionId(),
@@ -558,10 +725,17 @@ public class LiveSummaryService {
                                 session.getId(), aiProperties.getLiveSummary().getRecentTranscriptLimit())
                         .stream()
                         .map(this::toVO)
-                        .toList());
+                        .toList(),
+                historyRecordCount,
+                HISTORY_RECORD_LIMIT_PER_COURSE,
+                historyRecordCount >= HISTORY_RECORD_LIMIT_PER_COURSE,
+                historyRecordCount,
+                HISTORY_RECORD_LIMIT_PER_COURSE,
+                historyRecordCount >= HISTORY_RECORD_LIMIT_PER_COURSE);
     }
 
     private LiveSummarySessionVO emptyVO(ClassSessionAiAccess access) {
+        int historyRecordCount = sessionRepository.countByClassSessionId(access.classSessionId());
         return new LiveSummarySessionVO(
                 null,
                 access.classSessionId(),
@@ -571,7 +745,13 @@ public class LiveSummaryService {
                 null,
                 null,
                 null,
-                List.of());
+                List.of(),
+                historyRecordCount,
+                HISTORY_RECORD_LIMIT_PER_COURSE,
+                historyRecordCount >= HISTORY_RECORD_LIMIT_PER_COURSE,
+                historyRecordCount,
+                HISTORY_RECORD_LIMIT_PER_COURSE,
+                historyRecordCount >= HISTORY_RECORD_LIMIT_PER_COURSE);
     }
 
     private LiveTranscriptSegmentVO toVO(LiveTranscriptSegment segment) {

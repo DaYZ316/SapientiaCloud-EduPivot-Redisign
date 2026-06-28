@@ -2,6 +2,7 @@ package com.dayz.sc.ai.repository;
 
 import com.dayz.sc.ai.model.entity.LiveSummarySnapshot;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,4 +36,23 @@ public interface LiveSummarySnapshotRepository {
      * @return 快照实体，可能为空
      */
     Optional<LiveSummarySnapshot> findLatestBySummarySessionId(UUID summarySessionId);
+
+    Optional<LiveSummarySnapshot> findById(UUID id);
+
+    List<LiveSummarySnapshot> findRecentBySummarySessionId(UUID summarySessionId, int limit);
+
+    List<LiveSummarySnapshot> findRecentByClassSessionId(UUID classSessionId, int limit);
+
+    List<LiveSummarySnapshot> findRecentByCourseId(UUID courseId, int limit);
+
+    void deleteById(UUID id);
+
+    void deleteBySummarySessionId(UUID summarySessionId);
+
+    /**
+     * Delete all live summary snapshots for a class session.
+     *
+     * @param classSessionId class session ID
+     */
+    void deleteByClassSessionId(UUID classSessionId);
 }

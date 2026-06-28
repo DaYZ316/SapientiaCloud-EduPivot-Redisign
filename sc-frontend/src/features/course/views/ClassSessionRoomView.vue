@@ -19,6 +19,7 @@
 
     <Classroom3D
         v-else-if="session"
+        :opening-teacher-name="openingTeacherName"
         :session="session"
         @exit="exitClassroom"
         @joined="markJoined"
@@ -56,42 +57,122 @@
       </button>
     </div>
 
-    <LivePracticePanel
+    <FloatingWindow
         v-if="session?.publishedAt && canUseLivePracticePanel && showLivePracticePanel"
-        :initial-group-id="initialPracticeGroupId"
-        :is-teacher="canManageSessionCourse"
-        :session="session"
-        @close="closeLivePracticePanel"
-    />
+        :default-height="LIVE_PRACTICE_WINDOW.defaultHeight"
+        :default-width="LIVE_PRACTICE_WINDOW.defaultWidth"
+        :disable-on-mobile="true"
+        :margin="CLASSROOM_WINDOW_MARGIN"
+        :min-height="LIVE_PRACTICE_WINDOW.minHeight"
+        :min-width="LIVE_PRACTICE_WINDOW.minWidth"
+        :mobile-breakpoint="CLASSROOM_WINDOW_MOBILE_BREAKPOINT"
+        drag-handle-selector=".panel-header"
+        layer-class="classroom-window-layer"
+        window-class="classroom-floating-window live-practice-floating-window"
+    >
+      <LivePracticePanel
+          :initial-group-id="initialPracticeGroupId"
+          :is-teacher="canManageSessionCourse"
+          :session="session"
+          @close="closeLivePracticePanel"
+      />
+    </FloatingWindow>
 
-    <ChapterPreviewPanel
+    <FloatingWindow
         v-if="session?.publishedAt && showChapterPreviewPanel"
-        :session="session"
-        @close="closeChapterPreviewPanel"
-    />
+        :default-height="CHAPTER_PREVIEW_WINDOW.defaultHeight"
+        :default-width="CHAPTER_PREVIEW_WINDOW.defaultWidth"
+        :disable-on-mobile="true"
+        :margin="CLASSROOM_WINDOW_MARGIN"
+        :min-height="CHAPTER_PREVIEW_WINDOW.minHeight"
+        :min-width="CHAPTER_PREVIEW_WINDOW.minWidth"
+        :mobile-breakpoint="CLASSROOM_WINDOW_MOBILE_BREAKPOINT"
+        drag-handle-selector=".panel-header"
+        layer-class="classroom-window-layer"
+        window-class="classroom-floating-window chapter-preview-floating-window"
+    >
+      <ChapterPreviewPanel
+          :session="session"
+          @close="closeChapterPreviewPanel"
+      />
+    </FloatingWindow>
 
-    <SeatedStudentsPanel
+    <FloatingWindow
         v-if="session?.publishedAt && showSeatedStudentsPanel"
-        :participants="seatedParticipants"
-        :session="session"
-        @close="closeSeatedStudentsPanel"
-    />
+        :default-height="SEATED_STUDENTS_WINDOW.defaultHeight"
+        :default-width="SEATED_STUDENTS_WINDOW.defaultWidth"
+        :disable-on-mobile="true"
+        :margin="CLASSROOM_WINDOW_MARGIN"
+        :min-height="SEATED_STUDENTS_WINDOW.minHeight"
+        :min-width="SEATED_STUDENTS_WINDOW.minWidth"
+        :mobile-breakpoint="CLASSROOM_WINDOW_MOBILE_BREAKPOINT"
+        drag-handle-selector=".panel-header"
+        layer-class="classroom-window-layer"
+        window-class="classroom-floating-window seated-students-floating-window"
+    >
+      <SeatedStudentsPanel
+          :participants="seatedParticipants"
+          :session="session"
+          @close="closeSeatedStudentsPanel"
+      />
+    </FloatingWindow>
 
-    <AiLiveSummaryPanel
+    <FloatingWindow
         v-if="session?.publishedAt && showAiSummaryPanel"
-        :can-manage="canManageSessionCourse"
-        :session="session"
-        @close="closeAiSummaryPanel"
-    />
+        :default-height="AI_SUMMARY_WINDOW.defaultHeight"
+        :default-width="AI_SUMMARY_WINDOW.defaultWidth"
+        :disable-on-mobile="true"
+        :margin="CLASSROOM_WINDOW_MARGIN"
+        :min-height="AI_SUMMARY_WINDOW.minHeight"
+        :min-width="AI_SUMMARY_WINDOW.minWidth"
+        :mobile-breakpoint="CLASSROOM_WINDOW_MOBILE_BREAKPOINT"
+        drag-handle-selector=".panel-header"
+        layer-class="classroom-window-layer"
+        window-class="classroom-floating-window ai-summary-floating-window"
+    >
+      <AiLiveSummaryPanel
+          :can-delete-history="isAdmin || isSessionOpeningTeacher"
+          :can-manage="canManageSessionCourse"
+          :session="session"
+          @close="closeAiSummaryPanel"
+      />
+    </FloatingWindow>
+
+    <FloatingWindow
+        v-if="session?.publishedAt && showClassroomLivePanel && !classroomLivePanelCompact"
+        :default-height="CLASSROOM_LIVE_WINDOW.defaultHeight"
+        :default-width="CLASSROOM_LIVE_WINDOW.defaultWidth"
+        :disable-on-mobile="true"
+        :margin="CLASSROOM_WINDOW_MARGIN"
+        :min-height="CLASSROOM_LIVE_WINDOW.minHeight"
+        :min-width="CLASSROOM_LIVE_WINDOW.minWidth"
+        :mobile-breakpoint="CLASSROOM_WINDOW_MOBILE_BREAKPOINT"
+        :resizable="false"
+        drag-handle-selector=".mode-popup .live-header"
+        layer-class="classroom-window-layer"
+        window-class="classroom-floating-window classroom-live-floating-window"
+    >
+      <ClassroomLivePanel
+          :can-participate="canUseClassroomLive"
+          :compact="classroomLivePanelCompact"
+          :is-teacher="isSessionOpeningTeacher"
+          :session="session"
+          @close="closeClassroomLivePanel"
+          @expand="expandClassroomLivePanel"
+          @open-summary="openAiSummaryPanel"
+          @session-change="applySessionUpdate"
+      />
+    </FloatingWindow>
 
     <ClassroomLivePanel
-        v-if="session?.publishedAt && showClassroomLivePanel"
+        v-else-if="session?.publishedAt && showClassroomLivePanel"
         :can-participate="canUseClassroomLive"
         :compact="classroomLivePanelCompact"
         :is-teacher="isSessionOpeningTeacher"
         :session="session"
         @close="closeClassroomLivePanel"
         @expand="expandClassroomLivePanel"
+        @open-summary="openAiSummaryPanel"
         @session-change="applySessionUpdate"
     />
 
@@ -101,7 +182,7 @@
         :progress="classroomProgress"
     />
 
-    <GlobalAiDrawer/>
+    <GlobalAiDrawer v-if="!showEntryTransition"/>
   </div>
 </template>
 
@@ -119,10 +200,21 @@ import type {CourseDetail} from '@/features/course/types/course'
 import CourseEntryTransition from '@/features/course/components/CourseEntryTransition.vue'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {useClassroomLiveMiniStore} from '@/features/classroom/stores/classroomLiveMini'
+import {stopLiveSummaryAudioUpload} from '@/features/classroom/composables/useClassroomLiveSummaryAudio'
 import {mergeSeatSyncLiveStatus} from '@/features/classroom/composables/liveStatusSync'
 import GlobalAiDrawer from '@/features/ai/components/GlobalAiDrawer.vue'
+import FloatingWindow from '@/shared/components/FloatingWindow.vue'
 
 const OPEN_CLASSROOM_LIVE_PANEL_EVENT = 'edupivot:open-classroom-live-panel'
+const OPEN_AI_SUMMARY_PANEL_EVENT = 'edupivot:open-ai-summary-panel'
+const CLASSROOM_WINDOW_MARGIN = 24
+const CLASSROOM_WINDOW_MOBILE_BREAKPOINT = 1180
+const LIVE_PRACTICE_WINDOW = {defaultWidth: 760, defaultHeight: 760, minWidth: 480, minHeight: 520}
+const CHAPTER_PREVIEW_WINDOW = {defaultWidth: 860, defaultHeight: 760, minWidth: 520, minHeight: 480}
+const SEATED_STUDENTS_WINDOW = {defaultWidth: 420, defaultHeight: 640, minWidth: 360, minHeight: 420}
+const AI_SUMMARY_WINDOW = {defaultWidth: 1040, defaultHeight: 760, minWidth: 720, minHeight: 520}
+const CLASSROOM_LIVE_WINDOW = {defaultWidth: 400, defaultHeight: 720, minWidth: 400, minHeight: 520}
+type ClassroomSidePanelKey = 'livePractice' | 'chapterPreview' | 'seatedStudents' | 'aiSummary' | 'classroomLive'
 
 const AiLiveSummaryPanel = defineAsyncComponent(() => import('@/features/ai/components/AiLiveSummaryPanel.vue'))
 const Classroom3D = defineAsyncComponent(() => import('@/features/classroom/components/Classroom3D.vue'))
@@ -153,6 +245,9 @@ const showSeatedStudentsPanel = ref(false)
 const showAiSummaryPanel = ref(false)
 const showClassroomLivePanel = ref(false)
 const classroomLivePanelCompact = ref(false)
+const classroomViewportWidth = ref(window.innerWidth)
+const hasClassroomCoarsePointer = ref(hasCoarsePrimaryPointer())
+const lastOpenedSidePanel = ref<ClassroomSidePanelKey | null>(null)
 const initialPracticeGroupId = ref<string | null>(null)
 const seatedParticipants = ref<ClassParticipant[]>([])
 const showEntryTransition = computed(() =>
@@ -161,6 +256,12 @@ const showEntryTransition = computed(() =>
 const seatedStudentCount = computed(() =>
     seatedParticipants.value.filter(participant => participant.role === 1 && participant.seatIndex != null).length,
 )
+const openingTeacherName = computed(() => {
+  const sessionTeacherId = session.value?.teacherId
+  if (!sessionTeacherId) return ''
+  const matchedTeacher = course.value?.teacherInfos?.find(teacher => teacher.id === sessionTeacherId)
+  return matchedTeacher?.displayName || course.value?.teacherName || sessionTeacherId
+})
 const canManageSessionCourse = computed(() => {
   const userId = authStore.user?.id
   if (isAdmin.value) return true
@@ -178,14 +279,22 @@ const currentUserSeated = computed(() => {
   return seatedParticipants.value.some(participant => participant.userId === userId && participant.seatIndex != null)
 })
 const canUseClassroomLive = computed(() => canManageSessionCourse.value || currentUserSeated.value)
+const canUseClassroomFloatingWindows = computed(() =>
+    classroomViewportWidth.value > CLASSROOM_WINDOW_MOBILE_BREAKPOINT && !hasClassroomCoarsePointer.value,
+)
 
 onMounted(() => {
+  window.addEventListener('resize', syncClassroomViewport)
   window.addEventListener(OPEN_CLASSROOM_LIVE_PANEL_EVENT, handleOpenClassroomLivePanelRequest)
+  window.addEventListener(OPEN_AI_SUMMARY_PANEL_EVENT, handleOpenAiSummaryPanelRequest)
+  syncClassroomViewport()
   void loadSession()
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', syncClassroomViewport)
   window.removeEventListener(OPEN_CLASSROOM_LIVE_PANEL_EVENT, handleOpenClassroomLivePanelRequest)
+  window.removeEventListener(OPEN_AI_SUMMARY_PANEL_EVENT, handleOpenAiSummaryPanelRequest)
 })
 
 onBeforeRouteLeave(() => {
@@ -195,6 +304,18 @@ onBeforeRouteLeave(() => {
 watch(() => route.query.livePanel, (livePanel) => {
   if (livePanel === '1') {
     openClassroomLivePanel()
+  }
+})
+
+watch(() => route.query.summaryPanel, (summaryPanel) => {
+  if (summaryPanel === '1') {
+    openAiSummaryPanel()
+  }
+})
+
+watch(canUseClassroomFloatingWindows, (canUseFloatingWindows) => {
+  if (!canUseFloatingWindows) {
+    closeExtraSidePanelsForSingleWindowMode()
   }
 })
 
@@ -217,9 +338,12 @@ async function loadSession() {
     if (typeof route.query.practice === 'string' && canUseLivePracticePanel.value) {
       initialPracticeGroupId.value = route.query.practice
       showLivePracticePanel.value = true
+      lastOpenedSidePanel.value = 'livePractice'
     }
     if (route.query.livePanel === '1') {
       openClassroomLivePanel()
+    } else if (route.query.summaryPanel === '1') {
+      openAiSummaryPanel()
     } else if (route.query.liveFloating === '1' && shouldMinimizeTeacherLive()) {
       void minimizeClassroomLivePanel()
     }
@@ -265,48 +389,57 @@ function handleClassroomReady() {
 
 function openLivePracticePanel() {
   if (!canUseLivePracticePanel.value) return
-  closeSidePanels()
+  closeSidePanelsForSingleWindowMode()
   initialPracticeGroupId.value = typeof route.query.practice === 'string' ? route.query.practice : null
   showLivePracticePanel.value = true
+  lastOpenedSidePanel.value = 'livePractice'
 }
 
 function closeLivePracticePanel() {
   showLivePracticePanel.value = false
   initialPracticeGroupId.value = null
+  clearLastOpenedSidePanel('livePractice')
 }
 
 function openChapterPreviewPanel() {
-  closeSidePanels()
+  closeSidePanelsForSingleWindowMode()
   showChapterPreviewPanel.value = true
+  lastOpenedSidePanel.value = 'chapterPreview'
 }
 
 function closeChapterPreviewPanel() {
   showChapterPreviewPanel.value = false
+  clearLastOpenedSidePanel('chapterPreview')
 }
 
 function openSeatedStudentsPanel() {
-  closeSidePanels()
+  closeSidePanelsForSingleWindowMode()
   showSeatedStudentsPanel.value = true
+  lastOpenedSidePanel.value = 'seatedStudents'
 }
 
 function closeSeatedStudentsPanel() {
   showSeatedStudentsPanel.value = false
+  clearLastOpenedSidePanel('seatedStudents')
 }
 
 function openAiSummaryPanel() {
-  closeSidePanels()
+  closeSidePanelsForSingleWindowMode()
   showAiSummaryPanel.value = true
+  lastOpenedSidePanel.value = 'aiSummary'
 }
 
 function closeAiSummaryPanel() {
   showAiSummaryPanel.value = false
+  clearLastOpenedSidePanel('aiSummary')
 }
 
 function openClassroomLivePanel() {
-  closeSidePanels()
+  closeSidePanelsForSingleWindowMode()
   liveMini.clear()
   classroomLivePanelCompact.value = false
   showClassroomLivePanel.value = true
+  lastOpenedSidePanel.value = 'classroomLive'
   replaceClassroomLiveQuery('panel')
 }
 
@@ -318,10 +451,19 @@ function handleOpenClassroomLivePanelRequest(event: Event) {
   openClassroomLivePanel()
 }
 
+function handleOpenAiSummaryPanelRequest(event: Event) {
+  const detail = (event as CustomEvent<{ sessionId?: string }>).detail
+  if (!session.value || detail?.sessionId !== session.value.id || !session.value.publishedAt) {
+    return
+  }
+  openAiSummaryPanel()
+}
+
 async function closeClassroomLivePanel(forceClose = false) {
   if (forceClose) {
     showClassroomLivePanel.value = false
     classroomLivePanelCompact.value = false
+    clearLastOpenedSidePanel('classroomLive')
     return
   }
   if (shouldMinimizeTeacherLive()) {
@@ -330,6 +472,7 @@ async function closeClassroomLivePanel(forceClose = false) {
   }
   showClassroomLivePanel.value = false
   classroomLivePanelCompact.value = false
+  clearLastOpenedSidePanel('classroomLive')
   replaceClassroomLiveQuery(null)
 }
 
@@ -344,6 +487,7 @@ async function minimizeClassroomLivePanel() {
   showMiniWindowIfLive()
   classroomLivePanelCompact.value = false
   showClassroomLivePanel.value = false
+  clearLastOpenedSidePanel('classroomLive')
   replaceClassroomLiveQuery('floating')
 }
 
@@ -403,6 +547,61 @@ function closeSidePanels() {
   }
 }
 
+function closeSidePanelsForSingleWindowMode() {
+  if (canUseClassroomFloatingWindows.value) return
+  closeSidePanels()
+}
+
+function closeExtraSidePanelsForSingleWindowMode() {
+  const openPanels = getOpenSidePanels()
+  if (openPanels.length <= 1) return
+
+  const currentPanel = lastOpenedSidePanel.value
+  const panelToKeep = currentPanel && openPanels.includes(currentPanel)
+      ? currentPanel
+      : openPanels[openPanels.length - 1]
+
+  openPanels.forEach((panel) => {
+    if (panel !== panelToKeep) {
+      closeSidePanel(panel)
+    }
+  })
+}
+
+function getOpenSidePanels(): ClassroomSidePanelKey[] {
+  const openPanels: ClassroomSidePanelKey[] = []
+  if (showLivePracticePanel.value) openPanels.push('livePractice')
+  if (showChapterPreviewPanel.value) openPanels.push('chapterPreview')
+  if (showSeatedStudentsPanel.value) openPanels.push('seatedStudents')
+  if (showAiSummaryPanel.value) openPanels.push('aiSummary')
+  if (showClassroomLivePanel.value && !classroomLivePanelCompact.value) openPanels.push('classroomLive')
+  return openPanels
+}
+
+function closeSidePanel(panel: ClassroomSidePanelKey) {
+  if (panel === 'livePractice') closeLivePracticePanel()
+  if (panel === 'chapterPreview') closeChapterPreviewPanel()
+  if (panel === 'seatedStudents') closeSeatedStudentsPanel()
+  if (panel === 'aiSummary') closeAiSummaryPanel()
+  if (panel === 'classroomLive') void closeClassroomLivePanel()
+}
+
+function clearLastOpenedSidePanel(panel: ClassroomSidePanelKey) {
+  if (lastOpenedSidePanel.value === panel) {
+    lastOpenedSidePanel.value = null
+  }
+}
+
+function syncClassroomViewport() {
+  classroomViewportWidth.value = window.innerWidth
+  hasClassroomCoarsePointer.value = hasCoarsePrimaryPointer()
+}
+
+function hasCoarsePrimaryPointer() {
+  if (typeof window.matchMedia !== 'function') return false
+  return window.matchMedia('(pointer: coarse)').matches
+}
+
 function handleParticipantsChange(participants: ClassParticipant[]) {
   seatedParticipants.value = participants
 }
@@ -414,6 +613,7 @@ function handleLiveStatusChange(message: SeatSyncMessage) {
   session.value = mergeSeatSyncLiveStatus(session.value, message)
   if (message.liveStatus !== ClassLiveStatus.LIVE && message.liveStatus !== ClassLiveStatus.PAUSED) {
     classroomLivePanelCompact.value = false
+    stopLiveSummaryAudioUpload(message.sessionId)
   }
   if (session.value) {
     liveMini.updateSession(session.value)
@@ -541,6 +741,53 @@ function backToCourse() {
   color: inherit;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+}
+
+:deep(.classroom-window-layer) {
+  --floating-window-z-index: 2200;
+  --floating-window-bg: var(--color-surface-card);
+  --floating-window-border: 1px solid var(--color-outline);
+  --floating-window-radius: var(--radius-md);
+  --floating-window-shadow: var(--shadow-card);
+  --floating-window-active-shadow: 0 28px 76px rgba(15, 23, 42, 0.34);
+}
+
+:deep(.classroom-floating-window) {
+  overflow: visible;
+}
+
+:deep(.classroom-floating-window > .chapter-preview-panel),
+:deep(.classroom-floating-window > .seated-students-panel),
+:deep(.classroom-floating-window > .live-practice-panel),
+:deep(.classroom-floating-window > .ai-live-summary-panel),
+:deep(.classroom-floating-window > .classroom-live-experience.mode-popup) {
+  position: static;
+  inset: auto;
+  z-index: auto;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+  transform: none;
+}
+
+:deep(.classroom-floating-window .panel-header),
+:deep(.classroom-floating-window .mode-popup .live-header) {
+  cursor: move;
+  touch-action: none;
+  user-select: none;
+}
+
+:deep(.classroom-floating-window.is-dragging .panel-header),
+:deep(.classroom-floating-window.is-dragging .mode-popup .live-header) {
+  cursor: grabbing;
+}
+
+:deep(.live-practice-floating-window .preview-overlay) {
+  position: fixed;
+  z-index: 2300;
 }
 
 @media (max-width: 640px) {

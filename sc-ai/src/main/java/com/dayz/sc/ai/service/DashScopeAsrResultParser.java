@@ -18,6 +18,8 @@ import java.util.List;
 public class DashScopeAsrResultParser {
 
     private static final String EVENT_RESULT_GENERATED = "result-generated";
+    private static final String EVENT_QWEN_TRANSCRIPTION_TEXT = "conversation.item.input_audio_transcription.text";
+    private static final String EVENT_QWEN_TRANSCRIPTION_COMPLETED = "conversation.item.input_audio_transcription.completed";
 
     private final ObjectMapper objectMapper;
 
@@ -28,18 +30,17 @@ public class DashScopeAsrResultParser {
     public List<DashScopeAsrClient.AsrTranscript> parse(String rawMessage) {
         try {
             JsonNode root = objectMapper.readTree(rawMessage);
-            String event = root.path("header").path("event").asText("");
-            if (!EVENT_RESULT_GENERATED.equals(event)) {
-                return List.of();
+            String event = extractEvent(root);
+            if (EVENT_QWEN_TRANSCRIPTION_TEXT.equals(event)) {
+                return parseQwenText(root);
             }
-            JsonNode output = root.path("payload").path("output");
-            List<DashScopeAsrClient.AsrTranscript> transcripts = new ArrayList<>();
-            appendSentence(transcripts, output.path("sentence"));
-            JsonNode sentences = output.path("sentences");
-            if (sentences.isArray()) {
-                sentences.forEach(sentence -> appendSentence(transcripts, sentence));
+            if (EVENT_QWEN_TRANSCRIPTION_COMPLETED.equals(event)) {
+                return parseQwenCompleted(root);
             }
-            return transcripts;
+            if (EVENT_RESULT_GENERATED.equals(event)) {
+                return parseParaformer(root);
+            }
+            return List.of();
         } catch (JsonProcessingException exception) {
             return List.of();
         }
@@ -48,7 +49,7 @@ public class DashScopeAsrResultParser {
     public String extractEvent(String rawMessage) {
         try {
             JsonNode root = objectMapper.readTree(rawMessage);
-            return root.path("header").path("event").asText("");
+            return extractEvent(root);
         } catch (JsonProcessingException exception) {
             return "";
         }
@@ -61,6 +62,10 @@ public class DashScopeAsrResultParser {
             if (StringUtils.hasText(message)) {
                 return message;
             }
+            message = firstText(root.path("error"), "message", "error_message", "code");
+            if (StringUtils.hasText(message)) {
+                return message;
+            }
             message = firstText(root.path("payload"), "error_message", "message");
             if (StringUtils.hasText(message)) {
                 return message;
@@ -69,6 +74,41 @@ public class DashScopeAsrResultParser {
         } catch (JsonProcessingException exception) {
             return "";
         }
+    }
+
+    private List<DashScopeAsrClient.AsrTranscript> parseParaformer(JsonNode root) {
+        JsonNode output = root.path("payload").path("output");
+        List<DashScopeAsrClient.AsrTranscript> transcripts = new ArrayList<>();
+        appendSentence(transcripts, output.path("sentence"));
+        JsonNode sentences = output.path("sentences");
+        if (sentences.isArray()) {
+            sentences.forEach(sentence -> appendSentence(transcripts, sentence));
+        }
+        return transcripts;
+    }
+
+    private List<DashScopeAsrClient.AsrTranscript> parseQwenText(JsonNode root) {
+        String text = firstText(root, "text") + firstText(root, "stash");
+        if (!StringUtils.hasText(text)) {
+            return List.of();
+        }
+        return List.of(new DashScopeAsrClient.AsrTranscript(text.strip(), false, null, null));
+    }
+
+    private List<DashScopeAsrClient.AsrTranscript> parseQwenCompleted(JsonNode root) {
+        String transcript = firstText(root, "transcript");
+        if (!StringUtils.hasText(transcript)) {
+            return List.of();
+        }
+        return List.of(new DashScopeAsrClient.AsrTranscript(transcript.strip(), true, null, null));
+    }
+
+    private String extractEvent(JsonNode root) {
+        String event = root.path("type").asText("");
+        if (StringUtils.hasText(event)) {
+            return event;
+        }
+        return root.path("header").path("event").asText("");
     }
 
     private void appendSentence(List<DashScopeAsrClient.AsrTranscript> transcripts, JsonNode sentence) {

@@ -166,6 +166,31 @@
               @click.stop="toggleScreenShare"
           >
             <ScreenShare
+              :size="17"
+              stroke-width="2"
+            />
+          </button>
+
+          <button
+              :class="{active: isLiveSummaryRunning}"
+              :disabled="isLoadingAction('summary')"
+              :title="liveSummaryButtonTitle"
+              class="mini-control"
+              type="button"
+              @click.stop="toggleLiveSummary"
+          >
+            <span
+                v-if="isLoadingAction('summary')"
+                aria-hidden="true"
+                class="mini-control-spinner"
+            />
+            <Square
+                v-else-if="isLiveSummaryRunning"
+                :size="16"
+                stroke-width="2"
+            />
+            <Sparkles
+                v-else
                 :size="17"
                 stroke-width="2"
             />
@@ -199,6 +224,89 @@
       </div>
     </section>
   </aside>
+
+  <Teleport to="body">
+    <div
+        v-if="showLiveSummaryStartDialog"
+        class="mini-summary-start-backdrop"
+        @click.self="closeLiveSummaryStartDialog"
+    >
+      <section
+          :aria-label="t('courseDetail.classSession.liveSummary.startDialog.title')"
+          aria-modal="true"
+          class="mini-summary-start-dialog"
+          role="dialog"
+      >
+        <header class="mini-summary-start-header">
+          <h2>{{ t('courseDetail.classSession.liveSummary.startDialog.title') }}</h2>
+        </header>
+
+        <div class="mini-summary-start-mode" role="group">
+          <button
+              :class="{active: liveSummaryStartMode === 'new'}"
+              :disabled="liveSummaryStartDialogLoading || !canStartNewLiveSummary"
+              type="button"
+              @click="chooseLiveSummaryStartMode('new')"
+          >
+            {{ t('courseDetail.classSession.liveSummary.startDialog.newMode') }}
+          </button>
+          <button
+              :class="{active: liveSummaryStartMode === 'resume'}"
+              :disabled="liveSummaryStartDialogLoading || liveSummaryResumeOptions.length === 0"
+              type="button"
+              @click="chooseLiveSummaryStartMode('resume')"
+          >
+            {{ t('courseDetail.classSession.liveSummary.startDialog.resumeMode') }}
+          </button>
+        </div>
+
+        <p v-if="liveSummaryStartMode === 'new' && liveSummaryHistoryRecordLimitReached" class="mini-summary-start-hint">
+          {{ t('courseDetail.classSession.liveSummary.startDialog.newLimitReached') }}
+        </p>
+
+        <label v-if="liveSummaryStartMode === 'resume'" class="mini-summary-resume-field">
+          <span>{{ t('courseDetail.classSession.liveSummary.startDialog.resumeSelectLabel') }}</span>
+          <BaseSelect
+              v-model="liveSummaryResumeSessionId"
+              :disabled="liveSummaryStartDialogLoading || liveSummaryResumeOptions.length === 0"
+              :options="liveSummaryResumeSelectOptions"
+              class="mini-summary-resume-select"
+              min-width="100%"
+          />
+        </label>
+
+        <p v-if="liveSummaryStartDialogLoading" class="mini-summary-start-hint">
+          {{ t('courseDetail.classSession.liveSummary.startDialog.loading') }}
+        </p>
+        <p
+            v-else-if="liveSummaryStartMode === 'resume' && liveSummaryResumeOptions.length === 0"
+            class="mini-summary-start-hint"
+        >
+          {{ t('courseDetail.classSession.liveSummary.startDialog.resumeEmpty') }}
+        </p>
+
+        <footer class="mini-summary-start-footer">
+          <button
+              :disabled="isLoadingAction('summary')"
+              class="mini-summary-start-secondary"
+              type="button"
+              @click="closeLiveSummaryStartDialog"
+          >
+            {{ t('courseDetail.classSession.liveSummary.startDialog.cancel') }}
+          </button>
+          <button
+              :disabled="!canConfirmLiveSummaryStart || isLoadingAction('summary')"
+              class="mini-summary-start-primary"
+              type="button"
+              @click="confirmLiveSummaryStart"
+          >
+            <span v-if="isLoadingAction('summary')" aria-hidden="true" class="mini-control-spinner"/>
+            <span v-else>{{ liveSummaryStartConfirmLabel }}</span>
+          </button>
+        </footer>
+      </section>
+    </div>
+  </Teleport>
 </template>
 
 <script lang="ts" setup>
@@ -215,17 +323,36 @@ import {
   MicOff,
   Minus,
   ScreenShare,
+  Sparkles,
+  Square,
   Video,
   VideoOff,
   X,
 } from 'lucide-vue-next'
 
+import {
+  getLiveSummary,
+  listLiveSummarySnapshots,
+  resumeLiveSummary,
+  startLiveSummary,
+  stopLiveSummary,
+  subscribeLiveSummary,
+} from '@/features/ai/api/ai'
+import {useLiveSummaryStore} from '@/features/ai/stores/liveSummary'
+import type {LiveSummarySession, LiveSummarySnapshot, LiveTranscriptSegment} from '@/features/ai/types/ai'
 import {ClassLiveStatus, type ClassSession} from '@/features/course/types/classSession'
 import {useClassroomLive} from '@/features/classroom/composables/useClassroomLive'
+import {
+  isLiveSummaryAudioUploading,
+  startLiveSummaryAudioUpload,
+  stopLiveSummaryAudioUpload,
+} from '@/features/classroom/composables/useClassroomLiveSummaryAudio'
 import {
   pauseTeacherLiveBecauseOfUnexpectedDisconnect,
   useTeacherLiveSessionGuard,
 } from '@/features/classroom/composables/useTeacherLiveSessionGuard'
+import type {SseSubscription} from '@/shared/api/sseManager'
+import BaseSelect from '@/shared/components/BaseSelect.vue'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
 const props = defineProps<{
@@ -237,18 +364,25 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: [forceClose?: boolean]
   expand: []
+  'open-summary': []
   'session-change': [session: ClassSession]
 }>()
 
-const {t} = useI18n()
+const {t, locale} = useI18n()
 const live = useClassroomLive(toRef(props, 'session'), toRef(props, 'isTeacher'))
+const liveSummaryStore = useLiveSummaryStore()
 useTeacherLiveSessionGuard({
   session: toRef(props, 'session'),
   isTeacher: toRef(props, 'isTeacher'),
 })
 
-type MiniControlAction = 'microphone' | 'camera' | 'screenShare' | 'close'
+type MiniControlAction = 'microphone' | 'camera' | 'screenShare' | 'summary' | 'close'
 type HiddenEdge = 'left' | 'right' | 'top' | 'bottom'
+type LiveSummaryStartMode = 'new' | 'resume'
+type LiveSummaryResumeOption = {
+  summarySessionId: string
+  label: string
+}
 
 const MINI_WINDOW_MARGIN = 12
 const busy = ref(false)
@@ -259,7 +393,13 @@ const restorePosition = ref<{ left: number; top: number } | null>(null)
 const dragOffset = ref<{ x: number; y: number } | null>(null)
 const isDragging = ref(false)
 const hiddenEdge = ref<HiddenEdge | null>(null)
+const showLiveSummaryStartDialog = ref(false)
+const liveSummaryStartDialogLoading = ref(false)
+const liveSummaryStartMode = ref<LiveSummaryStartMode>('new')
+const liveSummaryResumeSessionId = ref('')
+const liveSummaryResumeSnapshots = ref<LiveSummarySnapshot[]>([])
 let previousDocumentCursor = ''
+let liveSummarySubscription: SseSubscription | null = null
 
 const isPaused = computed(() => props.session.liveStatus === ClassLiveStatus.PAUSED)
 const showTeacherControls = computed(() => props.isTeacher)
@@ -267,6 +407,71 @@ const mediaControlsDisabled = computed(() => !props.isTeacher || !live.connected
 const showLocalCameraOverlay = computed(() => props.isTeacher && live.screenShareEnabled.value && live.cameraEnabled.value)
 const showRemoteCameraOverlay = computed(() => !props.isTeacher && live.remoteScreenShareVisible.value && live.remoteCameraVisible.value)
 const screenShareActive = computed(() => props.isTeacher ? live.screenShareEnabled.value : live.remoteScreenShareVisible.value)
+const liveSummaryEntry = computed(() => liveSummaryStore.entryFor(props.session.id))
+const liveSummary = computed(() => liveSummaryEntry.value?.session ?? null)
+const isLiveSummaryRunning = computed(() => liveSummary.value?.status === 'RUNNING')
+const liveSummaryVisibleHistoryRecordCount = computed(() =>
+    new Set(liveSummaryResumeSnapshots.value
+        .filter(snapshot => snapshot.classSessionId === props.session.id)
+        .map(snapshot => snapshot.summarySessionId)).size)
+const liveSummaryHistoryRecordLimitReached = computed(() =>
+    typeof liveSummary.value?.historyRecordCount === 'number' && typeof liveSummary.value?.historyRecordLimit === 'number'
+        ? liveSummary.value.historyRecordCount >= liveSummary.value.historyRecordLimit
+        : liveSummaryVisibleHistoryRecordCount.value >= 5)
+const canStartNewLiveSummary = computed(() => !liveSummaryHistoryRecordLimitReached.value)
+const liveSummaryButtonTitle = computed(() =>
+    isLiveSummaryRunning.value
+        ? t('courseDetail.live.stopAiSummary')
+        : t('courseDetail.live.startAiSummary'))
+const liveSummaryResumeOptions = computed<LiveSummaryResumeOption[]>(() => {
+  const latestBySession = new Map<string, LiveSummarySnapshot>()
+  for (const snapshot of liveSummaryResumeSnapshots.value) {
+    if (snapshot.classSessionId !== props.session.id) {
+      continue
+    }
+    const previous = latestBySession.get(snapshot.summarySessionId)
+    if (!previous || new Date(snapshot.createdAt).getTime() > new Date(previous.createdAt).getTime()) {
+      latestBySession.set(snapshot.summarySessionId, snapshot)
+    }
+  }
+  const options = [...latestBySession.values()]
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+      .map(snapshot => ({
+        summarySessionId: snapshot.summarySessionId,
+        label: t('courseDetail.classSession.liveSummary.startDialog.resumeOptionLabel', {
+          sequence: snapshot.sequenceNo,
+          time: formatSessionTime(snapshot.createdAt),
+          overview: snapshot.overview || t('courseDetail.classSession.liveSummary.startDialog.untitled'),
+        }),
+      }))
+  const current = liveSummary.value
+  if (current?.id && current.classSessionId === props.session.id && !options.some(option => option.summarySessionId === current.id)) {
+    options.unshift({
+      summarySessionId: current.id,
+      label: t('courseDetail.classSession.liveSummary.startDialog.currentSessionOption', {
+        time: current.startedAt ? formatSessionTime(current.startedAt) : '--',
+      }),
+    })
+  }
+  return options
+})
+const liveSummaryResumeSelectOptions = computed(() =>
+    liveSummaryResumeOptions.value.map(option => ({
+      label: option.label,
+      value: option.summarySessionId,
+    })))
+const canConfirmLiveSummaryStart = computed(() => {
+  if (liveSummaryStartDialogLoading.value) {
+    return false
+  }
+  return liveSummaryStartMode.value === 'new'
+      ? canStartNewLiveSummary.value
+      : Boolean(liveSummaryResumeSessionId.value)
+})
+const liveSummaryStartConfirmLabel = computed(() =>
+    liveSummaryStartMode.value === 'new'
+        ? t('courseDetail.classSession.liveSummary.startDialog.startConfirm')
+        : t('courseDetail.classSession.liveSummary.startDialog.resumeConfirm'))
 const miniWindowStyle = computed(() => {
   if (!dragPosition.value) {
     return undefined
@@ -305,8 +510,16 @@ const stageMessage = computed(() => {
 watch(() => props.session.liveStatus, connectWhenNeeded, {immediate: true})
 watch(() => props.canParticipate, connectWhenNeeded)
 
-onMounted(connectWhenNeeded)
-onBeforeUnmount(stopDrag)
+onMounted(() => {
+  connectWhenNeeded()
+  subscribeLiveSummaryStatus()
+  void loadLiveSummary()
+  void resumeLiveSummaryAudioUploadIfNeeded()
+})
+onBeforeUnmount(() => {
+  stopDrag()
+  liveSummarySubscription?.close()
+})
 
 function connectWhenNeeded() {
   if (!props.canParticipate) {
@@ -411,6 +624,108 @@ async function toggleScreenShare() {
   await runControlAction('screenShare', live.toggleScreenShare)
 }
 
+async function toggleLiveSummary() {
+  if (!props.isTeacher) {
+    return
+  }
+  if (isLiveSummaryRunning.value) {
+    await runControlAction('summary', stopLiveSummaryIfRunning)
+    return
+  }
+  await openLiveSummaryStartDialog()
+}
+
+async function openLiveSummaryStartDialog() {
+  if (showLiveSummaryStartDialog.value) {
+    return
+  }
+  liveSummaryResumeSessionId.value = ''
+  showLiveSummaryStartDialog.value = true
+  liveSummaryStartDialogLoading.value = true
+  try {
+    await Promise.all([
+      loadLiveSummary(),
+      loadLiveSummaryResumeSnapshots(false),
+    ])
+  } finally {
+    liveSummaryStartDialogLoading.value = false
+  }
+  liveSummaryStartMode.value = canStartNewLiveSummary.value ? 'new' : 'resume'
+  syncLiveSummaryStartSelection()
+}
+
+function closeLiveSummaryStartDialog() {
+  if (isLoadingAction('summary')) {
+    return
+  }
+  showLiveSummaryStartDialog.value = false
+}
+
+function chooseLiveSummaryStartMode(mode: LiveSummaryStartMode) {
+  if (mode === 'new' && !canStartNewLiveSummary.value) {
+    return
+  }
+  if (mode === 'resume' && liveSummaryResumeOptions.value.length === 0) {
+    return
+  }
+  liveSummaryStartMode.value = mode
+  syncLiveSummaryStartSelection()
+}
+
+async function loadLiveSummaryResumeSnapshots(manageLoading = true) {
+  if (manageLoading) {
+    liveSummaryStartDialogLoading.value = true
+  }
+  try {
+    const snapshots = await listLiveSummarySnapshots(props.session.id)
+    liveSummaryResumeSnapshots.value = snapshots
+    liveSummaryStore.applySnapshots(props.session.id, snapshots)
+  } catch (error) {
+    notify.error(error instanceof Error
+        ? error.message
+        : t('courseDetail.classSession.liveSummary.errors.loadFailed'))
+  } finally {
+    if (manageLoading) {
+      liveSummaryStartDialogLoading.value = false
+    }
+  }
+}
+
+function syncLiveSummaryStartSelection() {
+  const options = liveSummaryResumeOptions.value
+  if (!canStartNewLiveSummary.value && options.length > 0) {
+    liveSummaryStartMode.value = 'resume'
+  }
+  if (liveSummaryStartMode.value !== 'resume') {
+    return
+  }
+  const selectedExists = options.some(option => option.summarySessionId === liveSummaryResumeSessionId.value)
+  liveSummaryResumeSessionId.value = selectedExists ? liveSummaryResumeSessionId.value : options[0]?.summarySessionId ?? ''
+}
+
+async function confirmLiveSummaryStart() {
+  if (!canConfirmLiveSummaryStart.value) {
+    return
+  }
+  await runControlAction('summary', async () => {
+    const next = liveSummaryStartMode.value === 'resume'
+        ? await resumeLiveSummary(props.session.id, liveSummaryResumeSessionId.value)
+        : await startLiveSummary(props.session.id)
+    applyLiveSummarySession(next, {resumeAudio: false})
+    showLiveSummaryStartDialog.value = false
+    await startLiveSummaryAudioUpload(props.session.id)
+  })
+}
+
+async function stopLiveSummaryIfRunning() {
+  if (!isLiveSummaryRunning.value) {
+    stopLiveSummaryAudioUpload(props.session.id)
+    return
+  }
+  stopLiveSummaryAudioUpload(props.session.id)
+  applyLiveSummarySession(await stopLiveSummary(props.session.id))
+}
+
 function hideToNearestEdge() {
   const element = miniWindowElement.value
   if (!element) {
@@ -450,6 +765,7 @@ function restoreFromEdge() {
 
 async function closeAsInterrupted() {
   await runControlAction('close', async () => {
+    await stopLiveSummaryIfRunning()
     await live.disconnect()
     const pausedSession = await pauseTeacherLiveBecauseOfUnexpectedDisconnect(props.session.id)
     if (pausedSession) {
@@ -470,11 +786,81 @@ async function runControlAction(action: MiniControlAction, task: () => Promise<v
   loadingAction.value = action
   try {
     await task()
-  } catch {
-    notify.error(t('courseDetail.live.controlActionFailed'))
+  } catch (error) {
+    notify.error(action === 'summary' && error instanceof Error
+        ? error.message
+        : t('courseDetail.live.controlActionFailed'))
   } finally {
     loadingAction.value = null
   }
+}
+
+async function loadLiveSummary() {
+  try {
+    applyLiveSummarySession(await getLiveSummary(props.session.id))
+  } catch {
+    // Preserve the latest local state while the small window reconnects.
+  }
+}
+
+function subscribeLiveSummaryStatus() {
+  liveSummarySubscription?.close()
+  liveSummarySubscription = subscribeLiveSummary(props.session.id, {
+    onStatus: applyLiveSummarySession,
+    onSnapshot: applyLiveSummarySnapshot,
+    onTranscript: applyLiveSummaryTranscript,
+    onError: event => {
+      notify.warn(event.message || t('courseDetail.classSession.liveSummary.status.unavailable'))
+    },
+    replayOnReconnect: loadLiveSummary,
+  })
+}
+
+function applyLiveSummarySession(next: LiveSummarySession, options: { resumeAudio?: boolean } = {}) {
+  liveSummaryStore.applySession(next, {transcriptLimit: 80})
+  if (next.status !== 'RUNNING' || !next.id) {
+    stopLiveSummaryAudioUpload(props.session.id)
+    return
+  }
+  if (options.resumeAudio === false) {
+    return
+  }
+  void resumeLiveSummaryAudioUploadIfNeeded()
+}
+
+function applyLiveSummarySnapshot(snapshot: LiveSummarySnapshot) {
+  liveSummaryStore.applySnapshot(snapshot)
+}
+
+function applyLiveSummaryTranscript(segment: LiveTranscriptSegment) {
+  liveSummaryStore.applyTranscript(segment, {transcriptLimit: 80})
+}
+
+async function resumeLiveSummaryAudioUploadIfNeeded() {
+  if (
+      !props.isTeacher
+      || !isLiveSummaryRunning.value
+      || loadingAction.value === 'summary'
+      || isLiveSummaryAudioUploading(props.session.id)
+  ) {
+    return
+  }
+  try {
+    await startLiveSummaryAudioUpload(props.session.id)
+  } catch (error) {
+    notify.warn(error instanceof Error
+        ? error.message
+        : t('courseDetail.classSession.liveSummary.errors.audioChannelFailed'))
+  }
+}
+
+function formatSessionTime(value: string) {
+  return new Intl.DateTimeFormat(String(locale.value), {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
 }
 
 </script>
@@ -702,6 +1088,139 @@ async function runControlAction(action: MiniControlAction, task: () => Promise<v
 .mini-control:disabled {
   cursor: not-allowed;
   opacity: 0.46;
+}
+
+.mini-control-spinner {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: miniControlSpin 0.72s linear infinite;
+}
+
+.mini-summary-start-backdrop {
+  --summary-dialog-bg: var(--color-surface-card);
+  --summary-dialog-ink: var(--color-on-surface);
+  --summary-dialog-muted: var(--color-muted);
+  --summary-dialog-border: var(--color-outline-light);
+  --summary-dialog-primary: var(--color-primary);
+  --summary-dialog-on-primary: var(--color-on-primary);
+  position: fixed;
+  z-index: 2600;
+  inset: 0;
+  display: grid;
+  padding: var(--space-md);
+  background: color-mix(in srgb, var(--color-overlay) 72%, transparent);
+  place-items: center;
+}
+
+.mini-summary-start-dialog {
+  display: grid;
+  width: min(440px, 100%);
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border: 1px solid var(--summary-dialog-border);
+  border-radius: var(--radius-lg);
+  background: var(--summary-dialog-bg);
+  color: var(--summary-dialog-ink);
+  box-shadow: var(--shadow-dialog, var(--shadow-card));
+}
+
+.mini-summary-start-header h2 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.mini-summary-start-mode {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--summary-dialog-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-container);
+}
+
+.mini-summary-start-mode button,
+.mini-summary-start-footer button {
+  min-height: 40px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: var(--font-label);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mini-summary-start-mode button {
+  background: transparent;
+  color: var(--summary-dialog-muted);
+}
+
+.mini-summary-start-mode button.active {
+  background: var(--summary-dialog-bg);
+  color: var(--summary-dialog-ink);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--summary-dialog-ink) 12%, transparent);
+}
+
+.mini-summary-resume-field {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.mini-summary-resume-field span,
+.mini-summary-start-hint {
+  color: var(--summary-dialog-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.mini-summary-resume-select :deep(.base-select-trigger span),
+.mini-summary-resume-select :deep(.base-select-option span) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-summary-resume-select :deep(.base-select-option span) {
+  max-width: min(320px, calc(100vw - 112px));
+}
+
+.mini-summary-start-hint {
+  margin: 0;
+}
+
+.mini-summary-start-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+.mini-summary-start-secondary {
+  padding: 0 var(--space-md);
+  background: var(--color-surface-container);
+  color: var(--summary-dialog-ink);
+}
+
+.mini-summary-start-primary {
+  display: inline-flex;
+  min-width: 112px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-md);
+  background: var(--summary-dialog-primary);
+  color: var(--summary-dialog-on-primary);
+}
+
+@keyframes miniControlSpin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 520px) {

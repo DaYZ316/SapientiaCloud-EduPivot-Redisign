@@ -20,6 +20,12 @@ public record LiveSummarySessionVO(
         @Nullable Instant startedAt,
         @Nullable Instant stoppedAt,
         @Nullable LiveSummarySnapshotVO latestSnapshot,
-        List<LiveTranscriptSegmentVO> recentTranscripts
+        List<LiveTranscriptSegmentVO> recentTranscripts,
+        Integer historyRecordCount,
+        Integer historyRecordLimit,
+        Boolean historyRecordLimitReached,
+        Integer snapshotCount,
+        Integer snapshotLimit,
+        Boolean snapshotLimitReached
 ) {
 }

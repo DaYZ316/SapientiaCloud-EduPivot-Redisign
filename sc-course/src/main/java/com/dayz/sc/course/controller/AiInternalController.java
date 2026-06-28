@@ -79,6 +79,16 @@ public class AiInternalController {
         return ApiResponse.ok(aiCourseContextService.listCourses(scope, limit, userId, role));
     }
 
+    @GetMapping("/visible-course-ids")
+    public ApiResponse<@NonNull List<@NonNull UUID>> visibleCourseIds(
+            @RequestHeader(value = CourseAiContextClient.HEADER_USER_ID, required = false) String userIdHeader,
+            @RequestHeader(value = CourseAiContextClient.HEADER_USER_ROLE, required = false) String roleHeader,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = resolveUserId(userIdHeader, jwt);
+        Integer role = resolveRole(roleHeader, jwt);
+        return ApiResponse.ok(aiCourseContextService.visibleCourseIds(userId, role));
+    }
+
     @GetMapping("/chapters")
     public ApiResponse<@NonNull List<AgentSearchItem>> chapters(
             @RequestParam(required = false) UUID courseId,

@@ -25,7 +25,6 @@
       </div>
 
       <div class="profile-intro">
-        <p class="profile-kicker">{{ roleConfig.kicker }}</p>
         <div class="profile-title-row">
           <h1>{{ displayName }}</h1>
           <span class="role-pill">{{ roleLabel }}</span>
@@ -265,7 +264,6 @@ interface MetricItem {
 }
 
 interface RoleConfig {
-  kicker: string
   icon: typeof UserRound
   identityLabel: string
   identityTitle: string
@@ -306,7 +304,6 @@ const profileKind = computed<ProfileKind>(() => {
 const roleConfig = computed<RoleConfig>(() => {
   if (profileKind.value === 'student') {
     return {
-      kicker: t('profile.kicker.student'),
       icon: GraduationCap,
       identityLabel: t('profile.identity.studentLabel'),
       identityTitle: t('profile.identity.studentTitle'),
@@ -320,7 +317,6 @@ const roleConfig = computed<RoleConfig>(() => {
 
   if (profileKind.value === 'teacher') {
     return {
-      kicker: t('profile.kicker.teacher'),
       icon: BriefcaseBusiness,
       identityLabel: t('profile.identity.teacherLabel'),
       identityTitle: t('profile.identity.teacherTitle'),
@@ -333,7 +329,6 @@ const roleConfig = computed<RoleConfig>(() => {
   }
 
   return {
-    kicker: t('profile.kicker.user'),
     icon: UserRound,
     identityLabel: t('profile.identity.userLabel'),
     identityTitle: t('profile.identity.userTitle'),
@@ -839,7 +834,6 @@ function maskIp(ip?: string | null): string {
   min-width: 0;
 }
 
-.profile-kicker,
 .panel-label {
   margin: 0 0 8px;
   font-family: var(--font-label);

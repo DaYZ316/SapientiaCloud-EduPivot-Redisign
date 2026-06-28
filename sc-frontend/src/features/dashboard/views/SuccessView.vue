@@ -2,7 +2,6 @@
   <main class="dashboard-workbench">
     <section aria-labelledby="dashboard-title" class="workbench-heading">
       <div>
-        <p class="workbench-kicker">{{ roleCopy.kicker }}</p>
         <h1 id="dashboard-title">{{ greetingTitle }}</h1>
         <p class="workbench-subtitle">{{ roleCopy.subtitle }}</p>
       </div>
@@ -127,18 +126,15 @@ const greetingTitle = computed(() => {
 const roleCopy = computed(() => {
   if (role.value === 0) {
     return {
-      kicker: t('success.dashboard.copy.admin.kicker'),
       subtitle: t('success.dashboard.copy.admin.subtitle'),
     }
   }
   if (role.value === 2) {
     return {
-      kicker: t('success.dashboard.copy.teacher.kicker'),
       subtitle: t('success.dashboard.copy.teacher.subtitle'),
     }
   }
   return {
-    kicker: t('success.dashboard.copy.student.kicker'),
     subtitle: t('success.dashboard.copy.student.subtitle'),
   }
 })

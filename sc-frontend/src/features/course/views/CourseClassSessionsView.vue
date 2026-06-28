@@ -16,7 +16,6 @@
     <template v-else-if="course">
       <header class="page-header">
         <div>
-          <span>{{ t('courseDetail.classSession.tabKicker') }}</span>
           <h1>{{ course.title }}</h1>
           <p>{{ course.description || t('courseDetail.noDescription') }}</p>
         </div>
@@ -115,16 +114,8 @@ async function loadCourse() {
   border-bottom: 1px solid var(--color-outline-light);
 }
 
-.page-header span {
-  color: var(--color-muted);
-  font-family: var(--font-label);
-  font-size: 12px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
 .page-header h1 {
-  margin: 8px 0 10px;
+  margin: 0 0 10px;
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: clamp(32px, 4vw, 46px);

@@ -37,9 +37,95 @@
         />
         <span>{{ t('common.ai.sidebar.star') }}</span>
       </button>
+      <button
+          :class="{active: route.name === 'ai-live-summaries'}"
+          class="quick-action"
+          type="button"
+          @click="openLiveSummaries"
+      >
+        <NotebookText
+            :size="16"
+            stroke-width="1.9"
+        />
+        <span>{{ t('common.ai.sidebar.liveSummaries') }}</span>
+      </button>
     </nav>
 
-    <section class="session-list">
+    <section
+        v-if="isLiveSummariesPage"
+        class="session-list"
+    >
+      <div class="section-title">
+        {{ t('common.ai.liveSummaries.sidebarTitle') }}
+      </div>
+      <div
+          v-if="liveSummaryLibrary.loading"
+          :aria-label="t('common.ai.liveSummaries.loading')"
+          aria-busy="true"
+          class="session-loading-skeleton"
+          role="status"
+      >
+        <article
+            v-for="row in 6"
+            :key="row"
+            class="session-skeleton-item"
+        >
+          <span class="session-skeleton-line"/>
+          <span class="session-skeleton-action"/>
+        </article>
+      </div>
+      <div
+          v-else-if="liveSummaryLibrary.records.length === 0"
+          class="panel-state"
+      >
+        {{ t('common.ai.liveSummaries.empty') }}
+      </div>
+      <div
+          v-else
+          class="session-items"
+      >
+        <article
+            v-for="record in liveSummaryLibrary.records"
+            :key="record.id"
+            :class="{active: record.id === liveSummaryLibrary.activeRecordId}"
+            class="session-item summary-session-item"
+        >
+          <button
+              class="session-link summary-session-link"
+              type="button"
+              @click="openLiveSummary(record.id)"
+          >
+            <span>{{ liveSummaryTitle(record) }}</span>
+            <small>{{ liveSummaryMeta(record) }}</small>
+          </button>
+          <button
+              v-if="canDeleteLiveSummary(record)"
+              :aria-label="t('common.ai.liveSummaries.delete')"
+              :disabled="deletingLiveSummaryId === record.id"
+              :title="t('common.ai.liveSummaries.delete')"
+              class="summary-delete-button"
+              type="button"
+              @click.stop="deleteLiveSummary(record)"
+          >
+            <Trash2
+                :size="14"
+                stroke-width="1.8"
+            />
+          </button>
+        </article>
+        <div
+            ref="liveSummarySentinelRef"
+            class="session-pagination"
+        >
+          <span v-if="liveSummaryLibrary.loadingMore">{{ t('common.ai.liveSummaries.loadingMore') }}</span>
+        </div>
+      </div>
+    </section>
+
+    <section
+        v-else
+        class="session-list"
+    >
       <div class="section-title">
         {{ t('common.ai.sidebar.recent') }}
       </div>
@@ -147,29 +233,50 @@
 </template>
 
 <script lang="ts" setup>
-import {onMounted, onUnmounted, ref} from 'vue'
+import {computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRoute, useRouter} from 'vue-router'
-import {History, MoreVertical, Pin, Plus, Star, Trash2} from 'lucide-vue-next'
+import {History, MoreVertical, NotebookText, Pin, Plus, Star, Trash2} from 'lucide-vue-next'
 
 import {useAiStore} from '@/features/ai/stores/ai'
-import type {Conversation} from '@/features/ai/types/ai'
+import {useLiveSummaryLibraryStore} from '@/features/ai/stores/liveSummaryLibrary'
+import type {Conversation, LiveSummaryRecord} from '@/features/ai/types/ai'
+import {useAuthStore} from '@/features/auth/stores/auth'
 import {confirmDialog} from '@/shared/composables/useConfirmDialog'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
 const aiStore = useAiStore()
+const authStore = useAuthStore()
+const liveSummaryLibrary = useLiveSummaryLibraryStore()
 const router = useRouter()
 const route = useRoute()
-const {t} = useI18n()
+const {t, locale} = useI18n()
 const openMenuId = ref<string | null>(null)
+const liveSummarySentinelRef = ref<HTMLElement | null>(null)
+const deletingLiveSummaryId = ref<string | null>(null)
+let liveSummaryObserver: IntersectionObserver | null = null
+
+const isLiveSummariesPage = computed(() => route.name === 'ai-live-summaries')
 
 onMounted(() => {
   loadConversations()
+  loadLiveSummariesIfNeeded()
   document.addEventListener('click', closeMenu)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', closeMenu)
+  liveSummaryObserver?.disconnect()
+})
+
+watch(isLiveSummariesPage, async (visible) => {
+  if (!visible) {
+    liveSummaryObserver?.disconnect()
+    return
+  }
+  await loadLiveSummariesIfNeeded()
+  await nextTick()
+  observeLiveSummarySentinel()
 })
 
 async function loadConversations() {
@@ -177,6 +284,17 @@ async function loadConversations() {
     await aiStore.ensureConversationsLoaded()
   } catch {
     notify.error(t('common.ai.notify.loadFailed'))
+  }
+}
+
+async function loadLiveSummariesIfNeeded() {
+  if (!isLiveSummariesPage.value) return
+  try {
+    await liveSummaryLibrary.ensureLoaded()
+    await nextTick()
+    observeLiveSummarySentinel()
+  } catch {
+    notify.error(t('common.ai.liveSummaries.loadFailed'))
   }
 }
 
@@ -196,12 +314,49 @@ async function openFavorites() {
   await router.push({name: 'ai-favorites'})
 }
 
+async function openLiveSummaries() {
+  closeMenu()
+  await liveSummaryLibrary.ensureLoaded().catch(() => {
+    notify.error(t('common.ai.liveSummaries.loadFailed'))
+  })
+  await router.push({name: 'ai-live-summaries'})
+}
+
+async function openLiveSummary(id: string) {
+  liveSummaryLibrary.selectRecord(id)
+  if (route.name !== 'ai-live-summaries') {
+    await router.push({name: 'ai-live-summaries'})
+  }
+}
+
 async function openConversation(id: string) {
   closeMenu()
   await aiStore.loadMessages(id)
   if (route.name !== 'ai-workspace') {
     await router.push({name: 'ai-workspace'})
   }
+}
+
+async function loadMoreLiveSummaries() {
+  if (!liveSummaryLibrary.hasMore || liveSummaryLibrary.loadingMore) return
+  try {
+    await liveSummaryLibrary.loadMoreRecords()
+  } catch {
+    notify.error(t('common.ai.liveSummaries.loadFailed'))
+  }
+}
+
+function observeLiveSummarySentinel() {
+  liveSummaryObserver?.disconnect()
+  const sentinel = liveSummarySentinelRef.value
+  if (!sentinel) return
+
+  liveSummaryObserver = new IntersectionObserver((entries) => {
+    if (entries.some(entry => entry.isIntersecting)) {
+      loadMoreLiveSummaries()
+    }
+  }, {rootMargin: '180px 0px'})
+  liveSummaryObserver.observe(sentinel)
 }
 
 function toggleMenu(id: string) {
@@ -244,6 +399,53 @@ async function removeConversation(id: string) {
   } catch {
     notify.error(t('common.ai.notify.deleteFailed'))
   }
+}
+
+async function deleteLiveSummary(record: LiveSummaryRecord) {
+  if (!canDeleteLiveSummary(record) || deletingLiveSummaryId.value) return
+  if (!(await confirmDialog({
+    title: t('common.ai.liveSummaries.deleteTitle'),
+    message: t('common.ai.liveSummaries.deleteConfirm'),
+    confirmText: t('common.ai.liveSummaries.delete'),
+    confirmVariant: 'danger',
+  }))) return
+
+  deletingLiveSummaryId.value = record.id
+  try {
+    await liveSummaryLibrary.deleteRecord(record)
+    notify.success(t('common.ai.liveSummaries.deleteSuccess'))
+  } catch (error) {
+    notify.error(error instanceof Error
+        ? error.message
+        : t('common.ai.liveSummaries.deleteFailed'))
+  } finally {
+    deletingLiveSummaryId.value = null
+  }
+}
+
+function canDeleteLiveSummary(record: LiveSummaryRecord) {
+  const user = authStore.user
+  return Boolean(user && (user.role === 0 || record.teacherId === user.id))
+}
+
+function liveSummaryTitle(record: LiveSummaryRecord) {
+  return record.latestSnapshot?.overview || t('common.ai.liveSummaries.untitled')
+}
+
+function liveSummaryMeta(record: LiveSummaryRecord) {
+  const snapshot = record.latestSnapshot
+  const time = snapshot ? formatSummaryTime(snapshot.createdAt) : formatSummaryTime(record.stoppedAt || record.startedAt)
+  return t('common.ai.liveSummaries.recordMeta', {time, sequence: snapshot?.sequenceNo ?? 0})
+}
+
+function formatSummaryTime(value?: string | null) {
+  if (!value) return '--'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '--'
+  return date.toLocaleDateString(String(locale.value), {
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
 </script>
@@ -388,6 +590,10 @@ async function removeConversation(id: string) {
   background: var(--color-surface-container);
 }
 
+.summary-session-item {
+  grid-template-columns: minmax(0, 1fr) 32px;
+}
+
 .session-link {
   display: flex;
   min-width: 0;
@@ -403,6 +609,46 @@ async function removeConversation(id: string) {
   transition: color 0.2s ease;
 }
 
+.summary-session-link {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border-radius: 10px 0 0 10px;
+  padding-block: 8px;
+}
+
+.summary-delete-button {
+  display: grid;
+  width: 32px;
+  height: 100%;
+  min-height: 44px;
+  place-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 0 10px 10px 0;
+  color: var(--color-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.summary-delete-button:hover,
+.summary-delete-button:focus-visible {
+  background: var(--color-surface-canvas);
+  color: var(--color-danger);
+  outline: 0;
+}
+
+.summary-delete-button:disabled {
+  cursor: wait;
+  opacity: 0.45;
+}
+
+.summary-session-item:hover .summary-delete-button,
+.summary-session-item:focus-within .summary-delete-button {
+  opacity: 1;
+}
+
 .session-item span {
   min-width: 0;
   overflow: hidden;
@@ -412,6 +658,26 @@ async function removeConversation(id: string) {
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.summary-session-link small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-pagination {
+  display: grid;
+  min-height: 36px;
+  place-items: center;
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 11px;
 }
 
 .session-more {

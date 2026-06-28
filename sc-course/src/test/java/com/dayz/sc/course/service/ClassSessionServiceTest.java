@@ -224,7 +224,7 @@ class ClassSessionServiceTest {
         when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session(sessionId, null)));
 
         assertThatThrownBy(() -> classSessionService.joinSession(sessionId,
-                new JoinClassSessionRequest(BigDecimal.ONE, BigDecimal.TEN, null, 0), studentId, 1))
+                new JoinClassSessionRequest(BigDecimal.ONE, BigDecimal.TEN, null, 1), studentId, 1))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("Class session is still preparing");
     }
@@ -420,6 +420,23 @@ class ClassSessionServiceTest {
         assertThatThrownBy(() -> classSessionService.joinSession(sessionId,
                 new JoinClassSessionRequest(BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ZERO, 1), studentId, 1))
                 .isInstanceOf(BusinessException.class);
+        verify(classParticipantRepository, never()).save(any());
+        verify(classParticipantRepository, never()).update(any());
+    }
+
+    @Test
+    void joinSession_shouldRejectSeatIndexBelowOne() {
+        UUID sessionId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        ClassSession session = session(sessionId, Instant.now());
+        when(classSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(enrollmentRepository.findByCourseIdAndStudentId(session.getCourseId(), studentId))
+                .thenReturn(Optional.of(enrollment(studentId, EnrollmentStatus.ACTIVE.getCode())));
+
+        assertThatThrownBy(() -> classSessionService.joinSession(sessionId,
+                new JoinClassSessionRequest(BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ZERO, 0), studentId, 1))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Seat index is out of range");
         verify(classParticipantRepository, never()).save(any());
         verify(classParticipantRepository, never()).update(any());
     }

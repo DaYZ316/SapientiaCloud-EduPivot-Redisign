@@ -2,7 +2,6 @@
   <section class="tab-panel chapter-navigation-page">
     <header class="chapter-nav-header">
       <div>
-        <span class="chapter-kicker">{{ t('courseDetail.chaptersTab') }}</span>
         <h2>{{ t('chapter.title') }}</h2>
         <p>{{ t('chapter.subtitle') }}</p>
       </div>
@@ -160,7 +159,6 @@
 
       <aside :aria-label="t('chapter.currentLesson')" class="lesson-preview-panel">
         <div class="preview-sticky">
-          <span class="chapter-kicker">{{ t('chapter.currentLesson') }}</span>
           <h3>{{ selectedChapter?.chapterName }}</h3>
           <p>{{ selectedDescription }}</p>
 
@@ -232,7 +230,6 @@
 
       <section :aria-label="t('chapter.learningPath')" class="learning-path">
         <div class="path-header">
-          <span class="chapter-kicker">Learning path</span>
           <strong>{{ t('chapter.learningPath') }}</strong>
         </div>
         <div class="path-rail">
@@ -419,7 +416,7 @@ function formatFileSize(sizeBytes: number) {
 }
 
 .chapter-nav-header h2 {
-  margin: var(--space-xs) 0 0;
+  margin: 0;
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: 28px;
@@ -436,7 +433,6 @@ function formatFileSize(sizeBytes: number) {
   line-height: 1.5;
 }
 
-.chapter-kicker,
 .ledger-summary span,
 .chapter-heading-copy > span,
 .chapter-section-meta,
@@ -847,7 +843,7 @@ function formatFileSize(sizeBytes: number) {
 }
 
 .preview-sticky h3 {
-  margin: var(--space-xs) 0 0;
+  margin: 0;
   overflow-wrap: anywhere;
   color: var(--color-on-surface);
   font-family: var(--font-heading);

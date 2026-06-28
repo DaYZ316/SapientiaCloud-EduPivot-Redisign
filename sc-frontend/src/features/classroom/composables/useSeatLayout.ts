@@ -4,13 +4,14 @@ import {ClassRoomSize} from '@/features/course/types/classSession'
 import {getRoomSpec} from '@/features/classroom/types/classroom'
 
 const LARGE_SEATS_PER_DESK = 4
+const SMALL_COLUMNS = 3
+const SMALL_ROWS = 4
 const DEFAULT_ROOM_DIMENSIONS = {x: 18, z: 20}
 const MEDIUM_COLUMNS = 8
 const LARGE_DESK_COLUMNS = 4
 const LARGE_DESK_ROWS = 10
 const LARGE_ROW_SPACING = 1.82
 const LARGE_BACK_MARGIN = 0.8
-const LARGE_LEFT_SHIFT_SEGMENTS = 4
 const LARGE_REAR_SHIFT = 5
 const LARGE_DOWN_SHIFT = 0.6
 const X_LARGE_FIRST_RING_SEATS = 16
@@ -28,7 +29,7 @@ export function getDeskPosition(
 ): THREE.Vector3 {
     switch (roomSize) {
         case ClassRoomSize.SMALL:
-            return gridPosition(deskIndex, 4, 1.75, 1.75, 2.4, 0.4)
+            return smallDeskPosition(deskIndex)
         case ClassRoomSize.MEDIUM:
             return middleDeskPosition(deskIndex, dimensions)
         case ClassRoomSize.LARGE:
@@ -40,14 +41,58 @@ export function getDeskPosition(
     }
 }
 
+export function smallDeskIndexToSeatIndex(deskIndex: number): number {
+    const row = deskIndex % SMALL_ROWS
+    const column = Math.floor(deskIndex / SMALL_ROWS)
+    return row * SMALL_COLUMNS + column + 1
+}
+
+export function largeDeskSeatToSeatIndex(deskIndex: number, seatInDesk: number): number {
+    const row = Math.floor(deskIndex / LARGE_DESK_COLUMNS)
+    const column = deskIndex % LARGE_DESK_COLUMNS
+    const mirroredColumn = LARGE_DESK_COLUMNS - 1 - column
+    const mirroredSeatInDesk = LARGE_SEATS_PER_DESK - 1 - seatInDesk
+    return (row * LARGE_DESK_COLUMNS + mirroredColumn) * LARGE_SEATS_PER_DESK + mirroredSeatInDesk + 1
+}
+
+export function seatIndexToPositionIndex(seatIndex: number): number {
+    return seatIndex - 1
+}
+
+function smallSeatIndexToDeskIndex(seatIndex: number): number {
+    const positionIndex = seatIndexToPositionIndex(seatIndex)
+    const row = Math.floor(positionIndex / SMALL_COLUMNS)
+    const column = positionIndex % SMALL_COLUMNS
+    return column * SMALL_ROWS + row
+}
+
+function largeSeatIndexToDeskIndex(seatIndex: number): number {
+    const positionIndex = seatIndexToPositionIndex(seatIndex)
+    const deskIndex = Math.floor(positionIndex / LARGE_SEATS_PER_DESK)
+    const row = Math.floor(deskIndex / LARGE_DESK_COLUMNS)
+    const column = deskIndex % LARGE_DESK_COLUMNS
+    return row * LARGE_DESK_COLUMNS + (LARGE_DESK_COLUMNS - 1 - column)
+}
+
+function largeSeatIndexToSeatInDesk(seatIndex: number): number {
+    return LARGE_SEATS_PER_DESK - 1 - (seatIndexToPositionIndex(seatIndex) % LARGE_SEATS_PER_DESK)
+}
+
 export function getSeatPosition(
     roomSize: number,
     seatIndex: number,
     dimensions: RoomPlanDimensions = DEFAULT_ROOM_DIMENSIONS,
 ): THREE.Vector3 {
+    if (roomSize === ClassRoomSize.SMALL) {
+        const position = getDeskPosition(roomSize, smallSeatIndexToDeskIndex(seatIndex), dimensions)
+        position.y += 1.05
+        position.z += 0.25
+        return position
+    }
+
     if (roomSize === ClassRoomSize.LARGE) {
-        const deskIndex = Math.floor(seatIndex / LARGE_SEATS_PER_DESK)
-        const seatInDesk = seatIndex % LARGE_SEATS_PER_DESK
+        const deskIndex = largeSeatIndexToDeskIndex(seatIndex)
+        const seatInDesk = largeSeatIndexToSeatInDesk(seatIndex)
         const position = getDeskPosition(roomSize, deskIndex, dimensions)
         const modelWidth = 4
         const seatSpacing = modelWidth / (LARGE_SEATS_PER_DESK + 1)
@@ -58,7 +103,7 @@ export function getSeatPosition(
         return position
     }
 
-    const position = getDeskPosition(roomSize, seatIndex, dimensions)
+    const position = getDeskPosition(roomSize, seatIndexToPositionIndex(seatIndex), dimensions)
     if (roomSize === ClassRoomSize.MEDIUM) {
         position.x += 0.4
         position.y += 1.6
@@ -80,7 +125,7 @@ export function getAllSeatPositions(
     dimensions: RoomPlanDimensions = DEFAULT_ROOM_DIMENSIONS,
 ): THREE.Vector3[] {
     const spec = getRoomSpec(roomSize)
-    return Array.from({length: spec.seatCount}, (_, index) => getSeatPosition(roomSize, index, dimensions))
+    return Array.from({length: spec.seatCount}, (_, index) => getSeatPosition(roomSize, index + 1, dimensions))
 }
 
 export function getDeskYaw(
@@ -96,6 +141,10 @@ export function getDeskYaw(
     }
     const position = getDeskPosition(roomSize, deskIndex, dimensions)
     return Math.atan2(-position.x, 10 - position.z) + Math.PI * 1.5
+}
+
+function smallDeskPosition(seatIndex: number): THREE.Vector3 {
+    return gridPosition(seatIndex, SMALL_ROWS, 1.75, 1.75, 2.4, 0.4)
 }
 
 function gridPosition(
@@ -138,15 +187,15 @@ function largeDeskPosition(index: number, dimensions: RoomPlanDimensions): THREE
     const centerSegment = deskCenterSegments[columnIndex]
     const halfWidth = width / 2
     const halfDepth = depth / 2
-    const startZ = halfDepth - 10.4
+    const startZ = halfDepth - 4
     const backZ = -halfDepth + LARGE_BACK_MARGIN
     const compactRowSpacing = (startZ - backZ) / (LARGE_DESK_ROWS - 1)
     const rowSpacing = Math.min(LARGE_ROW_SPACING, Math.max(compactRowSpacing, 0))
     const z = startZ - rowIndex * rowSpacing - LARGE_REAR_SHIFT
 
     return new THREE.Vector3(
-        -halfWidth + centerSegment * segmentWidth + segmentWidth - segmentWidth * LARGE_LEFT_SHIFT_SEGMENTS,
-        0.55 + rowIndex * 0.18 - LARGE_DOWN_SHIFT,
+        -halfWidth + centerSegment * segmentWidth + segmentWidth * 1,
+        2.33 + rowIndex * 0.18 - LARGE_DOWN_SHIFT,
         z,
     )
 }
@@ -154,8 +203,8 @@ function largeDeskPosition(index: number, dimensions: RoomPlanDimensions): THREE
 function extraLargeDeskPosition(index: number): THREE.Vector3 {
     const ring = findFanRing(index)
     const firstIndex = fanRingStart(ring)
-    let indexInRing = index - firstIndex + 1
     const count = fanRingCount(ring)
+    let indexInRing = count - (index - firstIndex)
     const radius = 10.05 + (ring / 9) * (27.8 - 10.05)
     const angleSpanDeg = 120
     const angleStart = THREE.MathUtils.degToRad(180 - (180 - angleSpanDeg) / 2)

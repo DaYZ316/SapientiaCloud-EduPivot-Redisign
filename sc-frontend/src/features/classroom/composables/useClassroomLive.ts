@@ -14,7 +14,10 @@ import {
 
 const CAMERA_OVERLAY_TOPIC = 'classroom-camera-overlay-position'
 const CAMERA_OVERLAY_MESSAGE_TYPE = 'camera_overlay_position'
+const CONNECTION_QUALITY_TOPIC = 'classroom-connection-quality'
+const CONNECTION_QUALITY_MESSAGE_TYPE = 'connection_quality'
 const CAMERA_OVERLAY_POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const
+const CONNECTION_QUALITY_VALUES = new Set(['excellent', 'good', 'poor', 'lost', 'unknown'])
 const NETWORK_STATS_INTERVAL_MS = 2000
 const SCREEN_SHARE_CAPTURE_OPTIONS = {
     selfBrowserSurface: 'exclude',
@@ -151,7 +154,9 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
                 attachLocalTracks()
             })
             nextRoom.on(RoomEvent.ParticipantConnected, () => {
+                refreshConnectionQualities()
                 refreshPresence()
+                void publishLocalConnectionQuality().catch(() => undefined)
                 if (currentIsTeacher.value) {
                     void publishCameraOverlayPosition().catch(() => undefined)
                 }
@@ -163,14 +168,19 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
             })
             nextRoom.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
                 updateConnectionQuality(participant, quality)
+                if (participant.identity === nextRoom.localParticipant.identity) {
+                    void publishLocalConnectionQuality().catch(() => undefined)
+                }
             })
             nextRoom.on(RoomEvent.Reconnected, () => {
                 refreshConnectionQualities()
                 refreshPresence()
+                void publishLocalConnectionQuality().catch(() => undefined)
                 void sampleNetworkStats()
             })
-            nextRoom.on(RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
+            nextRoom.on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
                 handleCameraOverlayMessage(payload, topic)
+                handleConnectionQualityMessage(payload, participant, topic)
             })
             nextRoom.on(RoomEvent.Disconnected, () => {
                 stopNetworkStatsSampler()
@@ -184,6 +194,7 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
             attachRemoteAudioTracks()
             attachLocalTracks()
             startNetworkStatsSampler()
+            void publishLocalConnectionQuality().catch(() => undefined)
         } catch (error) {
             errorMessage.value = error instanceof Error ? error.message : i18n.global.t('courseDetail.live.connectionFailed')
             await disconnect()
@@ -382,8 +393,41 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
         }
     }
 
+    async function publishLocalConnectionQuality() {
+        const currentRoom = room.value
+        if (!currentRoom || !connected.value) {
+            return
+        }
+        const payload = textEncoder.encode(JSON.stringify({
+            type: CONNECTION_QUALITY_MESSAGE_TYPE,
+            quality: currentRoom.localParticipant.connectionQuality,
+        }))
+        await currentRoom.localParticipant.publishData(payload, {
+            reliable: true,
+            topic: CONNECTION_QUALITY_TOPIC,
+        })
+    }
+
+    function handleConnectionQualityMessage(payload: Uint8Array, participant: Participant | undefined, topic?: string) {
+        if (topic !== CONNECTION_QUALITY_TOPIC || !participant) {
+            return
+        }
+        try {
+            const message = JSON.parse(textDecoder.decode(payload)) as { type?: unknown; quality?: unknown }
+            if (message.type === CONNECTION_QUALITY_MESSAGE_TYPE && isConnectionQualityValue(message.quality)) {
+                setConnectionQuality(participant.identity, message.quality)
+            }
+        } catch {
+            // Ignore unrelated malformed data packets from the room.
+        }
+    }
+
     function isCameraOverlayPosition(value: unknown): value is CameraOverlayPosition {
         return CAMERA_OVERLAY_POSITIONS.includes(value as CameraOverlayPosition)
+    }
+
+    function isConnectionQualityValue(value: unknown): value is string {
+        return typeof value === 'string' && CONNECTION_QUALITY_VALUES.has(value)
     }
 
     function pickRemoteVideoTracks() {
@@ -479,9 +523,16 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
     }
 
     function updateConnectionQuality(participant: Participant, quality: ConnectionQuality) {
+        setConnectionQuality(participant.identity, quality)
+    }
+
+    function setConnectionQuality(identity: string, quality: string) {
+        if (!isConnectionQualityValue(quality) || connectionQualityByIdentity.value[identity] === quality) {
+            return
+        }
         connectionQualityByIdentity.value = {
             ...connectionQualityByIdentity.value,
-            [participant.identity]: quality,
+            [identity]: quality,
         }
         refreshPresence()
     }

@@ -60,6 +60,21 @@ public class MybatisEnrollmentRepository implements EnrollmentRepository {
     }
 
     @Override
+    public List<UUID> findActiveOrCompletedCourseIdsByStudentId(UUID studentId) {
+        QueryWrapper<Enrollment> wrapper = new QueryWrapper<>();
+        wrapper.select("DISTINCT course_id");
+        wrapper.eq("student_id", studentId);
+        wrapper.in("status", List.of(
+                EnrollmentStatus.ACTIVE.getCode(),
+                EnrollmentStatus.COMPLETED.getCode()
+        ));
+        wrapper.orderByDesc("enrolled_at");
+        return enrollmentMapper.selectObjs(wrapper).stream()
+                .map(this::toUuid)
+                .toList();
+    }
+
+    @Override
     public Page<Enrollment> findByCourseId(UUID courseId, int page, int size) {
         LambdaQueryWrapper<Enrollment> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Enrollment::getCourseId, courseId);

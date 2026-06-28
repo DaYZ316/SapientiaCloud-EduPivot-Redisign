@@ -2,7 +2,6 @@
   <section class="tab-panel course-overview-workbench">
     <section class="overview-ledger">
       <div class="overview-copy">
-        <span class="section-kicker">{{ t('courseDetail.overview.courseStatusKicker') }}</span>
         <h2>{{ course.title }}</h2>
         <p>{{ course.description || t('courseDetail.noDescription') }}</p>
       </div>
@@ -27,7 +26,6 @@
 
     <section class="next-action-panel">
       <div class="next-action-main">
-        <span class="section-kicker">{{ t('courseDetail.overview.nextActionKicker') }}</span>
         <h3>{{ nextActionTitle }}</h3>
         <p>{{ nextActionDescription }}</p>
 
@@ -103,7 +101,6 @@
     <section class="navigation-section">
       <div class="section-heading">
         <div>
-          <span class="section-kicker">{{ t('courseDetail.overview.courseNavigationKicker') }}</span>
           <h3>{{ t('courseDetail.overview.courseNavigationTitle') }}</h3>
         </div>
         <p>{{ t('courseDetail.overview.courseNavigationDescription') }}</p>
@@ -141,7 +138,6 @@
 
     <section class="teaching-team-summary">
       <div>
-        <span class="section-kicker">{{ t('courseDetail.teachingTeam') }}</span>
         <h3>{{ t('courseDetail.overview.teachingTeamSummaryTitle') }}</h3>
         <p>{{ t('courseDetail.overview.teachingTeamSummaryDescription') }}</p>
       </div>
@@ -584,7 +580,6 @@ function handleEntryAction(entry: NavigationEntry) {
   border-right: 1px solid var(--color-outline-light);
 }
 
-.section-kicker,
 .overview-facts dt,
 .progress-header span,
 .role-row span,
@@ -603,7 +598,7 @@ function handleEntryAction(entry: NavigationEntry) {
 .overview-copy h2,
 .section-heading h3,
 .teaching-team-summary h3 {
-  margin: var(--space-xs) 0 0;
+  margin: 0;
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: 28px;
@@ -703,7 +698,7 @@ function handleEntryAction(entry: NavigationEntry) {
 }
 
 .next-action-main h3 {
-  margin: var(--space-xs) 0 0;
+  margin: 0;
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: 24px;

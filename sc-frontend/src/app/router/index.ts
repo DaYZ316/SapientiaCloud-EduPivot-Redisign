@@ -71,6 +71,11 @@ export const router = createRouter({
                     component: () => import('@/features/ai/views/AiFavoritesView.vue'),
                 },
                 {
+                    path: 'ai/live-summaries',
+                    name: 'ai-live-summaries',
+                    component: () => import('@/features/ai/views/AiLiveSummariesView.vue'),
+                },
+                {
                     path: 'courses',
                     name: 'courses',
                     component: () => import('@/features/course/views/CoursesView.vue'),

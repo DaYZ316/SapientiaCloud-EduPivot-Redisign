@@ -3,7 +3,6 @@
     <template v-if="isTeacherPage">
       <section aria-labelledby="teacher-my-courses-title" class="courses-command-bar">
         <div class="courses-title-block">
-          <p class="section-kicker">{{ t('myEnrollments.teacher.workspace') }}</p>
           <h1 id="teacher-my-courses-title">{{ t('myEnrollments.title') }}</h1>
           <p>{{ teacherRoleDescription }}</p>
         </div>
@@ -61,7 +60,6 @@
         <div class="courses-primary">
           <div class="panel-heading">
             <div>
-              <p class="section-kicker">{{ t('myEnrollments.teacher.teachingCourses') }}</p>
               <h2>{{ teacherCourseRoleLabel }}</h2>
             </div>
             <span>{{ t('myEnrollments.courseCount', {count: filteredTeacherCourses.length}) }}</span>
@@ -885,16 +883,6 @@ onMounted(() => {
 
 .my-courses-page .courses-title-block {
   max-width: 620px;
-}
-
-.my-courses-page .section-kicker {
-  margin: 0 0 10px;
-  font-family: var(--font-label);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  color: var(--color-muted);
-  text-transform: uppercase;
 }
 
 .my-courses-page .courses-title-block h1,

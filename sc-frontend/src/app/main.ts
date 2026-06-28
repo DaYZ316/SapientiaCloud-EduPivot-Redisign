@@ -5,9 +5,12 @@ import App from './App.vue'
 import {router} from './router'
 import {i18n} from '@/app/i18n'
 import {notify} from '@/shared/composables/useGlobalNotification'
+import {installGlobalTooltip} from '@/shared/utils/globalTooltip'
 import '@/shared/styles/main.scss'
 
 const app = createApp(App)
+
+installGlobalTooltip()
 
 app.config.errorHandler = (err, _instance, info) => {
     console.error('[Vue Error]', info, err)

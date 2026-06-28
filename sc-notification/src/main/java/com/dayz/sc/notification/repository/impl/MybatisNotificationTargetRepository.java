@@ -1,7 +1,6 @@
 package com.dayz.sc.notification.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.dayz.sc.common.util.UuidV7Generator;
 import com.dayz.sc.notification.mapper.NotificationTargetMapper;
 import com.dayz.sc.notification.model.entity.NotificationTarget;
@@ -60,15 +59,12 @@ public class MybatisNotificationTargetRepository implements NotificationTargetRe
 
     @Override
     public void markDeleted(UUID notificationId, UUID userId) {
-        LambdaUpdateWrapper<NotificationTarget> wrapper = new LambdaUpdateWrapper<NotificationTarget>()
-                .eq(NotificationTarget::getNotificationId, notificationId)
-                .eq(NotificationTarget::getUserId, userId)
-                .set(NotificationTarget::getDeleted, 1);
-        targetMapper.update(null, wrapper);
+        targetMapper.markDeleted(notificationId, userId);
     }
 
     @Override
     public void markAllDeleted(UUID userId, Integer type) {
         targetMapper.markAllDeleted(userId, type);
+        targetMapper.markAllBroadcastDeleted(userId, type);
     }
 }

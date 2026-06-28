@@ -262,14 +262,6 @@
         </div>
 
         <template v-if="activeSideTab === 'chat'">
-          <section class="ai-summary-card sidebar-summary">
-            <header>
-              <Sparkles :size="22" stroke-width="1.8"/>
-              <h3>{{ t('courseDetail.live.aiSummaryTitle') }}</h3>
-            </header>
-            <p>{{ summaryText }}</p>
-          </section>
-
           <div class="chat-list sidebar-chat-list">
             <div v-if="messagesLoading && messages.length === 0" :aria-label="t('courseDetail.live.loadingDiscussion')"
                  aria-live="polite" class="chat-loading-list">
@@ -320,9 +312,51 @@
         </template>
 
         <section v-else-if="activeSideTab === 'notes'" class="notes-panel">
-          <h3>{{ t('courseDetail.live.classNotes') }}</h3>
-          <p>{{ session.description || t('courseDetail.live.noNotes') }}</p>
-          <dl>
+          <header class="notes-header">
+            <div>
+              <h3>{{ t('courseDetail.live.classNotes') }}</h3>
+            </div>
+            <strong :class="liveSummaryStatusClass">{{ liveSummaryStatusLabel }}</strong>
+          </header>
+
+          <section v-if="session.description" class="notes-course-note">
+            <p>{{ session.description }}</p>
+          </section>
+
+          <section class="notes-summary-block">
+            <span class="notes-section-label">{{ t('courseDetail.classSession.liveSummary.summary.overview') }}</span>
+            <p>{{ liveSummarySnapshot?.overview || liveSummaryNotesFallback }}</p>
+          </section>
+
+          <section v-if="liveSummaryKeyPoints.length" class="notes-keypoints">
+            <span class="notes-section-label">{{ t('courseDetail.classSession.liveSummary.summary.keyPoints') }}</span>
+            <ul>
+              <li v-for="point in liveSummaryKeyPoints" :key="point">
+                {{ point }}
+              </li>
+            </ul>
+          </section>
+
+          <section
+              v-if="liveSummaryPartialTranscript || liveSummaryRecentTranscripts.length"
+              class="notes-transcripts"
+          >
+            <span class="notes-section-label">{{ t('courseDetail.classSession.liveSummary.tabs.transcript') }}</span>
+            <article v-if="liveSummaryPartialTranscript" class="notes-transcript-row partial">
+              <span>{{ t('courseDetail.classSession.liveSummary.transcript.partial') }}</span>
+              <p>{{ liveSummaryPartialTranscript.text }}</p>
+            </article>
+            <article
+                v-for="segment in liveSummaryRecentTranscripts"
+                :key="liveSummaryTranscriptKey(segment)"
+                class="notes-transcript-row"
+            >
+              <span>{{ liveSummaryTranscriptTime(segment) }}</span>
+              <p>{{ segment.text }}</p>
+            </article>
+          </section>
+
+          <dl class="notes-meta">
             <div>
               <dt>{{ t('courseDetail.live.liveStatus') }}</dt>
               <dd>{{ session.liveStatusText || liveStatusLabel }}</dd>
@@ -408,9 +442,11 @@
     >
       <button
           :class="{active: live.microphoneEnabled.value}"
+          :aria-label="live.microphoneEnabled.value ? t('courseDetail.live.muteMic') : t('courseDetail.live.enableMic')"
+          :data-tooltip="live.microphoneEnabled.value ? t('courseDetail.live.muteMic') : t('courseDetail.live.enableMic')"
           :disabled="mediaControlsDisabled || isLoadingAction('microphone')"
-          :title="live.microphoneEnabled.value ? t('courseDetail.live.muteMic') : t('courseDetail.live.enableMic')"
           class="dock-button"
+          data-tooltip-placement="top-end"
           type="button"
           @click="toggleMicrophone"
       >
@@ -421,9 +457,11 @@
 
       <button
           :class="{active: live.cameraEnabled.value}"
+          :aria-label="live.cameraEnabled.value ? t('courseDetail.live.turnOffCamera') : t('courseDetail.live.turnOnCamera')"
+          :data-tooltip="live.cameraEnabled.value ? t('courseDetail.live.turnOffCamera') : t('courseDetail.live.turnOnCamera')"
           :disabled="mediaControlsDisabled || isLoadingAction('camera')"
-          :title="live.cameraEnabled.value ? t('courseDetail.live.turnOffCamera') : t('courseDetail.live.turnOnCamera')"
           class="dock-button"
+          data-tooltip-placement="top-end"
           type="button"
           @click="toggleCamera"
       >
@@ -436,9 +474,11 @@
 
       <button
           :class="{active: live.screenShareEnabled.value}"
+          :aria-label="live.screenShareEnabled.value ? t('courseDetail.live.stopSharing') : t('courseDetail.live.shareScreen')"
+          :data-tooltip="live.screenShareEnabled.value ? t('courseDetail.live.stopSharing') : t('courseDetail.live.shareScreen')"
           :disabled="mediaControlsDisabled || isLoadingAction('screenShare')"
-          :title="live.screenShareEnabled.value ? t('courseDetail.live.stopSharing') : t('courseDetail.live.shareScreen')"
           class="dock-button"
+          data-tooltip-placement="top-end"
           type="button"
           @click="toggleScreenShare"
       >
@@ -447,10 +487,27 @@
       </button>
 
       <button
+          :class="{active: isLiveSummaryRunning}"
+          :aria-label="liveSummaryButtonTitle"
+          :data-tooltip="liveSummaryButtonTitle"
+          :disabled="isLoadingAction('summary')"
+          class="dock-button"
+          data-tooltip-placement="top-end"
+          type="button"
+          @click="toggleLiveSummary"
+      >
+        <span v-if="isLoadingAction('summary')" aria-hidden="true" class="button-spinner"/>
+        <Square v-else-if="isLiveSummaryRunning" :size="20" stroke-width="2"/>
+        <Sparkles v-else :size="21" stroke-width="2"/>
+      </button>
+
+      <button
           v-if="isTeacher && canStart"
+          :aria-label="startButtonText"
+          :data-tooltip="startButtonText"
           :disabled="busy || isLoadingAction('start')"
-          :title="startButtonText"
           class="dock-button call-button"
+          data-tooltip-placement="top-end"
           type="button"
           @click="startLive"
       >
@@ -459,9 +516,11 @@
       </button>
       <button
           v-else-if="isTeacher && isLive"
+          :aria-label="t('courseDetail.live.pauseLive')"
+          :data-tooltip="t('courseDetail.live.pauseLive')"
           :disabled="busy || isLoadingAction('pause')"
-          :title="t('courseDetail.live.pauseLive')"
           class="dock-button"
+          data-tooltip-placement="top-end"
           type="button"
           @click="pauseLive"
       >
@@ -470,16 +529,26 @@
       </button>
       <button
           v-else-if="isTeacher && isPaused"
+          :aria-label="t('courseDetail.live.resumeLive')"
+          :data-tooltip="t('courseDetail.live.resumeLive')"
           :disabled="busy || isLoadingAction('resume')"
-          :title="t('courseDetail.live.resumeLive')"
           class="dock-button"
+          data-tooltip-placement="top-end"
           type="button"
           @click="resumeLive"
       >
         <span v-if="isLoadingAction('resume')" aria-hidden="true" class="button-spinner"/>
         <Play v-else :size="22" stroke-width="2"/>
       </button>
-      <button v-else :title="t('courseDetail.live.raiseHand')" class="dock-button" disabled type="button">
+      <button
+          v-else
+          :aria-label="t('courseDetail.live.raiseHand')"
+          :data-tooltip="t('courseDetail.live.raiseHand')"
+          class="dock-button"
+          data-tooltip-placement="top-end"
+          disabled
+          type="button"
+      >
         <Hand :size="22" stroke-width="2"/>
       </button>
 
@@ -487,9 +556,11 @@
 
       <button
           :class="{danger: canStop}"
+          :aria-label="stopButtonTitle"
+          :data-tooltip="stopButtonTitle"
           :disabled="busy || !canStop || isLoadingAction('stop')"
-          :title="stopButtonTitle"
           class="dock-button stop-live-button"
+          data-tooltip-placement="top-end"
           type="button"
           @click="endLive"
       >
@@ -499,6 +570,88 @@
       </button>
     </nav>
   </aside>
+  <Teleport to="body">
+    <div
+        v-if="showLiveSummaryStartDialog"
+        class="live-summary-start-backdrop"
+        @click.self="closeLiveSummaryStartDialog"
+    >
+      <section
+          :aria-label="t('courseDetail.classSession.liveSummary.startDialog.title')"
+          aria-modal="true"
+          class="live-summary-start-dialog"
+          role="dialog"
+      >
+        <header class="live-summary-start-header">
+          <h2>{{ t('courseDetail.classSession.liveSummary.startDialog.title') }}</h2>
+        </header>
+
+        <div class="live-summary-start-mode" role="group">
+          <button
+              :class="{active: liveSummaryStartMode === 'new'}"
+              :disabled="liveSummaryStartDialogLoading || !canStartNewLiveSummary"
+              type="button"
+              @click="chooseLiveSummaryStartMode('new')"
+          >
+            {{ t('courseDetail.classSession.liveSummary.startDialog.newMode') }}
+          </button>
+          <button
+              :class="{active: liveSummaryStartMode === 'resume'}"
+              :disabled="liveSummaryStartDialogLoading || liveSummaryResumeOptions.length === 0"
+              type="button"
+              @click="chooseLiveSummaryStartMode('resume')"
+          >
+            {{ t('courseDetail.classSession.liveSummary.startDialog.resumeMode') }}
+          </button>
+        </div>
+
+        <p v-if="liveSummaryStartMode === 'new' && liveSummaryHistoryRecordLimitReached" class="live-summary-start-hint">
+          {{ t('courseDetail.classSession.liveSummary.startDialog.newLimitReached') }}
+        </p>
+
+        <label v-if="liveSummaryStartMode === 'resume'" class="live-summary-resume-field">
+          <span>{{ t('courseDetail.classSession.liveSummary.startDialog.resumeSelectLabel') }}</span>
+          <BaseSelect
+              v-model="liveSummaryResumeSessionId"
+              :disabled="liveSummaryStartDialogLoading || liveSummaryResumeOptions.length === 0"
+              :options="liveSummaryResumeSelectOptions"
+              class="live-summary-resume-select"
+              min-width="100%"
+          />
+        </label>
+
+        <p v-if="liveSummaryStartDialogLoading" class="live-summary-start-hint">
+          {{ t('courseDetail.classSession.liveSummary.startDialog.loading') }}
+        </p>
+        <p
+            v-else-if="liveSummaryStartMode === 'resume' && liveSummaryResumeOptions.length === 0"
+            class="live-summary-start-hint"
+        >
+          {{ t('courseDetail.classSession.liveSummary.startDialog.resumeEmpty') }}
+        </p>
+
+        <footer class="live-summary-start-footer">
+          <button
+              :disabled="isLoadingAction('summary')"
+              class="live-summary-start-secondary"
+              type="button"
+              @click="closeLiveSummaryStartDialog"
+          >
+            {{ t('courseDetail.classSession.liveSummary.startDialog.cancel') }}
+          </button>
+          <button
+              :disabled="!canConfirmLiveSummaryStart || isLoadingAction('summary')"
+              class="live-summary-start-primary"
+              type="button"
+              @click="confirmLiveSummaryStart"
+          >
+            <span v-if="isLoadingAction('summary')" aria-hidden="true" class="button-spinner"/>
+            <span v-else>{{ liveSummaryStartConfirmLabel }}</span>
+          </button>
+        </footer>
+      </section>
+    </div>
+  </Teleport>
 </template>
 
 <script lang="ts" setup>
@@ -522,11 +675,22 @@ import {
   ScreenShare,
   Send,
   Sparkles,
+  Square,
   Video,
   VideoOff,
   X,
 } from 'lucide-vue-next'
 
+import {
+  getLiveSummary,
+  listLiveSummarySnapshots,
+  resumeLiveSummary,
+  startLiveSummary,
+  stopLiveSummary,
+  subscribeLiveSummary,
+} from '@/features/ai/api/ai'
+import type {LiveSummarySession, LiveSummarySnapshot, LiveTranscriptSegment} from '@/features/ai/types/ai'
+import {useLiveSummaryStore} from '@/features/ai/stores/liveSummary'
 import {
   listClassBarrages,
   listClassSessionParticipants,
@@ -546,10 +710,17 @@ import {
 } from '@/features/course/types/classSession'
 import {type CameraOverlayPosition, useClassroomLive} from '@/features/classroom/composables/useClassroomLive'
 import {
+  isLiveSummaryAudioUploading,
+  startLiveSummaryAudioUpload,
+  stopLiveSummaryAudioUpload,
+} from '@/features/classroom/composables/useClassroomLiveSummaryAudio'
+import {
   TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT,
   useTeacherLiveSessionGuard,
 } from '@/features/classroom/composables/useTeacherLiveSessionGuard'
 import type {LiveOnlineParticipant} from '@/features/classroom/composables/livePresence'
+import type {SseSubscription} from '@/shared/api/sseManager'
+import BaseSelect from '@/shared/components/BaseSelect.vue'
 import UserAvatarLink from '@/shared/components/UserAvatarLink.vue'
 import {notify} from '@/shared/composables/useGlobalNotification'
 
@@ -573,6 +744,7 @@ const emit = defineEmits<{
 
 const {t, locale} = useI18n()
 const live = useClassroomLive(toRef(props, 'session'), toRef(props, 'isTeacher'))
+const liveSummaryStore = useLiveSummaryStore()
 useTeacherLiveSessionGuard({
   session: toRef(props, 'session'),
   isTeacher: toRef(props, 'isTeacher'),
@@ -591,6 +763,11 @@ const loadingAction = ref<LiveControlAction | null>(null)
 const messagesLoading = ref(false)
 const participantsLoading = ref(false)
 const isPlayerFullscreen = ref(false)
+const showLiveSummaryStartDialog = ref(false)
+const liveSummaryStartDialogLoading = ref(false)
+const liveSummaryStartMode = ref<LiveSummaryStartMode>('new')
+const liveSummaryResumeSessionId = ref('')
+const liveSummaryResumeSnapshots = ref<LiveSummarySnapshot[]>([])
 const overlayPositionOptions: { labelKey: string; value: CameraOverlayPosition }[] = [
   {labelKey: 'courseDetail.live.overlayTopLeft', value: 'top-left'},
   {labelKey: 'courseDetail.live.overlayTopRight', value: 'top-right'},
@@ -598,7 +775,13 @@ const overlayPositionOptions: { labelKey: string; value: CameraOverlayPosition }
   {labelKey: 'courseDetail.live.overlayBottomRight', value: 'bottom-right'},
 ]
 let chatSubscription: { close: () => void } | null = null
-type LiveControlAction = 'microphone' | 'camera' | 'screenShare' | 'start' | 'pause' | 'resume' | 'stop'
+let liveSummarySubscription: SseSubscription | null = null
+type LiveControlAction = 'microphone' | 'camera' | 'screenShare' | 'summary' | 'start' | 'pause' | 'resume' | 'stop'
+type LiveSummaryStartMode = 'new' | 'resume'
+type LiveSummaryResumeOption = {
+  summarySessionId: string
+  label: string
+}
 type DanmakuItem = {
   id: string
   text: string
@@ -630,6 +813,89 @@ const headerTitle = computed(() => props.session.title)
 const showTeacherControls = computed(() => props.isTeacher)
 const startButtonText = computed(() => isEnded.value ? t('courseDetail.live.restartLive') : t('courseDetail.live.startLive'))
 const stopButtonTitle = computed(() => canStop.value ? t('courseDetail.live.endLiveStream') : t('courseDetail.live.streamNotRunning'))
+const liveSummaryEntry = computed(() => liveSummaryStore.entryFor(props.session.id))
+const liveSummary = computed(() => liveSummaryEntry.value?.session ?? null)
+const liveSummarySnapshot = computed(() => liveSummaryEntry.value?.latestSnapshot ?? null)
+const liveSummaryRecentTranscripts = computed(() => liveSummaryEntry.value?.recentTranscripts.slice(-8) ?? [])
+const liveSummaryPartialTranscript = computed(() => liveSummaryEntry.value?.partialTranscript ?? null)
+const isLiveSummaryRunning = computed(() => liveSummary.value?.status === 'RUNNING')
+const liveSummaryVisibleHistoryRecordCount = computed(() =>
+    new Set(liveSummaryResumeSnapshots.value
+        .filter(snapshot => snapshot.classSessionId === props.session.id)
+        .map(snapshot => snapshot.summarySessionId)).size)
+const liveSummaryHistoryRecordLimitReached = computed(() =>
+    typeof liveSummary.value?.historyRecordCount === 'number' && typeof liveSummary.value?.historyRecordLimit === 'number'
+        ? liveSummary.value.historyRecordCount >= liveSummary.value.historyRecordLimit
+        : liveSummaryVisibleHistoryRecordCount.value >= 5)
+const canStartNewLiveSummary = computed(() => !liveSummaryHistoryRecordLimitReached.value)
+const liveSummaryButtonTitle = computed(() =>
+    isLiveSummaryRunning.value
+        ? t('courseDetail.live.stopAiSummary')
+        : t('courseDetail.live.startAiSummary'))
+const liveSummaryResumeOptions = computed<LiveSummaryResumeOption[]>(() => {
+  const latestBySession = new Map<string, LiveSummarySnapshot>()
+  for (const snapshot of liveSummaryResumeSnapshots.value) {
+    if (snapshot.classSessionId !== props.session.id) {
+      continue
+    }
+    const previous = latestBySession.get(snapshot.summarySessionId)
+    if (!previous || new Date(snapshot.createdAt).getTime() > new Date(previous.createdAt).getTime()) {
+      latestBySession.set(snapshot.summarySessionId, snapshot)
+    }
+  }
+  const options = [...latestBySession.values()]
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+      .map(snapshot => ({
+        summarySessionId: snapshot.summarySessionId,
+        label: t('courseDetail.classSession.liveSummary.startDialog.resumeOptionLabel', {
+          sequence: snapshot.sequenceNo,
+          time: formatSessionTime(snapshot.createdAt),
+          overview: snapshot.overview || t('courseDetail.classSession.liveSummary.startDialog.untitled'),
+        }),
+      }))
+  const current = liveSummary.value
+  if (current?.id && current.classSessionId === props.session.id && !options.some(option => option.summarySessionId === current.id)) {
+    options.unshift({
+      summarySessionId: current.id,
+      label: t('courseDetail.classSession.liveSummary.startDialog.currentSessionOption', {
+        time: current.startedAt ? formatSessionTime(current.startedAt) : '--',
+      }),
+    })
+  }
+  return options
+})
+const liveSummaryResumeSelectOptions = computed(() =>
+    liveSummaryResumeOptions.value.map(option => ({
+      label: option.label,
+      value: option.summarySessionId,
+    })))
+const canConfirmLiveSummaryStart = computed(() => {
+  if (liveSummaryStartDialogLoading.value) {
+    return false
+  }
+  return liveSummaryStartMode.value === 'new'
+      ? canStartNewLiveSummary.value
+      : Boolean(liveSummaryResumeSessionId.value)
+})
+const liveSummaryStartConfirmLabel = computed(() =>
+    liveSummaryStartMode.value === 'new'
+        ? t('courseDetail.classSession.liveSummary.startDialog.startConfirm')
+        : t('courseDetail.classSession.liveSummary.startDialog.resumeConfirm'))
+const liveSummaryStatusLabel = computed(() => {
+  if (liveSummary.value?.status === 'RUNNING') return t('courseDetail.classSession.liveSummary.status.running')
+  if (liveSummary.value?.status === 'STOPPED') return t('courseDetail.classSession.liveSummary.status.stopped')
+  if (liveSummary.value?.status === 'FAILED') return t('courseDetail.classSession.liveSummary.status.failed')
+  return t('courseDetail.classSession.liveSummary.status.idle')
+})
+const liveSummaryStatusClass = computed(() => ({
+  running: liveSummary.value?.status === 'RUNNING',
+  failed: liveSummary.value?.status === 'FAILED',
+}))
+const liveSummaryKeyPoints = computed(() => stringList(liveSummarySnapshot.value?.payload?.keyPoints))
+const liveSummaryNotesFallback = computed(() =>
+    isLiveSummaryRunning.value
+        ? t('courseDetail.classSession.liveSummary.summary.overviewFallback')
+        : t('courseDetail.live.noNotes'))
 const controlsPanelToggleTitle = computed(() => controlsCollapsed.value ? t('courseDetail.live.showControls') : t('courseDetail.live.hideControls'))
 const liveStatusLabel = computed(() => {
   if (isFullscreenLayout.value) {
@@ -656,15 +922,6 @@ const danmakuItems = computed<DanmakuItem[]>(() =>
       duration: 11 + (index % 4),
     })),
 )
-const summaryText = computed(() => {
-  if (props.session.description) {
-    return props.session.description
-  }
-  if (isFullscreenLayout.value) {
-    return t('courseDetail.live.summaryFallbackFullscreen')
-  }
-  return t('courseDetail.live.summaryFallback')
-})
 const stageMessage = computed(() => {
   if (!props.canParticipate) return props.isTeacher ? '' : t('courseDetail.live.takeSeatWatch')
   if (isPaused.value) return t('courseDetail.live.streamPaused')
@@ -707,12 +964,16 @@ onMounted(async () => {
     document.addEventListener('fullscreenchange', updatePlayerFullscreenState)
     window.addEventListener(TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT, handleUnexpectedPaused)
   }
+  subscribeLiveSummaryStatus()
+  void loadLiveSummary()
+  void resumeLiveSummaryAudioUploadIfNeeded()
   await loadMessages()
   await loadParticipants()
 })
 
 onUnmounted(() => {
   disconnectChat()
+  liveSummarySubscription?.close()
   if (typeof document !== 'undefined') {
     document.removeEventListener('fullscreenchange', updatePlayerFullscreenState)
     window.removeEventListener(TEACHER_LIVE_UNEXPECTED_PAUSED_EVENT, handleUnexpectedPaused)
@@ -776,6 +1037,11 @@ async function resumeLive() {
 }
 
 async function stopLive() {
+  try {
+    await stopLiveSummaryIfRunning()
+  } catch (error) {
+    notify.warn(error instanceof Error ? error.message : t('courseDetail.classSession.liveSummary.errors.stopFailed'))
+  }
   await live.disconnect()
   await updateLiveStatus(() => stopClassLive(props.session.id))
 }
@@ -859,6 +1125,108 @@ async function toggleScreenShare() {
   await runControlAction('screenShare', live.toggleScreenShare)
 }
 
+async function toggleLiveSummary() {
+  if (!props.isTeacher) {
+    return
+  }
+  if (isLiveSummaryRunning.value) {
+    await runControlAction('summary', stopLiveSummaryIfRunning)
+    return
+  }
+  await openLiveSummaryStartDialog()
+}
+
+async function openLiveSummaryStartDialog() {
+  if (showLiveSummaryStartDialog.value) {
+    return
+  }
+  liveSummaryResumeSessionId.value = ''
+  showLiveSummaryStartDialog.value = true
+  liveSummaryStartDialogLoading.value = true
+  try {
+    await Promise.all([
+      loadLiveSummary(),
+      loadLiveSummaryResumeSnapshots(false),
+    ])
+  } finally {
+    liveSummaryStartDialogLoading.value = false
+  }
+  liveSummaryStartMode.value = canStartNewLiveSummary.value ? 'new' : 'resume'
+  syncLiveSummaryStartSelection()
+}
+
+function closeLiveSummaryStartDialog() {
+  if (isLoadingAction('summary')) {
+    return
+  }
+  showLiveSummaryStartDialog.value = false
+}
+
+function chooseLiveSummaryStartMode(mode: LiveSummaryStartMode) {
+  if (mode === 'new' && !canStartNewLiveSummary.value) {
+    return
+  }
+  if (mode === 'resume' && liveSummaryResumeOptions.value.length === 0) {
+    return
+  }
+  liveSummaryStartMode.value = mode
+  syncLiveSummaryStartSelection()
+}
+
+async function loadLiveSummaryResumeSnapshots(manageLoading = true) {
+  if (manageLoading) {
+    liveSummaryStartDialogLoading.value = true
+  }
+  try {
+    const snapshots = await listLiveSummarySnapshots(props.session.id)
+    liveSummaryResumeSnapshots.value = snapshots
+    liveSummaryStore.applySnapshots(props.session.id, snapshots)
+  } catch (error) {
+    notify.error(error instanceof Error
+        ? error.message
+        : t('courseDetail.classSession.liveSummary.errors.loadFailed'))
+  } finally {
+    if (manageLoading) {
+      liveSummaryStartDialogLoading.value = false
+    }
+  }
+}
+
+function syncLiveSummaryStartSelection() {
+  const options = liveSummaryResumeOptions.value
+  if (!canStartNewLiveSummary.value && options.length > 0) {
+    liveSummaryStartMode.value = 'resume'
+  }
+  if (liveSummaryStartMode.value !== 'resume') {
+    return
+  }
+  const selectedExists = options.some(option => option.summarySessionId === liveSummaryResumeSessionId.value)
+  liveSummaryResumeSessionId.value = selectedExists ? liveSummaryResumeSessionId.value : options[0]?.summarySessionId ?? ''
+}
+
+async function confirmLiveSummaryStart() {
+  if (!canConfirmLiveSummaryStart.value) {
+    return
+  }
+  await runControlAction('summary', async () => {
+    const next = liveSummaryStartMode.value === 'resume'
+        ? await resumeLiveSummary(props.session.id, liveSummaryResumeSessionId.value)
+        : await startLiveSummary(props.session.id)
+    applyLiveSummarySession(next, {resumeAudio: false})
+    showLiveSummaryStartDialog.value = false
+    await startLiveSummaryAudioUpload(props.session.id)
+  })
+}
+
+async function stopLiveSummaryIfRunning() {
+  if (!isLiveSummaryRunning.value) {
+    stopLiveSummaryAudioUpload(props.session.id)
+    return
+  }
+  stopLiveSummaryAudioUpload(props.session.id)
+  applyLiveSummarySession(await stopLiveSummary(props.session.id))
+}
+
 function isLoadingAction(action: LiveControlAction) {
   return loadingAction.value === action
 }
@@ -870,8 +1238,10 @@ async function runControlAction(action: LiveControlAction, task: () => Promise<v
   loadingAction.value = action
   try {
     await task()
-  } catch {
-    notify.error(t('courseDetail.live.controlActionFailed'))
+  } catch (error) {
+    notify.error(action === 'summary' && error instanceof Error
+        ? error.message
+        : t('courseDetail.live.controlActionFailed'))
   } finally {
     loadingAction.value = null
   }
@@ -893,6 +1263,65 @@ async function updateLiveStatus(action: () => Promise<ClassSession>) {
     notify.error(t('courseDetail.live.statusUpdateFailed'))
   } finally {
     busy.value = false
+  }
+}
+
+async function loadLiveSummary() {
+  try {
+    applyLiveSummarySession(await getLiveSummary(props.session.id))
+  } catch {
+    // Keep the last known local state so window switches do not look like a user stop.
+  }
+}
+
+function subscribeLiveSummaryStatus() {
+  liveSummarySubscription?.close()
+  liveSummarySubscription = subscribeLiveSummary(props.session.id, {
+    onStatus: applyLiveSummarySession,
+    onSnapshot: applyLiveSummarySnapshot,
+    onTranscript: applyLiveSummaryTranscript,
+    onError: event => {
+      notify.warn(event.message || t('courseDetail.classSession.liveSummary.status.unavailable'))
+    },
+    replayOnReconnect: loadLiveSummary,
+  })
+}
+
+function applyLiveSummarySession(next: LiveSummarySession, options: { resumeAudio?: boolean } = {}) {
+  liveSummaryStore.applySession(next, {transcriptLimit: 80})
+  if (next.status !== 'RUNNING' || !next.id) {
+    stopLiveSummaryAudioUpload(props.session.id)
+    return
+  }
+  if (options.resumeAudio === false) {
+    return
+  }
+  void resumeLiveSummaryAudioUploadIfNeeded()
+}
+
+function applyLiveSummarySnapshot(snapshot: LiveSummarySnapshot) {
+  liveSummaryStore.applySnapshot(snapshot)
+}
+
+function applyLiveSummaryTranscript(segment: LiveTranscriptSegment) {
+  liveSummaryStore.applyTranscript(segment, {transcriptLimit: 80})
+}
+
+async function resumeLiveSummaryAudioUploadIfNeeded() {
+  if (
+      !props.isTeacher
+      || !isLiveSummaryRunning.value
+      || loadingAction.value === 'summary'
+      || isLiveSummaryAudioUploading(props.session.id)
+  ) {
+    return
+  }
+  try {
+    await startLiveSummaryAudioUpload(props.session.id)
+  } catch (error) {
+    notify.warn(error instanceof Error
+        ? error.message
+        : t('courseDetail.classSession.liveSummary.errors.audioChannelFailed'))
   }
 }
 
@@ -1028,6 +1457,21 @@ function formatLiveLatencyLabel() {
   }
   return isFullscreenLayout.value ? t('courseDetail.live.latencyUnknown') : t('courseDetail.live.latencyUnknownCompact')
 }
+
+function liveSummaryTranscriptTime(segment: LiveTranscriptSegment) {
+  if (segment.beginTimeMs == null) return segment.sequenceNo ? `#${segment.sequenceNo}` : '--:--'
+  const seconds = Math.floor(segment.beginTimeMs / 1000)
+  return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
+}
+
+function liveSummaryTranscriptKey(segment: LiveTranscriptSegment) {
+  return segment.id || `${segment.sequenceNo}-${segment.text}`
+}
+
+function stringList(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : []
+}
+
 </script>
 
 <style scoped>
@@ -1050,6 +1494,11 @@ function formatLiveLatencyLabel() {
   background: var(--live-bg);
   color: var(--live-ink);
   font-family: var(--font-body);
+}
+
+.classroom-live-experience:has(.dock-button[data-tooltip]:hover),
+.classroom-live-experience:has(.dock-button[data-tooltip]:focus-visible) {
+  overflow: visible;
 }
 
 .mode-fullscreen {
@@ -1625,61 +2074,6 @@ function formatLiveLatencyLabel() {
   color: var(--live-contrast);
 }
 
-.ai-summary-card {
-  color: var(--live-ink);
-}
-
-.mode-popup .ai-summary-card {
-  display: none;
-}
-
-.ai-summary-card header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
-.ai-summary-card h3 {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: 20px;
-  line-height: 1.2;
-  letter-spacing: 0;
-}
-
-.ai-summary-card p {
-  margin: var(--space-md) 0 0;
-  color: var(--color-on-surface-variant);
-  font-size: 15px;
-  line-height: 1.58;
-}
-
-.ai-summary-card ul {
-  display: grid;
-  gap: var(--space-sm);
-  margin: var(--space-md) 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.ai-summary-card li {
-  position: relative;
-  padding-left: var(--space-md);
-  color: var(--color-on-surface-variant);
-  font-size: 14px;
-  line-height: 1.38;
-}
-
-.ai-summary-card li::before {
-  position: absolute;
-  top: 0.62em;
-  left: 0;
-  width: 6px;
-  height: 6px;
-  background: var(--live-ink);
-  content: '';
-}
-
 .hint {
   margin: 0 var(--space-md) var(--space-md);
   color: var(--live-muted);
@@ -1984,28 +2378,6 @@ function formatLiveLatencyLabel() {
   opacity: 0.48;
 }
 
-.sidebar-summary {
-  margin: 30px;
-  padding: 38px 32px 34px;
-  border: 1px solid var(--live-border);
-  border-radius: 40px;
-  background: var(--live-surface);
-}
-
-.sidebar-summary h3 {
-  font-family: var(--font-label);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.sidebar-summary p {
-  margin-top: 26px;
-  font-size: 20px;
-  line-height: 1.62;
-}
-
 .sidebar-chat-list {
   flex: 1 1 auto;
   overflow-y: auto;
@@ -2037,41 +2409,146 @@ function formatLiveLatencyLabel() {
 }
 
 .notes-panel {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow-y: auto;
+  gap: 18px;
   padding: 34px 30px;
 }
 
-.notes-panel h3 {
-  margin: 0 0 18px;
+.notes-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.notes-section-label {
+  color: var(--live-muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.notes-header h3 {
+  margin: 0;
   font-family: var(--font-heading);
   font-size: 30px;
   font-weight: 500;
 }
 
-.notes-panel p {
-  margin: 0 0 var(--space-md);
+.notes-header strong {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border: 1px solid var(--live-soft-border);
+  border-radius: var(--radius-sm);
+  color: var(--live-muted);
+  font-family: var(--font-label);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.notes-header strong.running {
+  border-color: color-mix(in srgb, var(--live-good) 48%, var(--live-soft-border));
+  color: var(--live-good);
+}
+
+.notes-header strong.failed {
+  border-color: color-mix(in srgb, var(--live-error) 48%, var(--live-soft-border));
+  color: var(--live-error);
+}
+
+.notes-course-note,
+.notes-summary-block,
+.notes-keypoints,
+.notes-transcripts {
+  display: grid;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--live-soft-border);
+}
+
+.notes-course-note p,
+.notes-summary-block p {
+  margin: 0;
   color: var(--color-on-surface-variant);
   line-height: 1.7;
 }
 
-.notes-panel dl {
+.notes-keypoints ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notes-keypoints li {
+  position: relative;
+  padding-left: 18px;
+  color: var(--color-on-surface-variant);
+  line-height: 1.55;
+}
+
+.notes-keypoints li::before {
+  position: absolute;
+  top: 0.72em;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  background: var(--live-ink);
+  border-radius: 50%;
+  content: '';
+}
+
+.notes-transcript-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.notes-transcript-row span {
+  color: var(--live-muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.notes-transcript-row p {
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.notes-transcript-row.partial p {
+  color: var(--live-ink);
+}
+
+.notes-meta {
   display: grid;
   gap: 14px;
   margin: 0;
-}
-
-.notes-panel div {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  padding-top: 14px;
+  padding-top: 16px;
   border-top: 1px solid var(--live-soft-border);
 }
 
-.notes-panel dt {
+.notes-meta div {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.notes-meta dt {
   color: var(--live-muted);
 }
 
-.notes-panel dd {
+.notes-meta dd {
   margin: 0;
   text-align: right;
 }
@@ -2353,6 +2830,123 @@ function formatLiveLatencyLabel() {
   animation: liveButtonSpin 0.72s linear infinite;
 }
 
+.live-summary-start-backdrop {
+  --summary-dialog-bg: var(--color-surface-card);
+  --summary-dialog-ink: var(--color-on-surface);
+  --summary-dialog-muted: var(--color-muted);
+  --summary-dialog-border: var(--color-outline-light);
+  --summary-dialog-primary: var(--color-primary);
+  --summary-dialog-on-primary: var(--color-on-primary);
+  position: fixed;
+  z-index: 2600;
+  inset: 0;
+  display: grid;
+  padding: var(--space-md);
+  background: color-mix(in srgb, var(--color-overlay) 72%, transparent);
+  place-items: center;
+}
+
+.live-summary-start-dialog {
+  display: grid;
+  width: min(440px, 100%);
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border: 1px solid var(--summary-dialog-border);
+  border-radius: var(--radius-lg);
+  background: var(--summary-dialog-bg);
+  color: var(--summary-dialog-ink);
+  box-shadow: var(--shadow-dialog, var(--shadow-card));
+}
+
+.live-summary-start-header h2 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.live-summary-start-mode {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--summary-dialog-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-container);
+}
+
+.live-summary-start-mode button,
+.live-summary-start-footer button {
+  min-height: 40px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: var(--font-label);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.live-summary-start-mode button {
+  background: transparent;
+  color: var(--summary-dialog-muted);
+}
+
+.live-summary-start-mode button.active {
+  background: var(--summary-dialog-bg);
+  color: var(--summary-dialog-ink);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--summary-dialog-ink) 12%, transparent);
+}
+
+.live-summary-resume-field {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.live-summary-resume-field span,
+.live-summary-start-hint {
+  color: var(--summary-dialog-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.live-summary-resume-select :deep(.base-select-trigger span),
+.live-summary-resume-select :deep(.base-select-option span) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-summary-resume-select :deep(.base-select-option span) {
+  max-width: min(320px, calc(100vw - 112px));
+}
+
+.live-summary-start-hint {
+  margin: 0;
+}
+
+.live-summary-start-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+.live-summary-start-secondary {
+  padding: 0 var(--space-md);
+  background: var(--color-surface-container);
+  color: var(--summary-dialog-ink);
+}
+
+.live-summary-start-primary {
+  display: inline-flex;
+  min-width: 112px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-md);
+  background: var(--summary-dialog-primary);
+  color: var(--summary-dialog-on-primary);
+}
+
 .mode-fullscreen .stop-live-button {
   width: auto;
   min-width: 114px;
@@ -2381,6 +2975,17 @@ input:disabled {
   opacity: 0.5;
 }
 
+@keyframes liveTitleMarquee {
+  0%,
+  18% {
+    transform: translateX(0);
+  }
+  82%,
+  100% {
+    transform: translateX(calc(-50% - 14px));
+  }
+}
+
 @keyframes livePulse {
   0%,
   100% {
@@ -2396,17 +3001,6 @@ input:disabled {
 @keyframes liveButtonSpin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-@keyframes liveTitleMarquee {
-  0%,
-  18% {
-    transform: translateX(0);
-  }
-  82%,
-  100% {
-    transform: translateX(calc(-50% - 14px));
   }
 }
 
@@ -2576,10 +3170,6 @@ input:disabled {
     display: none;
   }
 
-  .mode-fullscreen .ai-summary-card {
-    display: block;
-  }
-
   .mode-fullscreen .live-layout,
   .mode-popup .live-layout {
     display: block;
@@ -2599,28 +3189,6 @@ input:disabled {
     flex: 1 1 auto;
     flex-direction: column;
     overflow: hidden;
-  }
-
-  .mode-fullscreen .live-main-column .ai-summary-card,
-  .mode-popup .ai-summary-card {
-    margin: var(--space-md);
-    padding: var(--space-md);
-    border: 1px solid var(--live-soft-border);
-    border-radius: var(--radius-lg);
-    background: var(--live-surface);
-  }
-
-  .mode-popup .ai-summary-card {
-    display: none;
-  }
-
-  .ai-summary-card h3 {
-    font-size: 20px;
-  }
-
-  .ai-summary-card p,
-  .ai-summary-card li {
-    font-size: 15px;
   }
 
   .mode-fullscreen .chat-panel {
@@ -2698,26 +3266,6 @@ input:disabled {
   .mode-popup .live-meta-row {
     gap: var(--space-xs);
     font-size: 12px;
-  }
-
-  .mode-fullscreen .live-main-column .ai-summary-card,
-  .mode-popup .ai-summary-card {
-    margin: var(--space-sm);
-    padding: var(--space-md);
-    border-radius: var(--radius-md);
-  }
-
-  .mode-popup .ai-summary-card {
-    display: none;
-  }
-
-  .ai-summary-card h3 {
-    font-size: 20px;
-  }
-
-  .ai-summary-card p,
-  .ai-summary-card li {
-    font-size: 14px;
   }
 
   .chat-panel {

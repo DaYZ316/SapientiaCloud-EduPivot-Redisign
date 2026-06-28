@@ -39,7 +39,6 @@
     <template v-else-if="group">
       <header class="detail-header">
         <div>
-          <span>{{ t('courseDetail.livePractice.kicker') }}</span>
           <h2>{{ group.title }}</h2>
           <p>
             {{ sessionTitle }} · {{ t('courseDetail.livePractice.groupOrder', {order: group.publishOrder}) }} ·
@@ -1072,7 +1071,6 @@ function hasPendingAiGrading() {
   border-bottom: 1px solid var(--color-outline-light);
 }
 
-.detail-header span,
 .header-count span,
 .ledger-header span,
 .section-label,
@@ -1089,7 +1087,7 @@ function hasPendingAiGrading() {
 }
 
 .detail-header h2 {
-  margin: 8px 0;
+  margin: 0 0 8px;
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: clamp(32px, 4vw, 44px);

@@ -57,6 +57,8 @@ public interface EnrollmentRepository {
      */
     Page<Enrollment> findByStudentId(UUID studentId, int page, int size);
 
+    List<UUID> findActiveOrCompletedCourseIdsByStudentId(UUID studentId);
+
     /**
      * 根据课程ID分页查询选课记录
      *

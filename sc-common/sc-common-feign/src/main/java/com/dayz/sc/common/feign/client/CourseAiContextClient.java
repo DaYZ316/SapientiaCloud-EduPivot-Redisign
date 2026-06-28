@@ -95,6 +95,11 @@ public interface CourseAiContextClient {
             @RequestHeader(value = HEADER_USER_ID, required = false) String userId,
             @RequestHeader(value = HEADER_USER_ROLE, required = false) String userRole);
 
+    @GetMapping("/visible-course-ids")
+    ApiResponse<@NonNull List<@NonNull UUID>> visibleCourseIds(
+            @RequestHeader(value = HEADER_USER_ID, required = false) String userId,
+            @RequestHeader(value = HEADER_USER_ROLE, required = false) String userRole);
+
     /**
      * 查询课程章节列表
      *

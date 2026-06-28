@@ -45,7 +45,7 @@ logging:
   level:
     org.apache.kafka.common.config.AbstractConfig: WARN
     com.alibaba.nacos.plugin: WARN
-    com.dayz.sc.common.web.filter.ApiRequestDebugLoggingFilter: DEBUG
+    com.dayz.sc.common.web.filter.ApiRequestDebugLoggingFilter: INFO
 
 management:
   metrics:
@@ -88,7 +88,7 @@ resilience4j:
 edupivot:
   web:
     api-request-logging:
-      enabled: ${API_REQUEST_DEBUG_LOGGING_ENABLED:true}
+      enabled: ${API_REQUEST_DEBUG_LOGGING_ENABLED:false}
   security:
     trust-gateway-headers: true
     jwt:
@@ -209,8 +209,8 @@ edupivot:
       max-increment-chars: 4000
       asr:
         api-key: ${DASHSCOPE_ASR_API_KEY:${DASHSCOPE_API_KEY:}}
-        websocket-url: ${DASHSCOPE_ASR_WEBSOCKET_URL:wss://dashscope.aliyuncs.com/api-ws/v1/inference}
-        model: ${DASHSCOPE_ASR_MODEL:paraformer-realtime-v2}
+        websocket-url: ${DASHSCOPE_ASR_WEBSOCKET_URL:wss://dashscope.aliyuncs.com/api-ws/v1/realtime}
+        model: ${DASHSCOPE_ASR_MODEL:qwen3-asr-flash-realtime}
         format: ${DASHSCOPE_ASR_FORMAT:pcm}
         sample-rate: ${DASHSCOPE_ASR_SAMPLE_RATE:16000}
     agent-search:

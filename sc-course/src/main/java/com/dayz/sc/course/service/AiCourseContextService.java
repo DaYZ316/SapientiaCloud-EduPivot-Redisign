@@ -179,6 +179,16 @@ public class AiCourseContextService {
                 .toList();
     }
 
+    public List<UUID> visibleCourseIds(UUID userId, Integer role) {
+        if (SecurityUtils.isAdmin(role)) {
+            return courseRepository.findAllIds();
+        }
+        if (SecurityUtils.isTeacher(role)) {
+            return courseRepository.findTeacherCourseIds(userId);
+        }
+        return enrollmentRepository.findActiveOrCompletedCourseIdsByStudentId(userId);
+    }
+
     public List<AgentSearchItem> listChapters(UUID courseId, String courseTitle, Integer limit, UUID userId, Integer role) {
         Course course = resolveAccessibleCourse(courseId, courseTitle, userId, role);
         if (course == null) {

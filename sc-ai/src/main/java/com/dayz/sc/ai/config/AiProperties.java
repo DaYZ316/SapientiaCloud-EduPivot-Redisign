@@ -167,8 +167,8 @@ public class AiProperties {
         @Setter
         public static class Asr {
             private String apiKey = "";
-            private String websocketUrl = "wss://dashscope.aliyuncs.com/api-ws/v1/inference";
-            private String model = "paraformer-realtime-v2";
+            private String websocketUrl = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime";
+            private String model = "qwen3-asr-flash-realtime";
             private String format = "pcm";
             private int sampleRate = 16000;
         }

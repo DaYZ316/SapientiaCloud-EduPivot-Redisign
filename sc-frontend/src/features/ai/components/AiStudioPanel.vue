@@ -421,10 +421,6 @@
 
       <template v-else-if="activeArtifactTab === 'overall'">
         <article class="artifact-report">
-          <div class="report-kicker">
-            <span>{{ artifact.messageType }}</span>
-            <i/>
-          </div>
           <h1>{{ t('common.ai.studio.overviewTitle') }}</h1>
           <p>{{ artifactSummary }}</p>
 
@@ -1395,7 +1391,6 @@ function downloadBlob(blob: Blob, filename: string) {
   padding-left: 0;
 }
 
-.report-kicker span,
 .question-card span,
 .generation-form span,
 .generation-form p,
@@ -1793,19 +1788,6 @@ function downloadBlob(blob: Blob, filename: string) {
 .artifact-report {
   display: grid;
   gap: 22px;
-}
-
-.report-kicker {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.report-kicker i {
-  display: block;
-  height: 1px;
-  flex: 1;
-  background: var(--color-outline);
 }
 
 .artifact-report h1 {

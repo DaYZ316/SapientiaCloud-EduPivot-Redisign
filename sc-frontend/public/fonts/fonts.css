@@ -80,3 +80,28 @@
     font-display: swap;
     src: url('HankenGrotesk-Bold.ttf') format('truetype');
 }
+
+/* Blackboard handwriting */
+@font-face {
+    font-family: 'EduPivot Blackboard CJK';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('blackboard/LXGWWenKaiGB-Regular.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'EduPivot Blackboard Latin';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('blackboard/CabinSketch-Regular.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'EduPivot Blackboard Latin';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('blackboard/CabinSketch-Bold.ttf') format('truetype');
+}

@@ -2,7 +2,6 @@
   <aside class="chapter-preview-panel">
     <header class="panel-header">
       <div>
-        <span>{{ t('courseDetail.classSession.chapterPanelKicker') }}</span>
         <h2>{{ t('courseDetail.classSession.chapterPanelTitle') }}</h2>
       </div>
       <button class="icon-button" type="button" @click="$emit('close')">
@@ -225,7 +224,6 @@ function formatFileSize(sizeBytes: number) {
   border-bottom: 1px solid var(--color-outline-light);
 }
 
-.panel-header span,
 .detail-kicker {
   color: var(--color-muted);
   font-family: var(--font-label);
@@ -233,7 +231,7 @@ function formatFileSize(sizeBytes: number) {
 }
 
 .panel-header h2 {
-  margin: 4px 0 0;
+  margin: 0;
   font-family: var(--font-heading);
   font-size: 28px;
   font-weight: 400;

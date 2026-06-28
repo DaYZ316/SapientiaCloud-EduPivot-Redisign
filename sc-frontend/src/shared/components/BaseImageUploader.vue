@@ -14,6 +14,7 @@
       <template #trigger="{ disabled: pickerDisabled, openPicker, progress, uploading }">
         <div class="base-image-uploader-field">
           <button
+              :aria-label="currentButtonLabel"
               :disabled="pickerDisabled"
               class="base-image-uploader-preview"
               type="button"

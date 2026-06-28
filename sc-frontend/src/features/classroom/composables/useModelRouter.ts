@@ -27,6 +27,10 @@ const MODEL_ROUTES: Record<number, ClassroomModelRoute> = {
         },
         desk: {
             model: `${DESK_BASE}/deskChairPro.glb`,
+            variantNames: {
+                firstRow: '桌椅_仅桌',
+                otherRows: '桌椅_baked_Baked',
+            },
         },
     },
     [ClassRoomSize.XLARGE]: {

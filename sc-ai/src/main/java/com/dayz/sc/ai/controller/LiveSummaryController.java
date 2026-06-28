@@ -2,6 +2,7 @@ package com.dayz.sc.ai.controller;
 
 import com.dayz.sc.ai.model.vo.LiveSummaryAudioTokenVO;
 import com.dayz.sc.ai.model.vo.LiveSummarySessionVO;
+import com.dayz.sc.ai.model.vo.LiveSummarySnapshotVO;
 import com.dayz.sc.ai.service.LiveSummaryService;
 import com.dayz.sc.common.response.ApiResponse;
 import com.dayz.sc.common.security.ratelimit.RateLimited;
@@ -17,6 +18,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -40,6 +42,16 @@ public class LiveSummaryController {
         return ApiResponse.ok(liveSummaryService.start(sessionId, userId, JwtPrincipalResolver.role(jwt)));
     }
 
+    @PostMapping("/resume/{summarySessionId}")
+    @RateLimited(maxRequests = 20)
+    public ApiResponse<@NonNull LiveSummarySessionVO> resume(
+            @PathVariable UUID sessionId,
+            @PathVariable UUID summarySessionId,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        return ApiResponse.ok(liveSummaryService.resume(sessionId, summarySessionId, userId, JwtPrincipalResolver.role(jwt)));
+    }
+
     @PostMapping("/stop")
     public ApiResponse<@NonNull LiveSummarySessionVO> stop(
             @PathVariable UUID sessionId,
@@ -54,6 +66,40 @@ public class LiveSummaryController {
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = JwtPrincipalResolver.requireUserId(jwt);
         return ApiResponse.ok(liveSummaryService.get(sessionId, userId, JwtPrincipalResolver.role(jwt)));
+    }
+
+    @GetMapping("/snapshots")
+    public ApiResponse<@NonNull List<@NonNull LiveSummarySnapshotVO>> snapshots(
+            @PathVariable UUID sessionId,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        return ApiResponse.ok(liveSummaryService.listSnapshots(sessionId, userId, JwtPrincipalResolver.role(jwt)));
+    }
+
+    @DeleteMapping("/snapshots/{snapshotId}")
+    public ApiResponse<@NonNull List<@NonNull LiveSummarySnapshotVO>> deleteSnapshot(
+            @PathVariable UUID sessionId,
+            @PathVariable UUID snapshotId,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        return ApiResponse.ok(liveSummaryService.deleteSnapshot(sessionId, snapshotId, userId, JwtPrincipalResolver.role(jwt)));
+    }
+
+    @DeleteMapping("/history-records/{summarySessionId}")
+    public ApiResponse<@NonNull List<@NonNull LiveSummarySnapshotVO>> deleteHistoryRecord(
+            @PathVariable UUID sessionId,
+            @PathVariable UUID summarySessionId,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        return ApiResponse.ok(liveSummaryService.deleteHistoryRecord(sessionId, summarySessionId, userId, JwtPrincipalResolver.role(jwt)));
+    }
+
+    @DeleteMapping
+    public ApiResponse<@NonNull LiveSummarySessionVO> clear(
+            @PathVariable UUID sessionId,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = JwtPrincipalResolver.requireUserId(jwt);
+        return ApiResponse.ok(liveSummaryService.clear(sessionId, userId, JwtPrincipalResolver.role(jwt)));
     }
 
     @PostMapping("/audio-token")

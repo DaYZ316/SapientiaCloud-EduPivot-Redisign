@@ -2,9 +2,6 @@
   <main class="onboarding-page">
     <section class="onboarding-panel">
       <header class="onboarding-header">
-        <p class="eyebrow">
-          {{ t('login.onboardingEyebrow') }}
-        </p>
         <h1>{{ t('login.onboardingTitle') }}</h1>
         <p>{{ t('login.onboardingSubtitle') }}</p>
       </header>
@@ -146,16 +143,6 @@ async function submit() {
 
 .onboarding-header {
   margin-bottom: 28px;
-}
-
-.eyebrow {
-  margin: 0 0 8px;
-  color: var(--color-muted);
-  font-family: var(--font-label);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .onboarding-header h1 {

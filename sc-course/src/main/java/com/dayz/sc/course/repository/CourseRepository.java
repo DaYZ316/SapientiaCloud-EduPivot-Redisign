@@ -80,6 +80,10 @@ public interface CourseRepository {
      */
     List<Course> findByIds(List<UUID> ids);
 
+    List<UUID> findAllIds();
+
+    List<UUID> findTeacherCourseIds(UUID teacherId);
+
     /**
      * 分页查询教师课程（自动 count）
      *

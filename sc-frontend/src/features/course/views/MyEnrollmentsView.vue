@@ -2,7 +2,6 @@
   <div class="my-courses-page">
     <section aria-labelledby="my-courses-title" class="courses-command-bar">
       <div class="courses-title-block">
-        <p class="section-kicker">{{ t('myEnrollments.student.workspace') }}</p>
         <h1 id="my-courses-title">{{ t('myEnrollments.title') }}</h1>
         <p>{{ t('myEnrollments.student.description') }}</p>
       </div>
@@ -42,7 +41,6 @@
       <div class="courses-primary">
         <div class="panel-heading">
           <div>
-            <p class="section-kicker">{{ t('myEnrollments.student.enrolledCourses') }}</p>
             <h2>{{ t('myEnrollments.student.activeCourses') }}</h2>
           </div>
           <span>{{ t('myEnrollments.courseCount', {count: filteredCourses.length}) }}</span>
@@ -190,7 +188,6 @@
 
     <section class="resume-panel">
       <div>
-        <p class="section-kicker">{{ t('myEnrollments.student.continue') }}</p>
         <h2>{{ t('myEnrollments.student.resumeTitle') }}</h2>
         <p>{{ resumeCourse.title }} · {{ resumeCourse.recentActivity }}</p>
       </div>
@@ -484,16 +481,6 @@ onMounted(() => {
 
 .courses-title-block {
   max-width: 620px;
-}
-
-.section-kicker {
-  margin: 0 0 10px;
-  font-family: var(--font-label);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  color: var(--color-muted);
-  text-transform: uppercase;
 }
 
 .courses-title-block h1,

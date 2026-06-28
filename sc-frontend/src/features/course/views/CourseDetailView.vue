@@ -28,7 +28,6 @@
           </button>
 
           <section class="course-hero">
-            <div class="hero-kicker">{{ t('courseDetail.overview.academicCourse') }}</div>
             <h1>{{ course.title }}</h1>
             <p class="course-description">{{ course.description || t('courseDetail.noDescription') }}</p>
 
@@ -173,7 +172,6 @@
           </div>
 
           <section class="teaching-team-panel">
-            <div class="panel-kicker">{{ t('courseDetail.teachingTeam') }}</div>
             <div class="team-lead">
               <UserAvatarLink
                   :avatar-url="course.teacherAvatar"
@@ -1111,11 +1109,8 @@ function useFallbackImage(event: Event, fallback: string) {
   border-radius: 0;
 }
 
-.hero-kicker,
 .metadata-item dt,
-.panel-kicker,
 .admin-actions h3,
-.panel-header span,
 .rail-label,
 .overview-item span,
 .hero-facts dt,
@@ -1523,7 +1518,7 @@ function useFallbackImage(event: Event, fallback: string) {
 }
 
 .panel-header h2 {
-  margin: 6px 0 0;
+  margin: 0;
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: 28px;

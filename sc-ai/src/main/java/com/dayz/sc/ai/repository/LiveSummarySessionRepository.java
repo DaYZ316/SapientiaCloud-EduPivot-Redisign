@@ -2,6 +2,7 @@ package com.dayz.sc.ai.repository;
 
 import com.dayz.sc.ai.model.entity.LiveSummarySession;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,6 +28,8 @@ public interface LiveSummarySessionRepository {
      */
     void update(LiveSummarySession session);
 
+    void resume(LiveSummarySession session);
+
     /**
      * 根据ID查询实时摘要会话
      *
@@ -50,4 +53,19 @@ public interface LiveSummarySessionRepository {
      * @return 会话实体，可能为空
      */
     Optional<LiveSummarySession> findRunningByClassSessionId(UUID classSessionId);
+
+    List<LiveSummarySession> findWithSnapshotsByCourseIds(List<UUID> courseIds, int page, int size);
+
+    long countWithSnapshotsByCourseIds(List<UUID> courseIds);
+
+    int countByClassSessionId(UUID classSessionId);
+
+    void deleteById(UUID id);
+
+    /**
+     * Delete all live summary sessions for a class session.
+     *
+     * @param classSessionId class session ID
+     */
+    void deleteByClassSessionId(UUID classSessionId);
 }

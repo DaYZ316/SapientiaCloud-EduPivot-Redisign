@@ -51,6 +51,7 @@ public class LiveKitTokenService {
                         "roomJoin", true,
                         "room", roomName,
                         "canPublish", canPublish,
+                        "canPublishData", true,
                         "canSubscribe", true
                 ))
                 .build();

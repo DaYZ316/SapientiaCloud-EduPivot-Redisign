@@ -79,7 +79,7 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, ref, watch} from 'vue'
+import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 
 import AiChatPanel from '@/features/ai/components/AiChatPanel.vue'
@@ -97,30 +97,45 @@ const props = withDefaults(defineProps<{
 
 const aiStore = useAiStore()
 const {t} = useI18n()
+const MOBILE_PREVIEW_PANEL_QUERY = '(max-width: 900px)'
 const chatMode = ref<AiAgentMode>('CHAT')
 const generation = ref<GenerationRequest>(createGenerationDefaults('QUESTION'))
 const artifactTab = ref<ArtifactTab>('single')
 const panelDismissed = ref(false)
+const isMobilePreviewPanel = ref(matchesMobilePreviewPanel())
+const requestedPreviewMessageId = ref<string | null>(null)
+
+let mobilePreviewPanelQuery: MediaQueryList | null = null
 
 const isDrawerLayout = computed(() => props.layout === 'drawer')
 const activeTitle = computed(() => aiStore.activeConversation?.title || t('common.ai.workspace.newInquiry'))
 const latestGeneratedArtifact = computed(() =>
     [...aiStore.messages].reverse().find(message => isGenerationMessage(message)) || null,
 )
-const visibleArtifact = computed(() => aiStore.activeGenerationMessage || latestGeneratedArtifact.value || aiStore.latestArtifact)
+const activePanelMessage = computed(() => {
+  const message = aiStore.activeGenerationMessage
+  if (!message || !isMobilePreviewPanel.value || requestedPreviewMessageId.value === message.id) return message
+
+  return null
+})
+const visibleArtifact = computed(() => activePanelMessage.value || latestGeneratedArtifact.value || aiStore.latestArtifact)
 const completedArtifact = computed(() =>
     visibleArtifact.value && !visibleArtifact.value.pending && !visibleArtifact.value.failed && !visibleArtifact.value.terminated,
 )
+const isRequestedPreviewArtifact = computed(() => Boolean(
+    visibleArtifact.value?.id
+    && requestedPreviewMessageId.value === visibleArtifact.value.id,
+))
 const isQuestionPanelVisible = computed(() =>
     chatMode.value !== 'CHAT'
-    || Boolean(aiStore.activeGenerationMessage)
-    || (Boolean(completedArtifact.value) && !panelDismissed.value),
+    || Boolean(activePanelMessage.value)
+    || (Boolean(completedArtifact.value) && !panelDismissed.value && (!isMobilePreviewPanel.value || isRequestedPreviewArtifact.value)),
 )
 const isGenerationDialogOpen = computed(() =>
     chatMode.value === 'QUESTION' || chatMode.value === 'PAPER',
 )
 const isRightPanelVisible = computed(() =>
-    isQuestionPanelVisible.value || Boolean(aiStore.activeGenerationMessage),
+    isQuestionPanelVisible.value || Boolean(activePanelMessage.value),
 )
 const toolPanelMode = computed(() =>
     chatMode.value === 'CHAT' ? undefined : chatMode.value,
@@ -131,8 +146,21 @@ const isPreviewPanelVisible = computed(() =>
     && !panelDismissed.value,
 )
 
+onMounted(() => {
+  if (typeof window.matchMedia !== 'function') return
+
+  mobilePreviewPanelQuery = window.matchMedia(MOBILE_PREVIEW_PANEL_QUERY)
+  syncMobilePreviewPanel(mobilePreviewPanelQuery)
+  mobilePreviewPanelQuery.addEventListener('change', syncMobilePreviewPanel)
+})
+
+onBeforeUnmount(() => {
+  mobilePreviewPanelQuery?.removeEventListener('change', syncMobilePreviewPanel)
+})
+
 watch(chatMode, (mode) => {
   if (mode === 'QUESTION' || mode === 'PAPER') {
+    requestedPreviewMessageId.value = null
     panelDismissed.value = false
     artifactTab.value = 'single'
     generation.value = {
@@ -145,7 +173,7 @@ watch(chatMode, (mode) => {
 watch(() => aiStore.activeGenerationMessageId, (messageId) => {
   if (messageId) {
     const message = aiStore.activeGenerationMessage
-    panelDismissed.value = false
+    panelDismissed.value = isMobilePreviewPanel.value && requestedPreviewMessageId.value !== messageId
     artifactTab.value = message && !message.pending && !message.failed && !message.terminated ? 'single' : 'trace'
   }
 })
@@ -168,6 +196,7 @@ watch(() => [
 })
 
 function setChatMode(mode: AiAgentMode) {
+  requestedPreviewMessageId.value = null
   panelDismissed.value = mode === 'CHAT'
   artifactTab.value = 'single'
   aiStore.closeGenerationTrace()
@@ -175,6 +204,7 @@ function setChatMode(mode: AiAgentMode) {
 }
 
 function activatePreviewPanel() {
+  requestedPreviewMessageId.value = visibleArtifact.value?.id || null
   panelDismissed.value = false
   chatMode.value = 'CHAT'
 }
@@ -187,25 +217,44 @@ function syncDefaultGenerationPanel() {
   }
 
   panelDismissed.value = true
+  requestedPreviewMessageId.value = null
   artifactTab.value = 'single'
   aiStore.closeGenerationTrace()
 }
 
-function openArtifactPanel(message: ChatMessage) {
-  panelDismissed.value = false
+function openArtifactPanel(message: ChatMessage, options: { manual?: boolean } = {}) {
+  if (options.manual) {
+    requestedPreviewMessageId.value = message.id
+  }
+
+  const shouldOpen = !isMobilePreviewPanel.value || requestedPreviewMessageId.value === message.id
+  panelDismissed.value = !shouldOpen
   artifactTab.value = message.pending || message.failed || message.terminated ? 'trace' : 'single'
+  if (!shouldOpen) return
+
   aiStore.openGenerationTrace(message.id)
 }
 
 function closeTools() {
   panelDismissed.value = true
+  requestedPreviewMessageId.value = null
   artifactTab.value = 'single'
   chatMode.value = 'CHAT'
   aiStore.closeGenerationTrace()
 }
 
 function openGenerationPanel(message: ChatMessage) {
-  openArtifactPanel(message)
+  openArtifactPanel(message, {manual: true})
+}
+
+function matchesMobilePreviewPanel() {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+
+  return window.matchMedia(MOBILE_PREVIEW_PANEL_QUERY).matches
+}
+
+function syncMobilePreviewPanel(event: MediaQueryList | MediaQueryListEvent) {
+  isMobilePreviewPanel.value = event.matches
 }
 
 async function generateFromPanel() {

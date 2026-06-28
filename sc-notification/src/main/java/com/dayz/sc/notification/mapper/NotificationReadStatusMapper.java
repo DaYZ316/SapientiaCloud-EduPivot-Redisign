@@ -33,10 +33,16 @@ public interface NotificationReadStatusMapper extends BaseMapper<NotificationRea
               AND n.type = #{type}
             </if>
               AND (n.sender_id IS NULL OR n.sender_id != #{userId})
-              AND (n.target_type = 0 OR EXISTS (
-                SELECT 1 FROM ntf_notification_target t
-                WHERE t.notification_id = n.id AND t.user_id = #{userId} AND t.deleted = 0
-              ))
+              AND (
+                (n.target_type = 0 AND NOT EXISTS (
+                  SELECT 1 FROM ntf_notification_target t
+                  WHERE t.notification_id = n.id AND t.user_id = #{userId} AND t.deleted = 1
+                ))
+                OR EXISTS (
+                  SELECT 1 FROM ntf_notification_target t
+                  WHERE t.notification_id = n.id AND t.user_id = #{userId} AND t.deleted = 0
+                )
+              )
               AND NOT EXISTS (
                 SELECT 1
                 FROM ntf_read_status r
@@ -68,6 +74,10 @@ public interface NotificationReadStatusMapper extends BaseMapper<NotificationRea
               WHERE n.deleted = 0
                 AND n.target_type = 0
                 AND (n.sender_id IS NULL OR n.sender_id != #{userId})
+                AND NOT EXISTS (
+                  SELECT 1 FROM ntf_notification_target t
+                  WHERE t.notification_id = n.id AND t.user_id = #{userId} AND t.deleted = 1
+                )
                 AND NOT EXISTS (
                   SELECT 1 FROM ntf_read_status r
                   WHERE r.notification_id = n.id AND r.user_id = #{userId}
@@ -114,10 +124,16 @@ public interface NotificationReadStatusMapper extends BaseMapper<NotificationRea
               AND n.type = #{type}
             </if>
               AND (n.sender_id IS NULL OR n.sender_id != #{userId})
-              AND (n.target_type = 0 OR EXISTS (
-                SELECT 1 FROM ntf_notification_target t
-                WHERE t.notification_id = n.id AND t.user_id = #{userId} AND t.deleted = 0
-              ))
+              AND (
+                (n.target_type = 0 AND NOT EXISTS (
+                  SELECT 1 FROM ntf_notification_target t
+                  WHERE t.notification_id = n.id AND t.user_id = #{userId} AND t.deleted = 1
+                ))
+                OR EXISTS (
+                  SELECT 1 FROM ntf_notification_target t
+                  WHERE t.notification_id = n.id AND t.user_id = #{userId} AND t.deleted = 0
+                )
+              )
               AND NOT EXISTS (
                 SELECT 1
                 FROM ntf_read_status r

@@ -3,7 +3,7 @@
     <canvas ref="canvasRef" class="classroom-canvas"></canvas>
 
     <div v-if="loadError" class="classroom-error">
-      <CircleAlert :size="28" stroke-width="1.7"/>
+      <CircleAlert :size="44" stroke-width="1.7"/>
       <p>{{ loadError }}</p>
     </div>
   </div>
@@ -16,7 +16,7 @@ import {CircleAlert} from 'lucide-vue-next'
 import * as THREE from 'three'
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js'
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
-import {RGBELoader} from 'three/examples/jsm/loaders/RGBELoader.js'
+import {HDRLoader} from 'three/examples/jsm/loaders/HDRLoader.js'
 
 import {
   issueClassSessionSeatSyncToken,
@@ -28,7 +28,7 @@ import {type ClassParticipant, ClassRoomSize, type ClassSession} from '@/feature
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import {getClassroomModelRoute} from '@/features/classroom/composables/useModelRouter'
-import {getAllSeatPositions, getDeskPosition} from '@/features/classroom/composables/useSeatLayout'
+import {getAllSeatPositions, getDeskPosition, seatIndexToPositionIndex} from '@/features/classroom/composables/useSeatLayout'
 import {
   type ClassroomDimensions,
   computeCameraPositionsBySize,
@@ -36,6 +36,7 @@ import {
 } from '@/features/classroom/composables/useCameraGroup'
 import {ModelInstanceManager} from '@/features/classroom/composables/ModelInstanceManager'
 import {SeatSpriteManager} from '@/features/classroom/composables/SeatSpriteManager'
+import {BlackboardCanvasManager} from '@/features/classroom/composables/BlackboardCanvasManager'
 import {
   type ClassroomInteractionControls,
   createClassroomInteraction
@@ -46,6 +47,7 @@ import {buildSeatSyncSocketUrl} from '@/features/classroom/composables/seatSyncS
 
 const props = defineProps<{
   session: ClassSession
+  openingTeacherName?: string
 }>()
 
 const emit = defineEmits<{
@@ -59,7 +61,7 @@ const emit = defineEmits<{
   loadError: [message: string]
 }>()
 
-const {t} = useI18n()
+const {t, locale} = useI18n()
 const authStore = useAuthStore()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -88,6 +90,7 @@ let seatSocketReconnectTimer: number | null = null
 let seatSocketReconnectAttempts = 0
 let destroyed = false
 const modelInstanceManager = new ModelInstanceManager()
+const blackboardCanvasManager = new BlackboardCanvasManager()
 const deskInstancedMeshes: THREE.InstancedMesh[] = []
 const targetBeforeClamp = new THREE.Vector3()
 const targetAfterClamp = new THREE.Vector3()
@@ -99,6 +102,25 @@ const hoveredExitDoorIndex = ref(-1)
 const exitRaycaster = new THREE.Raycaster()
 const exitPointer = new THREE.Vector2()
 const loadingLabel = (key: string) => t(`courseDetail.classSession.loadingSteps.${key}`)
+const BLACKBOARD_SEATED_STUDENT_LIMIT = 20
+const BLACKBOARD_MULTI_BOARD_SEATED_STUDENT_COLUMNS = 3
+const BLACKBOARD_SINGLE_BOARD_SEATED_STUDENT_COLUMNS = 4
+const BLACKBOARD_SEATED_STUDENTS_PER_COLUMN = 4
+const BLACKBOARD_LARGE_TOP_COLUMNS = 3
+const BLACKBOARD_LARGE_TOP_ROWS = 3
+const BLACKBOARD_LARGE_BOTTOM_COLUMNS = 3
+const BLACKBOARD_LARGE_BOTTOM_ROWS = 4
+const BLACKBOARD_LARGE_ROW_HEIGHT_MAX = 88
+const BLACKBOARD_XLARGE_LEFT_COLUMNS = 3
+const BLACKBOARD_XLARGE_LEFT_ROWS = 4
+const BLACKBOARD_XLARGE_RIGHT_COLUMNS = 3
+const BLACKBOARD_XLARGE_RIGHT_ROWS = 5
+const BLACKBOARD_MULTI_BOARD_SEATED_STUDENTS_PER_BOARD = BLACKBOARD_MULTI_BOARD_SEATED_STUDENT_COLUMNS * BLACKBOARD_SEATED_STUDENTS_PER_COLUMN
+const BLACKBOARD_SINGLE_BOARD_SEATED_STUDENTS_PER_BOARD = BLACKBOARD_SINGLE_BOARD_SEATED_STUDENT_COLUMNS * BLACKBOARD_SEATED_STUDENTS_PER_COLUMN
+const BLACKBOARD_LATIN_FONT_FAMILY = '"EduPivot Blackboard Latin"'
+const BLACKBOARD_CJK_FONT_FAMILY = '"EduPivot Blackboard CJK"'
+const BLACKBOARD_FONT_FAMILY = `${BLACKBOARD_LATIN_FONT_FAMILY}, ${BLACKBOARD_CJK_FONT_FAMILY}, cursive, sans-serif`
+const BLACKBOARD_CHALK_COLOR = 'rgba(250, 250, 238, 0.9)'
 
 const roomSpec = computed(() => getRoomSpec(props.session.roomSize))
 const currentUserId = computed(() => authStore.user?.id || '')
@@ -151,6 +173,7 @@ onUnmounted(() => {
   }
   exitLabelTextures.length = 0
   hoveredExitDoorIndex.value = -1
+  blackboardCanvasManager.dispose()
   modelInstanceManager.dispose(deskInstancedMeshes)
   rendererRef.value?.dispose()
 })
@@ -165,13 +188,14 @@ async function setupScene() {
   try {
     const canvas = canvasRef.value
     const scene = new THREE.Scene()
-    scene.fog = new THREE.Fog(0x0b1020, 22, 72)
+    scene.fog = new THREE.Fog(themeColor('--color-surface-canvas', '#0e0e0e'), 22, 72)
 
     const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
 
     const renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: false, preserveDrawingBuffer: true})
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.outputColorSpace = THREE.SRGBColorSpace
+    renderer.setClearColor(themeColor('--color-surface-canvas', '#0e0e0e'), 1)
     renderer.shadowMap.enabled = true
 
     const controls = new OrbitControls(camera, canvas)
@@ -181,7 +205,11 @@ async function setupScene() {
     controls.minDistance = 1
     controls.maxDistance = props.session.roomSize === ClassRoomSize.XLARGE ? 32 : 18
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x233045, 2.2))
+    scene.add(new THREE.HemisphereLight(
+        themeColor('--color-on-surface', '#f5f5f5'),
+        themeColor('--color-surface-container-highest', '#292929'),
+        2.2,
+    ))
 
     const environmentTexture = await loadEnvironment('/assets/Environment_mapping/cedar_bridge_sunset_1_4k.hdr')
     scene.background = environmentTexture
@@ -250,16 +278,44 @@ async function loadModels(scene: THREE.Scene, camera: THREE.PerspectiveCamera, c
   })
   scene.add(classroom.scene)
   setupExitDoor(scene, classroom.scene, classroomBounds, props.session.roomSize)
+  blackboardCanvasManager.mount(scene, props.session.roomSize)
+  void waitForBlackboardFonts().then(renderSeatedStudentsOnBlackboard).catch(() => undefined)
+  renderSeatedStudentsOnBlackboard()
 
   emitLoadingProgress(91, loadingLabel('arrangingDesks'))
-  const instancedMeshes = modelInstanceManager.createInstancedMeshes(desk.scene, roomSpec.value.deskInstanceCount, null)
-  modelInstanceManager.setInstanceMatrices(instancedMeshes, props.session.roomSize, roomSpec.value.deskInstanceCount, (index) =>
-      getDeskPosition(props.session.roomSize, index, classroomDimensions.value),
-  )
-  instancedMeshes.forEach((mesh) => {
-    deskInstancedMeshes.push(mesh)
-    scene.add(mesh)
-  })
+  const deskVariantNames = route.desk.variantNames
+  if (props.session.roomSize === ClassRoomSize.LARGE && deskVariantNames?.firstRow && deskVariantNames.otherRows) {
+    const firstRowCount = 4
+    const {firstRowMeshes, otherRowsMeshes} = modelInstanceManager.createMixedInstancedMeshes(
+        desk.scene,
+        deskVariantNames.firstRow,
+        deskVariantNames.otherRows,
+        firstRowCount,
+        roomSpec.value.deskInstanceCount - firstRowCount,
+    )
+    modelInstanceManager.setMixedInstanceMatrices(
+        firstRowMeshes,
+        otherRowsMeshes,
+        props.session.roomSize,
+        firstRowCount,
+        0,
+        firstRowCount,
+        (index) => getDeskPosition(props.session.roomSize, index, classroomDimensions.value),
+    )
+    for (const mesh of [...firstRowMeshes, ...otherRowsMeshes]) {
+      deskInstancedMeshes.push(mesh)
+      scene.add(mesh)
+    }
+  } else {
+    const instancedMeshes = modelInstanceManager.createInstancedMeshes(desk.scene, roomSpec.value.deskInstanceCount, null)
+    modelInstanceManager.setInstanceMatrices(instancedMeshes, props.session.roomSize, roomSpec.value.deskInstanceCount, (index) =>
+        getDeskPosition(props.session.roomSize, index, classroomDimensions.value),
+    )
+    instancedMeshes.forEach((mesh) => {
+      deskInstancedMeshes.push(mesh)
+      scene.add(mesh)
+    })
+  }
 }
 
 function setupSprites(scene: THREE.Scene) {
@@ -276,6 +332,7 @@ function setupInteractions(canvas: HTMLCanvasElement, camera: THREE.PerspectiveC
     instancedMeshes: deskInstancedMeshes,
     roomSize: props.session.roomSize,
     dimensions: classroomDimensions.value,
+    deskInstanceCount: roomSpec.value.deskInstanceCount,
     exitTarget: exitDoorRef.value.length > 0 ? exitDoorRef.value : null,
     onHover: () => undefined,
     onClick: handleSeatClick,
@@ -311,7 +368,7 @@ async function handleSeatClick(seatIndex: number) {
     if (participantsBySeat.value.get(seatIndex)) {
       return
     }
-    const position = getAllSeatPositions(props.session.roomSize, classroomDimensions.value)[seatIndex]
+    const position = getAllSeatPositions(props.session.roomSize, classroomDimensions.value)[seatIndexToPositionIndex(seatIndex)]
     const participant = await joinClassSession(props.session.id, {
       seatIndex,
       x: round(position.x),
@@ -458,6 +515,7 @@ function applySnapshot(participants: ClassParticipant[]) {
   })
   participantsBySeat.value = next
   spriteManagerRef.value?.applySnapshot(Array.from(next.values()))
+  renderSeatedStudentsOnBlackboard()
   emitParticipantsChange()
 }
 
@@ -474,6 +532,7 @@ function upsertParticipant(participant: ClassParticipant) {
   next.set(participant.seatIndex, participant)
   participantsBySeat.value = next
   void spriteManagerRef.value?.upsert(participant)
+  renderSeatedStudentsOnBlackboard()
   emitParticipantsChange()
 }
 
@@ -492,6 +551,7 @@ function removeParticipant(userId: string, seatIndex?: number | null) {
     spriteManagerRef.value?.removeByUserId(userId)
   }
   participantsBySeat.value = next
+  renderSeatedStudentsOnBlackboard()
   emitParticipantsChange()
 }
 
@@ -551,6 +611,329 @@ function updateExitDoorHover(camera: THREE.PerspectiveCamera) {
   hoveredExitDoorIndex.value = hoveredIndex
 }
 
+function renderSeatedStudentsOnBlackboard() {
+  const canvasCount = blackboardCanvasManager.getCanvases().length
+  if (canvasCount === 0) {
+    return
+  }
+  const seatedStudents = Array.from(participantsBySeat.value.values())
+      .filter(participant => participant.role === 1 && participant.seatIndex != null)
+      .sort((a, b) => joinedAtTime(b) - joinedAtTime(a))
+  const isXLargeRoom = props.session.roomSize === ClassRoomSize.XLARGE && canvasCount >= 4
+  const studentBoardIndexes = isXLargeRoom ? [0, 3] : Array.from({length: canvasCount}, (_, index) => index)
+  const isLargeRoom = props.session.roomSize === ClassRoomSize.LARGE && canvasCount >= 2
+  const isSingleBoardGridRoom = canvasCount === 1
+      && (props.session.roomSize === ClassRoomSize.SMALL || props.session.roomSize === ClassRoomSize.MEDIUM)
+  const fixedColumnCount = studentBoardIndexes.length > 1
+      ? BLACKBOARD_MULTI_BOARD_SEATED_STUDENT_COLUMNS
+      : (isSingleBoardGridRoom ? BLACKBOARD_SINGLE_BOARD_SEATED_STUDENT_COLUMNS : 0)
+  const studentsPerBoard = studentBoardIndexes.length > 1
+      ? BLACKBOARD_MULTI_BOARD_SEATED_STUDENTS_PER_BOARD
+      : (isSingleBoardGridRoom ? BLACKBOARD_SINGLE_BOARD_SEATED_STUDENTS_PER_BOARD : BLACKBOARD_SEATED_STUDENT_LIMIT)
+  let largeRoomStartIndex = 0
+  blackboardCanvasManager.render((context, canvas, index) => {
+    const boardPageIndex = studentBoardIndexes.indexOf(index)
+    if (boardPageIndex < 0) {
+      if (isXLargeRoom) {
+        drawCourseInfoOnBlackboard(
+            context,
+            canvas,
+            index,
+            props.openingTeacherName || props.session.teacherId,
+        )
+      }
+      return
+    }
+    const boardGrid = blackboardStudentGrid(index)
+    const boardCapacity = boardGrid ? boardGrid.columns * boardGrid.rows : studentsPerBoard
+    const startIndex = boardGrid ? largeRoomStartIndex : boardPageIndex * studentsPerBoard
+    const boardParticipants = seatedStudents.slice(startIndex, startIndex + boardCapacity)
+    if (boardGrid) {
+      largeRoomStartIndex += boardCapacity
+    }
+    if (startIndex > 0 && boardParticipants.length === 0) {
+      return
+    }
+    const overflowCount = boardPageIndex === studentBoardIndexes.length - 1
+        ? (boardGrid ? 0 : Math.max(seatedStudents.length - startIndex - boardParticipants.length, 0))
+        : 0
+    drawSeatedStudents(
+        context,
+        canvas,
+        boardParticipants,
+        seatedStudents.length,
+        roomSpec.value.seatCount,
+        fixedColumnCount > 0 ? canvas.width : canvas.width / 2,
+        boardPageIndex === 0,
+        startIndex,
+        overflowCount,
+        boardGrid?.columns ?? fixedColumnCount,
+        boardGrid?.rows ?? BLACKBOARD_SEATED_STUDENTS_PER_COLUMN,
+        isSingleBoardGridRoom || (isLargeRoom && index === 0) ? props.session.title : '',
+        props.openingTeacherName || props.session.teacherId,
+        Boolean(boardGrid),
+    )
+  })
+}
+
+function largeRoomBoardGrid(index: number) {
+  if (props.session.roomSize !== ClassRoomSize.LARGE) {
+    return null
+  }
+  if (index === 0) {
+    return {columns: BLACKBOARD_LARGE_TOP_COLUMNS, rows: BLACKBOARD_LARGE_TOP_ROWS}
+  }
+  if (index === 1) {
+    return {columns: BLACKBOARD_LARGE_BOTTOM_COLUMNS, rows: BLACKBOARD_LARGE_BOTTOM_ROWS}
+  }
+  return null
+}
+
+function xLargeRoomBoardGrid(index: number) {
+  if (props.session.roomSize !== ClassRoomSize.XLARGE) {
+    return null
+  }
+  if (index === 0) {
+    return {columns: BLACKBOARD_XLARGE_LEFT_COLUMNS, rows: BLACKBOARD_XLARGE_LEFT_ROWS}
+  }
+  if (index === 3) {
+    return {columns: BLACKBOARD_XLARGE_RIGHT_COLUMNS, rows: BLACKBOARD_XLARGE_RIGHT_ROWS}
+  }
+  return null
+}
+
+function blackboardStudentGrid(index: number) {
+  return largeRoomBoardGrid(index) ?? xLargeRoomBoardGrid(index)
+}
+
+function drawCourseInfoOnBlackboard(
+    context: CanvasRenderingContext2D,
+    canvas: HTMLCanvasElement,
+    index: number,
+    teacherName: string,
+) {
+  const paddingX = 52
+  const textWidth = canvas.width - paddingX * 2
+  context.save()
+  context.fillStyle = BLACKBOARD_CHALK_COLOR
+  context.textBaseline = 'top'
+
+  if (index === 1) {
+    drawCenteredBlackboardText(context, props.session.title, canvas.width, 64, textWidth, 34)
+  } else {
+    context.font = `400 30px ${BLACKBOARD_FONT_FAMILY}`
+    drawBlackboardText(context, `\u5f00\u8bfe\u6559\u5e08\uff1a${teacherName}`, paddingX, 72, textWidth)
+    context.font = `400 26px ${BLACKBOARD_FONT_FAMILY}`
+    drawBlackboardText(context, `\u4e0a\u8bfe\u65f6\u95f4\uff1a${formatBlackboardDateTime(props.session.scheduledStartAt)}`, paddingX, 154, textWidth)
+  }
+
+  context.restore()
+}
+
+function drawCenteredBlackboardText(
+    context: CanvasRenderingContext2D,
+    text: string,
+    canvasWidth: number,
+    y: number,
+    maxWidth: number,
+    fontSize: number,
+) {
+  context.font = `400 ${fontSize}px ${BLACKBOARD_FONT_FAMILY}`
+  const fittedText = fitCanvasText(context, text, maxWidth)
+  const textWidth = context.measureText(fittedText).width
+  drawBlackboardText(context, fittedText, (canvasWidth - textWidth) / 2, y, textWidth + 1)
+}
+
+function drawSeatedStudents(
+    context: CanvasRenderingContext2D,
+    canvas: HTMLCanvasElement,
+    participants: ClassParticipant[],
+    totalParticipants: number,
+    seatCount: number,
+    targetWidth: number,
+    showTitle = true,
+    startIndex = 0,
+    overflowCount = 0,
+    fixedColumnCount = 0,
+    fixedRowsPerColumn = BLACKBOARD_SEATED_STUDENTS_PER_COLUMN,
+    boardTitle = '',
+    teacherName = '',
+    isLargeBoard = false,
+) {
+  const paddingX = isLargeBoard ? 44 : 52
+  const textWidth = Math.max(targetWidth - paddingX * 2, 120)
+  context.save()
+  context.fillStyle = BLACKBOARD_CHALK_COLOR
+  context.textBaseline = 'top'
+  if (boardTitle) {
+    context.font = `400 ${isLargeBoard ? 30 : 34}px ${BLACKBOARD_FONT_FAMILY}`
+    const fittedBoardTitle = fitCanvasText(context, boardTitle, textWidth)
+    const boardTitleWidth = context.measureText(fittedBoardTitle).width
+    drawBlackboardText(context, fittedBoardTitle, (canvas.width - boardTitleWidth) / 2, isLargeBoard ? 16 : 20, boardTitleWidth + 1)
+  }
+  if (showTitle) {
+    const title = `${t('courseDetail.classSession.seatedStudents')} ${totalParticipants}/${seatCount}`
+    context.font = `400 ${isLargeBoard ? 36 : 42}px ${BLACKBOARD_FONT_FAMILY}`
+    const titleY = boardTitle ? (isLargeBoard ? 56 : 72) : 44
+    drawBlackboardText(context, title, paddingX, titleY, textWidth)
+    if (teacherName) {
+      const teacherText = `\u5f00\u8bfe\u6559\u5e08\uff1a${teacherName}`
+      const teacherTextWidth = Math.min(context.measureText(teacherText).width, textWidth * 0.46)
+      drawBlackboardText(context, teacherText, canvas.width - paddingX - teacherTextWidth, titleY, teacherTextWidth)
+    }
+  }
+
+  if (totalParticipants === 0) {
+    context.font = `400 30px ${BLACKBOARD_FONT_FAMILY}`
+    drawBlackboardText(context, t('courseDetail.classSession.noSeatedStudents'), paddingX, 118, textWidth)
+    context.restore()
+    return
+  }
+
+  const visibleParticipants = participants.slice(0, BLACKBOARD_SEATED_STUDENT_LIMIT)
+  const columnCount = fixedColumnCount > 0 ? fixedColumnCount : (visibleParticipants.length > 10 ? 2 : 1)
+  const columnGap = columnCount > 1 ? 36 : 0
+  const columnWidth = (textWidth - columnGap * (columnCount - 1)) / columnCount
+  const rowsPerColumn = fixedColumnCount > 0
+      ? fixedRowsPerColumn
+      : Math.ceil(visibleParticipants.length / columnCount)
+  const startY = showTitle ? (boardTitle ? (isLargeBoard ? 104 : 134) : 106) : (isLargeBoard ? 52 : 44)
+  const rowHeightMax = isLargeBoard ? BLACKBOARD_LARGE_ROW_HEIGHT_MAX : 56
+  const rowHeight = Math.max(34, Math.min(rowHeightMax, Math.floor((canvas.height - startY - 32) / Math.max(rowsPerColumn, 1))))
+  const nameFontSize = isLargeBoard ? (rowHeight <= 58 ? 24 : 28) : (rowHeight <= 40 ? 22 : 30)
+  const metaFontSize = isLargeBoard ? (rowHeight <= 58 ? 15 : 17) : (rowHeight <= 40 ? 13 : 20)
+  const metaOffsetY = isLargeBoard ? (rowHeight <= 58 ? 24 : 30) : (rowHeight <= 40 ? 23 : 33)
+  visibleParticipants.forEach((participant, index) => {
+    const columnIndex = Math.floor(index / rowsPerColumn)
+    const rowIndex = index % rowsPerColumn
+    const x = paddingX + columnIndex * (columnWidth + columnGap)
+    const y = startY + rowIndex * rowHeight
+    context.font = `400 ${nameFontSize}px ${BLACKBOARD_FONT_FAMILY}`
+    drawBlackboardText(context, `${startIndex + index + 1}. ${participant.displayName || participant.userId}`, x, y, columnWidth)
+    context.font = `400 ${metaFontSize}px ${BLACKBOARD_FONT_FAMILY}`
+    drawBlackboardText(
+        context,
+        `${t('courseDetail.classSession.seatNumber', {number: participant.seatIndex ?? 0})} / ${formatBlackboardDateTime(participant.joinedAt)}`,
+        x + 28,
+        y + metaOffsetY,
+        columnWidth - 28,
+    )
+  })
+  if (overflowCount > 0 || participants.length > visibleParticipants.length) {
+    context.font = `400 22px ${BLACKBOARD_FONT_FAMILY}`
+    drawBlackboardText(
+        context,
+        `+${overflowCount || participants.length - visibleParticipants.length}`,
+        paddingX,
+        canvas.height - 48,
+        textWidth,
+    )
+  }
+  context.restore()
+}
+
+async function waitForBlackboardFonts() {
+  if (!document.fonts) {
+    return
+  }
+  await Promise.all([
+    document.fonts.load(`400 42px ${BLACKBOARD_CJK_FONT_FAMILY}`, '\u5df2\u843d\u5ea7'),
+    document.fonts.load(`400 30px ${BLACKBOARD_LATIN_FONT_FAMILY}`, 'Wei Qing'),
+    document.fonts.ready,
+  ])
+}
+
+function joinedAtTime(participant: ClassParticipant) {
+  const time = new Date(participant.joinedAt).getTime()
+  return Number.isNaN(time) ? 0 : time
+}
+
+function drawBlackboardText(context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number) {
+  const fittedText = fitCanvasText(context, text, maxWidth)
+  const textWidth = context.measureText(fittedText).width
+  const fontSize = getCanvasFontSize(context.font)
+  context.save()
+  context.shadowColor = 'rgba(255, 255, 255, 0.16)'
+  context.shadowBlur = 0.8
+  context.fillText(fittedText, x, y)
+  context.shadowBlur = 0
+  context.globalAlpha = 0.32
+  context.fillText(fittedText, x + 0.7, y + 0.35)
+  context.globalAlpha = 0.2
+  context.fillText(fittedText, x - 0.5, y + 0.7)
+  context.globalAlpha = 1
+  dustChalkText(context, fittedText, x, y, textWidth, fontSize)
+  context.restore()
+}
+
+function dustChalkText(
+    context: CanvasRenderingContext2D,
+    text: string,
+    x: number,
+    y: number,
+    width: number,
+    fontSize: number,
+) {
+  const random = seededRandom(`${text}:${context.font}:${Math.round(x)}:${Math.round(y)}`)
+  const dotCount = Math.max(8, Math.floor((width * fontSize) / 260))
+  context.globalCompositeOperation = 'destination-out'
+  context.fillStyle = 'rgba(0, 0, 0, 0.12)'
+  for (let i = 0; i < dotCount; i += 1) {
+    const dotX = x + random() * width
+    const dotY = y + random() * fontSize * 1.18
+    const radius = 0.35 + random() * 0.9
+    context.globalAlpha = 0.16 + random() * 0.18
+    context.beginPath()
+    context.arc(dotX, dotY, radius, 0, Math.PI * 2)
+    context.fill()
+  }
+}
+
+function seededRandom(seedText: string) {
+  let seed = 2166136261
+  for (let i = 0; i < seedText.length; i += 1) {
+    seed ^= seedText.charCodeAt(i)
+    seed = Math.imul(seed, 16777619)
+  }
+  return () => {
+    seed += 0x6D2B79F5
+    let value = seed
+    value = Math.imul(value ^ (value >>> 15), value | 1)
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61)
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function getCanvasFontSize(font: string) {
+  const match = /(\d+(?:\.\d+)?)px/.exec(font)
+  return match ? Number(match[1]) : 24
+}
+
+function fitCanvasText(context: CanvasRenderingContext2D, text: string, maxWidth: number) {
+  if (context.measureText(text).width <= maxWidth) {
+    return text
+  }
+  const ellipsis = '...'
+  let end = text.length
+  while (end > 0 && context.measureText(`${text.slice(0, end)}${ellipsis}`).width > maxWidth) {
+    end -= 1
+  }
+  return `${text.slice(0, end)}${ellipsis}`
+}
+
+function formatBlackboardDateTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return '-'
+  }
+  return new Intl.DateTimeFormat(locale.value, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
 function resizeRenderer() {
   if (!canvasRef.value || !rendererRef.value || !cameraRef.value) {
     return
@@ -573,8 +956,44 @@ function measureClassroomDimensions(box: THREE.Box3): ClassroomDimensions {
   return {x: size.x, y: size.y, z: size.z}
 }
 
+function getExitDoorSize(roomSize: number) {
+  switch (roomSize) {
+    case ClassRoomSize.LARGE:
+      return {
+        labelWidth: 2.8,
+        labelHeight: 0.68,
+        labelY: 1.35,
+        targetWidth: 3,
+        targetHeight: 1,
+        targetDepth: 0.8,
+        targetY: 1.2,
+      }
+    case ClassRoomSize.XLARGE:
+      return {
+        labelWidth: 1.5,
+        labelHeight: 0.68,
+        labelY: 1.35,
+        targetWidth: 1.7,
+        targetHeight: 1,
+        targetDepth: 0.8,
+        targetY: 1.2,
+      }
+    default:
+      return {
+        labelWidth: 2.2,
+        labelHeight: 0.68,
+        labelY: 1.35,
+        targetWidth: 2.6,
+        targetHeight: 1,
+        targetDepth: 0.8,
+        targetY: 1.2,
+      }
+  }
+}
+
 function setupExitDoor(scene: THREE.Scene, classroom: THREE.Object3D, bounds: THREE.Box3, roomSize: number) {
   const anchors = findDoorAnchors(classroom, bounds, roomSize)
+  const exitDoorSize = getExitDoorSize(roomSize)
 
   for (let i = 0; i < anchors.length; i += 1) {
     const group = new THREE.Group()
@@ -587,23 +1006,23 @@ function setupExitDoor(scene: THREE.Scene, classroom: THREE.Object3D, bounds: TH
     const textures = createExitLabelTextures()
     exitLabelTextures.push(textures)
 
-    const labelGeometry = new THREE.PlaneGeometry(2.2, 0.68)
+    const labelGeometry = new THREE.PlaneGeometry(exitDoorSize.labelWidth, exitDoorSize.labelHeight)
     const labelMaterial = new THREE.MeshBasicMaterial({
       map: textures.normal,
       transparent: true,
       opacity: 0.3,
-      depthTest: false,
+      depthTest: true,
       depthWrite: false,
       side: THREE.DoubleSide,
     })
     exitLabelMaterials.push(labelMaterial)
     const label = new THREE.Mesh(labelGeometry, labelMaterial)
     label.name = `exit_door_label_${i}`
-    label.position.set(0, 1.35, 0)
+    label.position.set(0, exitDoorSize.labelY, 0)
     group.add(label)
 
-    const targetGeometry = new THREE.BoxGeometry(2.6, 3.2, 0.8)
-    targetGeometry.translate(0, 1.2, 0)
+    const targetGeometry = new THREE.BoxGeometry(exitDoorSize.targetWidth, exitDoorSize.targetHeight, exitDoorSize.targetDepth)
+    targetGeometry.translate(0, exitDoorSize.targetY, 0)
     const targetMaterial = new THREE.MeshBasicMaterial({
       transparent: true,
       opacity: 0,
@@ -625,22 +1044,13 @@ function findDoorAnchors(_classroom: THREE.Object3D, bounds: THREE.Box3, roomSiz
   switch (roomSize) {
     case ClassRoomSize.SMALL:
       return [
-        {
-          position: new THREE.Vector3(-3.5, y, 3.5),
-          quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)
-        },
+        {position: new THREE.Vector3(-3.4, 1, 3.2), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI)},
       ]
 
     case ClassRoomSize.MEDIUM:
       return [
-        {
-          position: new THREE.Vector3(-7.4, y, 7.3),
-          quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)
-        },
-        {
-          position: new THREE.Vector3(-7.4, y, -7.3),
-          quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)
-        },
+        {position: new THREE.Vector3(-7.3, y, 7.2), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)},
+        {position: new THREE.Vector3(-7.3, y, -7.3), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)},
       ]
 
     case ClassRoomSize.LARGE:
@@ -657,14 +1067,8 @@ function findDoorAnchors(_classroom: THREE.Object3D, bounds: THREE.Box3, roomSiz
 
     case ClassRoomSize.XLARGE:
       return [
-        {
-          position: new THREE.Vector3(-10, y, 9),
-          quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)
-        },
-        {
-          position: new THREE.Vector3(10, y, 9),
-          quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)
-        },
+        {position: new THREE.Vector3(-9.3, 1, 8), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2)},
+        {position: new THREE.Vector3(9.3, 1, 8), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2)},
       ]
 
     default:
@@ -686,28 +1090,53 @@ function faceRoomCenter(position: THREE.Vector3) {
 function createExitLabelTextures() {
   const labelText = t('courseDetail.classSession.exitClassroomLabel')
 
-  const normalTexture = createLabelTexture(labelText, false)
-  const highlightTexture = createLabelTexture(labelText, true)
+  const normalTexture = createLabelTexture(labelText, false, 'center')
+  const highlightTexture = createLabelTexture(labelText, true, 'center')
 
   return {normal: normalTexture, highlight: highlightTexture}
 }
 
-function createLabelTexture(labelText: string, isHighlight: boolean) {
+function createLabelTexture(labelText: string | string[], isHighlight: boolean, textAlign: 'left' | 'center' = 'left') {
   const canvas = document.createElement('canvas')
+  const lines = Array.isArray(labelText) ? labelText : [labelText]
+  const lineCount = lines.length
   canvas.width = 512
-  canvas.height = 160
+  canvas.height = lineCount === 1 ? 160 : 220
   const context = canvas.getContext('2d')
   if (context) {
+    const textColor = themeValue('--color-on-surface', '#f5f5f5')
+    const mutedColor = themeValue('--color-on-surface-variant', '#d4d4d4')
+    const labelFont = themeValue('--font-label', 'sans-serif')
     context.clearRect(0, 0, canvas.width, canvas.height)
 
-    context.lineWidth = isHighlight ? 10 : 6
-    context.strokeStyle = isHighlight ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.5)'
-    context.font = '700 58px sans-serif'
-    context.textAlign = 'center'
-    context.textBaseline = 'middle'
-    context.strokeText(labelText, canvas.width / 2, canvas.height / 2 + 3)
-    context.fillStyle = isHighlight ? '#ffffff' : '#e5e7eb'
-    context.fillText(labelText, canvas.width / 2, canvas.height / 2 + 3)
+    context.lineWidth = isHighlight ? 8 : 4
+    context.strokeStyle = isHighlight ? textColor : mutedColor
+    context.textAlign = textAlign
+
+    const paddingX = textAlign === 'left' ? 10 : 0
+    const lineHeight = lineCount === 1 ? 0 : 75
+    const startY = lineCount === 1 ? canvas.height / 2 : 50
+
+    lines.forEach((line, index) => {
+      const fontSize = lineCount === 1 ? 58 : (index === 0 ? 48 : 40)
+      context.font = `500 ${fontSize}px ${labelFont}`
+      context.textBaseline = 'middle'
+      const x = textAlign === 'left' ? paddingX : canvas.width / 2
+      const y = startY + index * lineHeight
+
+      if (isHighlight) {
+        context.shadowColor = textColor
+        context.shadowBlur = 15
+        context.shadowOffsetX = 0
+        context.shadowOffsetY = 0
+      }
+
+      context.strokeText(line, x, y + 3)
+      context.fillStyle = isHighlight ? textColor : mutedColor
+      context.fillText(line, x, y + 3)
+
+      context.shadowBlur = 0
+    })
   }
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
@@ -848,12 +1277,11 @@ function loadGlb(path: string, onProgress?: (event?: ProgressEvent<EventTarget>)
 }
 
 function loadEnvironment(path: string): Promise<THREE.Texture> {
-  const loader = new RGBELoader()
+  const loader = new HDRLoader()
   return new Promise((resolve, reject) => {
     loader.load(
         path,
         (texture) => {
-          texture.colorSpace = THREE.SRGBColorSpace
           texture.mapping = THREE.EquirectangularReflectionMapping
           resolve(texture)
         },
@@ -861,6 +1289,14 @@ function loadEnvironment(path: string): Promise<THREE.Texture> {
         reject,
     )
   })
+}
+
+function themeValue(name: string, fallback: string) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
+}
+
+function themeColor(name: string, fallback: string) {
+  return new THREE.Color(themeValue(name, fallback))
 }
 
 function disposeObject(object: THREE.Object3D) {
@@ -903,7 +1339,7 @@ function round(value: number) {
   height: 100dvh;
   min-height: 0;
   overflow: hidden;
-  background: #0b1020;
+  background: var(--color-surface-canvas);
 }
 
 .classroom-canvas {
@@ -918,21 +1354,19 @@ function round(value: number) {
   left: 50%;
   top: 50%;
   display: grid;
-  min-width: min(100% - 48px, 360px);
-  padding: 20px;
   place-items: center;
   align-content: center;
-  gap: 12px;
+  gap: 16px;
   transform: translate(-50%, -50%);
-  border: 1px solid rgb(255 255 255 / 18%);
-  background: rgba(8, 13, 27, 0.86);
-  color: #f8fafc;
+  color: var(--color-on-surface);
   text-align: center;
 }
 
 .classroom-error p {
   margin: 0;
   font-family: var(--font-body);
+  font-size: 18px;
+  font-weight: 600;
 }
 
 @media (max-width: 760px) {

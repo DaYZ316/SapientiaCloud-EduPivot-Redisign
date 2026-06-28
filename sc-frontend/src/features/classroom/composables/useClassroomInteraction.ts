@@ -1,7 +1,13 @@
 import * as THREE from 'three'
 
 import {ClassRoomSize} from '@/features/course/types/classSession'
-import {getDeskPosition, getDeskYaw, type RoomPlanDimensions} from '@/features/classroom/composables/useSeatLayout'
+import {
+    getDeskPosition,
+    getDeskYaw,
+    largeDeskSeatToSeatIndex,
+    smallDeskIndexToSeatIndex,
+    type RoomPlanDimensions,
+} from '@/features/classroom/composables/useSeatLayout'
 
 const LARGE_SEATS_PER_DESK = 4
 
@@ -13,6 +19,8 @@ export interface ClassroomInteractionOptions {
     exitTarget?: THREE.Object3D | THREE.Object3D[] | null
     roomSize: number
     dimensions?: RoomPlanDimensions
+    /** 桌子实例总数（当使用混合模型时，instancedMeshes[0].count不等于总数） */
+    deskInstanceCount?: number
     onHover: (seatIndex: number | null, event: MouseEvent) => void
     onClick: (seatIndex: number) => void
     onContextMenu: (seatIndex: number) => void
@@ -26,6 +34,7 @@ export interface ClassroomInteractionControls {
 interface SeatHit {
     seatIndex: number
     deskIndex: number
+    seatInDesk?: number
 }
 
 const DRAG_CLICK_THRESHOLD_PX = 5
@@ -37,7 +46,9 @@ export function createClassroomInteraction(options: ClassroomInteractionOptions)
     const isLargeRoom = options.roomSize === ClassRoomSize.LARGE
     const metrics = getDeskInteractionMetrics(options.instancedMeshes, isLargeRoom)
     const highlight = createDeskHighlight(metrics, isLargeRoom)
-    const targets = createInteractionTargets(options.roomSize, options.instancedMeshes[0]?.count ?? 0, metrics, options.dimensions)
+    // 使用显式传入的deskInstanceCount，否则从第一个instancedMesh获取
+    const deskCount = options.deskInstanceCount ?? options.instancedMeshes[0]?.count ?? 0
+    const targets = createInteractionTargets(options.roomSize, deskCount, metrics, options.dimensions)
     let hoveredSeat: number | null = null
     let pointerDownX = 0
     let pointerDownY = 0
@@ -63,10 +74,15 @@ export function createClassroomInteraction(options: ClassroomInteractionOptions)
         }
         const seatIndex = Number(hit.object.userData.seatIndex)
         const deskIndex = Number(hit.object.userData.deskIndex)
+        const seatInDesk = Number(hit.object.userData.seatInDesk)
         if (!Number.isFinite(seatIndex) || !Number.isFinite(deskIndex)) {
             return null
         }
-        return {seatIndex, deskIndex}
+        return {
+            seatIndex,
+            deskIndex,
+            seatInDesk: Number.isFinite(seatInDesk) ? seatInDesk : undefined,
+        }
     }
 
     function detectExit(event: MouseEvent) {
@@ -91,7 +107,7 @@ export function createClassroomInteraction(options: ClassroomInteractionOptions)
         highlight.position.copy(deskPosition)
 
         if (options.roomSize === ClassRoomSize.LARGE) {
-            const seatInDesk = hit.seatIndex % LARGE_SEATS_PER_DESK
+            const seatInDesk = hit.seatInDesk ?? hit.seatIndex % LARGE_SEATS_PER_DESK
             const seatWidth = Math.max(metrics.proxySize.z / LARGE_SEATS_PER_DESK, 0.4)
             const seatLocalZ = metrics.proxyCenter.z - metrics.proxySize.z / 2 + (seatInDesk + 0.5) * seatWidth
             const deltaZ = seatLocalZ - metrics.proxyCenter.z
@@ -276,7 +292,7 @@ function createInteractionTargets(
             const deskQuaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, getDeskYaw(roomSize, deskIndex, dimensions), 0))
 
             for (let seatInDesk = 0; seatInDesk < LARGE_SEATS_PER_DESK; seatInDesk += 1) {
-                const seatIndex = deskIndex * LARGE_SEATS_PER_DESK + seatInDesk
+                const seatIndex = largeDeskSeatToSeatIndex(deskIndex, seatInDesk)
                 const seatGeometryOffset = seatGeometry.clone()
                 const seatZOffset = metrics.proxyCenter.z - metrics.proxySize.z / 2 + (seatInDesk + 0.5) * seatWidth
                 seatGeometryOffset.translate(metrics.proxyCenter.x, metrics.proxyCenter.y, seatZOffset)
@@ -286,6 +302,7 @@ function createInteractionTargets(
                 seatProxy.quaternion.copy(deskQuaternion)
                 seatProxy.userData.seatIndex = seatIndex
                 seatProxy.userData.deskIndex = deskIndex
+                seatProxy.userData.seatInDesk = seatInDesk
                 group.add(seatProxy)
             }
         }
@@ -298,7 +315,7 @@ function createInteractionTargets(
             target.position.copy(getDeskPosition(roomSize, index, dimensions))
             target.quaternion.setFromEuler(new THREE.Euler(0, getDeskYaw(roomSize, index, dimensions), 0))
             target.userData.deskIndex = index
-            target.userData.seatIndex = index
+            target.userData.seatIndex = roomSize === ClassRoomSize.SMALL ? smallDeskIndexToSeatIndex(index) : index + 1
             group.add(target)
         }
     }

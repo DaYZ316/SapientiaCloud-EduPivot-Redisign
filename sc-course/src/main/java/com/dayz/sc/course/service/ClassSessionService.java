@@ -561,7 +561,7 @@ public class ClassSessionService {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Seat index is required");
         }
         int capacity = seatCapacity(roomSize);
-        if (seatIndex < 0 || seatIndex >= capacity) {
+        if (seatIndex < 1 || seatIndex > capacity) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "Seat index is out of range");
         }
         return seatIndex;

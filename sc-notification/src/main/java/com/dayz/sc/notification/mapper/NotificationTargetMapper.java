@@ -19,6 +19,13 @@ import java.util.UUID;
 @Mapper
 public interface NotificationTargetMapper extends BaseMapper<NotificationTarget> {
 
+    @Insert("""
+            INSERT INTO ntf_notification_target (id, notification_id, user_id, deleted)
+            VALUES (gen_random_uuid(), #{notificationId}, #{userId}, 1)
+            ON CONFLICT (notification_id, user_id) DO UPDATE SET deleted = 1
+            """)
+    int markDeleted(@Param("notificationId") UUID notificationId, @Param("userId") UUID userId);
+
     /**
      * 将用户的所有通知目标标记为已删除
      *
@@ -42,6 +49,22 @@ public interface NotificationTargetMapper extends BaseMapper<NotificationTarget>
             </script>
             """)
     int markAllDeleted(@Param("userId") UUID userId, @Param("type") Integer type);
+
+    @Insert("""
+            <script>
+            INSERT INTO ntf_notification_target (id, notification_id, user_id, deleted)
+            SELECT gen_random_uuid(), n.id, #{userId}, 1
+            FROM ntf_notification n
+            WHERE n.deleted = 0
+              AND n.target_type = 0
+              AND (n.sender_id IS NULL OR n.sender_id != #{userId})
+              <if test="type != null">
+                AND n.type = #{type}
+              </if>
+            ON CONFLICT (notification_id, user_id) DO UPDATE SET deleted = 1
+            </script>
+            """)
+    int markAllBroadcastDeleted(@Param("userId") UUID userId, @Param("type") Integer type);
 
     /**
      * 批量插入通知目标用户关联

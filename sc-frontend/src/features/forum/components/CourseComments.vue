@@ -3,7 +3,6 @@
     <form v-if="canComment" class="comment-composer" @submit.prevent="submitComment">
       <div class="composer-head">
         <div>
-          <span class="composer-kicker">{{ t('forum.composerKicker') }}</span>
           <strong>{{ t('forum.composerTitle') }}</strong>
         </div>
         <span>{{ t('forum.composerHint') }}</span>
@@ -499,16 +498,6 @@ function handleReplyDeleted(commentId: string) {
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
-
-.composer-kicker {
-  color: var(--color-muted);
-  font-family: var(--font-label);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  line-height: 1;
-  text-transform: uppercase;
 }
 
 .composer-head strong {

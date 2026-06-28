@@ -50,4 +50,18 @@ public class MybatisLiveTranscriptSegmentRepository implements LiveTranscriptSeg
         wrapper.orderByAsc(LiveTranscriptSegment::getSequenceNo);
         return mapper.selectList(wrapper);
     }
+
+    @Override
+    public void deleteBySummarySessionId(UUID summarySessionId) {
+        LambdaQueryWrapper<LiveTranscriptSegment> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(LiveTranscriptSegment::getSummarySessionId, summarySessionId);
+        mapper.delete(wrapper);
+    }
+
+    @Override
+    public void deleteByClassSessionId(UUID classSessionId) {
+        LambdaQueryWrapper<LiveTranscriptSegment> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(LiveTranscriptSegment::getClassSessionId, classSessionId);
+        mapper.delete(wrapper);
+    }
 }

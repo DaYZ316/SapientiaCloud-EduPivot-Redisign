@@ -14,12 +14,14 @@ import type {
     KnowledgeDoc,
     LiveSummaryAudioToken,
     LiveSummaryErrorEvent,
+    LiveSummaryRecord,
     LiveSummarySession,
     LiveSummarySnapshot,
     LiveTranscriptSegment,
     UpdateConversationRequest,
 } from '@/features/ai/types/ai'
 import {type SseSubscription, sseUrl, subscribeSse} from '@/shared/api/sseManager'
+import type {PageResponse} from '@/shared/types/common'
 
 export type GeneratedArtifactExportFormat = 'pdf' | 'docx'
 
@@ -148,6 +150,14 @@ export function startLiveSummary(classSessionId: string) {
     })
 }
 
+export function resumeLiveSummary(classSessionId: string, summarySessionId: string) {
+    return request<LiveSummarySession>({
+        method: 'POST',
+        url: `/api/ai/live-summaries/class-sessions/${classSessionId}/resume/${summarySessionId}`,
+        silent: true,
+    })
+}
+
 export function stopLiveSummary(classSessionId: string) {
     return request<LiveSummarySession>({
         method: 'POST',
@@ -159,6 +169,47 @@ export function stopLiveSummary(classSessionId: string) {
 export function getLiveSummary(classSessionId: string) {
     return request<LiveSummarySession>({
         method: 'GET',
+        url: `/api/ai/live-summaries/class-sessions/${classSessionId}`,
+        silent: true,
+    })
+}
+
+export function listLiveSummaryRecords(page = 1, size = 20) {
+    return request<PageResponse<LiveSummaryRecord>>({
+        method: 'GET',
+        url: '/api/ai/live-summaries',
+        params: {page, size},
+        silent: true,
+    })
+}
+
+export function listLiveSummarySnapshots(classSessionId: string) {
+    return request<LiveSummarySnapshot[]>({
+        method: 'GET',
+        url: `/api/ai/live-summaries/class-sessions/${classSessionId}/snapshots`,
+        silent: true,
+    })
+}
+
+export function deleteLiveSummarySnapshot(classSessionId: string, snapshotId: string) {
+    return request<LiveSummarySnapshot[]>({
+        method: 'DELETE',
+        url: `/api/ai/live-summaries/class-sessions/${classSessionId}/snapshots/${snapshotId}`,
+        silent: true,
+    })
+}
+
+export function deleteLiveSummaryHistoryRecord(classSessionId: string, summarySessionId: string) {
+    return request<LiveSummarySnapshot[]>({
+        method: 'DELETE',
+        url: `/api/ai/live-summaries/class-sessions/${classSessionId}/history-records/${summarySessionId}`,
+        silent: true,
+    })
+}
+
+export function clearLiveSummary(classSessionId: string) {
+    return request<LiveSummarySession>({
+        method: 'DELETE',
         url: `/api/ai/live-summaries/class-sessions/${classSessionId}`,
         silent: true,
     })

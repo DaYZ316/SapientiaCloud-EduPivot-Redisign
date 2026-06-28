@@ -40,8 +40,8 @@
             </div>
 
             <div class="profile-form-pane">
-              <div class="form-grid">
-                <div class="form-group">
+              <div class="profile-basic-grid">
+                <div class="form-group profile-field-display-name">
                   <label for="settings-display-name">{{ t('settings.displayName') }}</label>
                   <input
                       id="settings-display-name"
@@ -51,7 +51,7 @@
                       type="text"
                   />
                 </div>
-                <div class="form-group">
+                <div class="form-group profile-field-email">
                   <label for="settings-email">{{ t('settings.email') }}</label>
                   <input
                       id="settings-email"
@@ -62,10 +62,7 @@
                       type="email"
                   />
                 </div>
-              </div>
-
-              <div class="form-grid">
-                <div class="form-group">
+                <div class="form-group profile-field-phone">
                   <label for="settings-phone">{{ t('settings.phone') }}</label>
                   <input
                       id="settings-phone"
@@ -75,7 +72,7 @@
                       type="tel"
                   />
                 </div>
-                <div class="form-group">
+                <div class="form-group profile-field-birthday">
                   <label for="settings-birthday">{{ t('settings.birthday') }}</label>
                   <BaseDatePicker
                       id="settings-birthday"
@@ -83,17 +80,17 @@
                       :placeholder="t('settings.datePlaceholder')"
                   />
                 </div>
-              </div>
 
-              <div class="form-group">
-                <label for="settings-bio">{{ t('settings.bio') }}</label>
-                <textarea
-                    id="settings-bio"
-                    v-model="profileForm.bio"
-                    :placeholder="t('settings.bioPlaceholder')"
-                    class="input-field"
-                    rows="3"
-                ></textarea>
+                <div class="form-group profile-field-bio">
+                  <label for="settings-bio">{{ t('settings.bio') }}</label>
+                  <textarea
+                      id="settings-bio"
+                      v-model="profileForm.bio"
+                      :placeholder="t('settings.bioPlaceholder')"
+                      class="input-field"
+                      rows="3"
+                  ></textarea>
+                </div>
               </div>
 
               <section v-if="isStudentProfile" class="role-profile-fields">

@@ -2,7 +2,6 @@
   <section class="tab-panel class-session-panel">
     <header class="workspace-header">
       <div>
-        <span class="workspace-kicker">{{ t('courseDetail.classSession.tabKicker') }}</span>
         <h2>{{ t('courseDetail.classSessionsTab') }}</h2>
         <p>{{ course.description || t('courseDetail.noDescription') }}</p>
       </div>
@@ -289,30 +288,62 @@
 
             <div class="seat-preview">
               <div class="preview-header">
-                <span>{{ selectedRoomSpec.label }}</span>
-                <strong>{{ selectedRoomSpec.capacity }}</strong>
+                <div class="preview-title">
+                  <span>{{ selectedRoomSpec.label }}</span>
+                  <strong>{{ selectedRoomSpec.capacity }}</strong>
+                </div>
+                <div v-if="form.roomSize === ClassRoomSize.XLARGE" class="preview-zoom-controls">
+                  <button
+                      :aria-label="t('courseDetail.classSession.previewZoomOut')"
+                      :disabled="!canZoomOutPreview"
+                      :title="t('courseDetail.classSession.previewZoomOut')"
+                      class="btn-icon preview-zoom-button"
+                      type="button"
+                      @click="zoomPreview(-PREVIEW_ZOOM_STEP)"
+                  >
+                    <ZoomOut :size="14" stroke-width="1.8"/>
+                  </button>
+                  <span class="preview-zoom-value">{{ previewZoomPercent }}</span>
+                  <button
+                      :aria-label="t('courseDetail.classSession.previewZoomIn')"
+                      :disabled="!canZoomInPreview"
+                      :title="t('courseDetail.classSession.previewZoomIn')"
+                      class="btn-icon preview-zoom-button"
+                      type="button"
+                      @click="zoomPreview(PREVIEW_ZOOM_STEP)"
+                  >
+                    <ZoomIn :size="14" stroke-width="1.8"/>
+                  </button>
+                </div>
               </div>
 
               <div v-if="form.roomSize === ClassRoomSize.XLARGE" class="arc-preview">
-                <span
-                    v-for="dot in arcDots"
-                    :key="dot.id"
-                    :class="{'seat-dot--occupied': occupiedSeatIndexes.has(dot.id)}"
-                    :style="{ left: dot.x + '%', top: dot.y + '%' }"
-                    class="seat-dot"
-                ></span>
+                <div :style="seatPreviewZoomStyle" class="arc-preview-map">
+                  <span
+                      v-for="dot in arcDots"
+                      :key="dot.id"
+                      :class="{'seat-dot--occupied': occupiedSeatIndexes.has(dot.id)}"
+                      :style="{ left: `${dot.x}%`, top: `${dot.y}%` }"
+                      class="seat-dot"
+                  ></span>
+                </div>
               </div>
               <div
                   v-else
-                  :style="{ gridTemplateColumns: `repeat(${selectedRoomSpec.cols}, minmax(0, 1fr))` }"
-                  class="grid-preview"
+                  class="grid-preview-shell"
               >
-                <span
-                    v-for="seat in selectedRoomSpec.seats"
-                    :key="seat"
-                    :class="{'seat-dot--occupied': occupiedSeatIndexes.has(seat)}"
-                    class="seat-dot"
-                ></span>
+                <span aria-hidden="true" class="preview-teacher-desk"></span>
+                <div
+                    :style="{ gridTemplateColumns: `repeat(${selectedRoomSpec.cols}, minmax(0, 1fr))` }"
+                    class="grid-preview"
+                >
+                  <span
+                      v-for="seat in selectedRoomSpec.seats"
+                      :key="seat"
+                      :class="{'seat-dot--occupied': occupiedSeatIndexes.has(seat)}"
+                      class="seat-dot"
+                  ></span>
+                </div>
               </div>
             </div>
           </section>
@@ -329,14 +360,55 @@
         </div>
         <div class="seat-preview">
           <div class="preview-header">
-            <span>{{ selectedRoomSpec.label }}</span>
-            <strong>{{ selectedRoomSpec.capacity }}</strong>
+            <div class="preview-title">
+              <span>{{ selectedRoomSpec.label }}</span>
+              <strong>{{ selectedRoomSpec.capacity }}</strong>
+            </div>
+            <div v-if="form.roomSize === ClassRoomSize.XLARGE" class="preview-zoom-controls">
+              <button
+                  :aria-label="t('courseDetail.classSession.previewZoomOut')"
+                  :disabled="!canZoomOutPreview"
+                  :title="t('courseDetail.classSession.previewZoomOut')"
+                  class="btn-icon preview-zoom-button"
+                  type="button"
+                  @click="zoomPreview(-PREVIEW_ZOOM_STEP)"
+              >
+                <ZoomOut :size="14" stroke-width="1.8"/>
+              </button>
+              <span class="preview-zoom-value">{{ previewZoomPercent }}</span>
+              <button
+                  :aria-label="t('courseDetail.classSession.previewZoomIn')"
+                  :disabled="!canZoomInPreview"
+                  :title="t('courseDetail.classSession.previewZoomIn')"
+                  class="btn-icon preview-zoom-button"
+                  type="button"
+                  @click="zoomPreview(PREVIEW_ZOOM_STEP)"
+              >
+                <ZoomIn :size="14" stroke-width="1.8"/>
+              </button>
+            </div>
           </div>
           <div
-              :style="{ gridTemplateColumns: `repeat(${selectedRoomSpec.cols}, minmax(0, 1fr))` }"
-              class="grid-preview"
+              v-if="form.roomSize !== ClassRoomSize.XLARGE"
+              class="grid-preview-shell"
           >
-            <span v-for="seat in selectedRoomSpec.seats" :key="seat" class="seat-dot"></span>
+            <span aria-hidden="true" class="preview-teacher-desk"></span>
+            <div
+                :style="{ gridTemplateColumns: `repeat(${selectedRoomSpec.cols}, minmax(0, 1fr))` }"
+                class="grid-preview"
+            >
+              <span v-for="seat in selectedRoomSpec.seats" :key="seat" class="seat-dot"></span>
+            </div>
+          </div>
+          <div v-else class="arc-preview">
+            <div :style="seatPreviewZoomStyle" class="arc-preview-map">
+              <span
+                  v-for="dot in arcDots"
+                  :key="dot.id"
+                  :style="{ left: `${dot.x}%`, top: `${dot.y}%` }"
+                  class="seat-dot"
+              ></span>
+            </div>
           </div>
         </div>
       </aside>
@@ -350,7 +422,7 @@
 import {computed, onMounted, reactive, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useRouter} from 'vue-router'
-import {Check, CircleAlert, Clock, DoorOpen, Plus, Presentation, Trash2,} from 'lucide-vue-next'
+import {Check, CircleAlert, Clock, DoorOpen, Plus, Presentation, Trash2, ZoomIn, ZoomOut,} from 'lucide-vue-next'
 
 import {
   createClassSession,
@@ -401,6 +473,12 @@ const occupiedSeatIndexes = ref(new Set<number>())
 const errorMessage = ref('')
 const STUDENT_PARTICIPANT_ROLE = 1
 const MAX_SESSION_DURATION_MS = 2 * 60 * 60 * 1000
+const X_LARGE_FIRST_RING_SEATS = 16
+const X_LARGE_RING_COUNT = 10
+const PREVIEW_ZOOM_MIN = 0.7
+const PREVIEW_ZOOM_MAX = 1.2
+const PREVIEW_ZOOM_STEP = 0.1
+const X_LARGE_PREVIEW_DEFAULT_ZOOM = 0.82
 let occupiedSeatsRequestId = 0
 
 const form = reactive({
@@ -446,31 +524,40 @@ const selectedRoomSpec = computed(() => {
   const spec = roomSpecs.value.find(item => item.value === form.roomSize) || roomSpecs.value[1]
   return {
     ...spec,
-    seats: Array.from({length: spec.rows * spec.cols}, (_, index) => index),
+    seats: Array.from({length: spec.capacity}, (_, index) => index + 1),
   }
 })
 
 const arcDots = computed(() => {
   const dots: Array<{ id: number; x: number; y: number }> = []
-  let id = 0
+  let seatIndex = 1
 
-  for (let ring = 0; ring < 5; ring += 1) {
-    const count = 8 + ring * 4
-    const radius = 20 + ring * 7
-    for (let index = 0; index < count; index += 1) {
-      const angle = 210 + (120 * index) / Math.max(count - 1, 1)
+  for (let ring = 0; ring < X_LARGE_RING_COUNT; ring += 1) {
+    const seatCount = X_LARGE_FIRST_RING_SEATS + ring * 2
+    const radius = 20 + ring * 5.2
+
+    for (let index = 0; index < seatCount; index += 1) {
+      const angle = 210 + (120 * index) / Math.max(seatCount - 1, 1)
       const radians = (angle * Math.PI) / 180
       dots.push({
-        id,
+        id: seatIndex,
         x: 50 + Math.cos(radians) * radius,
-        y: 72 + Math.sin(radians) * radius * 0.72,
+        y: 36 - Math.sin(radians) * radius * 0.7,
       })
-      id += 1
+      seatIndex += 1
     }
   }
 
   return dots
 })
+
+const previewZoom = ref(defaultPreviewZoom())
+const previewZoomPercent = computed(() => `${Math.round(previewZoom.value * 100)}%`)
+const seatPreviewZoomStyle = computed<Record<string, string>>(() => ({
+  '--seat-preview-scale': String(previewZoom.value),
+}))
+const canZoomOutPreview = computed(() => previewZoom.value > PREVIEW_ZOOM_MIN)
+const canZoomInPreview = computed(() => previewZoom.value < PREVIEW_ZOOM_MAX)
 
 const sessionMetrics = computed(() => [
   {
@@ -519,6 +606,23 @@ watch(() => props.createRequestKey, (next, previous) => {
 watch(previewSession, (session) => {
   void loadOccupiedSeats(session)
 })
+
+watch(() => form.roomSize, (roomSize) => {
+  resetPreviewZoom(roomSize)
+})
+
+function defaultPreviewZoom(roomSize = form.roomSize) {
+  return roomSize === ClassRoomSize.XLARGE ? X_LARGE_PREVIEW_DEFAULT_ZOOM : 1
+}
+
+function resetPreviewZoom(roomSize = form.roomSize) {
+  previewZoom.value = defaultPreviewZoom(roomSize)
+}
+
+function zoomPreview(delta: number) {
+  const nextZoom = previewZoom.value + delta
+  previewZoom.value = Number(Math.min(PREVIEW_ZOOM_MAX, Math.max(PREVIEW_ZOOM_MIN, nextZoom)).toFixed(2))
+}
 
 async function loadSessions() {
   loading.value = true
@@ -576,6 +680,7 @@ function resetForm() {
   form.scheduledStartAt = ''
   form.scheduledEndAt = ''
   form.roomSize = ClassRoomSize.MEDIUM
+  resetPreviewZoom(ClassRoomSize.MEDIUM)
 }
 
 function openCreate() {
@@ -603,11 +708,13 @@ function selectSession(session: ClassSession) {
 }
 
 function fillFormFromSession(session: ClassSession) {
+  const roomSize = normalizedRoomSize(session.roomSize)
   form.title = session.title
   form.description = session.description || ''
   form.scheduledStartAt = toDatetimeLocalValue(session.scheduledStartAt)
   form.scheduledEndAt = toDatetimeLocalValue(session.scheduledEndAt)
-  form.roomSize = normalizedRoomSize(session.roomSize)
+  form.roomSize = roomSize
+  resetPreviewZoom(roomSize)
 }
 
 async function loadOccupiedSeats(session: ClassSession | null) {
@@ -817,7 +924,6 @@ function normalizedRoomSize(value: number) {
   border-bottom: 1px solid var(--color-outline-light);
 }
 
-.workspace-kicker,
 .metric-item span,
 .editor-heading span,
 .section-title span,
@@ -832,7 +938,7 @@ function normalizedRoomSize(value: number) {
 }
 
 .workspace-header h2 {
-  margin: 8px 0 8px;
+  margin: 0 0 8px;
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: clamp(32px, 4vw, 46px);
@@ -1101,6 +1207,15 @@ function normalizedRoomSize(value: number) {
   display: flex;
   align-items: center;
   gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
+}
+
+.session-item:hover .session-actions,
+.session-item:focus-within .session-actions {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .btn-add,
@@ -1483,9 +1598,25 @@ textarea.input-field:focus {
 
 .preview-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
+}
+
+.preview-title {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.preview-title span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .preview-header strong {
@@ -1496,11 +1627,52 @@ textarea.input-field:focus {
   line-height: 1;
 }
 
+.preview-zoom-controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.preview-zoom-button {
+  width: 28px;
+  height: 28px;
+}
+
+.preview-zoom-value {
+  min-width: 36px;
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+  text-align: center;
+  text-transform: none;
+}
+
+.grid-preview-shell {
+  display: grid;
+  gap: 10px;
+  min-height: 184px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-outline-light);
+}
+
 .grid-preview {
   display: grid;
   gap: 4px;
-  min-height: 164px;
   align-content: center;
+}
+
+.preview-teacher-desk {
+  justify-self: center;
+  align-self: start;
+  display: block;
+  width: 80px;
+  height: 24px;
+  border: 1px solid var(--color-outline-light);
+  background: var(--color-surface-container);
 }
 
 .seat-dot {
@@ -1530,7 +1702,7 @@ textarea.input-field:focus {
   content: '';
   position: absolute;
   left: 50%;
-  bottom: 16px;
+  top: 12px;
   width: 80px;
   height: 24px;
   transform: translateX(-50%);
@@ -1538,7 +1710,14 @@ textarea.input-field:focus {
   background: var(--color-surface-container);
 }
 
-.arc-preview .seat-dot {
+.arc-preview-map {
+  position: absolute;
+  inset: 0;
+  transform: scale(var(--seat-preview-scale, 1));
+  transform-origin: 50% 30%;
+}
+
+.arc-preview-map .seat-dot {
   position: absolute;
   width: 7px;
   min-width: 7px;
@@ -1644,6 +1823,11 @@ textarea.input-field:focus {
   .form-actions {
     flex-wrap: wrap;
     justify-content: flex-start;
+  }
+
+  .session-actions {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .loading-editor .editor-heading {

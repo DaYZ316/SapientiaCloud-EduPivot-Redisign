@@ -32,7 +32,6 @@
         </div>
 
         <div class="profile-intro">
-          <p class="profile-kicker">{{ roleConfig.kicker }}</p>
           <div class="profile-title-row">
             <h1>{{ displayName }}</h1>
             <span class="role-pill">{{ roleLabel }}</span>
@@ -154,7 +153,6 @@ const profileKind = computed<ProfileKind>(() => {
 const roleConfig = computed(() => {
   if (profileKind.value === 'student') {
     return {
-      kicker: t('profile.userProfile.kicker.student'),
       icon: GraduationCap,
       identityLabel: t('profile.userProfile.identity.studentLabel'),
       identityTitle: t('profile.userProfile.identity.studentTitle'),
@@ -162,14 +160,12 @@ const roleConfig = computed(() => {
   }
   if (profileKind.value === 'teacher') {
     return {
-      kicker: t('profile.userProfile.kicker.teacher'),
       icon: BriefcaseBusiness,
       identityLabel: t('profile.userProfile.identity.teacherLabel'),
       identityTitle: t('profile.userProfile.identity.teacherTitle'),
     }
   }
   return {
-    kicker: t('profile.userProfile.kicker.user'),
     icon: UserRound,
     identityLabel: t('profile.userProfile.identity.userLabel'),
     identityTitle: t('profile.userProfile.identity.userTitle'),
@@ -346,7 +342,6 @@ watch(() => route.params.userId, (newId) => {
   min-width: 0;
 }
 
-.profile-kicker,
 .panel-label {
   margin: 0 0 8px;
   font-family: var(--font-label);

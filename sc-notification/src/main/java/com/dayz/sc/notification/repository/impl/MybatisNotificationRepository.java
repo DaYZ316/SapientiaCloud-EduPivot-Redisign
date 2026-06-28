@@ -50,11 +50,14 @@ public class MybatisNotificationRepository implements NotificationRepository {
         } else if (currentUserId != null) {
             // 普通查询：全员通知 或 目标包含当前用户且未删除 或 自己发出的通知
             // UUID 类型安全，直接拼接不会导致 SQL 注入
-            String subSql = "SELECT notification_id FROM ntf_notification_target WHERE user_id = '" + currentUserId + "' AND deleted = 0";
+            String activeTargetSql = "SELECT notification_id FROM ntf_notification_target WHERE user_id = '" + currentUserId + "' AND deleted = 0";
+            String deletedTargetSql = "SELECT notification_id FROM ntf_notification_target WHERE user_id = '" + currentUserId + "' AND deleted = 1";
             wrapper.and(w -> w
-                    .eq(Notification::getTargetType, 0)
+                    .and(all -> all
+                            .eq(Notification::getTargetType, 0)
+                            .notInSql(Notification::getId, deletedTargetSql))
                     .or()
-                    .inSql(Notification::getId, subSql)
+                    .inSql(Notification::getId, activeTargetSql)
                     .or()
                     .eq(Notification::getSenderId, currentUserId)
             );
@@ -74,11 +77,14 @@ public class MybatisNotificationRepository implements NotificationRepository {
             wrapper.eq(Notification::getSenderId, senderId);
         } else if (currentUserId != null) {
             // UUID 类型安全，直接拼接不会导致 SQL 注入
-            String subSql = "SELECT notification_id FROM ntf_notification_target WHERE user_id = '" + currentUserId + "' AND deleted = 0";
+            String activeTargetSql = "SELECT notification_id FROM ntf_notification_target WHERE user_id = '" + currentUserId + "' AND deleted = 0";
+            String deletedTargetSql = "SELECT notification_id FROM ntf_notification_target WHERE user_id = '" + currentUserId + "' AND deleted = 1";
             wrapper.and(w -> w
-                    .eq(Notification::getTargetType, 0)
+                    .and(all -> all
+                            .eq(Notification::getTargetType, 0)
+                            .notInSql(Notification::getId, deletedTargetSql))
                     .or()
-                    .inSql(Notification::getId, subSql)
+                    .inSql(Notification::getId, activeTargetSql)
                     .or()
                     .eq(Notification::getSenderId, currentUserId)
             );

@@ -1,13 +1,14 @@
 import * as THREE from 'three'
 
-import {type ClassParticipant, ClassRoomSize} from '@/features/course/types/classSession'
+import {ClassRoomSize, type ClassParticipant} from '@/features/course/types/classSession'
+import {seatIndexToPositionIndex} from '@/features/classroom/composables/useSeatLayout'
 import {getAvatarInitials} from '@/shared/utils/avatar'
 
 const TEXTURE_SIZE = 192
 const SPRITE_POSITION_OFFSETS: Record<number, THREE.Vector3> = {
-    [ClassRoomSize.SMALL]: new THREE.Vector3(-1, 0.3, 1.75),
+    [ClassRoomSize.SMALL]: new THREE.Vector3(-1.5, 0.3, 1.75),
     [ClassRoomSize.MEDIUM]: new THREE.Vector3(-1.5, 0.3, 0.4),
-    [ClassRoomSize.LARGE]: new THREE.Vector3(8.3, -0.82, 4),
+    [ClassRoomSize.LARGE]: new THREE.Vector3(0, -2.82, -1.0),
     [ClassRoomSize.XLARGE]: new THREE.Vector3(0, 0.72, 0),
 }
 
@@ -51,20 +52,24 @@ export class SeatSpriteManager {
     }
 
     async upsert(participant: ClassParticipant) {
-        if (participant.seatIndex == null || !this.sprites[participant.seatIndex]) {
+        if (participant.seatIndex == null) {
+            return
+        }
+        const seatIndex = participant.seatIndex
+        const positionIndex = seatIndexToPositionIndex(seatIndex)
+        if (positionIndex < 0 || !this.sprites[positionIndex]) {
             return
         }
         this.removeByUserId(participant.userId)
-        const seatIndex = participant.seatIndex
         const texture = await createParticipantTexture(participant)
         this.disposeSeatTexture(seatIndex)
         this.textures.set(seatIndex, texture)
         this.userSeatMap.set(participant.userId, seatIndex)
-        const material = this.materials[seatIndex]
+        const material = this.materials[positionIndex]
         material.map = texture
         material.opacity = 1
         material.needsUpdate = true
-        this.sprites[seatIndex].visible = true
+        this.sprites[positionIndex].visible = true
     }
 
     applySnapshot(participants: ClassParticipant[]) {
@@ -121,14 +126,15 @@ export class SeatSpriteManager {
 
     private clearOccupants() {
         for (let index = 0; index < this.sprites.length; index += 1) {
-            this.hideSeat(index)
+            this.hideSeat(index + 1)
         }
         this.userSeatMap.clear()
     }
 
     private hideSeat(seatIndex: number) {
-        const sprite = this.sprites[seatIndex]
-        const material = this.materials[seatIndex]
+        const positionIndex = seatIndexToPositionIndex(seatIndex)
+        const sprite = this.sprites[positionIndex]
+        const material = this.materials[positionIndex]
         if (!sprite || !material) {
             return
         }

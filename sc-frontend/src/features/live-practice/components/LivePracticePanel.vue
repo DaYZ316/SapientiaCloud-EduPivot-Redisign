@@ -2,7 +2,6 @@
   <aside class="live-practice-panel">
     <header class="panel-header">
       <div>
-        <span>Live Practice</span>
         <h2>{{ isTeacher ? '随堂练习发布' : '随堂练习' }}</h2>
       </div>
       <button class="icon-button" type="button" @click="$emit('close')">
@@ -845,7 +844,6 @@ function toIso(value: string) {
   border-bottom: 1px solid var(--color-outline-light);
 }
 
-.panel-header span,
 .limit-line {
   color: var(--color-muted);
   font-family: var(--font-label);
@@ -853,7 +851,7 @@ function toIso(value: string) {
 }
 
 .panel-header h2 {
-  margin: 4px 0 0;
+  margin: 0;
   font-family: var(--font-heading);
   font-size: 28px;
   font-weight: 400;

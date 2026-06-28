@@ -2,7 +2,6 @@
   <aside class="seated-students-panel">
     <header class="panel-header">
       <div>
-        <span>{{ t('courseDetail.classSession.studentsPanelKicker') }}</span>
         <h2>{{ t('courseDetail.classSession.studentsPanelTitle') }}</h2>
       </div>
       <button class="icon-button" type="button" @click="$emit('close')">
@@ -32,7 +31,7 @@
         />
         <div class="student-meta">
           <strong>{{ student.displayName || student.userId }}</strong>
-          <span>{{ t('courseDetail.classSession.seatNumber', {number: (student.seatIndex ?? 0) + 1}) }}</span>
+          <span>{{ t('courseDetail.classSession.seatNumber', {number: student.seatIndex ?? 0}) }}</span>
           <small>{{ formatDateTime(student.joinedAt) }}</small>
         </div>
       </article>
@@ -113,7 +112,6 @@ function formatDateTime(value: string) {
   border-bottom: 1px solid var(--color-outline-light);
 }
 
-.panel-header span,
 .summary-grid span,
 .student-meta small {
   color: var(--color-muted);
@@ -122,7 +120,7 @@ function formatDateTime(value: string) {
 }
 
 .panel-header h2 {
-  margin: 4px 0 0;
+  margin: 0;
   font-family: var(--font-heading);
   font-size: 28px;
   font-weight: 400;

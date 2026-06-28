@@ -30,6 +30,7 @@ logging:
   level:
     org.apache.kafka.common.config.AbstractConfig: WARN
     com.alibaba.nacos.plugin: WARN
+    com.dayz.sc.common.web.filter.ApiRequestDebugLoggingFilter: INFO
 
 management:
   metrics:
@@ -75,6 +76,9 @@ resilience4j:
         timeout-duration: 15s
 
 edupivot:
+  web:
+    api-request-logging:
+      enabled: ${API_REQUEST_DEBUG_LOGGING_ENABLED:false}
   security:
     trust-gateway-headers: false
     jwt:

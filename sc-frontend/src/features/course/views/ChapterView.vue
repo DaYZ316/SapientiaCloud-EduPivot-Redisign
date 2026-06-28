@@ -75,7 +75,6 @@
       <aside :aria-label="t('chapter.studyTools')" class="study-rail">
         <div class="study-rail-sticky">
           <section class="rail-section">
-            <span class="rail-kicker">{{ t('chapter.currentReading') }}</span>
             <h2>{{ chapter.chapterName }}</h2>
             <p>{{ chapter.description || t('chapter.noDescriptionHint') }}</p>
           </section>
@@ -571,7 +570,6 @@ function formatDate(dateStr?: string | null) {
 }
 
 .panel-heading span,
-.rail-kicker,
 .rail-metadata dt {
   color: var(--color-muted);
   font-family: var(--font-label);

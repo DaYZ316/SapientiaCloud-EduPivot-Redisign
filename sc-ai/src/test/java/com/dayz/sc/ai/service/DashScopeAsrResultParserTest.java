@@ -70,4 +70,61 @@ class DashScopeAsrResultParserTest {
         assertThat(parser.extractEvent(message)).isEqualTo("task-failed");
         assertThat(parser.extractErrorMessage(message)).isEqualTo("invalid sample rate");
     }
+
+    @Test
+    void parseShouldReturnQwenRealtimePartialTranscript() {
+        String message = """
+                {
+                  "event_id": "event_1",
+                  "type": "conversation.item.input_audio_transcription.text",
+                  "text": "今天",
+                  "stash": "天气不错"
+                }
+                """;
+
+        List<DashScopeAsrClient.AsrTranscript> transcripts = parser.parse(message);
+
+        assertThat(transcripts).hasSize(1);
+        assertThat(transcripts.getFirst())
+                .extracting(
+                        DashScopeAsrClient.AsrTranscript::text,
+                        DashScopeAsrClient.AsrTranscript::sentenceEnd)
+                .containsExactly("今天天气不错", false);
+    }
+
+    @Test
+    void parseShouldReturnQwenRealtimeCompletedTranscript() {
+        String message = """
+                {
+                  "event_id": "event_2",
+                  "type": "conversation.item.input_audio_transcription.completed",
+                  "transcript": "今天阳光明媚"
+                }
+                """;
+
+        List<DashScopeAsrClient.AsrTranscript> transcripts = parser.parse(message);
+
+        assertThat(transcripts).hasSize(1);
+        assertThat(transcripts.getFirst())
+                .extracting(
+                        DashScopeAsrClient.AsrTranscript::text,
+                        DashScopeAsrClient.AsrTranscript::sentenceEnd)
+                .containsExactly("今天阳光明媚", true);
+    }
+
+    @Test
+    void extractEventAndErrorMessageShouldHandleQwenRealtimeEvents() {
+        String message = """
+                {
+                  "type": "conversation.item.input_audio_transcription.failed",
+                  "error": {
+                    "code": "bad_audio",
+                    "message": "invalid audio data"
+                  }
+                }
+                """;
+
+        assertThat(parser.extractEvent(message)).isEqualTo("conversation.item.input_audio_transcription.failed");
+        assertThat(parser.extractErrorMessage(message)).isEqualTo("invalid audio data");
+    }
 }

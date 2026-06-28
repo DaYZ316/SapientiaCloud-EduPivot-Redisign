@@ -45,4 +45,13 @@ public interface LiveTranscriptSegmentRepository {
      * @return 转录片段列表
      */
     List<LiveTranscriptSegment> findAfterSequence(UUID summarySessionId, int sequenceNo);
+
+    void deleteBySummarySessionId(UUID summarySessionId);
+
+    /**
+     * Delete all live transcript segments for a class session.
+     *
+     * @param classSessionId class session ID
+     */
+    void deleteByClassSessionId(UUID classSessionId);
 }

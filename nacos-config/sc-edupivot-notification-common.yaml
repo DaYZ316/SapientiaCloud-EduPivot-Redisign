@@ -26,6 +26,7 @@ logging:
   level:
     org.apache.kafka.common.config.AbstractConfig: WARN
     com.alibaba.nacos.plugin: WARN
+    com.dayz.sc.common.web.filter.ApiRequestDebugLoggingFilter: INFO
 
 management:
   metrics:
@@ -55,6 +56,9 @@ scalar:
   enabled: true
 
 edupivot:
+  web:
+    api-request-logging:
+      enabled: ${API_REQUEST_DEBUG_LOGGING_ENABLED:false}
   security:
     trust-gateway-headers: true
     jwt:

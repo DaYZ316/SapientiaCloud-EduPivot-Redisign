@@ -1,7 +1,6 @@
 <template>
   <div class="settings-page">
     <header class="settings-page-header">
-      <p class="settings-kicker">SapientiaCloud</p>
       <h1>{{ t('common.menu.settings') }}</h1>
       <p class="settings-page-subtitle">{{ t('settings.pageSubtitle') }}</p>
     </header>
@@ -92,18 +91,8 @@ const activeTabConfig = computed<SettingsTab>(() =>
   margin-bottom: 28px;
 }
 
-.settings-kicker {
-  margin: 0;
-  font-family: var(--font-label);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-}
-
 .settings-page h1 {
-  margin: 10px 0 0;
+  margin: 0;
   font-family: var(--font-heading);
   font-size: clamp(40px, 6vw, 56px);
   font-weight: 400;

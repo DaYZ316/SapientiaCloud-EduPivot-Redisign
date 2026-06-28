@@ -6,6 +6,7 @@
       :session="session"
       @close="$emit('close', $event)"
       @expand="$emit('expand')"
+      @open-summary="$emit('open-summary')"
       @session-change="$emit('session-change', $event)"
   />
   <ClassroomLiveExperience
@@ -34,6 +35,7 @@ defineProps<{
 defineEmits<{
   close: [forceClose?: boolean]
   expand: []
+  'open-summary': []
   'session-change': [session: ClassSession]
 }>()
 </script>

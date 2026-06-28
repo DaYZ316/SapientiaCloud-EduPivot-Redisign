@@ -50,6 +50,11 @@ public class CourseAiContextClientFallback implements CourseAiContextClient {
     }
 
     @Override
+    public ApiResponse<@NonNull List<@NonNull UUID>> visibleCourseIds(String userId, String userRole) {
+        return ApiResponse.failOf(ErrorCodes.SERVICE_UNAVAILABLE);
+    }
+
+    @Override
     public ApiResponse<@NonNull List<AgentSearchItem>> chapters(
             UUID courseId, String courseTitle, Integer limit, String userId, String userRole) {
         return ApiResponse.failOf(ErrorCodes.SERVICE_UNAVAILABLE);

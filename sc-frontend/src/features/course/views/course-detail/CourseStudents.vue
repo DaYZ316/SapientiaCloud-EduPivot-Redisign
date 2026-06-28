@@ -2,7 +2,6 @@
   <section class="tab-panel">
     <div class="panel-header">
       <div>
-        <span>{{ t('courseDetail.membersTab') }}</span>
         <h2>{{ t('courseDetail.studentsTab') }}</h2>
         <p>{{ t('courseDetail.studentsDescription') }}</p>
       </div>
@@ -149,18 +148,8 @@ async function handleRemove(student: Enrollment) {
   border-bottom: 1px solid var(--color-outline-light);
 }
 
-.panel-header span {
-  color: var(--color-muted);
-  font-family: var(--font-label);
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
 .panel-header h2 {
-  margin: 6px 0 0;
+  margin: 0;
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: 28px;

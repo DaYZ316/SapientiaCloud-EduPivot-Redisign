@@ -38,6 +38,11 @@ export const CLASSROOM_ROOM_SPECS: Record<number, ClassroomRoomSpec> = {
 export interface ClassroomAssetRoute {
     model: string
     texture?: string
+    /** LARGE教室支持两种模型：第一排和其余排使用不同模型 */
+    variantNames?: {
+        firstRow?: string      // 第一排使用的子模型名称
+        otherRows?: string     // 其余排使用的子模型名称
+    }
 }
 
 export interface ClassroomModelRoute {

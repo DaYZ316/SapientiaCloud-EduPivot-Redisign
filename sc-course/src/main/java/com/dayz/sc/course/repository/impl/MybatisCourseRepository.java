@@ -78,10 +78,37 @@ public class MybatisCourseRepository implements CourseRepository {
     }
 
     @Override
+    public List<UUID> findAllIds() {
+        QueryWrapper<Course> wrapper = new QueryWrapper<>();
+        wrapper.select("id");
+        wrapper.orderByDesc("created_at");
+        return courseMapper.selectObjs(wrapper).stream()
+                .map(this::toUuid)
+                .toList();
+    }
+
+    @Override
+    public List<UUID> findTeacherCourseIds(UUID teacherId) {
+        LambdaQueryWrapper<Course> wrapper = teacherCourseWrapper(teacherId, null);
+        wrapper.select(Course::getId);
+        wrapper.orderByDesc(Course::getCreatedAt);
+        return courseMapper.selectObjs(wrapper).stream()
+                .map(this::toUuid)
+                .toList();
+    }
+
+    @Override
     public Page<Course> findTeacherCourses(UUID teacherId, String role, int page, int size) {
         LambdaQueryWrapper<Course> wrapper = teacherCourseWrapper(teacherId, role);
         wrapper.orderByDesc(Course::getCreatedAt);
         return courseMapper.selectPage(new Page<>(page, size), wrapper);
+    }
+
+    private UUID toUuid(Object value) {
+        if (value instanceof UUID uuid) {
+            return uuid;
+        }
+        return UUID.fromString(value.toString());
     }
 
     // ==================== Private ====================

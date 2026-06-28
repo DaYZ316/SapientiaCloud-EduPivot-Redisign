@@ -7,10 +7,13 @@ import com.dayz.sc.auth.model.entity.User;
 import com.dayz.sc.auth.model.entity.UserIdentity;
 import com.dayz.sc.auth.model.enums.OauthProvider;
 import com.dayz.sc.auth.repository.UserAccountRepository;
-import lombok.RequiredArgsConstructor;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tags;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
@@ -19,17 +22,19 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 /**
- * 基于 PostgreSQL 和 Redis 缓存的用户账户仓储实现
+ * 基于 PostgreSQL 和 Redis 缓存的用户账户仓储实现。
  * <p>
  * 缓存策略：
  * <ul>
  *   <li>Cache-Aside 模式：读时加载，写时删除</li>
- *   <li>空值缓存：防穿透，不存在的数据缓存 2 分钟</li>
- *   <li>TTL 随机化：防雪崩，TTL = 基础值 + 随机偏移</li>
- *   <li>只删不更新：写操作删除缓存，下次读取时自动重建</li>
+ *   <li>空值缓存：不存在的数据缓存 2 分钟，降低缓存穿透风险</li>
+ *   <li>TTL 随机化：基础 TTL 加随机偏移，降低缓存雪崩风险</li>
+ *   <li>互斥重建：缓存未命中时使用 Redis 锁，降低热点 key 击穿风险</li>
  * </ul>
  *
  * @author DaYZ
@@ -37,128 +42,116 @@ import java.util.stream.Stream;
  */
 @Slf4j
 @Repository
-@RequiredArgsConstructor
 public class MybatisUserAccountRepository implements UserAccountRepository {
 
-    /**
-     * 基础缓存 TTL：30 分钟
-     */
     private static final Duration CACHE_TTL = Duration.ofMinutes(30);
-
-    /**
-     * TTL 随机偏移范围：0~5 分钟（防雪崩）
-     */
     private static final Duration CACHE_JITTER = Duration.ofMinutes(5);
-
-    /**
-     * 空值缓存 TTL：2 分钟（防穿透）
-     */
     private static final Duration NULL_CACHE_TTL = Duration.ofMinutes(2);
 
-    /**
-     * 空值标记字符串（序列化后仍可正确比较）
-     */
-    private static final String NULL_MARKER = "__NULL__";
+    private static final Duration LOCK_TTL = Duration.ofSeconds(3);
+    private static final Duration LOCK_RETRY_SLEEP = Duration.ofMillis(50);
+    private static final int MAX_LOCK_RETRIES = 3;
 
+    private static final String NULL_MARKER = "__NULL__";
     private static final String USER_KEY_PREFIX = "auth:user:";
     private static final String IDENTITY_KEY_PREFIX = "auth:identity:";
     private static final String PROVIDERS_KEY_SUFFIX = ":providers";
     private static final String EMAIL_KEY_PREFIX = "auth:user:email:";
+    private static final String LOCK_KEY_PREFIX = "lock:";
+
+    private static final String CACHE_USER = "user";
+    private static final String CACHE_EMAIL = "email";
+    private static final String CACHE_IDENTITY = "identity";
+    private static final String CACHE_PROVIDERS = "providers";
+
+    private static final String METRIC_READ = "redis.auth.cache.read";
+    private static final String METRIC_REBUILD = "redis.auth.cache.rebuild";
+    private static final String METRIC_LOCK = "redis.auth.cache.lock";
+    private static final String METRIC_EVICT = "redis.auth.cache.evict";
+
+    private static final String RESULT_HIT = "hit";
+    private static final String RESULT_NEGATIVE_HIT = "negative_hit";
+    private static final String RESULT_MISS = "miss";
+    private static final String RESULT_ERROR = "error";
+    private static final String RESULT_DB_HIT = "db_hit";
+    private static final String RESULT_DB_MISS = "db_miss";
+    private static final String RESULT_ACQUIRED = "acquired";
+    private static final String RESULT_BUSY = "busy";
+    private static final String RESULT_RELEASED = "released";
+    private static final String RESULT_RELEASE_ERROR = "release_error";
+    private static final String RESULT_TIMEOUT = "timeout";
+    private static final String RESULT_SUCCESS = "success";
+
+    private static final RedisScript<Long> RELEASE_LOCK_SCRIPT = RedisScript.of("""
+            if redis.call('get', KEYS[1]) == ARGV[1] then
+                return redis.call('del', KEYS[1])
+            end
+            return 0
+            """, Long.class);
 
     private final UserMapper userMapper;
     private final UserIdentityMapper userIdentityMapper;
     private final RedisTemplate<String, Object> redisTemplate;
     private final StringRedisTemplate stringRedisTemplate;
+    private final ObjectProvider<MeterRegistry> meterRegistryProvider;
 
-    // ==================== 读操作 ====================
+    public MybatisUserAccountRepository(UserMapper userMapper,
+                                        UserIdentityMapper userIdentityMapper,
+                                        RedisTemplate<String, Object> redisTemplate,
+                                        StringRedisTemplate stringRedisTemplate,
+                                        ObjectProvider<MeterRegistry> meterRegistryProvider) {
+        this.userMapper = userMapper;
+        this.userIdentityMapper = userIdentityMapper;
+        this.redisTemplate = redisTemplate;
+        this.stringRedisTemplate = stringRedisTemplate;
+        this.meterRegistryProvider = meterRegistryProvider;
+    }
 
     @Override
     public Optional<UserIdentity> findIdentity(OauthProvider provider, String providerUserId) {
         String cacheKey = identityKey(provider, providerUserId);
-
-        // 1. 查缓存
-        Object cached = getFromCache(cacheKey);
-        if (NULL_MARKER.equals(cached)) {
-            return Optional.empty();
-        }
-        if (cached instanceof UserIdentity identity) {
-            return Optional.of(identity);
-        }
-
-        // 2. 查 DB
-        UserIdentity identity = userIdentityMapper.selectOne(new LambdaQueryWrapper<UserIdentity>()
-                .eq(UserIdentity::getProvider, provider)
-                .eq(UserIdentity::getProviderUserId, providerUserId));
-
-        // 3. 写缓存
-        putToCache(cacheKey, identity);
+        UserIdentity identity = loadThroughCache(cacheKey, CACHE_IDENTITY,
+                () -> readObjectCache(cacheKey, UserIdentity.class, CACHE_IDENTITY),
+                () -> userIdentityMapper.selectOne(new LambdaQueryWrapper<UserIdentity>()
+                        .eq(UserIdentity::getProvider, provider)
+                        .eq(UserIdentity::getProviderUserId, providerUserId)),
+                value -> putToCache(cacheKey, value, CACHE_IDENTITY));
         return Optional.ofNullable(identity);
     }
 
     @Override
     public Optional<User> findUser(UUID userId) {
         String cacheKey = userKey(userId);
-
-        // 1. 查缓存
-        Object cached = getFromCache(cacheKey);
-        if (NULL_MARKER.equals(cached)) {
-            return Optional.empty();
-        }
-        if (cached instanceof User user) {
-            return Optional.of(user);
-        }
-
-        // 2. 查 DB
-        User user = userMapper.selectById(userId);
-
-        // 3. 写缓存
-        putToCache(cacheKey, user);
+        User user = loadThroughCache(cacheKey, CACHE_USER,
+                () -> readObjectCache(cacheKey, User.class, CACHE_USER),
+                () -> userMapper.selectById(userId),
+                value -> putToCache(cacheKey, value, CACHE_USER));
         return Optional.ofNullable(user);
     }
 
     @Override
     public Optional<User> findByEmail(String email) {
         String cacheKey = emailKey(email);
-
-        // 1. 查缓存
-        Object cached = getFromCache(cacheKey);
-        if (NULL_MARKER.equals(cached)) {
-            return Optional.empty();
-        }
-        if (cached instanceof User user) {
-            return Optional.of(user);
-        }
-
-        // 2. 查 DB
-        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
-                .eq(User::getEmail, email));
-
-        // 3. 写缓存
-        putToCache(cacheKey, user);
+        User user = loadThroughCache(cacheKey, CACHE_EMAIL,
+                () -> readObjectCache(cacheKey, User.class, CACHE_EMAIL),
+                () -> userMapper.selectOne(new LambdaQueryWrapper<User>()
+                        .eq(User::getEmail, email)),
+                value -> putToCache(cacheKey, value, CACHE_EMAIL));
         return Optional.ofNullable(user);
     }
 
     @Override
     public List<OauthProvider> findLinkedProviders(UUID userId) {
         String cacheKey = providersKey(userId);
-
-        // 1. 查缓存
-        Optional<List<OauthProvider>> cachedProviders = getProvidersFromCache(cacheKey);
-        if (cachedProviders.isPresent()) {
-            return cachedProviders.get();
-        }
-
-        // 2. 查 DB
-        List<OauthProvider> providers = userIdentityMapper.selectList(new LambdaQueryWrapper<UserIdentity>()
-                        .select(UserIdentity::getProvider)
-                        .eq(UserIdentity::getUserId, userId))
-                .stream()
-                .map(UserIdentity::getProvider)
-                .toList();
-
-        // 3. 写缓存
-        putProvidersToCache(cacheKey, providers);
-        return providers;
+        return loadThroughCache(cacheKey, CACHE_PROVIDERS,
+                () -> readProvidersCache(cacheKey),
+                () -> userIdentityMapper.selectList(new LambdaQueryWrapper<UserIdentity>()
+                                .select(UserIdentity::getProvider)
+                                .eq(UserIdentity::getUserId, userId))
+                        .stream()
+                        .map(UserIdentity::getProvider)
+                        .toList(),
+                value -> putProvidersToCache(cacheKey, value));
     }
 
     @Override
@@ -182,8 +175,6 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
         return userIdentityMapper.selectList(wrapper);
     }
 
-    // ==================== 写操作（只删不更新） ====================
-
     @Override
     public User saveUser(User user) {
         String previousEmail = null;
@@ -195,7 +186,6 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
         if (updated == 0) {
             userMapper.insert(user);
         }
-        // 只删除缓存，不主动更新（下次读取时自动重建）
         evictUserCache(user.getId(), previousEmail, user.getEmail());
         return user;
     }
@@ -206,80 +196,133 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
         if (updated == 0) {
             userIdentityMapper.insert(identity);
         }
-        // 删除相关缓存
         evictIdentityCache(identity);
         return identity;
     }
 
-    // ==================== 缓存操作 ====================
+    private <T> T loadThroughCache(String cacheKey,
+                                   String cacheName,
+                                   Supplier<CacheLookupResult<T>> cacheReader,
+                                   Supplier<T> dbLoader,
+                                   Consumer<T> cacheWriter) {
+        CacheLookupResult<T> cached = cacheReader.get();
+        if (cached.hit()) {
+            return cached.value();
+        }
+        if (cached.hasError()) {
+            return rebuildCache(cacheName, dbLoader, cacheWriter);
+        }
 
-    /**
-     * 从缓存获取数据
-     *
-     * @return 缓存值、NULL_MARKER（空值标记）、或 null（未命中）
-     */
-    private Object getFromCache(String key) {
+        String lockKey = lockKey(cacheKey);
+        String lockValue = UUID.randomUUID().toString();
+        for (int attempt = 0; attempt < MAX_LOCK_RETRIES; attempt++) {
+            LockAttempt lockAttempt = tryLock(lockKey, lockValue, cacheName);
+            if (lockAttempt == LockAttempt.ACQUIRED) {
+                try {
+                    cached = cacheReader.get();
+                    if (cached.hit()) {
+                        return cached.value();
+                    }
+                    return rebuildCache(cacheName, dbLoader, cacheWriter);
+                } finally {
+                    releaseLock(lockKey, lockValue, cacheName);
+                }
+            }
+            if (lockAttempt == LockAttempt.ERROR) {
+                return rebuildCache(cacheName, dbLoader, cacheWriter);
+            }
+            if (!sleepBeforeRetry()) {
+                break;
+            }
+            cached = cacheReader.get();
+            if (cached.hit()) {
+                return cached.value();
+            }
+            if (cached.hasError()) {
+                return rebuildCache(cacheName, dbLoader, cacheWriter);
+            }
+        }
+
+        incrementMetric(METRIC_LOCK, cacheName, RESULT_TIMEOUT);
+        return rebuildCache(cacheName, dbLoader, cacheWriter);
+    }
+
+    private <T> T rebuildCache(String cacheName, Supplier<T> dbLoader, Consumer<T> cacheWriter) {
         try {
-            return redisTemplate.opsForValue().get(key);
+            T value = dbLoader.get();
+            cacheWriter.accept(value);
+            incrementMetric(METRIC_REBUILD, cacheName, hasValue(value) ? RESULT_DB_HIT : RESULT_DB_MISS);
+            return value;
+        } catch (RuntimeException e) {
+            incrementMetric(METRIC_REBUILD, cacheName, RESULT_ERROR);
+            throw e;
+        }
+    }
+
+    private <T> CacheLookupResult<T> readObjectCache(String key, Class<T> type, String cacheName) {
+        Object cached;
+        try {
+            cached = redisTemplate.opsForValue().get(key);
         } catch (RuntimeException e) {
             log.warn("Redis 读取失败，降级到 DB: key={}", key, e);
-            return null;
+            incrementMetric(METRIC_READ, cacheName, RESULT_ERROR);
+            return CacheLookupResult.error();
         }
+
+        if (NULL_MARKER.equals(cached)) {
+            incrementMetric(METRIC_READ, cacheName, RESULT_NEGATIVE_HIT);
+            return CacheLookupResult.hit(null);
+        }
+        if (type.isInstance(cached)) {
+            incrementMetric(METRIC_READ, cacheName, RESULT_HIT);
+            return CacheLookupResult.hit(type.cast(cached));
+        }
+        incrementMetric(METRIC_READ, cacheName, RESULT_MISS);
+        return CacheLookupResult.miss();
     }
 
-    /**
-     * 写入缓存支持空值缓存（防穿透）和 TTL 随机化（防雪崩）
-     *
-     * @param key   缓存 key
-     * @param value 数据值（null 表示 DB 中不存在）
-     */
-    private void putToCache(String key, Object value) {
-        try {
-            if (value == null) {
-                // 空值缓存：短 TTL，防穿透
-                redisTemplate.opsForValue().set(key, NULL_MARKER, NULL_CACHE_TTL);
-            } else {
-                // 正常缓存：TTL + 随机偏移，防雪崩
-                Duration ttl = randomTtl();
-                redisTemplate.opsForValue().set(key, value, ttl);
-            }
-        } catch (RuntimeException e) {
-            log.warn("Redis 写入失败: key={}", key, e);
-        }
-    }
-
-    private Optional<List<OauthProvider>> getProvidersFromCache(String key) {
+    private CacheLookupResult<List<OauthProvider>> readProvidersCache(String key) {
         String cached;
         try {
             cached = stringRedisTemplate.opsForValue().get(key);
         } catch (RuntimeException e) {
-            log.warn("Redis providers read failed, fallback to DB: key={}", key, e);
-            return Optional.empty();
+            log.warn("Redis providers 读取失败，降级到 DB: key={}", key, e);
+            incrementMetric(METRIC_READ, CACHE_PROVIDERS, RESULT_ERROR);
+            return CacheLookupResult.error();
         }
 
         if (cached == null) {
-            return Optional.empty();
+            incrementMetric(METRIC_READ, CACHE_PROVIDERS, RESULT_MISS);
+            return CacheLookupResult.miss();
         }
         if (NULL_MARKER.equals(cached)) {
-            return Optional.of(List.of());
+            incrementMetric(METRIC_READ, CACHE_PROVIDERS, RESULT_NEGATIVE_HIT);
+            return CacheLookupResult.hit(List.of());
         }
 
         try {
-            return Optional.of(parseProviders(cached));
+            List<OauthProvider> providers = parseProviders(cached);
+            incrementMetric(METRIC_READ, CACHE_PROVIDERS, RESULT_HIT);
+            return CacheLookupResult.hit(providers);
         } catch (IllegalArgumentException e) {
-            log.warn("Invalid Redis providers cache, evicting: key={}", key);
-            deleteCached(key);
-            return Optional.empty();
+            log.warn("Redis providers 缓存非法，已删除: key={}", key);
+            deleteCached(key, CACHE_PROVIDERS);
+            incrementMetric(METRIC_READ, CACHE_PROVIDERS, RESULT_MISS);
+            return CacheLookupResult.miss();
         }
     }
 
-    private List<OauthProvider> parseProviders(String cached) {
-        if (cached.isBlank()) {
-            return List.of();
+    private void putToCache(String key, Object value, String cacheName) {
+        try {
+            if (value == null) {
+                redisTemplate.opsForValue().set(key, NULL_MARKER, NULL_CACHE_TTL);
+            } else {
+                redisTemplate.opsForValue().set(key, value, randomTtl());
+            }
+        } catch (RuntimeException e) {
+            log.warn("Redis 写入失败: key={}", key, e);
+            incrementMetric(METRIC_REBUILD, cacheName, RESULT_ERROR);
         }
-        return Stream.of(cached.split(","))
-                .map(OauthProvider::valueOf)
-                .toList();
     }
 
     private void putProvidersToCache(String key, List<OauthProvider> providers) {
@@ -293,57 +336,108 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
                     .toList());
             stringRedisTemplate.opsForValue().set(key, cached, randomTtl());
         } catch (RuntimeException e) {
-            log.warn("Redis providers write failed: key={}", key, e);
+            log.warn("Redis providers 写入失败: key={}", key, e);
+            incrementMetric(METRIC_REBUILD, CACHE_PROVIDERS, RESULT_ERROR);
         }
     }
 
-    /**
-     * 删除缓存 key
-     */
-    private void deleteCached(String key) {
+    private List<OauthProvider> parseProviders(String cached) {
+        if (cached.isBlank()) {
+            return List.of();
+        }
+        return Stream.of(cached.split(","))
+                .map(OauthProvider::valueOf)
+                .toList();
+    }
+
+    private void deleteCached(String key, String cacheName) {
         try {
             redisTemplate.delete(key);
+            incrementMetric(METRIC_EVICT, cacheName, RESULT_SUCCESS);
         } catch (RuntimeException e) {
             log.warn("Redis 删除失败: key={}", key, e);
+            incrementMetric(METRIC_EVICT, cacheName, RESULT_ERROR);
         }
     }
 
-    /**
-     * 生成随机 TTL（防雪崩）
-     * TTL = 基础值 + [0, jitter) 随机偏移
-     */
+    private LockAttempt tryLock(String lockKey, String lockValue, String cacheName) {
+        try {
+            Boolean locked = stringRedisTemplate.opsForValue().setIfAbsent(lockKey, lockValue, LOCK_TTL);
+            if (Boolean.TRUE.equals(locked)) {
+                incrementMetric(METRIC_LOCK, cacheName, RESULT_ACQUIRED);
+                return LockAttempt.ACQUIRED;
+            }
+            incrementMetric(METRIC_LOCK, cacheName, RESULT_BUSY);
+            return LockAttempt.BUSY;
+        } catch (RuntimeException e) {
+            log.warn("Redis 获取缓存重建锁失败，降级到 DB: key={}", lockKey, e);
+            incrementMetric(METRIC_LOCK, cacheName, RESULT_ERROR);
+            return LockAttempt.ERROR;
+        }
+    }
+
+    private void releaseLock(String lockKey, String lockValue, String cacheName) {
+        try {
+            // 只释放当前请求持有的锁，避免误删其他请求新拿到的锁。
+            Long released = stringRedisTemplate.execute(RELEASE_LOCK_SCRIPT, List.of(lockKey), lockValue);
+            if (released != null && released > 0) {
+                incrementMetric(METRIC_LOCK, cacheName, RESULT_RELEASED);
+            }
+        } catch (RuntimeException e) {
+            log.warn("Redis 释放缓存重建锁失败: key={}", lockKey, e);
+            incrementMetric(METRIC_LOCK, cacheName, RESULT_RELEASE_ERROR);
+        }
+    }
+
+    private boolean sleepBeforeRetry() {
+        try {
+            Thread.sleep(LOCK_RETRY_SLEEP.toMillis());
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    private boolean hasValue(Object value) {
+        if (value instanceof Collection<?> collection) {
+            return !collection.isEmpty();
+        }
+        return value != null;
+    }
+
+    private void incrementMetric(String name, String cacheName, String result) {
+        MeterRegistry meterRegistry = meterRegistryProvider.getIfAvailable();
+        if (meterRegistry != null) {
+            meterRegistry.counter(name, Tags.of("cache", cacheName, "result", result)).increment();
+        }
+    }
+
     private Duration randomTtl() {
         long jitterSeconds = ThreadLocalRandom.current().nextLong(0, CACHE_JITTER.getSeconds());
         return CACHE_TTL.plusSeconds(jitterSeconds);
     }
 
-    // ==================== 缓存失效 ====================
-
-    /**
-     * 清除用户相关缓存（写操作后调用）
-     */
     private void evictUserCache(UUID userId, String previousEmail, String email) {
-        deleteCached(userKey(userId));
-        deleteCached(providersKey(userId));
+        deleteCached(userKey(userId), CACHE_USER);
+        deleteCached(providersKey(userId), CACHE_PROVIDERS);
         if (previousEmail != null && !previousEmail.isBlank()) {
-            deleteCached(emailKey(previousEmail));
+            deleteCached(emailKey(previousEmail), CACHE_EMAIL);
         }
         if (email != null && !email.isBlank()) {
-            deleteCached(emailKey(email));
+            deleteCached(emailKey(email), CACHE_EMAIL);
         }
     }
 
-    /**
-     * 清除 OAuth 身份相关缓存
-     */
     private void evictIdentityCache(UserIdentity identity) {
-        deleteCached(identityKey(identity.getProvider(), identity.getProviderUserId()));
-        deleteCached(providersKey(identity.getUserId()));
-        // 身份关联的用户缓存也需要清除（providers 变了）
-        deleteCached(userKey(identity.getUserId()));
+        deleteCached(identityKey(identity.getProvider(), identity.getProviderUserId()), CACHE_IDENTITY);
+        deleteCached(providersKey(identity.getUserId()), CACHE_PROVIDERS);
+        deleteCached(userKey(identity.getUserId()), CACHE_USER);
     }
 
-    // ==================== Key 生成 ====================
+    private String lockKey(String cacheKey) {
+        return LOCK_KEY_PREFIX + cacheKey;
+    }
 
     private String userKey(UUID userId) {
         return USER_KEY_PREFIX + userId;
@@ -359,5 +453,39 @@ public class MybatisUserAccountRepository implements UserAccountRepository {
 
     private String emailKey(String email) {
         return EMAIL_KEY_PREFIX + email;
+    }
+
+    private enum CacheStatus {
+        HIT,
+        MISS,
+        ERROR
+    }
+
+    private enum LockAttempt {
+        ACQUIRED,
+        BUSY,
+        ERROR
+    }
+
+    private record CacheLookupResult<T>(CacheStatus status, T value) {
+        private static <T> CacheLookupResult<T> hit(T value) {
+            return new CacheLookupResult<>(CacheStatus.HIT, value);
+        }
+
+        private static <T> CacheLookupResult<T> miss() {
+            return new CacheLookupResult<>(CacheStatus.MISS, null);
+        }
+
+        private static <T> CacheLookupResult<T> error() {
+            return new CacheLookupResult<>(CacheStatus.ERROR, null);
+        }
+
+        private boolean hit() {
+            return status == CacheStatus.HIT;
+        }
+
+        private boolean hasError() {
+            return status == CacheStatus.ERROR;
+        }
     }
 }

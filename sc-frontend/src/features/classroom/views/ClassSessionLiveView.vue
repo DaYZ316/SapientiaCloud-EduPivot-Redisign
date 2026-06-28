@@ -48,6 +48,7 @@ import {useAuthStore} from '@/features/auth/stores/auth'
 import {ClassLiveStatus, type ClassParticipant, type ClassSession} from '@/features/course/types/classSession'
 import type {CourseDetail} from '@/features/course/types/course'
 import {useClassroomLiveMiniStore} from '@/features/classroom/stores/classroomLiveMini'
+import {stopLiveSummaryAudioUpload} from '@/features/classroom/composables/useClassroomLiveSummaryAudio'
 import type {SeatSyncMessage} from '@/features/classroom/types/classroom'
 import {mergeSeatSyncLiveStatus} from '@/features/classroom/composables/liveStatusSync'
 import {buildSeatSyncSocketUrl} from '@/features/classroom/composables/seatSyncSocket'
@@ -134,6 +135,9 @@ function canEnterClassroom(courseData: CourseDetail) {
 function applySessionUpdate(nextSession: ClassSession) {
   session.value = nextSession
   liveMini.updateSession(nextSession)
+  if (nextSession.liveStatus !== ClassLiveStatus.LIVE && nextSession.liveStatus !== ClassLiveStatus.PAUSED) {
+    stopLiveSummaryAudioUpload(nextSession.id)
+  }
 }
 
 async function connectSeatSocket() {

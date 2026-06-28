@@ -233,6 +233,23 @@ export interface LiveSummarySession {
     stoppedAt: string | null
     latestSnapshot: LiveSummarySnapshot | null
     recentTranscripts: LiveTranscriptSegment[]
+    historyRecordCount?: number | null
+    historyRecordLimit?: number | null
+    historyRecordLimitReached?: boolean | null
+    snapshotCount?: number | null
+    snapshotLimit?: number | null
+    snapshotLimitReached?: boolean | null
+}
+
+export interface LiveSummaryRecord {
+    id: string
+    classSessionId: string
+    courseId: string
+    teacherId: string
+    status: 'NOT_STARTED' | 'RUNNING' | 'STOPPED' | 'FAILED' | string
+    startedAt: string | null
+    stoppedAt: string | null
+    latestSnapshot: LiveSummarySnapshot | null
 }
 
 export interface LiveSummaryAudioToken {

@@ -4,7 +4,6 @@
       <button aria-label="关闭" class="popup-close" type="button" @click="dismiss(event.groupId)">
         <X :size="16" stroke-width="1.8"/>
       </button>
-      <div class="popup-kicker">随堂练习</div>
       <h2>{{ event.title }}</h2>
       <p>{{ event.totalQuestions }} 题 · {{ formatTime(event.availableEndAt) }} 截止</p>
       <button class="popup-action" type="button" @click="openPractice(event)">
@@ -92,13 +91,6 @@ function formatTime(value: string) {
   border: 1px solid var(--color-outline-light);
   color: var(--color-muted);
   cursor: pointer;
-}
-
-.popup-kicker {
-  color: var(--color-muted);
-  font-family: var(--font-label);
-  font-size: 12px;
-  letter-spacing: 0.05em;
 }
 
 .live-practice-popup h2 {

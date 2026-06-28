@@ -414,6 +414,107 @@ a:focus-visible,
   font-weight: 400;
 }
 
+/* ---- Tooltip ---- */
+
+[data-tooltip] {
+  position: relative;
+}
+
+:root:not(.global-tooltip-ready) [data-tooltip]::after {
+  box-sizing: border-box;
+  position: absolute;
+  z-index: 3000;
+  width: max-content;
+  max-width: calc(100vw - var(--space-xl));
+  overflow: hidden;
+  padding: 6px 10px;
+  background: var(--color-surface-container-highest);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-on-surface);
+  content: attr(data-tooltip);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  text-transform: none;
+  transform: translate(-50%, 4px);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+  visibility: hidden;
+  white-space: nowrap;
+}
+
+:root:not(.global-tooltip-ready) [data-tooltip]:hover::after,
+:root:not(.global-tooltip-ready) [data-tooltip]:focus-visible::after,
+:root:not(.global-tooltip-ready) [data-tooltip][disabled]:hover::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  visibility: visible;
+}
+
+:root:not(.global-tooltip-ready) [data-tooltip][data-tooltip-placement='right']::after {
+  top: 50%;
+  left: calc(100% + var(--space-sm));
+  transform: translate(4px, -50%);
+}
+
+:root:not(.global-tooltip-ready) [data-tooltip][data-tooltip-placement='right']:hover::after,
+:root:not(.global-tooltip-ready) [data-tooltip][data-tooltip-placement='right']:focus-visible::after,
+:root:not(.global-tooltip-ready) [data-tooltip][data-tooltip-placement='right'][disabled]:hover::after {
+  transform: translate(0, -50%);
+}
+
+:root:not(.global-tooltip-ready) [data-tooltip]:not([data-tooltip-placement='right'])::after {
+  bottom: calc(100% + var(--space-xs));
+  left: 50%;
+}
+
+:root:not(.global-tooltip-ready) [data-tooltip][data-tooltip-placement='top-end']::after {
+  right: 0;
+  bottom: calc(100% + var(--space-xs));
+  left: auto;
+  transform: translate(0, 4px);
+}
+
+:root:not(.global-tooltip-ready) [data-tooltip][data-tooltip-placement='top-end']:hover::after,
+:root:not(.global-tooltip-ready) [data-tooltip][data-tooltip-placement='top-end']:focus-visible::after,
+:root:not(.global-tooltip-ready) [data-tooltip][data-tooltip-placement='top-end'][disabled]:hover::after {
+  transform: translate(0, 0);
+}
+
+.global-tooltip {
+  position: fixed;
+  z-index: 3000;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: calc(100vw - var(--space-xl));
+  overflow: hidden;
+  padding: 6px 10px;
+  background: var(--color-surface-container-highest);
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-on-surface);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  text-transform: none;
+  transition: opacity 0.16s ease;
+  white-space: nowrap;
+}
+
+.global-tooltip.is-visible {
+  opacity: 1;
+}
+
 /* ---- Dividers ---- */
 
 .divider {

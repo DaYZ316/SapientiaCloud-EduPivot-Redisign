@@ -87,9 +87,9 @@
 
 .profile-card-shell {
     display: grid;
-    grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+    grid-template-columns: minmax(160px, 220px) repeat(2, minmax(0, 1fr));
     align-items: start;
-    gap: 28px;
+    gap: 24px 28px;
     min-height: 0;
 }
 
@@ -103,9 +103,33 @@
 }
 
 .profile-form-pane {
-    display: grid;
-    gap: 20px;
-    padding: 0;
+    display: contents;
+}
+
+.profile-basic-grid {
+    display: contents;
+}
+
+.profile-field-display-name {
+    grid-column: 2;
+}
+
+.profile-field-email {
+    grid-column: 3;
+}
+
+.profile-field-phone {
+    grid-column: 1;
+}
+
+.profile-field-birthday {
+    grid-column: 2 / -1;
+}
+
+.profile-field-bio,
+.role-profile-fields,
+.form-message {
+    grid-column: 1 / -1;
 }
 
 .role-profile-fields {
@@ -155,6 +179,25 @@
 
 .profile-card-panel .form-group textarea.input-field {
     min-height: 120px;
+}
+
+.profile-avatar-pane :deep(.base-image-uploader-field) {
+    grid-template-columns: 1fr;
+    justify-items: start;
+    gap: 12px;
+}
+
+.profile-avatar-pane :deep(.base-image-uploader-actions) {
+    display: block;
+}
+
+.profile-avatar-pane :deep(.base-image-uploader-action) {
+    display: none;
+}
+
+.profile-avatar-pane :deep(.base-image-uploader-help) {
+    margin-top: 12px;
+    font-size: 13px;
 }
 
 .form-grid {
@@ -607,6 +650,16 @@
     .profile-card-shell {
         grid-template-columns: 1fr;
         min-height: 0;
+    }
+
+    .profile-field-display-name,
+    .profile-field-email,
+    .profile-field-phone,
+    .profile-field-birthday,
+    .profile-field-bio,
+    .role-profile-fields,
+    .form-message {
+        grid-column: 1;
     }
 
     .profile-avatar-pane {

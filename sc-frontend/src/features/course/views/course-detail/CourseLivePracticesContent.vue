@@ -2,9 +2,6 @@
   <section class="tab-panel live-practice-page">
     <header class="panel-header">
       <div>
-        <span>{{
-            canManageCourse ? t('courseDetail.livePractice.kicker') : t('courseDetail.livePractice.workbookKicker')
-          }}</span>
         <h2>{{
             canManageCourse ? t('courseDetail.livePractice.title') : t('courseDetail.livePractice.workbookTitle')
           }}</h2>
@@ -467,18 +464,8 @@ function openGroupDetail(groupId: string) {
   border-bottom: 1px solid var(--color-outline-light);
 }
 
-.panel-header span {
-  color: var(--color-muted);
-  font-family: var(--font-label);
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
 .panel-header h2 {
-  margin: 6px 0 0;
+  margin: 0;
   color: var(--color-on-surface);
   font-family: var(--font-heading);
   font-size: 28px;

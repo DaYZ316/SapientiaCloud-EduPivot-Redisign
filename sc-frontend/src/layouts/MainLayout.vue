@@ -119,9 +119,10 @@
               v-for="item in navItems"
               :key="item.path"
               :aria-label="uiPreferences.sidebarCollapsed ? item.label : undefined"
-              :title="uiPreferences.sidebarCollapsed ? item.label : undefined"
+              :data-tooltip="uiPreferences.sidebarCollapsed ? item.label : undefined"
               :to="item.path"
               class="side-nav-link"
+              data-tooltip-placement="right"
           >
             <component :is="item.icon" :size="18" stroke-width="1.8"/>
             <span>{{ item.label }}</span>
@@ -137,9 +138,11 @@
             <router-link
                 v-for="item in recentCourses"
                 :key="item.id"
-                :title="uiPreferences.sidebarCollapsed ? item.title : undefined"
+                :aria-label="uiPreferences.sidebarCollapsed ? item.title : undefined"
+                :data-tooltip="uiPreferences.sidebarCollapsed ? item.title : undefined"
                 :to="`/courses/${item.id}`"
                 class="side-recent-link"
+                data-tooltip-placement="right"
             >
               <div class="recent-cover">
                 <img :src="getCourseCoverUrl(item.coverUrl)" alt="" @error="handleCourseCoverError"/>
@@ -303,7 +306,10 @@ const brandLogoSrc = computed(() =>
 )
 const isAiPage = computed(() => {
   const routeName = router.currentRoute.value.name
-  return routeName === 'ai-workspace' || routeName === 'ai-history' || routeName === 'ai-favorites'
+  return routeName === 'ai-workspace'
+      || routeName === 'ai-history'
+      || routeName === 'ai-favorites'
+      || routeName === 'ai-live-summaries'
 })
 const isSidebarShell = computed(() => uiPreferences.isSidebarLayout || isAiPage.value)
 const isCollapsibleSidebar = computed(() => isSidebarShell.value)
