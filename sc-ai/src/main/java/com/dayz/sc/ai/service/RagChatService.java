@@ -94,6 +94,7 @@ public class RagChatService {
     private final ObjectMapper objectMapper;
     private final ObjectProvider<@NonNull QuestionGenerationKafkaBridge> questionGenerationKafkaBridgeProvider;
     private final GenerationMessageStateService generationMessageStateService;
+    private final QuestionGenerationCancellationService questionGenerationCancellationService;
 
     public RagChatService(ChatClient chatClient,
                           ObjectProvider<@NonNull VectorStore> vectorStoreProvider,
@@ -108,7 +109,8 @@ public class RagChatService {
                           AiProviderCallGuard aiProviderCallGuard,
                           ObjectMapper objectMapper,
                           ObjectProvider<@NonNull QuestionGenerationKafkaBridge> questionGenerationKafkaBridgeProvider,
-                          GenerationMessageStateService generationMessageStateService) {
+                          GenerationMessageStateService generationMessageStateService,
+                          QuestionGenerationCancellationService questionGenerationCancellationService) {
         this.chatClient = chatClient;
         this.vectorStoreProvider = vectorStoreProvider;
         this.messageRepository = messageRepository;
@@ -123,6 +125,7 @@ public class RagChatService {
         this.objectMapper = objectMapper;
         this.questionGenerationKafkaBridgeProvider = questionGenerationKafkaBridgeProvider;
         this.generationMessageStateService = generationMessageStateService;
+        this.questionGenerationCancellationService = questionGenerationCancellationService;
     }
 
     public Flux<@NonNull ServerSentEvent<@NonNull String>> stream(ChatRequest request,
@@ -193,6 +196,7 @@ public class RagChatService {
         Map<String, Object> payload = message.getPayload() == null ? Map.of() : message.getPayload();
         String requestId = textValue(payload.get("generationRequestId"));
         AiAgentMode mode = generationMode(message, payload);
+        questionGenerationCancellationService.cancel(requestId);
         generationMessageStateService.markTerminated(
                 messageId,
                 requestId,
@@ -309,8 +313,12 @@ public class RagChatService {
                 .switchIfEmpty(Mono.defer(() -> fallbackGenerationResult(
                         request, conversationId, userId, role, mode, requestId, assistantMessage,
                         stageSink, agentSearchSink, cancelled, startedAtNanos)))
-                .doOnError(error -> generationMessageStateService.markFailed(
-                        assistantMessage.getId(), requestId, mode, "题目生成失败，请稍后重试。"))
+                .doOnError(error -> {
+                    if (!isGenerationCancelled(error)) {
+                        generationMessageStateService.markFailed(
+                                assistantMessage.getId(), requestId, mode, "题目生成失败，请稍后重试。");
+                    }
+                })
                 .cache();
     }
 
@@ -384,6 +392,7 @@ public class RagChatService {
                                                                                    Sinks.Many<@NonNull GenerationStageEvent> stageSink,
                                                                                    Sinks.Many<@NonNull AgentSearchEvent> agentSearchSink) {
         return resultMono
+                .onErrorResume(GenerationCancelledException.class, ignored -> Mono.empty())
                 .flatMapMany(result -> completedGenerationEvents(
                         result, assistantMessage, requestId, mode, conversationId, cancelled, startedAtNanos))
                 .doFinally(signalType -> {
@@ -425,14 +434,14 @@ public class RagChatService {
         if (signalType != SignalType.CANCEL || !cancelled.compareAndSet(false, true)) {
             return;
         }
+        if (kafkaBridge != null) {
+            return;
+        }
         generationMessageStateService.markTerminated(
                 assistantMessage.getId(),
                 requestId,
                 mode,
                 "用户已终止本次生成任务。");
-        if (kafkaBridge != null) {
-            kafkaBridge.cancel(requestId, mode);
-        }
     }
 
     private Flux<@NonNull ServerSentEvent<@NonNull String>> streamRagChat(UUID conversationId,
@@ -1407,6 +1416,17 @@ public class RagChatService {
             }
             String message = current.getMessage();
             if (message != null && message.contains("404: Unknown")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private boolean isGenerationCancelled(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof GenerationCancelledException) {
                 return true;
             }
             current = current.getCause();

@@ -47,4 +47,16 @@ public record QuestionGenerationCompletedEvent(
                 errorMessage,
                 Instant.now());
     }
+
+    public static QuestionGenerationCompletedEvent terminated(String requestId) {
+        return new QuestionGenerationCompletedEvent(
+                UuidV7Generator.generate(),
+                requestId,
+                "terminated",
+                "",
+                null,
+                Map.of(),
+                null,
+                Instant.now());
+    }
 }

@@ -6,12 +6,15 @@ import com.dayz.sc.ai.model.enums.AiAgentMode;
 import com.dayz.sc.ai.model.vo.AiAgentResult;
 import com.dayz.sc.ai.model.vo.GenerationStageEvent;
 import com.dayz.sc.ai.service.AiAgentService;
+import com.dayz.sc.ai.service.GenerationCancelledException;
 import com.dayz.sc.ai.service.GenerationMessageStateService;
+import com.dayz.sc.ai.service.QuestionGenerationCancellationService;
 import com.dayz.sc.ai.service.QuestionGenerationKafkaBridge;
 import com.dayz.sc.common.events.ai.QuestionGenerationRequestedEvent;
 import com.dayz.sc.common.events.config.KafkaTopicConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
@@ -21,6 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * QuestionGenerationWorker.
@@ -35,6 +40,9 @@ public class QuestionGenerationWorker {
     private final AiAgentService aiAgentService;
     private final QuestionGenerationKafkaBridge kafkaBridge;
     private final GenerationMessageStateService generationMessageStateService;
+    private final QuestionGenerationCancellationService cancellationService;
+    private final QuestionGenerationTaskRegistry taskRegistry;
+    private final TaskExecutor questionGenerationTaskExecutor;
 
     @KafkaListener(topics = KafkaTopicConstants.QUESTION_GENERATION_REQUESTS, groupId = "sc-ai-question-generation-worker")
     public void onRequested(QuestionGenerationRequestedEvent event, Acknowledgment acknowledgment) {
@@ -42,9 +50,33 @@ public class QuestionGenerationWorker {
             acknowledge(acknowledgment);
             return;
         }
+        FutureTask<Void> task = new FutureTask<>(() -> {
+            process(event);
+            return null;
+        });
+        taskRegistry.register(event.requestId(), task);
+        try {
+            questionGenerationTaskExecutor.execute(() -> {
+                try {
+                    task.run();
+                } finally {
+                    taskRegistry.remove(event.requestId());
+                    acknowledge(acknowledgment);
+                }
+            });
+        } catch (RejectedExecutionException exception) {
+            taskRegistry.remove(event.requestId());
+            fail(event, exception);
+            acknowledge(acknowledgment);
+        }
+    }
+
+    private void process(QuestionGenerationRequestedEvent event) {
         try {
             AiAgentMode mode = AiAgentMode.resolve(event.mode(), event.message());
+            cancellationService.throwIfCancelled(event.requestId());
             publishReceived(event, mode);
+            cancellationService.throwIfCancelled(event.requestId());
             ChatRequest request = new ChatRequest(
                     event.conversationId(),
                     event.message(),
@@ -58,17 +90,23 @@ public class QuestionGenerationWorker {
                     stage -> publishStage(event, stage),
                     search -> kafkaBridge.publishAgentSearch(event.requestId(), search),
                     event.requestId());
+            cancellationService.throwIfCancelled(event.requestId());
             generationMessageStateService.markCompleted(event.assistantMessageId(), event.requestId(), mode, result);
             kafkaBridge.publishResponse(event.requestId(), result);
+        } catch (GenerationCancelledException exception) {
+            log.info("Question generation worker cancelled requestId={}", event.requestId());
+            kafkaBridge.cancel(event.requestId(), AiAgentMode.resolve(event.mode(), event.message()));
         } catch (RuntimeException exception) {
-            log.error("Question generation worker failed requestId={}", event.requestId(), exception);
-            AiAgentMode mode = AiAgentMode.resolve(event.mode(), event.message());
-            String errorMessage = "题目生成失败，请稍后重试。";
-            generationMessageStateService.markFailed(event.assistantMessageId(), event.requestId(), mode, errorMessage);
-            kafkaBridge.publishFailure(event.requestId(), errorMessage);
-        } finally {
-            acknowledge(acknowledgment);
+            fail(event, exception);
         }
+    }
+
+    private void fail(QuestionGenerationRequestedEvent event, RuntimeException exception) {
+        log.error("Question generation worker failed requestId={}", event.requestId(), exception);
+        AiAgentMode mode = AiAgentMode.resolve(event.mode(), event.message());
+        String errorMessage = "题目生成失败，请稍后重试。";
+        generationMessageStateService.markFailed(event.assistantMessageId(), event.requestId(), mode, errorMessage);
+        kafkaBridge.publishFailure(event.requestId(), errorMessage);
     }
 
     private void publishReceived(QuestionGenerationRequestedEvent event, AiAgentMode mode) {
@@ -83,6 +121,7 @@ public class QuestionGenerationWorker {
     }
 
     private void publishStage(QuestionGenerationRequestedEvent event, GenerationStageEvent stage) {
+        cancellationService.throwIfCancelled(event.requestId());
         generationMessageStateService.appendStage(event.assistantMessageId(), stage);
         kafkaBridge.publishStage(event.requestId(), stage);
     }

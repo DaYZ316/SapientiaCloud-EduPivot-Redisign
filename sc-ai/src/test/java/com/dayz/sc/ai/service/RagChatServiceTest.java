@@ -728,6 +728,53 @@ class RagChatServiceTest {
         when(messageRepository.findById(messageId)).thenReturn(java.util.Optional.of(message));
         ConversationService conversationService = mock(ConversationService.class);
         QuestionGenerationKafkaBridge kafkaBridge = mock(QuestionGenerationKafkaBridge.class);
+        QuestionGenerationCancellationService cancellationService = mock(QuestionGenerationCancellationService.class);
+        RagChatService service = serviceWith(
+                mock(VectorStore.class),
+                new AiProperties(),
+                messageRepository,
+                conversationService,
+                mock(AiAgentService.class),
+                kafkaBridgeProvider(kafkaBridge),
+                cancellationService);
+
+        service.terminateGeneration(conversationId, messageId, userId);
+
+        verify(conversationService).requireOwnedConversation(conversationId, userId);
+        verify(cancellationService).cancel(requestId);
+        verify(kafkaBridge).cancel(requestId, com.dayz.sc.ai.model.enums.AiAgentMode.PAPER);
+        verify(messageRepository).update(argThat(updated ->
+                "terminated".equals(updated.getPayload().get("generationStatus"))
+                        && "TERMINATED".equals(updated.getPayload().get("generationStage"))));
+    }
+
+    @Test
+    void generationStreamDisconnectShouldNotCancelQueuedKafkaGeneration() {
+        UUID conversationId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        when(messageRepository.findById(any())).thenAnswer(invocation -> {
+            ChatMessage message = new ChatMessage();
+            message.setId(invocation.getArgument(0));
+            message.setConversationId(conversationId);
+            message.setRole(MessageRole.ASSISTANT.name());
+            message.setContent("");
+            message.setMessageType(AiMessageType.PAPER.name());
+            message.setPayload(Map.of("generationStatus", "processing", "generationStage", "RECEIVED"));
+            return Optional.of(message);
+        });
+        ConversationService conversationService = mock(ConversationService.class);
+        QuestionGenerationKafkaBridge kafkaBridge = mock(QuestionGenerationKafkaBridge.class);
+        when(kafkaBridge.submit(
+                any(ChatRequest.class),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()))
+                .thenReturn(reactor.core.publisher.Mono.never());
+        when(kafkaBridge.progress(any())).thenReturn(reactor.core.publisher.Flux.never());
         RagChatService service = serviceWith(
                 mock(VectorStore.class),
                 new AiProperties(),
@@ -736,13 +783,15 @@ class RagChatServiceTest {
                 mock(AiAgentService.class),
                 kafkaBridgeProvider(kafkaBridge));
 
-        service.terminateGeneration(conversationId, messageId, userId);
+        service.stream(new ChatRequest(conversationId, "generate paper", "PAPER", null, null), userId, 2, null)
+                .take(1)
+                .collectList()
+                .block();
 
-        verify(conversationService).requireOwnedConversation(conversationId, userId);
-        verify(kafkaBridge).cancel(requestId, com.dayz.sc.ai.model.enums.AiAgentMode.PAPER);
-        verify(messageRepository).update(argThat(updated ->
-                "terminated".equals(updated.getPayload().get("generationStatus"))
-                        && "TERMINATED".equals(updated.getPayload().get("generationStage"))));
+        verify(kafkaBridge, never()).cancel(any(), any());
+        verify(messageRepository, never()).update(argThat(message ->
+                "terminated".equals(message.getPayload().get("generationStatus"))
+                        || "TERMINATED".equals(message.getPayload().get("generationStage"))));
     }
 
     @Test
@@ -1073,9 +1122,28 @@ class RagChatServiceTest {
                 messageRepository,
                 conversationService,
                 aiAgentService,
+                questionGenerationKafkaBridgeProvider,
+                mock(QuestionGenerationCancellationService.class));
+    }
+
+    @SuppressWarnings("unchecked")
+    private RagChatService serviceWith(VectorStore vectorStore,
+                                       AiProperties properties,
+                                       MessageRepository messageRepository,
+                                       ConversationService conversationService,
+                                       AiAgentService aiAgentService,
+                                       ObjectProvider<@org.jspecify.annotations.NonNull QuestionGenerationKafkaBridge> questionGenerationKafkaBridgeProvider,
+                                       QuestionGenerationCancellationService questionGenerationCancellationService) {
+        return serviceWith(
+                vectorStore,
+                properties,
+                messageRepository,
+                conversationService,
+                aiAgentService,
                 mock(ChatClient.class),
                 mock(AgentSearchTools.class),
-                questionGenerationKafkaBridgeProvider);
+                questionGenerationKafkaBridgeProvider,
+                questionGenerationCancellationService);
     }
 
     @SuppressWarnings("unchecked")
@@ -1094,7 +1162,8 @@ class RagChatServiceTest {
                 aiAgentService,
                 chatClient,
                 agentSearchTools,
-                emptyQuestionGenerationKafkaBridgeProvider());
+                emptyQuestionGenerationKafkaBridgeProvider(),
+                mock(QuestionGenerationCancellationService.class));
     }
 
     @SuppressWarnings("unchecked")
@@ -1106,6 +1175,28 @@ class RagChatServiceTest {
                                        ChatClient chatClient,
                                        AgentSearchTools agentSearchTools,
                                        ObjectProvider<@org.jspecify.annotations.NonNull QuestionGenerationKafkaBridge> questionGenerationKafkaBridgeProvider) {
+        return serviceWith(
+                vectorStore,
+                properties,
+                messageRepository,
+                conversationService,
+                aiAgentService,
+                chatClient,
+                agentSearchTools,
+                questionGenerationKafkaBridgeProvider,
+                mock(QuestionGenerationCancellationService.class));
+    }
+
+    @SuppressWarnings("unchecked")
+    private RagChatService serviceWith(VectorStore vectorStore,
+                                       AiProperties properties,
+                                       MessageRepository messageRepository,
+                                       ConversationService conversationService,
+                                       AiAgentService aiAgentService,
+                                       ChatClient chatClient,
+                                       AgentSearchTools agentSearchTools,
+                                       ObjectProvider<@org.jspecify.annotations.NonNull QuestionGenerationKafkaBridge> questionGenerationKafkaBridgeProvider,
+                                       QuestionGenerationCancellationService questionGenerationCancellationService) {
         ObjectProvider<@org.jspecify.annotations.NonNull VectorStore> provider = mock(ObjectProvider.class);
         when(provider.getObject()).thenReturn(vectorStore);
         ChatVectorMemoryService chatVectorMemoryService = mock(ChatVectorMemoryService.class);
@@ -1134,7 +1225,8 @@ class RagChatServiceTest {
                 new AiProviderCallGuard(),
                 new ObjectMapper(),
                 questionGenerationKafkaBridgeProvider,
-                new GenerationMessageStateService(messageRepository)
+                new GenerationMessageStateService(messageRepository),
+                questionGenerationCancellationService
         );
     }
 

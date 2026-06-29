@@ -23,6 +23,7 @@ public class AiProperties {
     private final ChatVectorMemory chatVectorMemory = new ChatVectorMemory();
     private final AgentSearch agentSearch = new AgentSearch();
     private final LiveSummary liveSummary = new LiveSummary();
+    private final Generation generation = new Generation();
 
     /**
      * Chat strategy and prompt configuration.
@@ -172,5 +173,16 @@ public class AiProperties {
             private String format = "pcm";
             private int sampleRate = 16000;
         }
+    }
+
+    @Getter
+    @Setter
+    public static class Generation {
+        private Duration cancelTtl = Duration.ofHours(2);
+        private Duration providerTimeout = Duration.ofSeconds(90);
+        private int providerConcurrency = 2;
+        private Duration providerAcquireTimeout = Duration.ofSeconds(5);
+        private int workerCoreSize = 2;
+        private int workerMaxSize = 4;
     }
 }

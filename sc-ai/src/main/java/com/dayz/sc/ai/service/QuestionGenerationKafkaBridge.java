@@ -6,6 +6,7 @@ import com.dayz.sc.ai.model.enums.AiAgentMode;
 import com.dayz.sc.ai.model.enums.AiMessageType;
 import com.dayz.sc.ai.model.vo.AiAgentResult;
 import com.dayz.sc.ai.model.vo.GenerationStageEvent;
+import com.dayz.sc.ai.event.QuestionGenerationTaskRegistry;
 import com.dayz.sc.common.events.ai.QuestionGenerationCompletedEvent;
 import com.dayz.sc.common.events.ai.QuestionGenerationProgressEvent;
 import com.dayz.sc.common.events.ai.QuestionGenerationRequestedEvent;
@@ -43,8 +44,11 @@ public class QuestionGenerationKafkaBridge {
 
     private static final Duration DEFAULT_RESPONSE_TIMEOUT = Duration.ofMinutes(30);
     private static final String STATUS_COMPLETED = "completed";
+    private static final String STATUS_TERMINATED = "terminated";
 
     private final ObjectProvider<@NonNull KafkaTemplate<@NonNull String, @NonNull Object>> kafkaTemplateProvider;
+    private final QuestionGenerationCancellationService cancellationService;
+    private final QuestionGenerationTaskRegistry taskRegistry;
     private final Duration responseTimeout;
     private final Map<String, Sinks.One<@NonNull QuestionGenerationCompletedEvent>> responseSinks = new ConcurrentHashMap<>();
     private final Map<String, Sinks.Many<@NonNull QuestionGenerationProgressEvent>> progressSinks = new ConcurrentHashMap<>();
@@ -52,14 +56,31 @@ public class QuestionGenerationKafkaBridge {
 
     @Autowired
     public QuestionGenerationKafkaBridge(
+            ObjectProvider<@NonNull KafkaTemplate<@NonNull String, @NonNull Object>> kafkaTemplateProvider,
+            QuestionGenerationCancellationService cancellationService,
+            QuestionGenerationTaskRegistry taskRegistry) {
+        this(kafkaTemplateProvider, cancellationService, taskRegistry, DEFAULT_RESPONSE_TIMEOUT);
+    }
+
+    QuestionGenerationKafkaBridge(
             ObjectProvider<@NonNull KafkaTemplate<@NonNull String, @NonNull Object>> kafkaTemplateProvider) {
-        this(kafkaTemplateProvider, DEFAULT_RESPONSE_TIMEOUT);
+        this(kafkaTemplateProvider, null, null, DEFAULT_RESPONSE_TIMEOUT);
     }
 
     QuestionGenerationKafkaBridge(
             ObjectProvider<@NonNull KafkaTemplate<@NonNull String, @NonNull Object>> kafkaTemplateProvider,
             Duration responseTimeout) {
+        this(kafkaTemplateProvider, null, null, responseTimeout);
+    }
+
+    QuestionGenerationKafkaBridge(
+            ObjectProvider<@NonNull KafkaTemplate<@NonNull String, @NonNull Object>> kafkaTemplateProvider,
+            QuestionGenerationCancellationService cancellationService,
+            QuestionGenerationTaskRegistry taskRegistry,
+            Duration responseTimeout) {
         this.kafkaTemplateProvider = kafkaTemplateProvider;
+        this.cancellationService = cancellationService;
+        this.taskRegistry = taskRegistry;
         this.responseTimeout = responseTimeout;
     }
 
@@ -111,6 +132,9 @@ public class QuestionGenerationKafkaBridge {
                                 AiMessageType.valueOf(response.messageType()),
                                 response.payload()));
                     }
+                    if (STATUS_TERMINATED.equals(response.status())) {
+                        return Mono.error(new GenerationCancelledException(finalRequestId));
+                    }
                     return Mono.error(new IllegalStateException(hasText(response.errorMessage())
                             ? response.errorMessage()
                             : "Question generation worker failed"));
@@ -157,6 +181,12 @@ public class QuestionGenerationKafkaBridge {
         if (!hasText(requestId)) {
             return;
         }
+        if (cancellationService != null) {
+            cancellationService.cancel(requestId);
+        }
+        if (taskRegistry != null) {
+            taskRegistry.cancel(requestId);
+        }
         GenerationStageEvent stage = GenerationStageEvent.of(
                 requestId,
                 mode == null ? AiAgentMode.QUESTION.name() : mode.name(),
@@ -173,7 +203,7 @@ public class QuestionGenerationKafkaBridge {
                 Instant.now()));
         Sinks.One<@NonNull QuestionGenerationCompletedEvent> responseSink = responseSinks.get(requestId);
         if (responseSink != null) {
-            responseSink.tryEmitEmpty();
+            responseSink.tryEmitValue(QuestionGenerationCompletedEvent.terminated(requestId));
         }
         cleanup(requestId);
     }

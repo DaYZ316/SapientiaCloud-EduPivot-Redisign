@@ -169,7 +169,8 @@ class AgentSearchToolsTest {
         assertThat(events).hasSize(2);
         assertThat(events.get(0).phase()).isEqualTo("started");
         assertThat(events.get(0).domain()).isEqualTo("time");
-        assertThat(events.get(0).label()).isNotBlank();
+        assertThat(events.get(0).label()).isEqualTo("正在读取当前日期");
+        assertThat(events.get(0).query()).isEqualTo("当前日期时间");
         assertThat(events.get(1).phase()).isEqualTo("results");
         assertThat(events.get(1).status()).isEqualTo(AgentSearchStatus.OK);
         assertThat(events.get(1).provider()).isEqualTo("server-clock");
@@ -233,7 +234,8 @@ class AgentSearchToolsTest {
         assertThat(events).hasSize(2);
         assertThat(events.get(0).phase()).isEqualTo("started");
         assertThat(events.get(0).domain()).isEqualTo("web");
-        assertThat(events.get(0).label()).isNotBlank();
+        assertThat(events.get(0).label()).isEqualTo("正在联网搜索");
+        assertThat(events.get(0).query()).isEqualTo("AI news");
         assertThat(events.get(1).phase()).isEqualTo("results");
         assertThat(events.get(1).label()).isEqualTo("找到 1 条网页结果");
         assertThat(events.get(1).items()).containsExactly(item);

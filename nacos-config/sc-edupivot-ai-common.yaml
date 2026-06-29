@@ -25,13 +25,14 @@ spring:
         spring.json.trusted.packages: "com.dayz.sc.common.events.*"
     listener:
       ack-mode: MANUAL_IMMEDIATE
+      async-acks: true
   ai:
     openai:
       api-key: ${DASHSCOPE_API_KEY:missing-dashscope-key}
       base-url: ${DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
       chat:
         options:
-          model: ${DASHSCOPE_CHAT_MODEL:qwen3.6-max-preview}
+          model: ${DASHSCOPE_CHAT_MODEL:qwen3.6-flash}
       embedding:
         options:
           model: ${DASHSCOPE_EMBEDDING_MODEL:text-embedding-v3}
@@ -111,6 +112,13 @@ edupivot:
       - /v3/api-docs.yaml
       - /error
   ai:
+    generation:
+      cancel-ttl: 2h
+      provider-timeout: 90s
+      provider-concurrency: 2
+      provider-acquire-timeout: 5s
+      worker-core-size: 2
+      worker-max-size: 4
     chat:
       general-fallback-enabled: true
       memory-window-messages: 12

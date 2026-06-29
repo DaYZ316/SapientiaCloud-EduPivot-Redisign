@@ -41,7 +41,7 @@ public class AgentSearchTools {
         Integer role = intFromContext(toolContext, CONTEXT_USER_ROLE);
         String authorization = stringFromContext(toolContext, CONTEXT_AUTHORIZATION);
         AgentSearchEventEmitter emitter = eventEmitter(toolContext);
-        AgentSearchEvent started = AgentSearchEvent.started("profile", "姝ｅ湪璇诲彇浣犵殑璐﹀彿瑙掕壊", "褰撳墠鐢ㄦ埛");
+        AgentSearchEvent started = AgentSearchEvent.started("profile", "正在读取你的账号角色", "当前用户");
         emit(emitter, started);
         try {
             CurrentUserProfile profile = agentSearchService.getCurrentUserProfile(userId, role, authorization);
@@ -49,12 +49,12 @@ public class AgentSearchTools {
             emit(emitter, AgentSearchEvent.results(
                     started.searchId(),
                     "profile",
-                    "宸茶瘑鍒綋鍓嶈鑹诧細" + roleName,
-                    "褰撳墠鐢ㄦ埛",
+                    "已识别当前角色：" + roleName,
+                    "当前用户",
                     List.of()));
             return profile;
         } catch (RuntimeException e) {
-            emit(emitter, AgentSearchEvent.error(started.searchId(), "profile", "璐﹀彿瑙掕壊璇诲彇澶辫触", "褰撳墠鐢ㄦ埛"));
+            emit(emitter, AgentSearchEvent.error(started.searchId(), "profile", "账号角色读取失败", "当前用户"));
             throw e;
         }
     }
@@ -172,7 +172,7 @@ public class AgentSearchTools {
             ToolContext toolContext) {
         UUID userId = requireUserId(toolContext);
         AgentSearchEventEmitter emitter = eventEmitter(toolContext);
-        AgentSearchEvent started = AgentSearchEvent.started("knowledge", "姝ｅ湪妫€绱釜浜虹煡璇嗗簱", query);
+        AgentSearchEvent started = AgentSearchEvent.started("knowledge", "正在检索个人知识库", query);
         emit(emitter, started);
         List<AgentSearchItem> results = agentSearchService.searchPersonalKnowledge(userId, query, limit);
         AgentSearchOutcome outcome = outcome("knowledge", "vector-store", query, "Found " + results.size() + " personal knowledge items", results);
@@ -202,7 +202,7 @@ public class AgentSearchTools {
             ToolContext toolContext) {
         requireUserId(toolContext);
         AgentSearchEventEmitter emitter = eventEmitter(toolContext);
-        AgentSearchEvent started = AgentSearchEvent.started("web", "姝ｅ湪鑱旂綉鎼滅储", query);
+        AgentSearchEvent started = AgentSearchEvent.started("web", "正在联网搜索", query);
         emit(emitter, started);
         try {
             AgentSearchOutcome outcome = agentSearchService.searchWeb(query, limit);
@@ -213,8 +213,8 @@ public class AgentSearchTools {
                     "web",
                     "tavily-compatible",
                     query,
-                    "鑱旂綉鎼滅储澶辫触",
-                    "鑱旂綉鎼滅储宸ュ叿鎵ц寮傚父",
+                    "联网搜索失败",
+                    "联网搜索工具执行异常",
                     true,
                     null);
             emit(emitter, AgentSearchEvent.outcome(started.searchId(), outcome));
@@ -229,7 +229,7 @@ public class AgentSearchTools {
             return cachedOutcome;
         }
         AgentSearchEventEmitter emitter = eventEmitter(toolContext);
-        AgentSearchEvent started = AgentSearchEvent.started("time", "姝ｅ湪璇诲彇褰撳墠鏃ユ湡", "褰撳墠鏃ユ湡鏃堕棿");
+        AgentSearchEvent started = AgentSearchEvent.started("time", "正在读取当前日期", "当前日期时间");
         emit(emitter, started);
         try {
             AgentSearchOutcome outcome = agentSearchService.getCurrentDateTime();
@@ -240,9 +240,9 @@ public class AgentSearchTools {
             AgentSearchOutcome outcome = AgentSearchOutcome.failed(
                     "time",
                     "server-clock",
-                    "褰撳墠鏃ユ湡鏃堕棿",
-                    "褰撳墠鏃ユ湡璇诲彇澶辫触",
-                    "绯荤粺鏃堕棿宸ュ叿鎵ц寮傚父",
+                    "当前日期时间",
+                    "当前日期读取失败",
+                    "系统时间工具执行异常",
                     true,
                     null);
             cacheCurrentDateTimeOutcome(toolContext, outcome);
@@ -261,7 +261,7 @@ public class AgentSearchTools {
         String authorization = stringFromContext(toolContext, CONTEXT_AUTHORIZATION);
         AgentSearchEventEmitter emitter = eventEmitter(toolContext);
         String query = service + " " + path;
-        AgentSearchEvent started = AgentSearchEvent.started("platform", "姝ｅ湪璇诲彇骞冲彴璧勬枡", query);
+        AgentSearchEvent started = AgentSearchEvent.started("platform", "正在读取平台资料", query);
         emit(emitter, started);
         AgentSearchItem result = agentSearchService.queryPlatformApi(service, path, queryParams, authorization);
         if (result != null) {
@@ -355,18 +355,18 @@ public class AgentSearchTools {
 
     private String courseScopeLabel(String scope) {
         if (SCOPE_PRIMARY_TEACHING.equals(scope)) {
-            return "涓昏璇剧▼";
+            return "主讲课程";
         }
         if (SCOPE_ASSISTING.equals(scope)) {
-            return "鍗忓姪璇剧▼";
+            return "协助课程";
         }
         if (SCOPE_LEARNING.equals(scope)) {
-            return "瀛︿範璇剧▼";
+            return "学习课程";
         }
         if (SCOPE_ALL.equals(scope)) {
             return "all courses";
         }
-        return "璇剧▼";
+        return "课程";
     }
 
     private UUID uuidValue(Object value) {

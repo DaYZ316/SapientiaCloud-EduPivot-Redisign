@@ -1,8 +1,12 @@
 package com.dayz.sc.ai.service;
 
+import com.dayz.sc.ai.config.AiProperties;
+import com.dayz.sc.common.error.BusinessException;
+import com.dayz.sc.common.error.ErrorCodes;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /**
@@ -13,14 +17,26 @@ import java.util.function.Supplier;
 @Component
 public class AiProviderCallGuard {
 
-    private final ReentrantLock lock = new ReentrantLock();
+    private final AiProperties aiProperties;
+    private final Semaphore semaphore;
+
+    public AiProviderCallGuard() {
+        this(new AiProperties());
+    }
+
+    public AiProviderCallGuard(AiProperties aiProperties) {
+        this.aiProperties = aiProperties;
+        this.semaphore = new Semaphore(Math.max(1, aiProperties.getGeneration().getProviderConcurrency()));
+    }
 
     public <T> T call(Supplier<T> supplier) {
-        lock.lock();
+        boolean acquired = acquire();
         try {
             return supplier.get();
         } finally {
-            lock.unlock();
+            if (acquired) {
+                semaphore.release();
+            }
         }
     }
 
@@ -29,5 +45,20 @@ public class AiProviderCallGuard {
             runnable.run();
             return null;
         });
+    }
+
+    private boolean acquire() {
+        try {
+            boolean acquired = semaphore.tryAcquire(
+                    aiProperties.getGeneration().getProviderAcquireTimeout().toMillis(),
+                    TimeUnit.MILLISECONDS);
+            if (!acquired) {
+                throw new BusinessException(ErrorCodes.SERVICE_UNAVAILABLE);
+            }
+            return true;
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new GenerationCancelledException("provider-call");
+        }
     }
 }

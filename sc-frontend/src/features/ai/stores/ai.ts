@@ -314,21 +314,35 @@ export const useAiStore = defineStore('ai', () => {
                 },
             )
             await streamBuffer.drain()
-            patchLocalMessage(assistantMessage.id, {pending: false})
             await loadConversations({silent: true})
             if (conversationId) {
                 activeConversationId.value = conversationId
                 activeGenerationConversationId.value = conversationId
             }
+            if (!isGenerationMessage(assistantMessage) || receivedGenerationResult) {
+                patchLocalMessage(assistantMessage.id, {pending: false})
+            } else {
+                const generationMessage = messages.value.find((item) =>
+                    item.id === activeGenerationMessageId.value || item.id === assistantMessage.id,
+                )
+                if (generationMessage) {
+                    generationMessage.pending = true
+                    if (conversationId && !isLocalMessageId(generationMessage.id)) {
+                        startGenerationProgressSubscription(conversationId, generationMessage)
+                    }
+                }
+            }
         } catch (error) {
             streamBuffer.clear()
             if (assistantMessage.terminated || isAbortError(error)) {
-                patchLocalMessage(assistantMessage.id, {
-                    content: assistantMessage.content || TERMINATED_MESSAGE,
-                    failed: false,
-                    pending: false,
-                    terminated: true,
-                })
+                if (!isGenerationMessage(assistantMessage)) {
+                    patchLocalMessage(assistantMessage.id, {
+                        content: assistantMessage.content || TERMINATED_MESSAGE,
+                        failed: false,
+                        pending: false,
+                        terminated: true,
+                    })
+                }
                 return
             }
             const errorMessage = error instanceof Error ? error.message : 'AI response failed'
@@ -353,9 +367,6 @@ export const useAiStore = defineStore('ai', () => {
             || [...messages.value].reverse().find((message) => isGenerationMessage(message) && message.pending)
             || null
         const conversationId = activeGenerationConversationId.value || activeConversationId.value
-        if (generationMessage) {
-            markGenerationTerminated(generationMessage)
-        }
         const pendingAssistant = messages.value.find((message) =>
             message.pending && message.role.toLowerCase() !== 'user' && !isGenerationMessage(message),
         )
@@ -376,15 +387,28 @@ export const useAiStore = defineStore('ai', () => {
             streamFlushTimer = null
         }
         streaming.value = false
+        if (generationMessage && conversationId && !isLocalMessageId(generationMessage.id)) {
+            void terminateGeneration(conversationId, generationMessage.id)
+                .then(() => {
+                    generationMessage.pending = true
+                    activeGenerationMessageId.value = generationMessage.id
+                    activeGenerationRequestId.value = typeof generationMessage.payload?.generationRequestId === 'string'
+                        ? generationMessage.payload.generationRequestId
+                        : null
+                    activeGenerationConversationId.value = conversationId
+                    startGenerationProgressSubscription(conversationId, generationMessage)
+                })
+                .catch((error) => {
+                    generationMessage.pending = true
+                    generationMessage.failed = false
+                    generationMessage.terminated = false
+                    streamError.value = error instanceof Error ? error.message : String(error)
+                })
+            return
+        }
         activeGenerationRequestId.value = null
         activeGenerationConversationId.value = null
         stopGenerationProgressSubscription()
-        if (generationMessage && conversationId && !isLocalMessageId(generationMessage.id)) {
-            void terminateGeneration(conversationId, generationMessage.id)
-                .catch((error) => {
-                    streamError.value = error instanceof Error ? error.message : String(error)
-                })
-        }
     }
 
     function isGenerationMessage(message: ChatMessage) {
@@ -635,26 +659,6 @@ export const useAiStore = defineStore('ai', () => {
         }
 
         return message
-    }
-
-    function markGenerationTerminated(message: ChatMessage) {
-        const event: GenerationStageEvent = {
-            messageId: isLocalMessageId(message.id) ? undefined : message.id,
-            requestId: typeof message.payload?.generationRequestId === 'string'
-                ? message.payload.generationRequestId
-                : activeGenerationRequestId.value || undefined,
-            mode: typeof message.payload?.generationMode === 'string'
-                ? message.payload.generationMode
-                : message.messageType === 'PAPER' ? 'PAPER' : 'QUESTION',
-            stage: TERMINATED_STAGE,
-            status: TERMINATED_STATUS,
-            title: message.messageType === 'PAPER' ? '出卷已终止' : '出题已终止',
-            summary: TERMINATED_MESSAGE,
-            payload: {},
-            timestamp: new Date().toISOString(),
-        }
-        applyGenerationStageEvent(message, event)
-        message.content ||= TERMINATED_MESSAGE
     }
 
     function isTerminationEvent(event: GenerationStageEvent) {

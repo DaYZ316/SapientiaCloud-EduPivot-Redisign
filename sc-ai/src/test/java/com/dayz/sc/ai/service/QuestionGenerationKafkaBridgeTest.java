@@ -280,7 +280,8 @@ class QuestionGenerationKafkaBridgeTest {
                 UUID.randomUUID());
         bridge.cancel(requestId, AiAgentMode.QUESTION);
 
-        assertThat(resultMono.block(Duration.ofSeconds(1))).isNull();
+        assertThatThrownBy(() -> resultMono.block(Duration.ofSeconds(1)))
+                .isInstanceOf(GenerationCancelledException.class);
         assertThat(completed).isTrue();
         assertThat(received).hasSize(1);
         assertThat(received.getFirst().eventType()).isEqualTo("generation_stage");

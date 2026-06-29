@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.openai.http.okhttp.OpenAiHttpClientBuilderCustomizer;
 import org.springframework.ai.vectorstore.redis.RedisVectorStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -30,6 +31,11 @@ public class AiConfig {
     @Bean
     public ChatClient chatClient(ChatClient.Builder builder) {
         return builder.build();
+    }
+
+    @Bean
+    public OpenAiHttpClientBuilderCustomizer openAiHttpClientTimeoutCustomizer(AiProperties aiProperties) {
+        return builder -> builder.timeout(aiProperties.getGeneration().getProviderTimeout());
     }
 
     @Bean

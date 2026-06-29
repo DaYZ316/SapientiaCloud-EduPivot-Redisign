@@ -128,6 +128,7 @@ public class QuestionGenerationService {
     private final ObjectMapper objectMapper;
     private final AiProviderCallGuard aiProviderCallGuard;
     private final AgentSearchService agentSearchService;
+    private final QuestionGenerationCancellationService cancellationService;
 
     public AiAgentResult generateQuestions(String userMessage, GenerationRequest request, AiCourseContext context) {
         return generateQuestions(userMessage, request, context, null, null, null, null, null);
@@ -196,12 +197,16 @@ public class QuestionGenerationService {
         AiMessageType messageType = paper ? AiMessageType.PAPER : AiMessageType.QUESTION_SET;
         String mode = paper ? AiAgentMode.PAPER.name() : AiAgentMode.QUESTION.name();
         String requestId = StringUtils.hasText(suppliedRequestId) ? suppliedRequestId : UuidV7Generator.generate().toString();
+        CancellationToken cancellationToken = cancellationService == null
+                ? CancellationToken.none()
+                : cancellationService.token(requestId);
         GenerationRequest normalized = normalize(request, paper);
         List<GenerationTraceEntry> traceEntries = new ArrayList<>();
         List<GenerationTraceEntry> debugTraceEntries = new ArrayList<>();
         List<AgentSearchEvent> agentSearchEvents = new ArrayList<>();
         boolean exposeRawAiOutput = Integer.valueOf(ADMIN_ROLE_CODE).equals(role);
 
+        cancellationToken.throwIfCancelled();
         emitReceivedStage(stageListener, traceEntries, requestId, mode, normalized, paper);
 
         if (!aiRuntimeGuard.isConfigured()) {
@@ -211,15 +216,18 @@ public class QuestionGenerationService {
         GenerationContext generationContext = prepareGenerationContext(
                 userMessage, normalized, context, paper, traceEntries, agentSearchEvents,
                 agentSearchListener, stageListener, requestId, mode);
+        cancellationToken.throwIfCancelled();
 
         DraftReview draftReview = generateAndValidateDrafts(
                 userMessage, normalized, context, generationContext, paper, traceEntries,
-                debugTraceEntries, stageListener, requestId, mode, exposeRawAiOutput);
+                debugTraceEntries, stageListener, requestId, mode, exposeRawAiOutput, cancellationToken);
+        cancellationToken.throwIfCancelled();
 
         ReviewResult reviewResult = repairQuestions(
                 draftReview.questions(), normalized, context, generationContext.blueprint(), draftReview.issues(),
                 generationContext.referenceSignatures(), debugTraceEntries,
-                stageListener, requestId, mode, exposeRawAiOutput, paper);
+                stageListener, requestId, mode, exposeRawAiOutput, paper, cancellationToken);
+        cancellationToken.throwIfCancelled();
         reviewResult = mergeGenerationWarnings(reviewResult, draftReview.draftIssues());
         List<CreateQuestionRequest> finalQuestions = synchronizeFinalNestedScores(reviewResult.questions());
         List<GenerationValidationIssue> finalIssues = reviewResult.issues();
@@ -251,6 +259,7 @@ public class QuestionGenerationService {
         payload.put("generationTrace", traceEntries);
         payload.put("generationDebugTrace", debugTraceEntries);
 
+        cancellationToken.throwIfCancelled();
         return new AiAgentResult(content, messageType, payload);
     }
 
@@ -324,11 +333,13 @@ public class QuestionGenerationService {
                                                   Consumer<GenerationStageEvent> stageListener,
                                                   String requestId,
                                                   String mode,
-                                                  boolean exposeRawAiOutput) {
+                                                  boolean exposeRawAiOutput,
+                                                  CancellationToken cancellationToken) {
         GenerationDraftResult draftResult = generateDrafts(
                 userMessage, request, context, generationContext.promptEvidences(), generationContext.blueprint(),
                 paper, traceEntries, debugTraceEntries, generationContext.referenceSignatures(), stageListener,
-                requestId, mode, exposeRawAiOutput, generationContext.discardedEvidenceCount());
+                requestId, mode, exposeRawAiOutput, generationContext.discardedEvidenceCount(), cancellationToken);
+        cancellationToken.throwIfCancelled();
         emitDraftStage(draftResult.questions(), draftResult.issues(), generationContext.blueprint(),
                 stageListener, traceEntries, requestId, mode);
         List<CreateQuestionRequest> generatedQuestions = rebalanceQuestionScores(draftResult.questions(), request);
@@ -336,6 +347,7 @@ public class QuestionGenerationService {
         List<GenerationValidationIssue> issues = validateDrafts(
                 generatedQuestions, request, generationContext.blueprint(), paper,
                 generationContext.referenceSignatures(), debugTraceEntries);
+        cancellationToken.throwIfCancelled();
         emitValidationStage(generatedQuestions, issues, debugTraceEntries, stageListener, traceEntries, requestId, mode);
         return new DraftReview(generatedQuestions, issues, draftResult.issues());
     }
@@ -755,19 +767,25 @@ public class QuestionGenerationService {
                                                  String requestId,
                                                  String mode,
                                                  boolean exposeRawAiOutput,
-                                                 int discardedEvidenceCount) {
+                                                 int discardedEvidenceCount,
+                                                 CancellationToken cancellationToken) {
         List<CreateQuestionRequest> questions = new ArrayList<>();
         List<GenerationValidationIssue> allIssues = new ArrayList<>();
         Set<String> blockedSignatures = new LinkedHashSet<>(referenceSignatures);
+        cancellationToken.throwIfCancelled();
         publishDraftProgress(stageListener, traceEntries, requestId, mode, null, questions,
                 List.of(), List.of(), blueprint.totalQuestionCount());
         for (PaperSectionPlan section : blueprint.sections()) {
+            cancellationToken.throwIfCancelled();
             SectionAttempt bestAttempt = null;
             List<String> retryHints = List.of();
             for (int attemptNo = 1; attemptNo <= MAX_SECTION_ATTEMPTS; attemptNo++) {
+                cancellationToken.throwIfCancelled();
                 SectionAttempt attempt = generateSectionAttempt(
                         userMessage, request, context, evidences, blueprint, section, paper, blockedSignatures,
-                        retryHints, attemptNo, debugTraceEntries, stageListener, requestId, mode, exposeRawAiOutput);
+                        retryHints, attemptNo, debugTraceEntries, stageListener, requestId, mode, exposeRawAiOutput,
+                        cancellationToken);
+                cancellationToken.throwIfCancelled();
                 appendTraceEntry(debugTraceEntries, "GENERATED", "questionGeneration", "section_attempt",
                         "第 " + section.sectionNo() + " 部分，第 " + attemptNo + " 次生成",
                         "本次产出 " + attempt.questions().size() + " 道草稿题目，发现 "
@@ -784,6 +802,7 @@ public class QuestionGenerationService {
             }
             SectionAttempt completedAttempt = completeSectionAttempt(bestAttempt, section);
             bestAttempt = completedAttempt;
+            cancellationToken.throwIfCancelled();
             if (hasIssue(bestAttempt.issues(), "QUESTION_COUNT_NORMALIZED")) {
                 appendTraceEntry(debugTraceEntries, "GENERATED", "questionGeneration", "deterministic_fallback",
                         "本部分已自动补齐题目",
@@ -798,6 +817,7 @@ public class QuestionGenerationService {
             questions.addAll(bestAttempt.questions());
             allIssues.addAll(bestAttempt.issues());
             blockedSignatures.addAll(questionSignatures(bestAttempt.questions()));
+            cancellationToken.throwIfCancelled();
             publishDraftProgressByQuestion(stageListener, traceEntries, requestId, mode, section,
                     bestAttempt.questions(), bestAttempt.issues(), blueprint.totalQuestionCount(), previousQuestionCount);
         }
@@ -818,11 +838,15 @@ public class QuestionGenerationService {
                                                   Consumer<GenerationStageEvent> stageListener,
                                                   String requestId,
                                                   String mode,
-                                                  boolean exposeRawAiOutput) {
+                                                  boolean exposeRawAiOutput,
+                                                  CancellationToken cancellationToken) {
         try {
+            cancellationToken.throwIfCancelled();
             QuestionGeneratePayload payload = callSectionModel(
                     userMessage, request, context, evidences, blueprint, section, paper, blockedSignatures,
-                    retryHints, attemptNo, debugTraceEntries, stageListener, requestId, mode, exposeRawAiOutput);
+                    retryHints, attemptNo, debugTraceEntries, stageListener, requestId, mode, exposeRawAiOutput,
+                    cancellationToken);
+            cancellationToken.throwIfCancelled();
             GenerationRequest sectionRequest = sectionRequest(request, section);
             NormalizedQuestionBatch batch = normalizeQuestionsFromRecords(
                     payload == null ? List.of() : payload.questionsOrEmpty(), sectionRequest);
@@ -836,6 +860,8 @@ public class QuestionGenerationService {
             issues.addAll(batch.issues());
             appendSectionTypeIssues(issues, questions, section.questionType());
             return new SectionAttempt(questions, issues);
+        } catch (GenerationCancelledException exception) {
+            throw exception;
         } catch (RuntimeException exception) {
             GenerationValidationIssue issue = new GenerationValidationIssue(
                     "SECTION_GENERATION_FAILED",
@@ -861,7 +887,9 @@ public class QuestionGenerationService {
                                                      Consumer<GenerationStageEvent> stageListener,
                                                      String requestId,
                                                      String mode,
-                                                     boolean exposeRawAiOutput) {
+                                                     boolean exposeRawAiOutput,
+                                                     CancellationToken cancellationToken) {
+        cancellationToken.throwIfCancelled();
         String prompt = """
                 你是教育测评出题助手。当前任务：只为试卷蓝图中的一个部分生成题目。
                 只返回合法 JSON，不要使用 markdown 代码块，不要输出解释。
@@ -908,10 +936,14 @@ public class QuestionGenerationService {
                 toJson(summarizePromptEvidences(evidences)),
                 toJson(recentBlockedSignatures(blockedSignatures)),
                 toJson(retryHints));
-        String rawOutput = aiProviderCallGuard.call(() -> chatClient.prompt()
+        String rawOutput = aiProviderCallGuard.call(() -> {
+            cancellationToken.throwIfCancelled();
+            return chatClient.prompt()
                 .user(prompt)
                 .call()
-                .content());
+                .content();
+        });
+        cancellationToken.throwIfCancelled();
         publishRawAiOutput(debugTraceEntries, stageListener, requestId, mode, exposeRawAiOutput,
                 "GENERATED",
                 "第 " + section.sectionNo() + " 部分，第 " + attemptNo + " 次模型输出",
@@ -1803,7 +1835,9 @@ public class QuestionGenerationService {
                                          String requestId,
                                          String mode,
                                          boolean exposeRawAiOutput,
-                                         boolean paper) {
+                                         boolean paper,
+                                         CancellationToken cancellationToken) {
+        cancellationToken.throwIfCancelled();
         ReviewResult currentResult = initialRepairReview(questions, request, blueprint, issues, referenceSignatures, paper);
         List<CreateQuestionRequest> currentQuestions = currentResult.questions();
         List<GenerationValidationIssue> currentIssues = currentResult.issues();
@@ -1824,9 +1858,12 @@ public class QuestionGenerationService {
              attemptNo <= MAX_REPAIR_ATTEMPTS && shouldRepairWithModel(currentQuestions, currentIssues, request.questionCount());
              attemptNo++) {
             try {
+                cancellationToken.throwIfCancelled();
                 ReviewResult repairedResult = repairQuestionsOnce(
                         request, context, blueprint, currentQuestions, currentIssues, referenceSignatures,
-                        debugTraceEntries, stageListener, requestId, mode, exposeRawAiOutput, paper, attemptNo);
+                        debugTraceEntries, stageListener, requestId, mode, exposeRawAiOutput, paper, attemptNo,
+                        cancellationToken);
+                cancellationToken.throwIfCancelled();
                 if (isBetterCandidate(repairedResult.questions(), repairedResult.issues(),
                         bestQuestions, bestIssues, normalizedQuestionCount(request))) {
                     bestQuestions = repairedResult.questions();
@@ -1834,6 +1871,8 @@ public class QuestionGenerationService {
                 }
                 currentQuestions = repairedResult.questions();
                 currentIssues = repairedResult.issues();
+            } catch (GenerationCancelledException exception) {
+                throw exception;
             } catch (RuntimeException exception) {
                 appendTraceEntry(debugTraceEntries, "REPAIRED", "paperReview", "repair_attempt",
                         "第 " + attemptNo + " 轮修复",
@@ -1889,10 +1928,13 @@ public class QuestionGenerationService {
                                              String mode,
                                              boolean exposeRawAiOutput,
                                              boolean paper,
-                                             int attemptNo) {
+                                             int attemptNo,
+                                             CancellationToken cancellationToken) {
+        cancellationToken.throwIfCancelled();
         QuestionGeneratePayload repairedPayload = callRepairModel(
                 request, context, blueprint, questionMaps(currentQuestions), currentIssues, attemptNo,
-                debugTraceEntries, stageListener, requestId, mode, exposeRawAiOutput);
+                debugTraceEntries, stageListener, requestId, mode, exposeRawAiOutput, cancellationToken);
+        cancellationToken.throwIfCancelled();
         NormalizedQuestionBatch repairedBatch = normalizeQuestionsFromRecords(
                 repairedPayload == null ? List.of() : repairedPayload.questionsOrEmpty(), request);
         List<CreateQuestionRequest> repairedQuestions = deterministicRepair(repairedBatch.questions(), request);
@@ -1903,6 +1945,7 @@ public class QuestionGenerationService {
                 request.totalEstimatedTime(), referenceSignatures);
         repairedIssues.addAll(repairedBatch.issues());
         repairedIssues = mergeIssues(repairedIssues, qualityReview(repairedQuestions, request, blueprint, paper).issues());
+        cancellationToken.throwIfCancelled();
         appendTraceEntry(debugTraceEntries, "REPAIRED", "paperReview", "repair_attempt",
                 "第 " + attemptNo + " 轮修复",
                 "本轮产出 " + repairedQuestions.size() + " 道题目，仍有 "
@@ -1989,7 +2032,9 @@ public class QuestionGenerationService {
                                                     Consumer<GenerationStageEvent> stageListener,
                                                     String requestId,
                                                     String mode,
-                                                    boolean exposeRawAiOutput) {
+                                                    boolean exposeRawAiOutput,
+                                                    CancellationToken cancellationToken) {
+        cancellationToken.throwIfCancelled();
         String prompt = """
                 你是教育测评题目修复助手。当前任务：修复已经生成的题目集合。
                 只返回合法 JSON，不要使用 markdown 代码块，不要输出解释。
@@ -2020,10 +2065,14 @@ public class QuestionGenerationService {
                 toJson(currentQuestions),
                 toJson(issues),
                 platformDataTool.summarize(context));
-        String rawOutput = aiProviderCallGuard.call(() -> chatClient.prompt()
+        String rawOutput = aiProviderCallGuard.call(() -> {
+            cancellationToken.throwIfCancelled();
+            return chatClient.prompt()
                 .user(prompt)
                 .call()
-                .content());
+                .content();
+        });
+        cancellationToken.throwIfCancelled();
         publishRawAiOutput(debugTraceEntries, stageListener, requestId, mode, exposeRawAiOutput,
                 "REPAIRED",
                 "第 " + attemptNo + " 轮修复模型输出",

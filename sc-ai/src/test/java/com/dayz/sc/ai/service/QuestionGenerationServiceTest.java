@@ -1012,7 +1012,8 @@ class QuestionGenerationServiceTest {
                 platformDataTool,
                 new ObjectMapper(),
                 new AiProviderCallGuard(),
-                agentSearchService);
+                agentSearchService,
+                null);
     }
 
     private ChatFixture chatFixture(String... responses) {
