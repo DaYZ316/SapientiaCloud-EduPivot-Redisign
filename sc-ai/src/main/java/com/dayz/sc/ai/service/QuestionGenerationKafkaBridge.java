@@ -30,8 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * QuestionGenerationKafkaBridge.
@@ -42,30 +41,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Service
 public class QuestionGenerationKafkaBridge {
 
-    private static final Duration DEFAULT_DISPATCH_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration DEFAULT_RESPONSE_TIMEOUT = Duration.ofMinutes(30);
     private static final String STATUS_COMPLETED = "completed";
 
     private final ObjectProvider<@NonNull KafkaTemplate<@NonNull String, @NonNull Object>> kafkaTemplateProvider;
-    private final Duration dispatchTimeout;
     private final Duration responseTimeout;
     private final Map<String, Sinks.One<@NonNull QuestionGenerationCompletedEvent>> responseSinks = new ConcurrentHashMap<>();
     private final Map<String, Sinks.Many<@NonNull QuestionGenerationProgressEvent>> progressSinks = new ConcurrentHashMap<>();
-    private final Map<String, Sinks.One<@NonNull Void>> startedSinks = new ConcurrentHashMap<>();
     private final Set<UUID> emittedProgressEventIds = ConcurrentHashMap.newKeySet();
 
     @Autowired
     public QuestionGenerationKafkaBridge(
             ObjectProvider<@NonNull KafkaTemplate<@NonNull String, @NonNull Object>> kafkaTemplateProvider) {
-        this(kafkaTemplateProvider, DEFAULT_DISPATCH_TIMEOUT, DEFAULT_RESPONSE_TIMEOUT);
+        this(kafkaTemplateProvider, DEFAULT_RESPONSE_TIMEOUT);
     }
 
     QuestionGenerationKafkaBridge(
             ObjectProvider<@NonNull KafkaTemplate<@NonNull String, @NonNull Object>> kafkaTemplateProvider,
-            Duration dispatchTimeout,
             Duration responseTimeout) {
         this.kafkaTemplateProvider = kafkaTemplateProvider;
-        this.dispatchTimeout = dispatchTimeout;
         this.responseTimeout = responseTimeout;
     }
 
@@ -81,11 +75,8 @@ public class QuestionGenerationKafkaBridge {
             return Mono.empty();
         }
         String finalRequestId = hasText(requestId) ? requestId : UuidV7Generator.generate().toString();
-        AtomicBoolean workerStarted = new AtomicBoolean(false);
         Sinks.One<@NonNull QuestionGenerationCompletedEvent> responseSink = Sinks.one();
         responseSinks.put(finalRequestId, responseSink);
-        Sinks.One<@NonNull Void> startedSink = Sinks.one();
-        startedSinks.put(finalRequestId, startedSink);
         progressSinks.computeIfAbsent(finalRequestId, ignored -> Sinks.many().replay().limit(256));
         QuestionGenerationRequestedEvent event = new QuestionGenerationRequestedEvent(
                 UuidV7Generator.generate(),
@@ -98,24 +89,21 @@ public class QuestionGenerationKafkaBridge {
                 request.message(),
                 mode.name(),
                 generationPayload(request.generation()));
+        CompletableFuture<?> sendFuture;
         try {
-            kafkaTemplate.send(KafkaTopicConstants.QUESTION_GENERATION_REQUESTS, finalRequestId, event)
-                    .whenComplete((result, ex) -> {
-                        if (ex != null) {
-                            log.warn("Failed to publish question generation request requestId={}", finalRequestId, ex);
-                            responseSink.tryEmitEmpty();
-                            cleanup(finalRequestId);
-                        }
-                    });
+            sendFuture = kafkaTemplate.send(KafkaTopicConstants.QUESTION_GENERATION_REQUESTS, finalRequestId, event);
         } catch (RuntimeException exception) {
             cleanup(finalRequestId);
             return Mono.empty();
         }
         Mono<@NonNull QuestionGenerationCompletedEvent> responseMono = responseSink.asMono().cache();
-        return Mono.firstWithSignal(startedSink.asMono(), responseMono.then())
-                .doOnSuccess(ignored -> workerStarted.set(true))
-                .timeout(dispatchTimeout)
-                .then(responseMono.timeout(responseTimeout))
+        return Mono.fromFuture(sendFuture)
+                .onErrorResume(error -> {
+                    log.warn("Failed to publish question generation request requestId={}", finalRequestId, error);
+                    cleanup(finalRequestId);
+                    return Mono.empty();
+                })
+                .flatMap(ignored -> responseMono.timeout(responseTimeout))
                 .flatMap(response -> {
                     if (STATUS_COMPLETED.equals(response.status())) {
                         return Mono.just(new AiAgentResult(
@@ -129,14 +117,7 @@ public class QuestionGenerationKafkaBridge {
                 })
                 .doFinally(signalType -> cleanup(finalRequestId))
                 .onErrorResume(error -> {
-                    if (error instanceof TimeoutException && !workerStarted.get()) {
-                        log.warn("Question generation Kafka dispatch timed out requestId={} timeoutMs={}",
-                                finalRequestId, dispatchTimeout.toMillis());
-                        cleanup(finalRequestId);
-                        return Mono.empty();
-                    } else {
-                        log.warn("Question generation Kafka response failed requestId={}", finalRequestId, error);
-                    }
+                    log.warn("Question generation Kafka response failed requestId={}", finalRequestId, error);
                     cleanup(finalRequestId);
                     return Mono.error(error);
                 });
@@ -210,10 +191,6 @@ public class QuestionGenerationKafkaBridge {
     public void onCompleted(QuestionGenerationCompletedEvent event, Acknowledgment acknowledgment) {
         try {
             if (event != null && hasText(event.requestId())) {
-                Sinks.One<@NonNull Void> startedSink = startedSinks.get(event.requestId());
-                if (startedSink != null) {
-                    startedSink.tryEmitEmpty();
-                }
                 Sinks.One<@NonNull QuestionGenerationCompletedEvent> sink = responseSinks.get(event.requestId());
                 if (sink != null) {
                     sink.tryEmitValue(event);
@@ -293,10 +270,6 @@ public class QuestionGenerationKafkaBridge {
 
     private void cleanup(String requestId) {
         responseSinks.remove(requestId);
-        Sinks.One<@NonNull Void> startedSink = startedSinks.remove(requestId);
-        if (startedSink != null) {
-            startedSink.tryEmitEmpty();
-        }
         Sinks.Many<@NonNull QuestionGenerationProgressEvent> progressSink = progressSinks.remove(requestId);
         if (progressSink != null) {
             progressSink.tryEmitComplete();
@@ -310,10 +283,6 @@ public class QuestionGenerationKafkaBridge {
         UUID eventId = event.eventId();
         if (eventId != null && !emittedProgressEventIds.add(eventId)) {
             return;
-        }
-        Sinks.One<@NonNull Void> startedSink = startedSinks.get(event.requestId());
-        if (startedSink != null) {
-            startedSink.tryEmitEmpty();
         }
         Sinks.Many<@NonNull QuestionGenerationProgressEvent> sink = progressSinks.get(event.requestId());
         if (sink != null) {

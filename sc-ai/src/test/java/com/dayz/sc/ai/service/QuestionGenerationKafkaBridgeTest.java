@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -211,12 +212,35 @@ class QuestionGenerationKafkaBridgeTest {
     }
 
     @Test
-    void submitShouldReturnEmptyWhenWorkerDoesNotStart() {
+    void submitShouldFailWhenWorkerDoesNotRespondAfterRequestPublished() {
         KafkaTemplate<@NonNull String, @NonNull Object> kafkaTemplate = kafkaTemplate();
         QuestionGenerationKafkaBridge bridge = new QuestionGenerationKafkaBridge(
                 provider(kafkaTemplate),
-                Duration.ofMillis(20),
-                Duration.ofSeconds(1));
+                Duration.ofMillis(20));
+
+        var resultMono = bridge.submit(
+                new ChatRequest(UUID.randomUUID(), "generate questions", "QUESTION", null, null),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                2,
+                AiAgentMode.QUESTION,
+                "request-1",
+                UUID.randomUUID());
+
+        assertThatThrownBy(() -> resultMono.block(Duration.ofSeconds(1)))
+                .hasCauseInstanceOf(TimeoutException.class);
+        verify(kafkaTemplate).send(
+                eq(KafkaTopicConstants.QUESTION_GENERATION_REQUESTS),
+                eq("request-1"),
+                any());
+    }
+
+    @Test
+    void submitShouldReturnEmptyWhenRequestPublishFails() {
+        KafkaTemplate<@NonNull String, @NonNull Object> kafkaTemplate = kafkaTemplate();
+        when(kafkaTemplate.send(any(String.class), any(String.class), any()))
+                .thenReturn(CompletableFuture.failedFuture(new RuntimeException("send failed")));
+        QuestionGenerationKafkaBridge bridge = new QuestionGenerationKafkaBridge(provider(kafkaTemplate));
 
         AiAgentResult result = bridge.submit(
                         new ChatRequest(UUID.randomUUID(), "generate questions", "QUESTION", null, null),

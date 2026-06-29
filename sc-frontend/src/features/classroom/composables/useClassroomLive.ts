@@ -1,5 +1,13 @@
 import {computed, type MaybeRef, onUnmounted, ref, shallowRef, unref, watch} from 'vue'
-import {type ConnectionQuality, createLocalTracks, type Participant, Room, RoomEvent, Track} from 'livekit-client'
+import {
+    type ConnectionQuality,
+    createLocalTracks,
+    type Participant,
+    Room,
+    RoomEvent,
+    Track,
+    type ScreenShareCaptureOptions,
+} from 'livekit-client'
 
 import {i18n} from '@/app/i18n'
 import {issueClassLiveToken} from '@/features/course/api/classSession'
@@ -20,11 +28,14 @@ const CAMERA_OVERLAY_POSITIONS = ['top-left', 'top-right', 'bottom-left', 'botto
 const CONNECTION_QUALITY_VALUES = new Set(['excellent', 'good', 'poor', 'lost', 'unknown'])
 const NETWORK_STATS_INTERVAL_MS = 2000
 const SCREEN_SHARE_CAPTURE_OPTIONS = {
+    audio: true,
     selfBrowserSurface: 'exclude',
     surfaceSwitching: 'include',
+    systemAudio: 'include',
     preferCurrentTab: false,
     contentHint: 'detail',
 } as const
+const MOBILE_USER_AGENT_PATTERN = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i
 const liveStateBySessionId = new Map<string, ClassroomLiveState>()
 const liveStateConsumerCount = new Map<string, number>()
 
@@ -104,6 +115,11 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
 
     function updateIsTeacher(nextIsTeacher: boolean) {
         currentIsTeacher.value = nextIsTeacher
+    }
+
+    function canUseScreenShare() {
+        return typeof navigator !== 'undefined'
+            && typeof navigator.mediaDevices?.getDisplayMedia === 'function'
     }
 
     async function connect() {
@@ -314,13 +330,72 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
         if (!currentIsTeacher.value || !room.value) {
             return
         }
+        if (!canUseScreenShare()) {
+            throw new Error(i18n.global.t('courseDetail.live.screenShareUnsupported'))
+        }
         const nextEnabled = !screenShareEnabled.value
-        await room.value.localParticipant.setScreenShareEnabled(
-            nextEnabled,
-            nextEnabled ? SCREEN_SHARE_CAPTURE_OPTIONS : undefined,
-        )
-        screenShareEnabled.value = nextEnabled
+        try {
+            await room.value.localParticipant.setScreenShareEnabled(
+                nextEnabled,
+                nextEnabled ? screenShareCaptureOptions() : undefined,
+            )
+            screenShareEnabled.value = nextEnabled
+        } catch (error) {
+            screenShareEnabled.value = hasLocalScreenShareTrack()
+            throw screenShareError(error)
+        }
         attachLocalTracks()
+    }
+
+    function screenShareCaptureOptions(): ScreenShareCaptureOptions {
+        if (isMobileBrowser()) {
+            return {video: true, audio: false, resolution: {width: 0, height: 0}, contentHint: 'detail'}
+        }
+        return SCREEN_SHARE_CAPTURE_OPTIONS
+    }
+
+    function isMobileBrowser() {
+        return typeof navigator !== 'undefined'
+            && (MOBILE_USER_AGENT_PATTERN.test(navigator.userAgent)
+                || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1))
+    }
+
+    function hasLocalScreenShareTrack() {
+        const currentRoom = room.value
+        if (!currentRoom) {
+            return false
+        }
+        return pickVideoTracks(currentRoom.localParticipant.videoTrackPublications.values()).screenShareTrack != null
+    }
+
+    function getLocalScreenShareAudioTracks() {
+        const currentRoom = room.value
+        const audioTracks: MediaStreamTrack[] = []
+        if (!currentRoom) {
+            return audioTracks
+        }
+        for (const publication of currentRoom.localParticipant.audioTrackPublications.values()) {
+            const track = publication.track
+            if (publication.source === Track.Source.ScreenShareAudio
+                && track?.kind === Track.Kind.Audio
+                && track.mediaStreamTrack.readyState === 'live') {
+                audioTracks.push(track.mediaStreamTrack)
+            }
+        }
+        return audioTracks
+    }
+
+    function screenShareError(error: unknown) {
+        if (error instanceof Error) {
+            if (error.name === 'DeviceUnsupportedError' || error.message.includes('getDisplayMedia')) {
+                return new Error(i18n.global.t('courseDetail.live.screenShareUnsupported'))
+            }
+            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                return new Error(i18n.global.t('courseDetail.live.screenSharePermissionDenied'))
+            }
+            return error
+        }
+        return new Error(i18n.global.t('courseDetail.live.screenShareFailed'))
     }
 
     async function publishDefaults() {
@@ -663,6 +738,7 @@ function createClassroomLiveState(initialSession: ClassSession, initialIsTeacher
         toggleCamera,
         toggleMicrophone,
         toggleScreenShare,
+        getLocalScreenShareAudioTracks,
         publishDefaults,
         setCameraOverlayPosition,
         setSessionParticipants,

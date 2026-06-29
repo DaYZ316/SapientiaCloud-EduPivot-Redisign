@@ -324,6 +324,7 @@
               v-if="mindMap"
               ref="chartEl"
               :aria-label="t('courseDetail.classSession.liveSummary.mindmap.aria')"
+              :style="{minHeight: mindMapHeight}"
               class="mindmap-chart"
               role="img"
           />
@@ -384,6 +385,14 @@ type LiveSummaryHistoryRecord = {
   summarySessionId: string
   latestSnapshot: LiveSummarySnapshot
   snapshots: LiveSummarySnapshot[]
+}
+type StyledMindMapNode = Omit<LiveSummaryMindMapNode, 'children'> & {
+  value?: string
+  symbolSize?: number
+  itemStyle?: Record<string, unknown>
+  lineStyle?: Record<string, unknown>
+  label?: Record<string, unknown>
+  children?: StyledMindMapNode[]
 }
 
 const {t} = useI18n()
@@ -501,6 +510,10 @@ const timelineRows = computed(() => timeline.value.map((item, index) => ({
   time: timelineTime(item, index),
 })))
 const mindMap = computed(() => displaySnapshot.value?.payload?.mindMap || null)
+const mindMapHeight = computed(() => {
+  const nodeCount = mindMap.value ? countMindMapNodes(mindMap.value) : 0
+  return `${Math.min(Math.max(520, nodeCount * 38), 820)}px`
+})
 
 onMounted(async () => {
   try {
@@ -661,41 +674,94 @@ function disposeMindMapChart() {
 
 function mindMapOption(data: LiveSummaryMindMapNode): EChartsCoreOption {
   const palette = readPalette()
+  const treeData = decorateMindMapNode(data, 0, 0, palette)
   return {
-    tooltip: {trigger: 'item', triggerOn: 'mousemove'},
+    color: palette.branchColors,
+    tooltip: {
+      trigger: 'item',
+      triggerOn: 'mousemove',
+      confine: true,
+      backgroundColor: palette.tooltipBackground,
+      borderColor: palette.outline,
+      textStyle: {
+        color: palette.text,
+        fontSize: 12,
+        lineHeight: 18,
+      },
+      extraCssText: 'max-width: 320px; white-space: normal; word-break: break-word;',
+      formatter: (params: { data?: { name?: string; value?: string } }) =>
+          escapeHtml(params.data?.value || params.data?.name || ''),
+    },
     series: [{
       type: 'tree',
-      data: [data],
-      top: 16,
-      left: 8,
-      bottom: 16,
-      right: 96,
-      symbolSize: 8,
+      data: [treeData],
+      top: 36,
+      left: 36,
+      bottom: 36,
+      right: 176,
+      symbol: 'circle',
       orient: 'LR',
       roam: true,
+      scaleLimit: {
+        min: 0.55,
+        max: 2.4,
+      },
+      edgeShape: 'polyline',
+      edgeForkPosition: '52%',
       label: {
         position: 'left',
         verticalAlign: 'middle',
         align: 'right',
         color: palette.text,
-        fontSize: 12,
-        width: 96,
-        overflow: 'break',
+        fontSize: 11,
+        fontWeight: 600,
+        lineHeight: 16,
+        width: 132,
+        overflow: 'truncate',
+        ellipsis: '...',
+        backgroundColor: palette.nodeBackground,
+        borderColor: palette.nodeBorder,
+        borderWidth: 1,
+        borderRadius: 6,
+        padding: [4, 7],
       },
       leaves: {
         label: {
           position: 'right',
           align: 'left',
-          width: 120,
-          overflow: 'break',
+          width: 172,
+          overflow: 'truncate',
+          ellipsis: '...',
+          backgroundColor: palette.leafBackground,
+          borderColor: palette.nodeBorder,
+          borderWidth: 1,
+          borderRadius: 6,
+          padding: [4, 7],
         },
       },
-      lineStyle: {color: palette.outline},
-      itemStyle: {color: palette.primary, borderColor: palette.primary},
-      emphasis: {focus: 'descendant'},
+      lineStyle: {
+        color: palette.outline,
+        width: 1.4,
+        opacity: 0.72,
+      },
+      itemStyle: {
+        color: palette.primary,
+        borderColor: palette.surface,
+        borderWidth: 2,
+      },
+      emphasis: {
+        focus: 'descendant',
+        label: {color: palette.text},
+        lineStyle: {width: 2.4, opacity: 1},
+      },
+      blur: {
+        itemStyle: {opacity: 0.28},
+        label: {opacity: 0.36},
+        lineStyle: {opacity: 0.18},
+      },
       expandAndCollapse: true,
-      animationDuration: 300,
-      animationDurationUpdate: 450,
+      animationDuration: 360,
+      animationDurationUpdate: 520,
     }],
   }
 }
@@ -703,11 +769,115 @@ function mindMapOption(data: LiveSummaryMindMapNode): EChartsCoreOption {
 function readPalette() {
   const styles = getComputedStyle(document.documentElement)
   const text = styles.getPropertyValue('--color-on-surface').trim() || styles.color
+  const surface = styles.getPropertyValue('--color-surface-card').trim() || '#141414'
+  const surfaceContainer = styles.getPropertyValue('--color-surface-container').trim() || surface
+  const surfaceHigh = styles.getPropertyValue('--color-surface-container-high').trim() || surfaceContainer
+  const outline = styles.getPropertyValue('--color-outline-light').trim() || text
   return {
     text,
     primary: styles.getPropertyValue('--color-primary').trim() || text,
-    outline: styles.getPropertyValue('--color-outline-light').trim() || text,
+    primaryContrast: styles.getPropertyValue('--color-surface').trim() || surface,
+    surface,
+    outline,
+    nodeBackground: surfaceHigh,
+    leafBackground: surfaceContainer,
+    nodeBorder: styles.getPropertyValue('--color-outline-variant').trim() || outline,
+    tooltipBackground: styles.getPropertyValue('--color-surface-container-highest').trim() || surfaceHigh,
+    branchColors: ['#8dd3c7', '#80b1d3', '#fdb462', '#bebada', '#fb8072', '#b3de69'],
   }
+}
+
+function decorateMindMapNode(
+    node: LiveSummaryMindMapNode,
+    depth: number,
+    branchIndex: number,
+    palette: ReturnType<typeof readPalette>,
+): StyledMindMapNode {
+  const branchColor = depth === 0 ? palette.primary : palette.branchColors[branchIndex % palette.branchColors.length]
+  return {
+    name: node.name,
+    value: node.name,
+    symbolSize: depth === 0 ? 12 : depth === 1 ? 8 : 6,
+    itemStyle: {
+      color: branchColor,
+      borderColor: depth === 0 ? palette.primaryContrast : palette.surface,
+      borderWidth: depth === 0 ? 2.5 : 2,
+    },
+    lineStyle: {
+      color: branchColor,
+      width: depth <= 1 ? 1.8 : 1.2,
+      opacity: depth <= 1 ? 0.86 : 0.58,
+    },
+    label: mindMapNodeLabel(depth, branchColor, palette),
+    children: node.children?.map((child, index) =>
+        decorateMindMapNode(child, depth + 1, depth === 0 ? index : branchIndex, palette)),
+  }
+}
+
+function mindMapNodeLabel(depth: number, branchColor: string, palette: ReturnType<typeof readPalette>) {
+  if (depth === 0) {
+    return {
+      position: 'right',
+      align: 'left',
+      color: palette.primaryContrast,
+      backgroundColor: palette.text,
+      borderColor: palette.text,
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: [6, 10],
+      width: 156,
+      overflow: 'truncate',
+      ellipsis: '...',
+      fontSize: 12,
+      fontWeight: 800,
+      lineHeight: 18,
+    }
+  }
+
+  if (depth === 1) {
+    return {
+      color: palette.text,
+      backgroundColor: palette.nodeBackground,
+      borderColor: branchColor,
+      borderWidth: 1,
+      borderRadius: 6,
+      padding: [4, 7],
+      width: 138,
+      overflow: 'truncate',
+      ellipsis: '...',
+      fontSize: 11,
+      fontWeight: 700,
+      lineHeight: 16,
+    }
+  }
+
+  return {
+    color: palette.text,
+    backgroundColor: palette.leafBackground,
+    borderColor: palette.nodeBorder,
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: [4, 7],
+    width: 172,
+    overflow: 'truncate',
+    ellipsis: '...',
+    fontSize: 11,
+    fontWeight: 600,
+    lineHeight: 16,
+  }
+}
+
+function countMindMapNodes(node: LiveSummaryMindMapNode): number {
+  return 1 + (node.children?.reduce((total, child) => total + countMindMapNodes(child), 0) ?? 0)
+}
+
+function escapeHtml(value: string) {
+  return value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;')
 }
 
 function transcriptTime(segment: LiveTranscriptSegment) {
@@ -1521,22 +1691,24 @@ function stringList(value: unknown) {
 
 .mindmap-view {
   display: grid;
-  grid-template-rows: minmax(0, 1fr);
   height: 100%;
   min-height: 0;
-  overflow: hidden;
-  padding: 12px;
+  overflow-x: auto;
+  padding: 18px;
+  border: 1px solid var(--color-outline-light);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-card);
 }
 
 .mindmap-chart {
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
+  width: max(100%, 760px);
+  min-height: 520px;
   overflow: hidden;
-  border: 1px solid var(--color-outline-light);
-  border-radius: 0;
-  background: var(--color-surface-container);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-outline-light) 42%, transparent) 1px, transparent 1px),
+  linear-gradient(color-mix(in srgb, var(--color-outline-light) 42%, transparent) 1px, transparent 1px),
+  var(--color-surface-canvas);
+  background-size: 48px 48px;
 }
 
 .mindmap-view .empty-state {
@@ -1840,7 +2012,12 @@ button:disabled {
   }
 
   .mindmap-view {
-    padding: 8px;
+    padding: 12px;
+  }
+
+  .mindmap-chart {
+    width: max(100%, 680px);
+    min-height: 480px;
   }
 
   .inline-empty,

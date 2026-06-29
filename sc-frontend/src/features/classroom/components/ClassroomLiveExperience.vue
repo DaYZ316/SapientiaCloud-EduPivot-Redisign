@@ -1274,7 +1274,9 @@ async function confirmLiveSummaryStart() {
         : await startLiveSummary(props.session.id)
     applyLiveSummarySession(next, {resumeAudio: false})
     showLiveSummaryStartDialog.value = false
-    await startLiveSummaryAudioUpload(props.session.id)
+    await startLiveSummaryAudioUpload(props.session.id, {
+      additionalAudioTracks: live.getLocalScreenShareAudioTracks,
+    })
   })
 }
 
@@ -1299,7 +1301,7 @@ async function runControlAction(action: LiveControlAction, task: () => Promise<v
   try {
     await task()
   } catch (error) {
-    notify.error(action === 'summary' && error instanceof Error
+    notify.error((action === 'summary' || action === 'screenShare') && error instanceof Error
         ? error.message
         : t('courseDetail.live.controlActionFailed'))
   } finally {
@@ -1613,7 +1615,9 @@ async function resumeLiveSummaryAudioUploadIfNeeded() {
     return
   }
   try {
-    await startLiveSummaryAudioUpload(props.session.id)
+    await startLiveSummaryAudioUpload(props.session.id, {
+      additionalAudioTracks: live.getLocalScreenShareAudioTracks,
+    })
   } catch (error) {
     notify.warn(error instanceof Error
         ? error.message

@@ -9,18 +9,31 @@ type LiveSummaryAudioUploadState = {
     socket: WebSocket | null
     mediaStream: MediaStream | null
     audioContext: AudioContext | null
+    destinationNode: MediaStreamAudioDestinationNode | null
     sourceNode: MediaStreamAudioSourceNode | null
+    inputSourceNodes: MediaStreamAudioSourceNode[]
     workletNode: AudioWorkletNode | null
     silenceNode: GainNode | null
     scriptProcessorNode: ScriptProcessorNode | null
+    additionalAudioTracks: (() => MediaStreamTrack[]) | null
+    additionalAudioTrackIds: Set<string>
+    additionalAudioTrackTimer: number | null
     runId: number
+}
+
+type LiveSummaryAudioUploadOptions = {
+    additionalAudioTracks?: () => MediaStreamTrack[]
 }
 
 const uploadsBySessionId = new Map<string, LiveSummaryAudioUploadState>()
 
-export async function startLiveSummaryAudioUpload(classSessionId: string) {
+export async function startLiveSummaryAudioUpload(
+    classSessionId: string,
+    options: LiveSummaryAudioUploadOptions = {},
+) {
     stopLiveSummaryAudioUpload(classSessionId)
     const state = createLiveSummaryAudioUploadState()
+    state.additionalAudioTracks = options.additionalAudioTracks ?? null
     uploadsBySessionId.set(classSessionId, state)
     const runId = ++state.runId
     try {
@@ -48,7 +61,7 @@ export async function startLiveSummaryAudioUpload(classSessionId: string) {
         state.mediaStream = stream
         const context = new AudioContext()
         state.audioContext = context
-        const source = context.createMediaStreamSource(stream)
+        const source = createLiveSummaryAudioSource(state, context, stream)
         state.sourceNode = source
         if (!(await connectLiveSummaryAudioWorklet(classSessionId, state, context, source, runId))) {
             if (!isCurrentLiveSummaryAudioUpload(classSessionId, state, runId, socket, context)) return
@@ -73,15 +86,25 @@ export function stopLiveSummaryAudioUpload(classSessionId: string) {
     }
     uploadsBySessionId.delete(classSessionId)
     state.runId += 1
+    if (state.additionalAudioTrackTimer != null) {
+        window.clearInterval(state.additionalAudioTrackTimer)
+    }
     state.workletNode?.port.postMessage({type: 'flush'})
     state.workletNode?.disconnect()
     state.silenceNode?.disconnect()
     state.scriptProcessorNode?.disconnect()
     state.sourceNode?.disconnect()
+    state.inputSourceNodes.forEach(source => source.disconnect())
+    state.destinationNode?.disconnect()
+    state.additionalAudioTrackTimer = null
     state.workletNode = null
     state.silenceNode = null
     state.scriptProcessorNode = null
     state.sourceNode = null
+    state.inputSourceNodes = []
+    state.destinationNode = null
+    state.additionalAudioTracks = null
+    state.additionalAudioTrackIds.clear()
     void state.audioContext?.close()
     state.audioContext = null
     state.mediaStream?.getTracks().forEach(track => track.stop())
@@ -101,11 +124,71 @@ function createLiveSummaryAudioUploadState(): LiveSummaryAudioUploadState {
         socket: null,
         mediaStream: null,
         audioContext: null,
+        destinationNode: null,
         sourceNode: null,
+        inputSourceNodes: [],
         workletNode: null,
         silenceNode: null,
         scriptProcessorNode: null,
+        additionalAudioTracks: null,
+        additionalAudioTrackIds: new Set<string>(),
+        additionalAudioTrackTimer: null,
         runId: 0,
+    }
+}
+
+function createLiveSummaryAudioSource(
+    state: LiveSummaryAudioUploadState,
+    context: AudioContext,
+    microphoneStream: MediaStream,
+) {
+    const destination = context.createMediaStreamDestination()
+    const microphoneSource = context.createMediaStreamSource(microphoneStream)
+    state.destinationNode = destination
+    state.inputSourceNodes.push(microphoneSource)
+    microphoneSource.connect(destination)
+    connectAdditionalLiveSummaryAudioTracks(state, context)
+    startAdditionalLiveSummaryAudioTrackRefresh(state, context)
+    return context.createMediaStreamSource(destination.stream)
+}
+
+function startAdditionalLiveSummaryAudioTrackRefresh(
+    state: LiveSummaryAudioUploadState,
+    context: AudioContext,
+) {
+    if (!state.additionalAudioTracks) {
+        return
+    }
+    state.additionalAudioTrackTimer = window.setInterval(() => {
+        if (state.audioContext === context) {
+            connectAdditionalLiveSummaryAudioTracks(state, context)
+        }
+    }, 1000)
+}
+
+function connectAdditionalLiveSummaryAudioTracks(
+    state: LiveSummaryAudioUploadState,
+    context: AudioContext,
+) {
+    const destination = state.destinationNode
+    if (!destination || !state.additionalAudioTracks) {
+        return
+    }
+    for (const trackId of state.additionalAudioTrackIds) {
+        if (!state.additionalAudioTracks().some(track => track.id === trackId && track.readyState === 'live')) {
+            state.additionalAudioTrackIds.delete(trackId)
+        }
+    }
+    for (const track of state.additionalAudioTracks()) {
+        if (track.kind !== 'audio'
+            || track.readyState !== 'live'
+            || state.additionalAudioTrackIds.has(track.id)) {
+            continue
+        }
+        const source = context.createMediaStreamSource(new MediaStream([track]))
+        source.connect(destination)
+        state.inputSourceNodes.push(source)
+        state.additionalAudioTrackIds.add(track.id)
     }
 }
 

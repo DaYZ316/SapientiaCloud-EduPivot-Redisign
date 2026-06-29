@@ -31,7 +31,7 @@ spring:
       base-url: ${DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
       chat:
         options:
-          model: ${DASHSCOPE_CHAT_MODEL:qwen3.6-flash}
+          model: ${DASHSCOPE_CHAT_MODEL:qwen3.6-max-preview}
       embedding:
         options:
           model: ${DASHSCOPE_EMBEDDING_MODEL:text-embedding-v3}
