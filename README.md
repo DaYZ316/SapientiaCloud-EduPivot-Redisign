@@ -1,5 +1,7 @@
 # SapientiaCloud EduPivot
 
+当前正式版本：`2.0.0`
+
 SapientiaCloud EduPivot 是一个面向教学场景的全栈平台，包含课程与课堂管理、用户认证、通知、对象存储、AI 助手、实时课堂能力，以及统一网关和前端应用。仓库采用后端 Maven 多模块、前端 Vue 3 单应用、Docker Compose 编排的结构。
 
 ## 技术栈
@@ -146,4 +148,3 @@ deploy_artifact.bat all
 - MinIO 控制台：`http://localhost:9001`
 - Grafana：`http://localhost:13000`
 - SkyWalking：`http://localhost:18090`
-

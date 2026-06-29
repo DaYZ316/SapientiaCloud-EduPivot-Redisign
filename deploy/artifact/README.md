@@ -1,5 +1,7 @@
 # Artifact Deployment
 
+Release version: `2.0.0`.
+
 This deployment mode uploads built artifacts instead of source code.
 
 Server directory:
