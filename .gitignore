@@ -7,6 +7,7 @@ deploy_artifact.local.bat
 !**/src/main/**/target/
 !**/src/test/**/target/
 *.7z
+/docs/
 
 ### STS ###
 .apt_generated
@@ -46,3 +47,5 @@ nacos-plugins/
 .agents/
 .claude/
 skills-lock.json
+Claude.md
+Agent.md
