@@ -124,7 +124,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "(sum(rate(redis_auth_cache_read_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=~\"hit|negative_hit\"}[5m])) or vector(0)) / clamp_min((sum(rate(redis_auth_cache_read_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=~\"hit|negative_hit|miss\"}[5m])) or vector(0)), 1)",
+          "expr": "(sum(increase(redis_auth_cache_read_total{job=\"sc-edupivot-backend\",instance=~\"${instance:raw}\",result=~\"hit|negative_hit\"}[$__range])) or vector(0)) / clamp_min((sum(increase(redis_auth_cache_read_total{job=\"sc-edupivot-backend\",instance=~\"${instance:raw}\",result=~\"hit|negative_hit|miss\"}[$__range])) or vector(0)), 1)",
           "instant": false,
           "legendFormat": "hit ratio",
           "range": true,
@@ -162,7 +162,7 @@
               }
             ]
           },
-          "unit": "ops"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -198,14 +198,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(rate(redis_auth_cache_lock_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=\"timeout\"}[5m])) or vector(0)",
+          "expr": "round(sum(increase(redis_auth_cache_lock_total{job=\"sc-edupivot-backend\",instance=~\"${instance:raw}\",result=\"timeout\"}[$__range]))) or vector(0)",
           "instant": false,
-          "legendFormat": "timeout/s",
+          "legendFormat": "timeouts",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Lock Timeout Rate",
+      "title": "Lock Timeouts",
       "type": "stat"
     },
     {
@@ -236,7 +236,7 @@
               }
             ]
           },
-          "unit": "ops"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -272,14 +272,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "(sum(rate(redis_auth_cache_read_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=\"error\"}[5m])) or vector(0)) + (sum(rate(redis_auth_cache_rebuild_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=\"error\"}[5m])) or vector(0)) + (sum(rate(redis_auth_cache_evict_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=\"error\"}[5m])) or vector(0)) + (sum(rate(redis_auth_cache_lock_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=~\"error|release_error\"}[5m])) or vector(0))",
+          "expr": "round((sum(increase(redis_auth_cache_read_total{job=\"sc-edupivot-backend\",instance=~\"${instance:raw}\",result=\"error\"}[$__range])) or vector(0)) + (sum(increase(redis_auth_cache_rebuild_total{job=\"sc-edupivot-backend\",instance=~\"${instance:raw}\",result=\"error\"}[$__range])) or vector(0)) + (sum(increase(redis_auth_cache_evict_total{job=\"sc-edupivot-backend\",instance=~\"${instance:raw}\",result=\"error\"}[$__range])) or vector(0)) + (sum(increase(redis_auth_cache_lock_total{job=\"sc-edupivot-backend\",instance=~\"${instance:raw}\",result=~\"error|release_error\"}[$__range])) or vector(0)))",
           "instant": false,
-          "legendFormat": "errors/s",
+          "legendFormat": "errors",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Redis Cache Error Rate",
+      "title": "Redis Cache Errors",
       "type": "stat"
     },
     {
@@ -310,7 +310,7 @@
               }
             ]
           },
-          "unit": "ops"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -346,14 +346,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(rate(redis_auth_cache_rebuild_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\",result=~\"db_hit|db_miss\"}[5m])) or vector(0)",
+          "expr": "round(sum(increase(redis_auth_cache_rebuild_total{job=\"sc-edupivot-backend\",instance=~\"${instance:raw}\",result=~\"db_hit|db_miss\"}[$__range]))) or vector(0)",
           "instant": false,
-          "legendFormat": "db rebuild/s",
+          "legendFormat": "db rebuilds",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "DB Rebuild Rate",
+      "title": "DB Rebuilds",
       "type": "stat"
     },
     {
@@ -408,7 +408,7 @@
               }
             ]
           },
-          "unit": "ops"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -442,14 +442,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum by (cache,result) (rate(redis_auth_cache_read_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\"}[5m])) or vector(0)",
+          "expr": "round(sum by (cache,result) (increase(redis_auth_cache_read_total{job=\"sc-edupivot-backend\",instance=~\"${instance:raw}\"}[$__interval]))) or vector(0)",
           "instant": false,
           "legendFormat": "{{cache}} {{result}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Read Rate by Cache and Result",
+      "title": "Read Events by Cache and Result",
       "type": "timeseries"
     },
     {
@@ -504,7 +504,7 @@
               }
             ]
           },
-          "unit": "ops"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -538,14 +538,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum by (cache,result) (rate(redis_auth_cache_rebuild_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\"}[5m])) or vector(0)",
+          "expr": "round(sum by (cache,result) (increase(redis_auth_cache_rebuild_total{job=\"sc-edupivot-backend\",instance=~\"${instance:raw}\"}[$__interval]))) or vector(0)",
           "instant": false,
           "legendFormat": "{{cache}} {{result}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Rebuild Rate by Cache and Result",
+      "title": "Rebuild Events by Cache and Result",
       "type": "timeseries"
     },
     {
@@ -600,7 +600,7 @@
               }
             ]
           },
-          "unit": "ops"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -634,14 +634,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum by (cache,result) (rate(redis_auth_cache_lock_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\"}[5m])) or vector(0)",
+          "expr": "round(sum by (cache,result) (increase(redis_auth_cache_lock_total{job=\"sc-edupivot-backend\",instance=~\"${instance:raw}\"}[$__interval]))) or vector(0)",
           "instant": false,
           "legendFormat": "{{cache}} {{result}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Lock Rate by Cache and Result",
+      "title": "Lock Events by Cache and Result",
       "type": "timeseries"
     },
     {
@@ -696,7 +696,7 @@
               }
             ]
           },
-          "unit": "ops"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -730,14 +730,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum by (cache,result) (rate(redis_auth_cache_evict_total{job=\"sc-edupivot-backend\",instance=~\"${instance:regex}\"}[5m])) or vector(0)",
+          "expr": "round(sum by (cache,result) (increase(redis_auth_cache_evict_total{job=\"sc-edupivot-backend\",instance=~\"${instance:raw}\"}[$__interval]))) or vector(0)",
           "instant": false,
           "legendFormat": "{{cache}} {{result}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Evict Rate by Cache and Result",
+      "title": "Evict Events by Cache and Result",
       "type": "timeseries"
     },
     {
@@ -762,7 +762,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "Metrics are emitted by sc-auth MybatisUserAccountRepository. Prometheus names are `redis_auth_cache_read_total`, `redis_auth_cache_rebuild_total`, `redis_auth_cache_lock_total`, and `redis_auth_cache_evict_total`. Labels intentionally stay low-cardinality: `cache` and `result` only.",
+        "content": "Metrics are emitted by sc-auth MybatisUserAccountRepository. Top stats use the selected dashboard time range, and trend panels bucket events by Grafana interval. Prometheus names are `redis_auth_cache_read_total`, `redis_auth_cache_rebuild_total`, `redis_auth_cache_lock_total`, and `redis_auth_cache_evict_total`. Labels intentionally stay low-cardinality: `cache` and `result` only.",
         "mode": "markdown"
       },
       "pluginVersion": "12.3.0",
