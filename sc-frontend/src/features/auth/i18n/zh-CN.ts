@@ -62,6 +62,11 @@ export default {
     alertGithubLoginFailed: 'GitHub 登录失败',
     alertOAuthStateInvalid: 'OAuth 状态无效',
     alertForgotPasswordUnavailable: '功能暂未开放',
+    desktopOAuth: {
+        title: 'GitHub 授权已完成',
+        description: '正在返回 EduPivot 客户端。若客户端没有自动打开，请点击下方按钮。',
+        returnAction: '返回 EduPivot',
+    },
     onboardingEyebrow: '账户设置',
     onboardingTitle: '完善基础信息',
     onboardingSubtitle: '请选择你的校园身份，并确认在课程中展示的姓名。',

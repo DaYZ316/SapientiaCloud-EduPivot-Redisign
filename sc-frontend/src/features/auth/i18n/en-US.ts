@@ -62,6 +62,11 @@ export default {
     alertGithubLoginFailed: 'GitHub login failed',
     alertOAuthStateInvalid: 'Invalid OAuth state',
     alertForgotPasswordUnavailable: 'This feature is not available yet',
+    desktopOAuth: {
+        title: 'GitHub authorization completed',
+        description: 'Returning you to the EduPivot desktop app. If it does not open automatically, use the button below.',
+        returnAction: 'Return to EduPivot',
+    },
     onboardingEyebrow: 'Account setup',
     onboardingTitle: 'Complete your basic profile',
     onboardingSubtitle: 'Choose your campus role and confirm the name shown across courses before continuing.',

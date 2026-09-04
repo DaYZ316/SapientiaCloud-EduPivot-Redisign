@@ -192,6 +192,7 @@ import {useRoute, useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
 import {AlertCircle, ArrowLeft, Download, FileQuestion, Maximize2, MonitorPlay, Music2, X,} from 'lucide-vue-next'
 import {convertFile, getDownloadUrl} from '@/features/storage/api/storage'
+import {desktopBridge, isDesktopApp} from '@/shared/platform/desktop'
 
 const VuePdf = defineAsyncComponent(() => import('@vue-office/pdf/lib/v3/vue-office-pdf.mjs'))
 const VueDocx = defineAsyncComponent(async () => {
@@ -567,6 +568,10 @@ async function downloadFile() {
   if (!fileUrl.value || downloading.value) return
   downloading.value = true
   try {
+    if (isDesktopApp() && await desktopBridge()?.file.saveUrl(fileUrl.value, fileName.value)) {
+      return
+    }
+
     const resp = await fetch(fileUrl.value)
     if (!resp.ok) throw new Error(resp.statusText)
     const blob = await resp.blob()
@@ -580,7 +585,11 @@ async function downloadFile() {
     URL.revokeObjectURL(url)
   } catch {
     // Fallback: open in new tab if fetch fails (e.g. CORS)
-    window.open(fileUrl.value, '_blank')
+    if (isDesktopApp()) {
+      await desktopBridge()?.shell.openExternal(fileUrl.value)
+    } else {
+      window.open(fileUrl.value, '_blank')
+    }
   } finally {
     downloading.value = false
   }

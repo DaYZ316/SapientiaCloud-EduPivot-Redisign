@@ -8,10 +8,15 @@ interface ImportMetaEnv {
     readonly VITE_GITHUB_SCOPE?: string
     readonly VITE_GOOGLE_CLIENT_ID?: string
     readonly VITE_GOOGLE_REDIRECT_URI?: string
+    readonly VITE_DESKTOP_GITHUB_REDIRECT_URI?: string
 }
 
 interface ImportMeta {
     readonly env: ImportMetaEnv
+}
+
+interface Window {
+    edupivotDesktop?: import('@/shared/platform/desktop').DesktopBridge
 }
 
 declare module 'katex/contrib/auto-render' {

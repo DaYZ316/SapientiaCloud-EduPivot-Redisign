@@ -1,5 +1,7 @@
-import {ACCESS_TOKEN_KEY, request} from '@/shared/api/request'
+import {request} from '@/shared/api/request'
 import {sseUrl, subscribeSse} from '@/shared/api/sseManager'
+import {getAccessToken} from '@/shared/platform/session'
+import {apiUrl} from '@/shared/platform/runtime'
 import type {PageResponse} from '@/shared/types/common'
 import type {
     ClassBarrage,
@@ -84,12 +86,12 @@ export function heartbeatClassLiveKeepalive(id: string) {
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
     }
-    const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+    const token = getAccessToken()
     if (token) {
         headers.Authorization = `Bearer ${token}`
     }
 
-    return fetch(`${import.meta.env.VITE_API_BASE_URL ?? ''}/api/class-sessions/${id}/live/heartbeat`, {
+    return fetch(apiUrl(`/api/class-sessions/${id}/live/heartbeat`), {
         method: 'POST',
         headers,
         body: '{}',

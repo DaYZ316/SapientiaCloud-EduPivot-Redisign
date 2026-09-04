@@ -2,10 +2,23 @@
   "name": "sc-frontend",
   "private": true,
   "version": "2.0.0",
+  "description": "SapientiaCloud EduPivot Windows desktop client",
+  "author": "SapientiaCloud EduPivot",
   "type": "module",
+  "main": "dist-electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
+    "typecheck": "vue-tsc --noEmit",
+    "build:android": "pnpm typecheck && vite build --mode android && cap sync android",
+    "dist:android": "pnpm build:android && cd android && gradlew.bat assembleDebug",
+    "open:android": "cap open android",
+    "typecheck:electron": "tsc -p tsconfig.electron.json",
+    "build:electron": "node scripts/build-electron.mjs",
+    "build:desktop": "pnpm build && pnpm typecheck:electron && pnpm build:electron",
+    "test:desktop": "vitest run tests",
+    "dev:desktop": "pnpm build:electron && concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron .\"",
+    "dist:win": "pnpm build:desktop && electron-builder --win nsis --x64",
     "preview": "vite preview",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
@@ -14,10 +27,15 @@
     "stylelint": "stylelint src/**/*.{scss,css,vue}"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.5.1",
     "@eslint/js": "9.39.4",
     "@types/node": "^25.6.2",
     "@types/three": "^0.184.1",
     "@vitejs/plugin-vue": "^6.0.6",
+    "concurrently": "^10.0.5",
+    "electron": "^44.1.1",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
     "eslint": "^9.39.4",
     "eslint-plugin-vue": "^10.9.2",
     "playwright": "^1.59.1",
@@ -26,10 +44,14 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.61.1",
     "vite": "^8.0.10",
+    "vitest": "^4.1.11",
     "vue-eslint-parser": "^10.4.1",
-    "vue-tsc": "^3.2.8"
+    "vue-tsc": "^3.2.8",
+    "wait-on": "^9.1.0"
   },
   "dependencies": {
+    "@capacitor/android": "8.5.1",
+    "@capacitor/core": "8.5.1",
     "@microsoft/fetch-event-source": "^2.0.1",
     "@vue-office/docx": "^1.6.3",
     "@vue-office/excel": "^1.7.14",
@@ -50,5 +72,45 @@
     "vue-i18n": "^11.4.2",
     "vue-router": "^5.0.6"
   },
-  "packageManager": "pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319"
+  "packageManager": "pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319",
+  "build": {
+    "appId": "xyz.edupivot.desktop",
+    "productName": "SapientiaCloud EduPivot",
+    "asar": true,
+    "npmRebuild": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/assets/project-logo-favicon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": true
+    },
+    "protocols": [
+      {
+        "name": "EduPivot",
+        "schemes": [
+          "edupivot"
+        ]
+      }
+    ]
+  }
 }

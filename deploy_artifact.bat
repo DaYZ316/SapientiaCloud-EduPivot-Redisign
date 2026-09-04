@@ -76,6 +76,8 @@ call :CHECK_CMD tar
 if errorlevel 1 goto FAIL
 
 if /i "%TARGET%"=="frontend" goto DO_FRONTEND
+if /i "%TARGET%"=="frontend-restart" goto DO_FRONTEND_RESTART
+if /i "%TARGET%"=="frontend-status" goto DO_FRONTEND_STATUS
 if /i "%TARGET%"=="all-backend" goto DO_ALL_BACKEND
 if /i "%TARGET%"=="infra" goto DO_INFRA
 if /i "%TARGET%"=="all" goto DO_ALL
@@ -94,6 +96,18 @@ goto FINISH
 
 :DO_FRONTEND
 call :DEPLOY_FRONTEND
+if errorlevel 1 goto FAIL
+goto FINISH
+
+:DO_FRONTEND_RESTART
+call :RESTART_FRONTEND
+if errorlevel 1 goto FAIL
+goto FINISH
+
+:DO_FRONTEND_STATUS
+call :REMOTE_COMPOSE "ps sc-frontend"
+if errorlevel 1 goto FAIL
+call :REMOTE_COMPOSE "logs --tail=100 sc-frontend"
 if errorlevel 1 goto FAIL
 goto FINISH
 
@@ -172,7 +186,11 @@ exit /b 1
 
 :REMOTE
 if defined DEPLOY_PASSWORD (
-    plink -ssh -batch -P "%DEPLOY_PORT%" -pw "%DEPLOY_PASSWORD%" "%DEPLOY_USER%@%DEPLOY_HOST%" "%~1"
+    if defined DEPLOY_HOST_KEY (
+        plink -ssh -batch -P "%DEPLOY_PORT%" -hostkey "%DEPLOY_HOST_KEY%" -pw "%DEPLOY_PASSWORD%" "%DEPLOY_USER%@%DEPLOY_HOST%" "%~1"
+    ) else (
+        plink -ssh -batch -P "%DEPLOY_PORT%" -pw "%DEPLOY_PASSWORD%" "%DEPLOY_USER%@%DEPLOY_HOST%" "%~1"
+    )
 ) else (
     ssh -p "%DEPLOY_PORT%" "%DEPLOY_USER%@%DEPLOY_HOST%" "%~1"
 )
@@ -180,7 +198,11 @@ exit /b %ERRORLEVEL%
 
 :SCP_TO_REMOTE
 if defined DEPLOY_PASSWORD (
-    pscp -P "%DEPLOY_PORT%" -pw "%DEPLOY_PASSWORD%" "%~1" "%DEPLOY_USER%@%DEPLOY_HOST%:%~2"
+    if defined DEPLOY_HOST_KEY (
+        pscp -batch -P "%DEPLOY_PORT%" -hostkey "%DEPLOY_HOST_KEY%" -pw "%DEPLOY_PASSWORD%" "%~1" "%DEPLOY_USER%@%DEPLOY_HOST%:%~2"
+    ) else (
+        pscp -batch -P "%DEPLOY_PORT%" -pw "%DEPLOY_PASSWORD%" "%~1" "%DEPLOY_USER%@%DEPLOY_HOST%:%~2"
+    )
 ) else (
     scp -P "%DEPLOY_PORT%" "%~1" "%DEPLOY_USER%@%DEPLOY_HOST%:%~2"
 )
@@ -251,6 +273,15 @@ echo Restart services: !SERVICES!
 call :REMOTE_COMPOSE "up -d --build --force-recreate !SERVICES!"
 exit /b %ERRORLEVEL%
 
+:RESTART_FRONTEND
+if "%SKIP_RESTART%"=="1" (
+    echo Skip remote restart: sc-frontend
+    exit /b 0
+)
+echo Restart services: sc-frontend
+call :REMOTE_COMPOSE "up -d --no-build --no-deps --force-recreate sc-frontend"
+exit /b %ERRORLEVEL%
+
 :BUILD_FRONTEND
 if "%SKIP_BUILD%"=="1" (
     echo Skip frontend build
@@ -305,7 +336,9 @@ if not exist "%ARTIFACT_DIR%" mkdir "%ARTIFACT_DIR%"
 set "ARCHIVE=%ARTIFACT_DIR%\infra.tgz"
 echo Pack infra files
 pushd "%ROOT_DIR%"
-tar -czf "%ARCHIVE%" .env docker-compose.artifact.yaml deploy/artifact/frontend-nginx.conf deploy/artifact/java-runtime.Dockerfile deploy/nginx/edupivot.conf deploy/observability docs nacos-config nacos-plugins postgres-init scripts/nacos_config_init.py
+set "INFRA_FILES=.env docker-compose.artifact.yaml deploy/artifact/frontend-nginx.conf deploy/artifact/java-runtime.Dockerfile deploy/nginx/edupivot.conf deploy/observability nacos-config nacos-plugins postgres-init scripts/nacos_config_init.py"
+if exist "docs" set "INFRA_FILES=!INFRA_FILES! docs"
+tar -czf "%ARCHIVE%" !INFRA_FILES!
 set "ERR=!ERRORLEVEL!"
 popd
 if not "!ERR!"=="0" exit /b !ERR!
@@ -381,5 +414,5 @@ call :BUILD_FRONTEND
 if errorlevel 1 exit /b 1
 call :UPLOAD_FRONTEND
 if errorlevel 1 exit /b 1
-call :RESTART_SERVICES "sc-frontend"
+call :RESTART_FRONTEND
 exit /b %ERRORLEVEL%

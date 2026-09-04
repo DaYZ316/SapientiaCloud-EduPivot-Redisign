@@ -30,14 +30,16 @@
 <script lang="ts" setup>
 import {type Component, computed, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {Bell, LayoutDashboard, Shield, User} from 'lucide-vue-next'
+import {Bell, LayoutDashboard, MonitorCog, Shield, User} from 'lucide-vue-next'
 
 import AccountSettingsPage from './AccountSettingsPage.vue'
 import AppearanceSettingsPage from './AppearanceSettingsPage.vue'
 import NotificationsSettingsPage from './NotificationsSettingsPage.vue'
 import PrivacySettingsPage from './PrivacySettingsPage.vue'
+import DesktopSettingsPage from './DesktopSettingsPage.vue'
+import {isDesktopApp} from '@/shared/platform/desktop'
 
-type SettingsTabId = 'account' | 'appearance' | 'notifications' | 'privacy'
+type SettingsTabId = 'account' | 'appearance' | 'notifications' | 'privacy' | 'desktop'
 
 interface SettingsTab {
   id: SettingsTabId
@@ -49,32 +51,44 @@ interface SettingsTab {
 const {t} = useI18n()
 const activeTab = ref<SettingsTabId>('account')
 
-const tabs = computed<SettingsTab[]>(() => [
-  {
-    id: 'account',
-    label: t('common.settings.account'),
-    icon: User,
-    page: AccountSettingsPage,
-  },
-  {
-    id: 'appearance',
-    label: t('common.settings.appearance'),
-    icon: LayoutDashboard,
-    page: AppearanceSettingsPage,
-  },
-  {
-    id: 'notifications',
-    label: t('common.settings.notifications'),
-    icon: Bell,
-    page: NotificationsSettingsPage,
-  },
-  {
-    id: 'privacy',
-    label: t('common.settings.privacy'),
-    icon: Shield,
-    page: PrivacySettingsPage,
-  },
-])
+const tabs = computed<SettingsTab[]>(() => {
+  const availableTabs: SettingsTab[] = [
+    {
+      id: 'account',
+      label: t('common.settings.account'),
+      icon: User,
+      page: AccountSettingsPage,
+    },
+    {
+      id: 'appearance',
+      label: t('common.settings.appearance'),
+      icon: LayoutDashboard,
+      page: AppearanceSettingsPage,
+    },
+    {
+      id: 'notifications',
+      label: t('common.settings.notifications'),
+      icon: Bell,
+      page: NotificationsSettingsPage,
+    },
+    {
+      id: 'privacy',
+      label: t('common.settings.privacy'),
+      icon: Shield,
+      page: PrivacySettingsPage,
+    },
+  ]
+
+  if (isDesktopApp()) {
+    availableTabs.push({
+      id: 'desktop',
+      label: t('settings.desktop.navigation'),
+      icon: MonitorCog,
+      page: DesktopSettingsPage,
+    })
+  }
+  return availableTabs
+})
 
 const activeTabConfig = computed<SettingsTab>(() =>
     tabs.value.find((tab) => tab.id === activeTab.value) ?? tabs.value[0],
@@ -171,7 +185,7 @@ const activeTabConfig = computed<SettingsTab>(() =>
 
   .settings-nav {
     position: static;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   }
 
   .nav-tab {

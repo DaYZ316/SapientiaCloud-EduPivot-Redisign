@@ -752,6 +752,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_CORS_ORIGIN: ${MINIO_CORS_ORIGIN:-http://localhost:5173}
+      MINIO_DESKTOP_CORS_ORIGIN: ${MINIO_DESKTOP_CORS_ORIGIN:-edupivot://app}
+      MINIO_MOBILE_CORS_ORIGIN: ${MINIO_MOBILE_CORS_ORIGIN:-https://localhost}
     entrypoint:
       - /bin/sh
       - -c
@@ -768,7 +770,7 @@ services:
         cat > /tmp/cors.json <<EOF
         [
           {
-            "AllowedOrigins": ["$$MINIO_CORS_ORIGIN"],
+            "AllowedOrigins": ["$$MINIO_CORS_ORIGIN", "$$MINIO_DESKTOP_CORS_ORIGIN", "$$MINIO_MOBILE_CORS_ORIGIN"],
             "AllowedMethods": ["GET", "HEAD", "POST", "PUT"],
             "AllowedHeaders": ["*"],
             "ExposeHeaders": ["ETag"],

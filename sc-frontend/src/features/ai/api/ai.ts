@@ -1,7 +1,9 @@
 import {fetchEventSource} from '@microsoft/fetch-event-source'
 import type {AxiosResponse} from 'axios'
 
-import {ACCESS_TOKEN_KEY, http, refreshSession, request} from '@/shared/api/request'
+import {http, refreshSession, request} from '@/shared/api/request'
+import {getAccessToken} from '@/shared/platform/session'
+import {apiUrl, socketUrl} from '@/shared/platform/runtime'
 import type {
     AgentSearchEvent,
     AiChatContextInfo,
@@ -259,19 +261,10 @@ export function subscribeLiveSummary(
 }
 
 export function buildLiveSummaryAudioSocketUrl(classSessionId: string, token: string) {
-    const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
-
-    let url: URL
-    if (baseUrl) {
-        url = new URL(baseUrl)
-    } else {
-        url = new URL(window.location.origin)
-    }
-    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
-
-    url.pathname = `/api/ai/live-summaries/class-sessions/${classSessionId}/audio`
-    url.search = new URLSearchParams({sessionId: classSessionId, token}).toString()
-    return url.toString()
+    return socketUrl(
+        `/api/ai/live-summaries/class-sessions/${classSessionId}/audio`,
+        new URLSearchParams({sessionId: classSessionId, token}),
+    )
 }
 
 export async function streamChat(
@@ -333,7 +326,7 @@ async function connectChatStream(
         signal?: AbortSignal
     },
 ) {
-    const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+    const token = getAccessToken()
     if (!token) {
         throw new UnauthorizedSseError()
     }
@@ -403,7 +396,7 @@ async function connectGenerationProgress(
         signal?: AbortSignal
     },
 ) {
-    const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+    const token = getAccessToken()
     if (!token) {
         throw new UnauthorizedSseError()
     }
@@ -454,10 +447,6 @@ async function connectGenerationProgress(
     })
 }
 
-function apiUrl(path: string) {
-    const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
-    return `${baseUrl}${path}`
-}
 
 function isLiveSummarySession(payload: unknown): payload is LiveSummarySession {
     return Boolean(payload && typeof payload === 'object' && 'status' in payload && 'recentTranscripts' in payload)

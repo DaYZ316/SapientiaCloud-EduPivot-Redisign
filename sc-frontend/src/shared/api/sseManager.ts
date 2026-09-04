@@ -1,6 +1,8 @@
 import {fetchEventSource} from '@microsoft/fetch-event-source'
 
-import {ACCESS_TOKEN_KEY, refreshSession} from '@/shared/api/request'
+import {refreshSession} from '@/shared/api/request'
+import {getAccessToken} from '@/shared/platform/session'
+import {apiUrl} from '@/shared/platform/runtime'
 
 export type SseConnectionKey = string
 
@@ -90,8 +92,7 @@ export function closeAllSseConnections() {
 }
 
 export function sseUrl(path: string) {
-    const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
-    return `${baseUrl}${path}`
+    return apiUrl(path)
 }
 
 function getConnection<T>(options: SseConnectionOptions<T>): SseConnection<T> {
@@ -135,7 +136,7 @@ async function connectLoop<T>(connection: SseConnection<T>) {
             break
         }
 
-        const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+        const token = getAccessToken()
         if (!token) {
             await delay(5000)
             continue

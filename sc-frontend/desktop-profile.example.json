@@ -1,0 +1,7 @@
+{
+  "id": "campus-test",
+  "name": "Campus Test",
+  "apiOrigin": "https://edupivot-test.example.edu",
+  "githubClientId": "",
+  "githubRedirectUri": "https://edupivot-test.example.edu/login"
+}

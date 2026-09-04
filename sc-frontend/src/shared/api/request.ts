@@ -2,6 +2,15 @@ import type {AxiosRequestConfig} from 'axios'
 import axios, {AxiosError} from 'axios'
 
 import {i18n} from '@/app/i18n'
+import {
+    clearClientSession,
+    getAccessToken,
+    getRefreshToken,
+    persistClientSession,
+    restoreDesktopSession,
+} from '@/shared/platform/session'
+import {isDesktopApp} from '@/shared/platform/desktop'
+import {getRuntimeEnvironment} from '@/shared/platform/runtime'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import {showSessionExpiredDialog} from '@/shared/composables/useSessionExpiredDialog'
 import type {LoginResponse} from '@/features/auth/types/auth'
@@ -11,13 +20,9 @@ const SUCCESS_CODE = 0
 const UNAUTHORIZED_CODE = 40100
 const FORBIDDEN_CODE = 40300
 const PROFILE_INCOMPLETE_CODE = 40310
-export const ACCESS_TOKEN_KEY = 'edupivot.accessToken'
-export const SESSION_CLEARED_EVENT = 'edupivot:session-cleared'
+export {ACCESS_TOKEN_KEY, SESSION_CLEARED_EVENT} from '@/shared/platform/session'
 export const PROFILE_INCOMPLETE_EVENT = 'edupivot:profile-incomplete'
 export const PROFILE_INCOMPLETE_REDIRECT_KEY = 'edupivot.profileIncompleteRedirect'
-const REFRESH_TOKEN_KEY = 'edupivot.refreshToken'
-const TOKEN_TYPE_KEY = 'edupivot.tokenType'
-const USER_KEY = 'edupivot.user'
 let sessionExpiredHandled = false
 let voluntaryLogoutInProgress = false
 let refreshSessionPromise: Promise<boolean> | null = null
@@ -33,22 +38,26 @@ export class ApiError extends Error {
 }
 
 export const http = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL ?? '',
     timeout: 12000,
 })
 
 const refreshHttp = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL ?? '',
     timeout: 12000,
 })
 
 http.interceptors.request.use((config) => {
-    const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+    config.baseURL = getRuntimeEnvironment().apiOrigin
+    const token = getAccessToken()
 
     if (token) {
         config.headers.Authorization = `Bearer ${token}`
     }
 
+    return config
+})
+
+refreshHttp.interceptors.request.use((config) => {
+    config.baseURL = getRuntimeEnvironment().apiOrigin
     return config
 })
 
@@ -60,7 +69,7 @@ export interface RequestOptions extends AxiosRequestConfig {
 
 export async function request<T>(config: RequestOptions, retryOnUnauthorized = true): Promise<T> {
     const {silent, suppressSessionExpiredDialog, ...axiosConfig} = config
-    const requestAccessToken = localStorage.getItem(ACCESS_TOKEN_KEY)
+    const requestAccessToken = getAccessToken() || null
 
     try {
         const response = await http.request<ApiResponse<T>>(axiosConfig)
@@ -127,7 +136,7 @@ function isAuthenticationExpired(code?: number, status?: number) {
 }
 
 function hasAccessTokenChanged(requestAccessToken: string | null) {
-    const currentAccessToken = localStorage.getItem(ACCESS_TOKEN_KEY)
+    const currentAccessToken = getAccessToken()
 
     return Boolean(requestAccessToken && currentAccessToken && currentAccessToken !== requestAccessToken)
 }
@@ -201,7 +210,12 @@ export async function refreshSession() {
 }
 
 async function performRefreshSession() {
-    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
+    if (isDesktopApp()) {
+        const payload = await restoreDesktopSession()
+        return Boolean(payload?.accessToken)
+    }
+
+    const refreshToken = getRefreshToken()
     if (!refreshToken) {
         return false
     }
@@ -221,7 +235,7 @@ async function performRefreshSession() {
             return false
         }
 
-        persistSession(response.data.data)
+        await persistSession(response.data.data)
         return true
     } catch {
         clearSession()
@@ -229,22 +243,11 @@ async function performRefreshSession() {
     }
 }
 
-function persistSession(payload: LoginResponse) {
+async function persistSession(payload: LoginResponse) {
     sessionExpiredHandled = false
-    localStorage.setItem(ACCESS_TOKEN_KEY, payload.accessToken)
-    localStorage.setItem(REFRESH_TOKEN_KEY, payload.refreshToken)
-    localStorage.setItem(TOKEN_TYPE_KEY, payload.tokenType || 'Bearer')
-    if (payload.user) {
-        localStorage.setItem(USER_KEY, JSON.stringify(payload.user))
-    }
+    await persistClientSession(payload)
 }
 
 function clearSession() {
-    localStorage.removeItem(ACCESS_TOKEN_KEY)
-    localStorage.removeItem(REFRESH_TOKEN_KEY)
-    localStorage.removeItem(TOKEN_TYPE_KEY)
-    localStorage.removeItem(USER_KEY)
-    if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event(SESSION_CLEARED_EVENT))
-    }
+    clearClientSession()
 }

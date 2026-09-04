@@ -14,13 +14,24 @@ import {getCurrentUser} from '@/features/user/api/user'
 import type {UserProfile} from '@/features/user/types/user'
 import {markVoluntaryLogoutInProgress, resetSessionExpiredHandling, SESSION_CLEARED_EVENT} from '@/shared/api/request'
 import {closeAllSseConnections} from '@/shared/api/sseManager'
+import {
+    clearClientSession,
+    getAccessToken,
+    getRefreshToken,
+    getTokenType,
+    persistClientSession,
+    restoreDesktopSession,
+    SESSION_UPDATED_EVENT,
+} from '@/shared/platform/session'
+import {desktopBridge, isDesktopApp} from '@/shared/platform/desktop'
 
-const ACCESS_TOKEN_KEY = 'edupivot.accessToken'
-const REFRESH_TOKEN_KEY = 'edupivot.refreshToken'
-const TOKEN_TYPE_KEY = 'edupivot.tokenType'
 const USER_KEY = 'edupivot.user'
 
 function readStoredUser() {
+    if (isDesktopApp()) {
+        return null
+    }
+
     const rawUser = localStorage.getItem(USER_KEY)
 
     if (!rawUser) {
@@ -36,36 +47,32 @@ function readStoredUser() {
 }
 
 export const useAuthStore = defineStore('auth', () => {
-    const accessToken = ref(localStorage.getItem(ACCESS_TOKEN_KEY) ?? '')
-    const refreshToken = ref(localStorage.getItem(REFRESH_TOKEN_KEY) ?? '')
-    const tokenType = ref(localStorage.getItem(TOKEN_TYPE_KEY) ?? 'Bearer')
+    const accessToken = ref(getAccessToken())
+    const refreshToken = ref(getRefreshToken())
+    const tokenType = ref(getTokenType())
     const user = ref<UserProfile | null>(readStoredUser())
 
     const isAuthenticated = computed(() => Boolean(accessToken.value && user.value))
 
-    function persistSession(payload: LoginResponse) {
+    async function persistSession(payload: LoginResponse) {
         resetSessionExpiredHandling()
-        accessToken.value = payload.accessToken
-        refreshToken.value = payload.refreshToken
-        tokenType.value = payload.tokenType || 'Bearer'
+        await persistClientSession(payload)
+        syncSessionTokens()
         if (payload.user) {
-            user.value = payload.user
-            localStorage.setItem(USER_KEY, JSON.stringify(payload.user))
+            setUser(payload.user)
         }
-
-        localStorage.setItem(ACCESS_TOKEN_KEY, payload.accessToken)
-        localStorage.setItem(REFRESH_TOKEN_KEY, payload.refreshToken)
-        localStorage.setItem(TOKEN_TYPE_KEY, tokenType.value)
     }
 
     function setUser(profile: UserProfile) {
         user.value = profile
-        localStorage.setItem(USER_KEY, JSON.stringify(profile))
+        if (!isDesktopApp()) {
+            localStorage.setItem(USER_KEY, JSON.stringify(profile))
+        }
     }
 
     async function googleLogin(code: string, redirectUri?: string) {
         const payload = await loginWithGoogle({code, redirectUri})
-        persistSession(payload)
+        await persistSession(payload)
     }
 
     async function githubLogin(
@@ -74,23 +81,23 @@ export const useAuthStore = defineStore('auth', () => {
         codeVerifier?: string,
     ) {
         const payload = await loginWithGitHub({code, redirectUri, codeVerifier})
-        persistSession(payload)
+        await persistSession(payload)
         setUser(await getCurrentUser())
     }
 
     async function passwordLogin(request: PasswordLoginRequest) {
         const payload = await loginWithPassword(request)
-        persistSession(payload)
+        await persistSession(payload)
     }
 
     async function registerUser(request: RegisterRequest) {
         const payload = await register(request)
-        persistSession(payload)
+        await persistSession(payload)
     }
 
     async function completeOnboarding(role: number, displayName: string) {
         const payload = await completeOnboardingRequest({role, displayName})
-        persistSession(payload)
+        await persistSession(payload)
     }
 
     function clearSession() {
@@ -100,9 +107,7 @@ export const useAuthStore = defineStore('auth', () => {
         tokenType.value = 'Bearer'
         user.value = null
 
-        localStorage.removeItem(ACCESS_TOKEN_KEY)
-        localStorage.removeItem(REFRESH_TOKEN_KEY)
-        localStorage.removeItem(TOKEN_TYPE_KEY)
+        clearClientSession(false)
         localStorage.removeItem(USER_KEY)
         sessionStorage.removeItem('enrollmentSuppressConfirm')
     }
@@ -113,12 +118,47 @@ export const useAuthStore = defineStore('auth', () => {
         clearSession()
     })
 
+    window.addEventListener(SESSION_UPDATED_EVENT, () => {
+        syncSessionTokens()
+    })
+
+    async function restoreSession() {
+        if (!isDesktopApp()) {
+            return
+        }
+
+        try {
+            const payload = await restoreDesktopSession()
+            if (!payload) {
+                return
+            }
+            syncSessionTokens()
+            if (payload.user) {
+                setUser(payload.user as UserProfile)
+            } else {
+                setUser(await getCurrentUser())
+            }
+        } catch {
+            clearSession()
+        }
+    }
+
+    function syncSessionTokens() {
+        accessToken.value = getAccessToken()
+        refreshToken.value = getRefreshToken()
+        tokenType.value = getTokenType()
+    }
+
     async function logout() {
         const currentRefreshToken = refreshToken.value
 
         markVoluntaryLogoutInProgress()
         try {
-            await logoutRequest(currentRefreshToken || undefined)
+            if (isDesktopApp()) {
+                await desktopBridge()?.session.logout()
+            } else {
+                await logoutRequest(currentRefreshToken || undefined)
+            }
         } catch {
             // Local session should be cleared even if the server-side revoke fails.
         } finally {
@@ -138,6 +178,7 @@ export const useAuthStore = defineStore('auth', () => {
         registerUser,
         completeOnboarding,
         setUser,
+        restoreSession,
         clearSession,
         logout,
     }

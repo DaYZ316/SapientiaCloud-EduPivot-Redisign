@@ -1,5 +1,15 @@
 <template>
-  <main class="login-page">
+  <main v-if="desktopOAuthCallback" class="oauth-return-page">
+    <section class="oauth-return-card">
+      <h1>{{ t('login.desktopOAuth.title') }}</h1>
+      <p>{{ t('login.desktopOAuth.description') }}</p>
+      <button class="btn-submit" type="button" @click="returnToDesktop">
+        {{ t('login.desktopOAuth.returnAction') }}
+      </button>
+    </section>
+  </main>
+
+  <main v-else class="login-page">
     <!-- Left Panel: Video Background & Branding (Desktop Only) -->
     <div class="left-panel">
       <video
@@ -144,13 +154,14 @@
           </button>
         </div>
 
-        <!-- Divider -->
-        <div class="divider">
-          <span>{{ t('login.or') }}</span>
-        </div>
+        <template v-if="!mobileApp">
+          <!-- Divider -->
+          <div class="divider">
+            <span>{{ t('login.or') }}</span>
+          </div>
 
-        <!-- Social Login -->
-        <div class="social-login">
+          <!-- Social Login -->
+          <div class="social-login">
           <button
               :disabled="githubLoading"
               class="btn-social"
@@ -200,14 +211,15 @@
             </svg>
             <span>Google</span>
           </button>
-        </div>
+          </div>
+        </template>
       </div>
     </div>
   </main>
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, reactive, ref} from 'vue'
+import {computed, onBeforeUnmount, onMounted, reactive, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {useI18n} from 'vue-i18n'
 import {BookOpen, GraduationCap, Monitor, Moon, Sun} from 'lucide-vue-next'
@@ -218,12 +230,16 @@ import {setLocale} from '@/app/i18n'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {useUiPreferencesStore} from '@/features/settings/stores/uiPreferences'
 import type {ThemePreference} from '@/features/user/types/user'
+import {desktopBridge, isDesktopApp} from '@/shared/platform/desktop'
+import {isMobileApp} from '@/shared/platform/mobile'
+import {getRuntimeEnvironment} from '@/shared/platform/runtime'
 
 const {t, locale} = useI18n()
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const uiPreferences = useUiPreferencesStore()
+const mobileApp = isMobileApp()
 
 const GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize'
 const OAUTH_STATE_KEY = 'edupivot.oauth.state'
@@ -258,13 +274,20 @@ const formData = reactive({
   role: 1,
 })
 
+const desktopOAuthCallback = computed(() => {
+  return typeof route.query.code === 'string'
+      && typeof route.query.state === 'string'
+      && route.query.state.startsWith('desktop.')
+})
+let removeDesktopOAuthListener: (() => void) | undefined
+
 function resolveTargetRoute() {
   const redirect = route.query.redirect
   return typeof redirect === 'string' ? redirect : '/dashboard'
 }
 
 function resolveGitHubRedirectUri() {
-  return import.meta.env.VITE_GITHUB_REDIRECT_URI || `${window.location.origin}/login`
+  return getRuntimeEnvironment().githubRedirectUri || `${window.location.origin}/login`
 }
 
 function createOauthState() {
@@ -341,11 +364,26 @@ async function handleSubmit() {
   }
 }
 
-function startGitHubLogin() {
-  const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID
+async function startGitHubLogin() {
+  const clientId = getRuntimeEnvironment().githubClientId
 
   if (!clientId) {
     notify.warn(t('login.alertGithubNotConfigured'))
+    return
+  }
+
+  if (isDesktopApp()) {
+    githubLoading.value = true
+    try {
+      await desktopBridge()?.oauth.startGitHub({
+        clientId,
+        redirectUri: resolveGitHubRedirectUri(),
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('login.alertGithubLoginFailed')
+      notify.error(message)
+      githubLoading.value = false
+    }
     return
   }
 
@@ -365,11 +403,11 @@ function startGitHubLogin() {
   window.location.assign(`${GITHUB_AUTHORIZE_URL}?${params.toString()}`)
 }
 
-async function finishGitHubLogin(code: string) {
+async function finishGitHubLogin(code: string, redirectUri = resolveGitHubRedirectUri()) {
   githubLoading.value = true
 
   try {
-    await authStore.githubLogin(code, resolveGitHubRedirectUri())
+    await authStore.githubLogin(code, redirectUri)
     notify.success(t('login.alertLoginSuccess'))
     await router.replace(sessionStorage.getItem(OAUTH_REDIRECT_KEY) || '/dashboard')
   } catch (error) {
@@ -387,6 +425,18 @@ async function finishGitHubLogin(code: string) {
 onMounted(() => {
   showLoginVideo.value = true
 
+  if (desktopOAuthCallback.value) {
+    returnToDesktop()
+    return
+  }
+
+  if (isDesktopApp()) {
+    removeDesktopOAuthListener = desktopBridge()?.oauth.onGitHubResult(async ({code, redirectUri}) => {
+      await finishGitHubLogin(code, redirectUri)
+    })
+    return
+  }
+
   const code = route.query.code
   const state = route.query.state
   const savedState = sessionStorage.getItem(OAUTH_STATE_KEY)
@@ -403,6 +453,22 @@ onMounted(() => {
 
   void finishGitHubLogin(code)
 })
+
+onBeforeUnmount(() => {
+  removeDesktopOAuthListener?.()
+})
+
+function returnToDesktop() {
+  const code = route.query.code
+  const state = route.query.state
+  if (typeof code !== 'string' || typeof state !== 'string') {
+    return
+  }
+
+  const callbackUrl = new URL('edupivot://oauth/callback')
+  callbackUrl.search = new URLSearchParams({code, state}).toString()
+  window.location.assign(callbackUrl.toString())
+}
 </script>
 
 <style scoped>
@@ -410,6 +476,36 @@ onMounted(() => {
   display: flex;
   height: 100vh;
   background: var(--login-page-bg);
+}
+
+.oauth-return-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--login-page-bg);
+}
+
+.oauth-return-card {
+  width: min(100%, 460px);
+  padding: 40px;
+  border: 1px solid var(--login-border);
+  border-radius: 20px;
+  background: var(--login-panel-bg);
+  color: var(--login-text);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.12);
+}
+
+.oauth-return-card h1 {
+  margin: 0 0 16px;
+  font-family: var(--font-heading);
+  font-size: 32px;
+}
+
+.oauth-return-card p {
+  margin: 0 0 28px;
+  color: var(--login-muted);
+  line-height: 1.6;
 }
 
 /* ---- Left Panel ---- */
