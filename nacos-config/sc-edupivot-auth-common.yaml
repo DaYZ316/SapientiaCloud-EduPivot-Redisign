@@ -20,11 +20,11 @@ spring:
       client:
         config:
           github-oauth-client:
-            connect-timeout: 5000
-            read-timeout: 15000
+            connect-timeout: 15000
+            read-timeout: 25000
           github-user-client:
-            connect-timeout: 5000
-            read-timeout: 15000
+            connect-timeout: 15000
+            read-timeout: 25000
 
 logging:
   level:
@@ -69,11 +69,11 @@ resilience4j:
   timelimiter:
     instances:
       GitHubOauthClientexchangeCodeStringStringStringStringStringString:
-        timeout-duration: 15s
+        timeout-duration: 30s
       GitHubUserClientgetUserStringStringString:
-        timeout-duration: 15s
+        timeout-duration: 30s
       GitHubUserClientlistEmailsStringStringStringintint:
-        timeout-duration: 15s
+        timeout-duration: 30s
 
 edupivot:
   web:
