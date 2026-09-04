@@ -700,20 +700,25 @@ services:
         mc anonymous set none local/edupivot-ai || true
         mc anonymous set download local/edupivot-media/user-avatar || true
         mc anonymous set download local/edupivot-media/course-cover || true
-        cat > /tmp/cors.json <<EOF
-        [
-          {
-            "AllowedOrigins": ["$$MINIO_CORS_ORIGIN", "$$MINIO_DESKTOP_CORS_ORIGIN", "$$MINIO_MOBILE_CORS_ORIGIN"],
-            "AllowedMethods": ["GET", "HEAD", "POST", "PUT"],
-            "AllowedHeaders": ["*"],
-            "ExposeHeaders": ["ETag"],
-            "MaxAgeSeconds": 3600
-          }
-        ]
+        cat > /tmp/cors.xml <<EOF
+        <CORSConfiguration>
+          <CORSRule>
+            <AllowedOrigin>$$MINIO_CORS_ORIGIN</AllowedOrigin>
+            <AllowedOrigin>$$MINIO_DESKTOP_CORS_ORIGIN</AllowedOrigin>
+            <AllowedOrigin>$$MINIO_MOBILE_CORS_ORIGIN</AllowedOrigin>
+            <AllowedMethod>GET</AllowedMethod>
+            <AllowedMethod>HEAD</AllowedMethod>
+            <AllowedMethod>POST</AllowedMethod>
+            <AllowedMethod>PUT</AllowedMethod>
+            <AllowedHeader>*</AllowedHeader>
+            <ExposeHeader>ETag</ExposeHeader>
+            <MaxAgeSeconds>3600</MaxAgeSeconds>
+          </CORSRule>
+        </CORSConfiguration>
         EOF
-        mc cors set local/edupivot-media /tmp/cors.json
-        mc cors set local/edupivot-course /tmp/cors.json
-        mc cors set local/edupivot-ai /tmp/cors.json
+        mc cors set local/edupivot-media /tmp/cors.xml
+        mc cors set local/edupivot-course /tmp/cors.xml
+        mc cors set local/edupivot-ai /tmp/cors.xml
         mc ilm add local/edupivot-media --prefix "temp/" --expire-days "1" || true
         mc ilm add local/edupivot-course --prefix "temp/" --expire-days "1" || true
         mc ilm add local/edupivot-ai --prefix "temp/" --expire-days "1" || true
