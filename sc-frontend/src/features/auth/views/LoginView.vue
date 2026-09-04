@@ -858,6 +858,12 @@ async function handleDesktopGitHubResult(result: import('@/shared/platform/deskt
     margin-left: 40%;
     width: 60%;
     padding: 48px;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .right-panel::-webkit-scrollbar {
+    display: none;
   }
 }
 
