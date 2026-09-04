@@ -662,6 +662,7 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_API_CORS_ALLOW_ORIGIN: ${MINIO_CORS_ORIGINS:-https://edupivot.xyz,edupivot://app,https://localhost}
       TZ: Asia/Shanghai
     ports:
       - "${EDUPIVOT_BIND_HOST:-127.0.0.1}:${MINIO_API_PORT}:9000"
@@ -684,9 +685,6 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      MINIO_CORS_ORIGIN: ${MINIO_CORS_ORIGIN:-http://localhost:5173}
-      MINIO_DESKTOP_CORS_ORIGIN: ${MINIO_DESKTOP_CORS_ORIGIN:-edupivot://app}
-      MINIO_MOBILE_CORS_ORIGIN: ${MINIO_MOBILE_CORS_ORIGIN:-https://localhost}
     entrypoint:
       - /bin/sh
       - -c
@@ -700,25 +698,6 @@ services:
         mc anonymous set none local/edupivot-ai || true
         mc anonymous set download local/edupivot-media/user-avatar || true
         mc anonymous set download local/edupivot-media/course-cover || true
-        cat > /tmp/cors.xml <<EOF
-        <CORSConfiguration>
-          <CORSRule>
-            <AllowedOrigin>$$MINIO_CORS_ORIGIN</AllowedOrigin>
-            <AllowedOrigin>$$MINIO_DESKTOP_CORS_ORIGIN</AllowedOrigin>
-            <AllowedOrigin>$$MINIO_MOBILE_CORS_ORIGIN</AllowedOrigin>
-            <AllowedMethod>GET</AllowedMethod>
-            <AllowedMethod>HEAD</AllowedMethod>
-            <AllowedMethod>POST</AllowedMethod>
-            <AllowedMethod>PUT</AllowedMethod>
-            <AllowedHeader>*</AllowedHeader>
-            <ExposeHeader>ETag</ExposeHeader>
-            <MaxAgeSeconds>3600</MaxAgeSeconds>
-          </CORSRule>
-        </CORSConfiguration>
-        EOF
-        mc cors set local/edupivot-media /tmp/cors.xml
-        mc cors set local/edupivot-course /tmp/cors.xml
-        mc cors set local/edupivot-ai /tmp/cors.xml
         mc ilm add local/edupivot-media --prefix "temp/" --expire-days "1" || true
         mc ilm add local/edupivot-course --prefix "temp/" --expire-days "1" || true
         mc ilm add local/edupivot-ai --prefix "temp/" --expire-days "1" || true
