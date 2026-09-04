@@ -13,6 +13,9 @@ dist-ssr
 dist-electron
 release*
 .android-sdk/
+android/release-signing.properties
+android/*.jks
+android/*.keystore
 *.local
 
 # Editor directories and files

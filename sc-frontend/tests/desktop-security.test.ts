@@ -70,7 +70,8 @@ describe('desktop security boundaries', () => {
   it('consumes a valid OAuth callback once and rejects mismatched or expired state', () => {
     const pending = {
       state: 'desktop.test-state',
-      redirectUri: 'https://edupivot.xyz/login',
+      redirectUri: 'https://edupivot.xyz/oauth/github/callback',
+      codeVerifier: 'test-code-verifier',
       expiresAt: 100,
     }
 
@@ -80,9 +81,32 @@ describe('desktop security boundaries', () => {
     const consumed = consumeGitHubOAuthCallback('edupivot://oauth/callback?code=code&state=desktop.test-state', pending, 99)
     expect(consumed).toEqual({
       pending: null,
-      result: {code: 'code', redirectUri: 'https://edupivot.xyz/login'},
+      result: {
+        success: true,
+        code: 'code',
+        codeVerifier: 'test-code-verifier',
+        redirectUri: 'https://edupivot.xyz/oauth/github/callback',
+      },
     })
     expect(consumeGitHubOAuthCallback('edupivot://oauth/callback?code=code&state=desktop.test-state', consumed.pending, 99).result).toBeNull()
+  })
+
+  it('consumes a GitHub denial once so a cancelled flow cannot leave the UI blocked', () => {
+    const pending = {
+      state: 'desktop.test-state',
+      redirectUri: 'https://edupivot.xyz/oauth/github/callback',
+      codeVerifier: 'test-code-verifier',
+      expiresAt: 100,
+    }
+
+    expect(consumeGitHubOAuthCallback(
+      'edupivot://oauth/callback?error=access_denied&state=desktop.test-state',
+      pending,
+      99,
+    )).toEqual({
+      pending: null,
+      result: {success: false, message: 'GitHub 授权失败：access_denied'},
+    })
   })
 
   it('persists the refresh token only through the configured encryption provider', async () => {

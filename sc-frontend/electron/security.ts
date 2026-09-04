@@ -8,13 +8,21 @@ const OAUTH_HOST = 'oauth'
 export interface PendingOAuthRequest {
   state: string
   redirectUri: string
+  codeVerifier: string
   expiresAt: number
 }
 
-export interface OAuthCallbackResult {
-  code: string
-  redirectUri: string
-}
+export type OAuthCallbackResult =
+  | {
+    success: true
+    code: string
+    codeVerifier: string
+    redirectUri: string
+  }
+  | {
+    success: false
+    message: string
+  }
 
 export function resolveRendererFile(rendererDirectory: string, requestUrl: string) {
   const url = new URL(requestUrl)
@@ -70,14 +78,35 @@ export function consumeGitHubOAuthCallback(
     return {pending, result: null}
   }
 
-  const code = url.searchParams.get('code')
   const state = url.searchParams.get('state')
-  if (!code || !state || !pending || pending.expiresAt <= now || state !== pending.state) {
+  if (!state || !pending || pending.expiresAt <= now || state !== pending.state) {
     return {pending, result: null}
+  }
+
+  const error = url.searchParams.get('error')
+  const errorDescription = url.searchParams.get('error_description')
+  if (error) {
+    return {
+      pending: null,
+      result: {success: false, message: errorDescription || `GitHub 授权失败：${error}`},
+    }
+  }
+
+  const code = url.searchParams.get('code')
+  if (!code) {
+    return {
+      pending: null,
+      result: {success: false, message: 'GitHub 未返回授权码。'},
+    }
   }
 
   return {
     pending: null,
-    result: {code, redirectUri: pending.redirectUri},
+    result: {
+      success: true,
+      code,
+      codeVerifier: pending.codeVerifier,
+      redirectUri: pending.redirectUri,
+    },
   }
 }

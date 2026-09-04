@@ -9,6 +9,7 @@ interface ImportMetaEnv {
     readonly VITE_GOOGLE_CLIENT_ID?: string
     readonly VITE_GOOGLE_REDIRECT_URI?: string
     readonly VITE_DESKTOP_GITHUB_REDIRECT_URI?: string
+    readonly VITE_MOBILE_GITHUB_REDIRECT_URI?: string
 }
 
 interface ImportMeta {

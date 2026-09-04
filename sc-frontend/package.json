@@ -12,6 +12,7 @@
     "typecheck": "vue-tsc --noEmit",
     "build:android": "pnpm typecheck && vite build --mode android && cap sync android",
     "dist:android": "pnpm build:android && cd android && gradlew.bat assembleDebug",
+    "dist:android:release": "pnpm build:android && cd android && gradlew.bat assembleRelease",
     "open:android": "cap open android",
     "typecheck:electron": "tsc -p tsconfig.electron.json",
     "build:electron": "node scripts/build-electron.mjs",
@@ -51,6 +52,8 @@
   },
   "dependencies": {
     "@capacitor/android": "8.5.1",
+    "@capacitor/app": "8.1.1",
+    "@capacitor/browser": "8.0.4",
     "@capacitor/core": "8.5.1",
     "@microsoft/fetch-event-source": "^2.0.1",
     "@vue-office/docx": "^1.6.3",

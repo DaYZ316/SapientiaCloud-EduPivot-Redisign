@@ -7,6 +7,7 @@ import {i18n} from '@/app/i18n'
 import {useAuthStore} from '@/features/auth/stores/auth'
 import {notify} from '@/shared/composables/useGlobalNotification'
 import {initializeRuntimeEnvironment} from '@/shared/platform/runtime'
+import {initializeMobileGitHubOAuth} from '@/shared/platform/mobileGithubOAuth'
 import {installGlobalTooltip} from '@/shared/utils/globalTooltip'
 import '@/shared/styles/main.scss'
 
@@ -25,6 +26,7 @@ async function bootstrap() {
     }
 
     app.use(pinia).use(router).use(i18n)
+    await initializeMobileGitHubOAuth()
     await useAuthStore(pinia).restoreSession()
     app.mount('#app')
 }

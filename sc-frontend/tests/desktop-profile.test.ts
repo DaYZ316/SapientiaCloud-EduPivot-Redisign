@@ -9,7 +9,7 @@ const profile = {
   name: 'Campus Test',
   apiOrigin: 'https://edupivot-test.example.edu',
   githubClientId: 'public-client-id',
-  githubRedirectUri: 'https://edupivot-test.example.edu/login',
+  githubRedirectUri: 'https://edupivot-test.example.edu/oauth/github/callback',
 }
 
 describe('desktop environment profile', () => {

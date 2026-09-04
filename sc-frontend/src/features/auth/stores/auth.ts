@@ -21,9 +21,11 @@ import {
     getTokenType,
     persistClientSession,
     restoreDesktopSession,
+    restoreMobileSession,
     SESSION_UPDATED_EVENT,
 } from '@/shared/platform/session'
 import {desktopBridge, isDesktopApp} from '@/shared/platform/desktop'
+import {isMobileApp} from '@/shared/platform/mobile'
 
 const USER_KEY = 'edupivot.user'
 
@@ -123,12 +125,14 @@ export const useAuthStore = defineStore('auth', () => {
     })
 
     async function restoreSession() {
-        if (!isDesktopApp()) {
+        if (!isDesktopApp() && !isMobileApp()) {
             return
         }
 
         try {
-            const payload = await restoreDesktopSession()
+            const payload = isDesktopApp()
+                ? await restoreDesktopSession()
+                : await restoreMobileSession()
             if (!payload) {
                 return
             }

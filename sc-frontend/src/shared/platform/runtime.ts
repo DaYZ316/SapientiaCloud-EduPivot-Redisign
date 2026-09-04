@@ -1,12 +1,15 @@
 import type {DesktopEnvironmentProfile} from '@/shared/platform/desktop'
 import {desktopBridge} from '@/shared/platform/desktop'
+import {isMobileApp} from '@/shared/platform/mobile'
 
 export interface RuntimeEnvironment extends DesktopEnvironmentProfile {
     isDesktop: boolean
+    isMobile: boolean
 }
 
 const DEFAULT_DESKTOP_ORIGIN = 'https://edupivot.xyz'
-const DEFAULT_DESKTOP_GITHUB_REDIRECT_URI = 'https://edupivot.xyz/login'
+const DEFAULT_WEB_GITHUB_REDIRECT_URI = 'https://edupivot.xyz/oauth/github/callback'
+const DEFAULT_MOBILE_GITHUB_REDIRECT_URI = 'https://edupivot.xyz/oauth/github/mobile/callback'
 
 let runtimeEnvironment: RuntimeEnvironment = createWebEnvironment()
 
@@ -39,13 +42,17 @@ export function socketUrl(path: string, search?: URLSearchParams) {
 }
 
 function createWebEnvironment(): RuntimeEnvironment {
+    const mobile = isMobileApp()
     return {
-        id: 'web',
-        name: 'Web',
+        id: mobile ? 'mobile' : 'web',
+        name: mobile ? 'Mobile' : 'Web',
         apiOrigin: (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, ''),
         githubClientId: import.meta.env.VITE_GITHUB_CLIENT_ID,
-        githubRedirectUri: import.meta.env.VITE_GITHUB_REDIRECT_URI,
+        githubRedirectUri: mobile
+            ? import.meta.env.VITE_MOBILE_GITHUB_REDIRECT_URI || DEFAULT_MOBILE_GITHUB_REDIRECT_URI
+            : import.meta.env.VITE_GITHUB_REDIRECT_URI || DEFAULT_WEB_GITHUB_REDIRECT_URI,
         isDesktop: false,
+        isMobile: mobile,
     }
 }
 
@@ -56,7 +63,8 @@ function createDesktopEnvironment(profile: DesktopEnvironmentProfile): RuntimeEn
         githubClientId: profile.githubClientId || import.meta.env.VITE_GITHUB_CLIENT_ID,
         githubRedirectUri: profile.githubRedirectUri
             || import.meta.env.VITE_DESKTOP_GITHUB_REDIRECT_URI
-            || DEFAULT_DESKTOP_GITHUB_REDIRECT_URI,
+            || DEFAULT_WEB_GITHUB_REDIRECT_URI,
         isDesktop: true,
+        isMobile: false,
     }
 }

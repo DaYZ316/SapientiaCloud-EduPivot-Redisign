@@ -43,6 +43,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class GitHubLoginServiceTest {
 
+    private static final String WEB_CALLBACK = "http://localhost:5173/oauth/github/callback";
+    private static final String CODE_VERIFIER = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~abc";
+
     @Mock
     private GitHubOauthClient gitHubOauthClient;
 
@@ -74,8 +77,8 @@ class GitHubLoginServiceTest {
                 eq("github-client-id"),
                 eq("github-client-secret"),
                 eq("github-code"),
-                eq("http://localhost:5173/login"),
-                isNull()
+                eq(WEB_CALLBACK),
+                eq(CODE_VERIFIER)
         )).thenReturn(new GitHubTokenResponse("github-access-token", "read:user,user:email", "bearer", null, null, null));
         when(gitHubUserClient.getUser("Bearer github-access-token", "application/vnd.github+json", properties.getApiVersion()))
                 .thenReturn(new GitHubUserResponse(123L, "octocat", "Octo Cat", null, "https://example.com/avatar.png"));
@@ -89,7 +92,7 @@ class GitHubLoginServiceTest {
         when(studentRepository.findByUserId(userId)).thenReturn(Optional.empty());
         when(teacherRepository.findByUserId(userId)).thenReturn(Optional.empty());
 
-        service.login(new GitHubLoginRequest("github-code", "http://localhost:5173/login", null), "127.0.0.1");
+        service.login(new GitHubLoginRequest("github-code", WEB_CALLBACK, CODE_VERIFIER), "127.0.0.1");
 
         ArgumentCaptor<OauthUserInfo> userInfoCaptor = ArgumentCaptor.forClass(OauthUserInfo.class);
         verify(userAccountService).loginWithOauth(userInfoCaptor.capture(), eq("127.0.0.1"));
@@ -107,14 +110,27 @@ class GitHubLoginServiceTest {
                 eq("github-client-id"),
                 eq("github-client-secret"),
                 eq("github-code"),
-                eq("http://localhost:5173/login"),
-                isNull()
+                eq(WEB_CALLBACK),
+                eq(CODE_VERIFIER)
         )).thenThrow(new NoFallbackAvailableException("No fallback available.", cause));
 
-        assertThatThrownBy(() -> service.login(new GitHubLoginRequest("github-code", "http://localhost:5173/login", null), "127.0.0.1"))
+        assertThatThrownBy(() -> service.login(new GitHubLoginRequest("github-code", WEB_CALLBACK, CODE_VERIFIER), "127.0.0.1"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("GitHub 授权码换取令牌失败: HTTP 400")
                 .hasMessageContaining("bad_verification_code");
+    }
+
+    @Test
+    void login_shouldRejectRedirectUriOutsideConfiguredAllowlist() {
+        GitHubLoginService service = service(properties());
+
+        assertThatThrownBy(() -> service.login(new GitHubLoginRequest(
+                "github-code",
+                "https://attacker.example/oauth/github/callback",
+                CODE_VERIFIER
+        ), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("redirectUri 不受支持");
     }
 
     private GitHubLoginService service(GitHubOauthProperties properties) {
@@ -134,7 +150,7 @@ class GitHubLoginServiceTest {
         GitHubOauthProperties properties = new GitHubOauthProperties();
         properties.setClientId("github-client-id");
         properties.setClientSecret("github-client-secret");
-        properties.setRedirectUri("http://localhost:5173/login");
+        properties.setRedirectUris(List.of(WEB_CALLBACK));
         return properties;
     }
 

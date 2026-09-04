@@ -1,5 +1,17 @@
 apply plugin: 'com.android.application'
 
+def releaseSigningProperties = new Properties()
+def externalSigningProperties = System.getenv('EDUPIVOT_ANDROID_SIGNING_PROPERTIES')
+def releaseSigningFile = externalSigningProperties
+        ? file(externalSigningProperties)
+        : rootProject.file('release-signing.properties')
+if (releaseSigningFile.exists()) {
+    releaseSigningFile.withInputStream { releaseSigningProperties.load(it) }
+}
+
+def releaseSigningConfigured = ['storeFile', 'storePassword', 'keyAlias', 'keyPassword']
+        .every { releaseSigningProperties.getProperty(it) }
+
 android {
     namespace = "xyz.edupivot.mobile"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +28,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (releaseSigningConfigured) {
+                storeFile rootProject.file(releaseSigningProperties.getProperty('storeFile'))
+                storePassword releaseSigningProperties.getProperty('storePassword')
+                keyAlias releaseSigningProperties.getProperty('keyAlias')
+                keyPassword releaseSigningProperties.getProperty('keyPassword')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (releaseSigningConfigured) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
@@ -36,10 +61,15 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+}
+
+if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') } && !releaseSigningConfigured) {
+    throw new GradleException('Release signing is not configured. Set EDUPIVOT_ANDROID_SIGNING_PROPERTIES to a protected properties file, or create android/release-signing.properties from release-signing.properties.example.')
 }
 
 apply from: 'capacitor.build.gradle'

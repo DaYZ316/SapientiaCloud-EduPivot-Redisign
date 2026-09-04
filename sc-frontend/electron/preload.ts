@@ -15,10 +15,9 @@ export interface DesktopSessionPayload {
   user?: unknown
 }
 
-interface GitHubAuthorizationRequest {
-  clientId: string
-  redirectUri: string
-}
+export type DesktopGitHubOAuthResult =
+  | {success: true; code: string; codeVerifier: string; redirectUri: string}
+  | {success: false; message: string}
 
 const desktopBridge = {
   profiles: {
@@ -40,10 +39,11 @@ const desktopBridge = {
     openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:open-external', url),
   },
   oauth: {
-    startGitHub: (request: GitHubAuthorizationRequest): Promise<void> => ipcRenderer.invoke('oauth:start-github', request),
-    onGitHubResult: (listener: (result: { code: string; redirectUri: string }) => void) => {
+    startGitHub: (): Promise<void> => ipcRenderer.invoke('oauth:start-github'),
+    takeGitHubResult: (): Promise<DesktopGitHubOAuthResult | null> => ipcRenderer.invoke('oauth:take-github-result'),
+    onGitHubResult: (listener: (result: DesktopGitHubOAuthResult) => void) => {
       const channel = 'oauth:github-result'
-      const wrappedListener = (_event: Electron.IpcRendererEvent, result: { code: string; redirectUri: string }) => listener(result)
+      const wrappedListener = (_event: Electron.IpcRendererEvent, result: DesktopGitHubOAuthResult) => listener(result)
       ipcRenderer.on(channel, wrappedListener)
       return () => ipcRenderer.removeListener(channel, wrappedListener)
     },

@@ -5,6 +5,7 @@ import {notify} from '@/shared/composables/useGlobalNotification'
 import {i18n} from '@/app/i18n'
 import MainLayout from '@/layouts/MainLayout.vue'
 import LoginView from '@/features/auth/views/LoginView.vue'
+import GitHubCallbackView from '@/features/auth/views/GitHubCallbackView.vue'
 import SuccessView from '@/features/dashboard/views/SuccessView.vue'
 
 export const router = createRouter({
@@ -22,6 +23,22 @@ export const router = createRouter({
             path: '/login',
             name: 'login',
             component: LoginView,
+            meta: {
+                guestOnly: true,
+            },
+        },
+        {
+            path: '/oauth/github/callback',
+            name: 'github-oauth-callback',
+            component: GitHubCallbackView,
+            meta: {
+                guestOnly: true,
+            },
+        },
+        {
+            path: '/oauth/github/mobile/callback',
+            name: 'github-mobile-oauth-callback',
+            component: GitHubCallbackView,
             meta: {
                 guestOnly: true,
             },

@@ -12,7 +12,7 @@ pnpm dist:win
 
 `dist:win` produces a per-user NSIS installer in `release/`. The installer is intentionally unsigned for the internal pilot, so Windows SmartScreen can show a warning.
 
-Set `VITE_GITHUB_CLIENT_ID` to the GitHub **public** OAuth client ID before a release build. The client secret must stay on the server; `VITE_DESKTOP_GITHUB_REDIRECT_URI` defaults to `https://edupivot.xyz/login`.
+Set `VITE_GITHUB_CLIENT_ID` and `EDUPIVOT_GITHUB_CLIENT_ID` to the GitHub **public** OAuth client ID before a release build. The client secret must stay on the server; `VITE_DESKTOP_GITHUB_REDIRECT_URI` defaults to `https://edupivot.xyz/oauth/github/callback`. The Electron main process creates PKCE state itself and does not accept OAuth configuration from the renderer.
 
 ## Administrator environment profiles
 
@@ -29,6 +29,6 @@ The public key is embedded in the Electron main process; only the signed JSON is
 
 ## Deployment prerequisites
 
-- Configure GitHub OAuth with the HTTPS callback used by the selected profile, normally `https://edupivot.xyz/login`.
-- Deploy the web callback branch before the desktop client so a `desktop.<nonce>` OAuth state opens `edupivot://oauth/callback`.
+- Configure GitHub OAuth with the exact HTTPS callback used by the selected profile, normally `https://edupivot.xyz/oauth/github/callback`.
+- Deploy the web callback page before the desktop client so a `desktop.<nonce>` OAuth state opens `edupivot://oauth/callback`.
 - Permit the exact origin `edupivot://app` for API and MinIO CORS. Keep all other origins denied.

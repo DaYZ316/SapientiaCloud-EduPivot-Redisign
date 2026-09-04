@@ -1,15 +1,5 @@
 <template>
-  <main v-if="desktopOAuthCallback" class="oauth-return-page">
-    <section class="oauth-return-card">
-      <h1>{{ t('login.desktopOAuth.title') }}</h1>
-      <p>{{ t('login.desktopOAuth.description') }}</p>
-      <button class="btn-submit" type="button" @click="returnToDesktop">
-        {{ t('login.desktopOAuth.returnAction') }}
-      </button>
-    </section>
-  </main>
-
-  <main v-else class="login-page">
+  <main class="login-page">
     <!-- Left Panel: Video Background & Branding (Desktop Only) -->
     <div class="left-panel">
       <video
@@ -154,14 +144,13 @@
           </button>
         </div>
 
-        <template v-if="!mobileApp">
-          <!-- Divider -->
-          <div class="divider">
-            <span>{{ t('login.or') }}</span>
-          </div>
+        <!-- Divider -->
+        <div class="divider">
+          <span>{{ t('login.or') }}</span>
+        </div>
 
-          <!-- Social Login -->
-          <div class="social-login">
+        <!-- Social Login -->
+        <div class="social-login">
           <button
               :disabled="githubLoading"
               class="btn-social"
@@ -185,6 +174,7 @@
             <span>{{ githubLoading ? t('login.loading') : 'GitHub' }}</span>
           </button>
           <button
+              v-if="!mobileApp"
               class="btn-social"
               disabled
           >
@@ -211,8 +201,7 @@
             </svg>
             <span>Google</span>
           </button>
-          </div>
-        </template>
+        </div>
       </div>
     </div>
   </main>
@@ -232,7 +221,12 @@ import {useUiPreferencesStore} from '@/features/settings/stores/uiPreferences'
 import type {ThemePreference} from '@/features/user/types/user'
 import {desktopBridge, isDesktopApp} from '@/shared/platform/desktop'
 import {isMobileApp} from '@/shared/platform/mobile'
-import {getRuntimeEnvironment} from '@/shared/platform/runtime'
+import {startWebGitHubAuthorization} from '@/features/auth/githubOAuth'
+import {
+  onMobileGitHubCompletion,
+  startMobileGitHubAuthorization,
+  takeMobileGitHubCompletion,
+} from '@/shared/platform/mobileGithubOAuth'
 
 const {t, locale} = useI18n()
 const router = useRouter()
@@ -240,11 +234,6 @@ const route = useRoute()
 const authStore = useAuthStore()
 const uiPreferences = useUiPreferencesStore()
 const mobileApp = isMobileApp()
-
-const GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize'
-const OAUTH_STATE_KEY = 'edupivot.oauth.state'
-const OAUTH_PROVIDER_KEY = 'edupivot.oauth.provider'
-const OAUTH_REDIRECT_KEY = 'edupivot.oauth.redirect'
 
 const githubLoading = ref(false)
 const passwordLoading = ref(false)
@@ -274,27 +263,12 @@ const formData = reactive({
   role: 1,
 })
 
-const desktopOAuthCallback = computed(() => {
-  return typeof route.query.code === 'string'
-      && typeof route.query.state === 'string'
-      && route.query.state.startsWith('desktop.')
-})
 let removeDesktopOAuthListener: (() => void) | undefined
+let removeMobileOAuthListener: (() => void) | undefined
 
 function resolveTargetRoute() {
   const redirect = route.query.redirect
   return typeof redirect === 'string' ? redirect : '/dashboard'
-}
-
-function resolveGitHubRedirectUri() {
-  return getRuntimeEnvironment().githubRedirectUri || `${window.location.origin}/login`
-}
-
-function createOauthState() {
-  if (window.crypto?.randomUUID) {
-    return window.crypto.randomUUID()
-  }
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
 function toggleLocale() {
@@ -365,20 +339,10 @@ async function handleSubmit() {
 }
 
 async function startGitHubLogin() {
-  const clientId = getRuntimeEnvironment().githubClientId
-
-  if (!clientId) {
-    notify.warn(t('login.alertGithubNotConfigured'))
-    return
-  }
-
   if (isDesktopApp()) {
     githubLoading.value = true
     try {
-      await desktopBridge()?.oauth.startGitHub({
-        clientId,
-        redirectUri: resolveGitHubRedirectUri(),
-      })
+      await desktopBridge()?.oauth.startGitHub()
     } catch (error) {
       const message = error instanceof Error ? error.message : t('login.alertGithubLoginFailed')
       notify.error(message)
@@ -387,37 +351,32 @@ async function startGitHubLogin() {
     return
   }
 
-  const state = createOauthState()
-  sessionStorage.setItem(OAUTH_STATE_KEY, state)
-  sessionStorage.setItem(OAUTH_PROVIDER_KEY, 'github')
-  sessionStorage.setItem(OAUTH_REDIRECT_KEY, resolveTargetRoute())
-
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: resolveGitHubRedirectUri(),
-    scope: import.meta.env.VITE_GITHUB_SCOPE || 'read:user user:email',
-    state,
-    allow_signup: 'true',
-  })
-
-  window.location.assign(`${GITHUB_AUTHORIZE_URL}?${params.toString()}`)
+  try {
+    if (mobileApp) {
+      githubLoading.value = true
+      await startMobileGitHubAuthorization(resolveTargetRoute())
+      return
+    }
+    await startWebGitHubAuthorization(resolveTargetRoute())
+  } catch (error) {
+    const message = error instanceof Error ? error.message : t('login.alertGithubLoginFailed')
+    notify.error(message)
+    githubLoading.value = false
+  }
 }
 
-async function finishGitHubLogin(code: string, redirectUri = resolveGitHubRedirectUri()) {
+async function finishGitHubLogin(code: string, redirectUri: string, codeVerifier: string, target = '/dashboard') {
   githubLoading.value = true
 
   try {
-    await authStore.githubLogin(code, redirectUri)
+    await authStore.githubLogin(code, redirectUri, codeVerifier)
     notify.success(t('login.alertLoginSuccess'))
-    await router.replace(sessionStorage.getItem(OAUTH_REDIRECT_KEY) || '/dashboard')
+    await router.replace(target)
   } catch (error) {
     const errorMessage =
         error instanceof ApiError ? error.message : t('login.alertGithubLoginFailed')
     notify.error(errorMessage)
   } finally {
-    sessionStorage.removeItem(OAUTH_STATE_KEY)
-    sessionStorage.removeItem(OAUTH_PROVIDER_KEY)
-    sessionStorage.removeItem(OAUTH_REDIRECT_KEY)
     githubLoading.value = false
   }
 }
@@ -425,49 +384,53 @@ async function finishGitHubLogin(code: string, redirectUri = resolveGitHubRedire
 onMounted(() => {
   showLoginVideo.value = true
 
-  if (desktopOAuthCallback.value) {
-    returnToDesktop()
-    return
-  }
-
   if (isDesktopApp()) {
-    removeDesktopOAuthListener = desktopBridge()?.oauth.onGitHubResult(async ({code, redirectUri}) => {
-      await finishGitHubLogin(code, redirectUri)
+    const desktopOAuth = desktopBridge()?.oauth
+    removeDesktopOAuthListener = desktopOAuth?.onGitHubResult(handleDesktopGitHubResult)
+    void desktopOAuth?.takeGitHubResult().then((result) => {
+      if (result) {
+        void handleDesktopGitHubResult(result)
+      }
     })
     return
   }
 
-  const code = route.query.code
-  const state = route.query.state
-  const savedState = sessionStorage.getItem(OAUTH_STATE_KEY)
-  const savedProvider = sessionStorage.getItem(OAUTH_PROVIDER_KEY)
-
-  if (typeof code !== 'string' || savedProvider !== 'github') {
-    return
+  if (mobileApp) {
+    removeMobileOAuthListener = onMobileGitHubCompletion(handleMobileGitHubCompletion)
+    void handleMobileGitHubCompletion()
   }
-
-  if (savedState && state !== savedState) {
-    notify.error(t('login.alertOAuthStateInvalid'))
-    return
-  }
-
-  void finishGitHubLogin(code)
 })
 
 onBeforeUnmount(() => {
   removeDesktopOAuthListener?.()
+  removeMobileOAuthListener?.()
 })
 
-function returnToDesktop() {
-  const code = route.query.code
-  const state = route.query.state
-  if (typeof code !== 'string' || typeof state !== 'string') {
+async function handleMobileGitHubCompletion() {
+  const completion = takeMobileGitHubCompletion()
+  if (!completion) {
     return
   }
+  if ('error' in completion) {
+    githubLoading.value = false
+    notify.error(completion.error)
+    return
+  }
+  await finishGitHubLogin(
+      completion.code,
+      completion.redirectUri,
+      completion.codeVerifier,
+      completion.target,
+  )
+}
 
-  const callbackUrl = new URL('edupivot://oauth/callback')
-  callbackUrl.search = new URLSearchParams({code, state}).toString()
-  window.location.assign(callbackUrl.toString())
+async function handleDesktopGitHubResult(result: import('@/shared/platform/desktop').DesktopGitHubOAuthResult) {
+  if (!result.success) {
+    githubLoading.value = false
+    notify.error(result.message)
+    return
+  }
+  await finishGitHubLogin(result.code, result.redirectUri, result.codeVerifier)
 }
 </script>
 
@@ -476,36 +439,6 @@ function returnToDesktop() {
   display: flex;
   height: 100vh;
   background: var(--login-page-bg);
-}
-
-.oauth-return-page {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: var(--login-page-bg);
-}
-
-.oauth-return-card {
-  width: min(100%, 460px);
-  padding: 40px;
-  border: 1px solid var(--login-border);
-  border-radius: 20px;
-  background: var(--login-panel-bg);
-  color: var(--login-text);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.12);
-}
-
-.oauth-return-card h1 {
-  margin: 0 0 16px;
-  font-family: var(--font-heading);
-  font-size: 32px;
-}
-
-.oauth-return-card p {
-  margin: 0 0 28px;
-  color: var(--login-muted);
-  line-height: 1.6;
 }
 
 /* ---- Left Panel ---- */

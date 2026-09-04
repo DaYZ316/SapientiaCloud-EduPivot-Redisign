@@ -1,4 +1,4 @@
-import {randomUUID, verify} from 'node:crypto'
+import {createHash, randomBytes, verify} from 'node:crypto'
 import {createWriteStream} from 'node:fs'
 import {mkdir, readFile, rename, rm, writeFile} from 'node:fs/promises'
 import {basename, join} from 'node:path'
@@ -27,18 +27,26 @@ import {
   isAllowedExternalUrl,
   isTrustedRendererUrl,
   resolveRendererFile,
+  type OAuthCallbackResult,
   type PendingOAuthRequest,
 } from './security.js'
-import {readEncryptedRefreshToken, writeEncryptedRefreshToken} from './session-store.js'
+import {
+  readEncryptedRefreshToken,
+  readEncryptedSecret,
+  writeEncryptedRefreshToken,
+  writeEncryptedSecret,
+} from './session-store.js'
 import {createLocalFileResponse} from './local-file-response.js'
 
 declare const __EDUPIVOT_PROFILE_PUBLIC_KEY__: string
+declare const __EDUPIVOT_GITHUB_CLIENT_ID__: string
 
 const APP_PROTOCOL = 'edupivot'
 const APP_HOST = 'app'
 const PROFILE_PUBLIC_KEY = __EDUPIVOT_PROFILE_PUBLIC_KEY__
 const PROFILE_FILE = 'desktop-profiles.json'
 const SESSION_FILE = 'desktop-session.bin'
+const OAUTH_FILE = 'desktop-oauth.bin'
 const OAUTH_STATE_TTL_MS = 5 * 60 * 1000
 
 interface SignedEnvironmentProfile {
@@ -65,6 +73,7 @@ interface SessionPayload {
 
 let mainWindow: BrowserWindow | null = null
 let pendingOAuthRequest: PendingOAuthRequest | null = null
+let pendingOAuthResult: OAuthCallbackResult | null = null
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -82,7 +91,8 @@ const productionProfile: EnvironmentProfile = {
   id: 'production',
   name: 'EduPivot 正式环境',
   apiOrigin: 'https://edupivot.xyz',
-  githubRedirectUri: 'https://edupivot.xyz/login',
+  githubClientId: __EDUPIVOT_GITHUB_CLIENT_ID__,
+  githubRedirectUri: 'https://edupivot.xyz/oauth/github/callback',
 }
 
 function getProfileFilePath() {
@@ -91,6 +101,10 @@ function getProfileFilePath() {
 
 function getSessionFilePath() {
   return join(app.getPath('userData'), SESSION_FILE)
+}
+
+function getOAuthFilePath() {
+  return join(app.getPath('userData'), OAUTH_FILE)
 }
 
 async function loadStoredProfiles(): Promise<StoredProfiles> {
@@ -198,6 +212,36 @@ async function readRefreshToken() {
 
 async function clearRefreshToken() {
   await rm(getSessionFilePath(), {force: true})
+}
+
+async function savePendingOAuthRequest(request: PendingOAuthRequest) {
+  await writeEncryptedSecret(getOAuthFilePath(), JSON.stringify(request), safeStorage)
+}
+
+async function loadPendingOAuthRequest() {
+  const raw = await readEncryptedSecret(getOAuthFilePath(), safeStorage)
+  if (!raw) {
+    return null
+  }
+  try {
+    const value = JSON.parse(raw) as Partial<PendingOAuthRequest>
+    if (typeof value.state !== 'string'
+        || typeof value.redirectUri !== 'string'
+        || typeof value.codeVerifier !== 'string'
+        || typeof value.expiresAt !== 'number'
+        || value.expiresAt <= Date.now()) {
+      await clearPendingOAuthRequest()
+      return null
+    }
+    return value as PendingOAuthRequest
+  } catch {
+    await clearPendingOAuthRequest()
+    return null
+  }
+}
+
+async function clearPendingOAuthRequest() {
+  await rm(getOAuthFilePath(), {force: true})
 }
 
 async function refreshSession() {
@@ -422,9 +466,15 @@ function registerIpcHandlers() {
     }
     await openExternalUrl(url)
   })
-  ipcMain.handle('oauth:start-github', async (event, payload: unknown) => {
+  ipcMain.handle('oauth:start-github', async (event) => {
     assertTrustedSender(event)
-    await startGitHubAuthorization(payload)
+    await startGitHubAuthorization()
+  })
+  ipcMain.handle('oauth:take-github-result', (event) => {
+    assertTrustedSender(event)
+    const result = pendingOAuthResult
+    pendingOAuthResult = null
+    return result
   })
 }
 
@@ -463,47 +513,51 @@ async function saveRemoteFile(payload: unknown) {
   return true
 }
 
-async function startGitHubAuthorization(payload: unknown) {
-  if (!payload || typeof payload !== 'object') {
-    throw new Error('GitHub 授权请求无效。')
-  }
-
-  const {clientId, redirectUri} = payload as {clientId?: unknown; redirectUri?: unknown}
-  if (typeof clientId !== 'string' || !clientId.trim() || typeof redirectUri !== 'string') {
-    throw new Error('GitHub OAuth 配置不完整。')
-  }
-
+async function startGitHubAuthorization() {
   const profile = await getCurrentProfile()
-  const normalizedRedirectUri = normalizeHttpsUrl(redirectUri)
+  const clientId = profile.githubClientId?.trim()
+  if (!clientId) {
+    throw new Error('当前环境未配置 GitHub OAuth client id。')
+  }
+  const normalizedRedirectUri = normalizeHttpsUrl(profile.githubRedirectUri ?? `${profile.apiOrigin}/oauth/github/callback`)
   if (new URL(normalizedRedirectUri).origin !== new URL(profile.apiOrigin).origin) {
     throw new Error('GitHub 回调地址不属于当前服务环境。')
   }
 
-  const state = `desktop.${randomUUID()}`
+  const codeVerifier = randomBytes(64).toString('base64url')
+  const state = `desktop.${randomBytes(32).toString('base64url')}`
   pendingOAuthRequest = {
     state,
     redirectUri: normalizedRedirectUri,
+    codeVerifier,
     expiresAt: Date.now() + OAUTH_STATE_TTL_MS,
   }
+  pendingOAuthResult = null
+  await savePendingOAuthRequest(pendingOAuthRequest)
 
   const url = new URL('https://github.com/login/oauth/authorize')
   url.search = new URLSearchParams({
-    client_id: clientId.trim(),
+    client_id: clientId,
     redirect_uri: normalizedRedirectUri,
     scope: 'read:user user:email',
     state,
+    code_challenge: createHash('sha256').update(codeVerifier).digest('base64url'),
+    code_challenge_method: 'S256',
     allow_signup: 'true',
   }).toString()
   await shell.openExternal(url.toString())
 }
 
-function handleProtocolUrl(value: string) {
-  const consumed = consumeGitHubOAuthCallback(value, pendingOAuthRequest)
+async function handleProtocolUrl(value: string) {
+  const pending = pendingOAuthRequest ?? await loadPendingOAuthRequest()
+  const consumed = consumeGitHubOAuthCallback(value, pending)
   if (!consumed.result) {
     return
   }
 
   pendingOAuthRequest = consumed.pending
+  await clearPendingOAuthRequest()
+  pendingOAuthResult = consumed.result
   mainWindow?.show()
   mainWindow?.focus()
   mainWindow?.webContents.send('oauth:github-result', consumed.result)
@@ -528,7 +582,7 @@ if (!hasSingleInstanceLock) {
   app.on('second-instance', (_event, commandLine) => {
     const protocolUrl = findProtocolUrl(commandLine)
     if (protocolUrl) {
-      handleProtocolUrl(protocolUrl)
+      void handleProtocolUrl(protocolUrl)
     }
     mainWindow?.show()
     mainWindow?.focus()
@@ -536,7 +590,7 @@ if (!hasSingleInstanceLock) {
 
   app.on('open-url', (event, url) => {
     event.preventDefault()
-    handleProtocolUrl(url)
+    void handleProtocolUrl(url)
   })
 
   app.whenReady().then(async () => {
@@ -548,10 +602,11 @@ if (!hasSingleInstanceLock) {
     configurePermissionHandling()
     registerIpcHandlers()
     createMainWindow()
+    pendingOAuthRequest = await loadPendingOAuthRequest()
 
     const protocolUrl = findProtocolUrl(process.argv)
     if (protocolUrl) {
-      handleProtocolUrl(protocolUrl)
+      await handleProtocolUrl(protocolUrl)
     }
   })
 

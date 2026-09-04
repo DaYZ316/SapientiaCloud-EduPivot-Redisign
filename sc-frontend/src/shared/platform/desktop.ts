@@ -13,6 +13,10 @@ export interface DesktopSessionPayload {
     user?: unknown
 }
 
+export type DesktopGitHubOAuthResult =
+    | {success: true; code: string; codeVerifier: string; redirectUri: string}
+    | {success: false; message: string}
+
 export interface DesktopBridge {
     profiles: {
         list: () => Promise<DesktopEnvironmentProfile[]>
@@ -33,8 +37,9 @@ export interface DesktopBridge {
         openExternal: (url: string) => Promise<void>
     }
     oauth: {
-        startGitHub: (request: {clientId: string; redirectUri: string}) => Promise<void>
-        onGitHubResult: (listener: (result: {code: string; redirectUri: string}) => void) => () => void
+        startGitHub: () => Promise<void>
+        takeGitHubResult: () => Promise<DesktopGitHubOAuthResult | null>
+        onGitHubResult: (listener: (result: DesktopGitHubOAuthResult) => void) => () => void
     }
 }
 

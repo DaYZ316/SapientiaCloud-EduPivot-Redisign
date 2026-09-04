@@ -69,7 +69,7 @@ public class GitHubLoginService {
                     gitHubOauthProperties.getClientSecret(),
                     request.code(),
                     redirectUri,
-                    normalize(request.codeVerifier())
+                    request.codeVerifier()
             );
         } catch (FeignException | NoFallbackAvailableException ex) {
             throw tokenExchangeFailed(ex);
@@ -274,22 +274,21 @@ public class GitHubLoginService {
 
     private void assertGitHubConfigured() {
         if (!StringUtils.hasText(gitHubOauthProperties.getClientId())
-                || !StringUtils.hasText(gitHubOauthProperties.getClientSecret())) {
-            throw new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED, "GitHub OAuth clientId/clientSecret 未配置");
+                || !StringUtils.hasText(gitHubOauthProperties.getClientSecret())
+                || gitHubOauthProperties.getRedirectUris().stream().noneMatch(StringUtils::hasText)) {
+            throw new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED, "GitHub OAuth clientId/clientSecret/redirectUris 未配置");
         }
     }
 
     private String resolveRedirectUri(GitHubLoginRequest request) {
-        String redirectUri = StringUtils.hasText(request.redirectUri())
-                ? request.redirectUri()
-                : gitHubOauthProperties.getRedirectUri();
-        if (!StringUtils.hasText(redirectUri)) {
-            throw new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED, "GitHub OAuth redirectUri 未配置");
+        String redirectUri = request.redirectUri().trim();
+        boolean permitted = gitHubOauthProperties.getRedirectUris().stream()
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .anyMatch(redirectUri::equals);
+        if (!permitted) {
+            throw new BusinessException(ErrorCodes.GITHUB_LOGIN_FAILED, "GitHub OAuth redirectUri 不受支持");
         }
         return redirectUri;
-    }
-
-    private String normalize(String value) {
-        return StringUtils.hasText(value) ? value : null;
     }
 }

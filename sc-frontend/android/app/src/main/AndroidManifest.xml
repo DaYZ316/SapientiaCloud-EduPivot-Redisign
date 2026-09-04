@@ -22,6 +22,28 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Safe fallback for debug builds and devices where App Links cannot verify. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="edupivot"
+                    android:host="oauth"
+                    android:path="/callback" />
+            </intent-filter>
+
+            <!-- Claim only the Android-specific OAuth callback. Web login stays in the browser. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="edupivot.xyz"
+                    android:path="/oauth/github/mobile/callback" />
+            </intent-filter>
+
         </activity>
 
         <provider
