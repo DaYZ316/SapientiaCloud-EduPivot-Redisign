@@ -10,6 +10,7 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  Menu,
   net,
   protocol,
   safeStorage,
@@ -378,6 +379,7 @@ function createMainWindow() {
     minWidth: 1024,
     minHeight: 720,
     show: false,
+    backgroundMaterial: 'mica',
     webPreferences: {
       preload: join(app.getAppPath(), 'dist-electron', 'preload.cjs'),
       contextIsolation: true,
@@ -595,6 +597,7 @@ if (!hasSingleInstanceLock) {
 
   app.whenReady().then(async () => {
     app.setName('SapientiaCloud EduPivot')
+    Menu.setApplicationMenu(null)
     registerProtocolClient()
     const profile = await getCurrentProfile()
     registerAppProtocol()
