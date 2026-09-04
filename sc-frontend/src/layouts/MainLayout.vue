@@ -227,6 +227,7 @@
     <AiTrailLauncher
         v-if="aiReturnLauncherVisible"
         ref="aiReturnLauncherRef"
+        :appearance="uiPreferences.aiLauncherAppearance"
         :interactive="false"
         aria-hidden="true"
         start-at-center
@@ -399,8 +400,10 @@ async function switchToAi(target: RouteLocationRaw = '/ai') {
 
 async function switchBackToApp() {
   isSwitchingAiMode.value = true
-  aiReturnLauncherVisible.value = true
-  await nextTick()
+  if (uiPreferences.aiLauncherAppearance !== 'hidden') {
+    aiReturnLauncherVisible.value = true
+    await nextTick()
+  }
 
   try {
     await Promise.all([

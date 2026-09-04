@@ -6,9 +6,11 @@ import type {ThemePreference} from '@/features/user/types/user'
 const LAYOUT_MODE_KEY = 'edupivot.layoutMode'
 const SIDEBAR_COLLAPSED_KEY = 'edupivot.sidebarCollapsed'
 const THEME_PREFERENCE_KEY = 'edupivot.themePreference'
+const AI_LAUNCHER_APPEARANCE_KEY = 'edupivot.aiLauncherAppearance'
 const DARK_THEME_MEDIA_QUERY = '(prefers-color-scheme: dark)'
 
 export type LayoutMode = 'topbar' | 'sidebar'
+export type AiLauncherAppearance = 'two-dimensional' | 'brush' | 'hidden'
 type ResolvedTheme = 'light' | 'dark'
 
 function readLayoutMode(): LayoutMode {
@@ -25,6 +27,15 @@ function readThemePreference(): ThemePreference {
     return storedTheme === 'light' || storedTheme === 'dark' ? storedTheme : 'system'
 }
 
+function readAiLauncherAppearance(): AiLauncherAppearance {
+    const storedAppearance = localStorage.getItem(AI_LAUNCHER_APPEARANCE_KEY)
+    if (storedAppearance === 'brush' || storedAppearance === 'hidden') {
+        return storedAppearance
+    }
+
+    return 'two-dimensional'
+}
+
 function resolveTheme(preference: ThemePreference): ResolvedTheme {
     if (preference === 'light' || preference === 'dark') {
         return preference
@@ -37,6 +48,7 @@ export const useUiPreferencesStore = defineStore('uiPreferences', () => {
     const layoutMode = ref<LayoutMode>(readLayoutMode())
     const sidebarCollapsed = ref(readSidebarCollapsed())
     const themePreference = ref<ThemePreference>(readThemePreference())
+    const aiLauncherAppearance = ref<AiLauncherAppearance>(readAiLauncherAppearance())
     const resolvedTheme = ref<ResolvedTheme>(resolveTheme(themePreference.value))
     const isSidebarLayout = computed(() => layoutMode.value === 'sidebar')
     let systemThemeListenerInitialized = false
@@ -83,6 +95,11 @@ export const useUiPreferencesStore = defineStore('uiPreferences', () => {
         localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed))
     }
 
+    function setAiLauncherAppearance(appearance: AiLauncherAppearance) {
+        aiLauncherAppearance.value = appearance
+        localStorage.setItem(AI_LAUNCHER_APPEARANCE_KEY, appearance)
+    }
+
     function toggleSidebarCollapsed() {
         setSidebarCollapsed(!sidebarCollapsed.value)
     }
@@ -91,6 +108,7 @@ export const useUiPreferencesStore = defineStore('uiPreferences', () => {
         layoutMode,
         sidebarCollapsed,
         themePreference,
+        aiLauncherAppearance,
         resolvedTheme,
         isSidebarLayout,
         initializeTheme,
@@ -99,5 +117,6 @@ export const useUiPreferencesStore = defineStore('uiPreferences', () => {
         toggleLayoutMode,
         setSidebarCollapsed,
         toggleSidebarCollapsed,
+        setAiLauncherAppearance,
     }
 })

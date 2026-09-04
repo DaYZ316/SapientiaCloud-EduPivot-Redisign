@@ -1,7 +1,7 @@
 <template>
   <button
       :aria-label="ariaLabel"
-      :class="{'is-dragging': isDragging}"
+      :class="{'is-dragging': isDragging, 'is-two-dimensional': appearance === 'two-dimensional'}"
       :disabled="isTransitioning"
       :style="launcherStyle"
       :title="ariaLabel"
@@ -13,14 +13,20 @@
       @pointermove="handlePointerMove"
       @pointerup="handlePointerUp"
   >
-    <span>AI</span>
+    <span v-if="appearance === 'two-dimensional'" aria-hidden="true" class="launcher-icon">
+      <MessageCircle :size="27" stroke-width="1.9"/>
+      <Sparkles :size="13" class="launcher-sparkle" stroke-width="2.1"/>
+    </span>
+    <span v-else class="launcher-label">AI</span>
   </button>
 </template>
 
 <script lang="ts" setup>
-import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
+import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue'
+import {MessageCircle, Sparkles} from 'lucide-vue-next'
 
 import LegendaryCursor from '@/vendor/legendary-cursor'
+import type {AiLauncherAppearance} from '@/features/settings/stores/uiPreferences'
 
 type LauncherPosition = {
   left: number
@@ -36,12 +42,14 @@ const props = withDefaults(defineProps<{
   ariaLabel?: string
   initialCenter?: LauncherCenter | null
   interactive?: boolean
+  appearance?: AiLauncherAppearance
   snapInitialCenter?: boolean
   startAtCenter?: boolean
 }>(), {
   ariaLabel: '天枢助手',
   initialCenter: null,
   interactive: true,
+  appearance: 'two-dimensional',
   snapInitialCenter: false,
   startAtCenter: false,
 })
@@ -76,6 +84,7 @@ type MomentumPath = {
 const position = ref<LauncherPosition>(getDefaultPosition())
 const isDragging = ref(false)
 const isTransitioning = ref(false)
+const isBrushAppearance = computed(() => props.appearance === 'brush')
 const launcherStyle = computed(() => ({
   left: `${position.value.left}px`,
   top: `${position.value.top}px`,
@@ -89,6 +98,28 @@ let resolveTransition: (() => void) | undefined
 
 onMounted(() => {
   position.value = getMountedPosition()
+  syncBrushEffect()
+  syncBrushEffectCenter()
+  window.addEventListener('resize', handleResize)
+})
+
+watch(isBrushAppearance, () => {
+  syncBrushEffect()
+  syncBrushEffectCenter()
+})
+
+onBeforeUnmount(() => {
+  finishCenterTransition()
+  window.removeEventListener('resize', handleResize)
+  LegendaryCursor.destroy()
+})
+
+function syncBrushEffect() {
+  if (!isBrushAppearance.value) {
+    LegendaryCursor.destroy()
+    return
+  }
+
   LegendaryCursor.init({
     lineSize: 0.038,
     lineExpFactor: 0.6,
@@ -102,15 +133,13 @@ onMounted(() => {
     autoPilotSpeed: 3.45,
     zIndex: 2650,
   })
-  LegendaryCursor.setAutoPilotCenter(getCenter(position.value))
-  window.addEventListener('resize', handleResize)
-})
+}
 
-onBeforeUnmount(() => {
-  finishCenterTransition()
-  window.removeEventListener('resize', handleResize)
-  LegendaryCursor.pause()
-})
+function syncBrushEffectCenter() {
+  if (isBrushAppearance.value) {
+    LegendaryCursor.setAutoPilotCenter(getCenter(position.value))
+  }
+}
 
 function handleClick(event: MouseEvent) {
   if (!props.interactive) return
@@ -153,7 +182,7 @@ function handlePointerMove(event: PointerEvent) {
     left: event.clientX - getMetrics().size / 2,
     top: event.clientY - getMetrics().size / 2,
   })
-  LegendaryCursor.setAutoPilotCenter(getCenter(position.value))
+  syncBrushEffectCenter()
 }
 
 function handlePointerUp(event: PointerEvent) {
@@ -175,7 +204,7 @@ function finishPointerInteraction(event: PointerEvent, shouldSuppressDraggedClic
   if (shouldSuppressClick) {
     suppressNextClick = true
     position.value = snapToNearestEdge(position.value)
-    LegendaryCursor.setAutoPilotCenter(getCenter(position.value))
+    syncBrushEffectCenter()
     persistPosition(position.value)
   }
 }
@@ -193,7 +222,7 @@ function handleResize() {
   }
 
   position.value = snapToNearestEdge(position.value)
-  LegendaryCursor.setAutoPilotCenter(getCenter(position.value))
+  syncBrushEffectCenter()
 }
 
 function playCenterTransition() {
@@ -210,14 +239,14 @@ function playReturnTransition() {
   const startPosition = getCenterPosition()
   const endPosition = getInitialPosition()
   position.value = startPosition
-  LegendaryCursor.setAutoPilotCenter(getCenter(position.value))
+  syncBrushEffectCenter()
 
   return playPositionTransition(startPosition, endPosition)
 }
 
 function placeAtCenter(center: LauncherCenter, options: { persist?: boolean; snapToEdge?: boolean } = {}) {
   position.value = positionFromCenter(center, {snapToEdge: options.snapToEdge ?? false})
-  LegendaryCursor.setAutoPilotCenter(getCenter(position.value))
+  syncBrushEffectCenter()
   if (options.persist) {
     persistPosition(position.value)
   }
@@ -235,7 +264,7 @@ function playPositionTransition(startPosition: LauncherPosition, endPosition: La
     const moveAlongPath = (now: number) => {
       const progress = clamp((now - startedAt) / CENTER_TRAVEL_MS, 0, 1)
       position.value = sampleMomentumPath(path, easeInOutCubic(progress))
-      LegendaryCursor.setAutoPilotCenter(getCenter(position.value))
+      syncBrushEffectCenter()
 
       if (progress < 1) {
         transitionFrame = window.requestAnimationFrame(moveAlongPath)
@@ -243,7 +272,7 @@ function playPositionTransition(startPosition: LauncherPosition, endPosition: La
       }
 
       position.value = endPosition
-      LegendaryCursor.setAutoPilotCenter(getCenter(position.value))
+      syncBrushEffectCenter()
       completeTransition()
     }
 
@@ -509,14 +538,46 @@ defineExpose({
   user-select: none;
 }
 
+.ai-trail-launcher.is-two-dimensional {
+  border: 1px solid var(--color-primary);
+  border-radius: 18px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--color-on-primary) 16%, transparent);
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s;
+}
+
+.ai-trail-launcher.is-two-dimensional:hover:not(:disabled) {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-soft);
+}
+
+.ai-trail-launcher.is-two-dimensional:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
 .ai-trail-launcher.is-dragging {
   cursor: grabbing;
 }
 
-.ai-trail-launcher span {
+.launcher-label {
   width: 1px;
   height: 1px;
   overflow: hidden;
+}
+
+.launcher-icon {
+  position: relative;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+}
+
+.launcher-sparkle {
+  position: absolute;
+  top: -1px;
+  right: -3px;
 }
 
 .ai-trail-launcher:focus-visible {

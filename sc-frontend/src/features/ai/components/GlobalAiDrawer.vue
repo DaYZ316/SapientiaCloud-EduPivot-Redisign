@@ -1,8 +1,9 @@
 <template>
   <Teleport to="body">
     <AiTrailLauncher
-        v-if="!open"
+        v-if="!open && uiPreferences.aiLauncherAppearance !== 'hidden'"
         ref="launcherRef"
+        :appearance="uiPreferences.aiLauncherAppearance"
         :initial-center="launcherSpawnCenter"
         :interactive="!launcherLocked"
         aria-label="天枢助手"
@@ -57,6 +58,7 @@ import {X} from 'lucide-vue-next'
 import AiTrailLauncher from '@/features/ai/components/AiTrailLauncher.vue'
 import AiWorkspaceShell from '@/features/ai/components/AiWorkspaceShell.vue'
 import {useAiStore} from '@/features/ai/stores/ai'
+import {useUiPreferencesStore} from '@/features/settings/stores/uiPreferences'
 import FloatingWindow from '@/shared/components/FloatingWindow.vue'
 
 interface DrawerPosition {
@@ -73,6 +75,7 @@ interface Point {
 
 const route = useRoute()
 const aiStore = useAiStore()
+const uiPreferences = useUiPreferencesStore()
 const open = ref(false)
 const launcherLocked = ref(false)
 const launcherRef = ref<InstanceType<typeof AiTrailLauncher> | null>(null)
